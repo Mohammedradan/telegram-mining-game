@@ -1,6 +1,8 @@
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
-const { WebSocketServer } = require('ws');
+// مكتبة السباقات اختيارية التشغيل: غيابها يعطّل السباقات فقط ولا يُسقط اللعبة
+let WebSocketServer = null;
+try { ({ WebSocketServer } = require('ws')); } catch (_) { console.warn('⚠️  مكتبة ws غير مثبّتة — السباقات المباشرة معطّلة (شغّل: npm install)'); }
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -461,6 +463,7 @@ const raceCode = () => {
 };
 
 function setupMultiplayer(httpServer) {
+  if (!WebSocketServer) return; // السباقات معطّلة فقط — بقية اللعبة تعمل
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
   wss.on('connection', async (ws, req) => {
