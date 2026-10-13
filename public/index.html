@@ -91,18 +91,21 @@
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الأفضل</div><div id="adv-best" class="font-black text-fuchsia-300 text-sm">0</div></div>
     </div>
 
+    <div id="adv-mission" class="text-center text-[11px] font-bold text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl py-1.5">🎯 مهمة: التقط 15 جوهرة — مكافأة +25 نقطة</div>
+
     <div class="relative">
       <canvas id="game-canvas" width="360" height="330" class="w-full h-[330px] rounded-2xl border border-amber-500/25 bg-[radial-gradient(circle_at_top,#312e81,#020617_70%)] touch-none select-none shadow-[0_0_35px_rgba(245,158,11,0.12)]"></canvas>
       <div id="game-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center bg-slate-950/55 rounded-2xl backdrop-blur-[1px] p-4">
         <div class="text-5xl">⛏️💎</div>
         <h2 id="game-overlay-title" class="text-xl font-black">مغامرة المنجم</h2>
-        <p id="game-overlay-text" class="text-[11px] text-slate-300 leading-5">حرّك عربة المعدّن بإصبعك أو الأسهم.<br>التقط 💎 و🪙، وتفادَ 🪨 و💣 قبل انتهاء الوقت!</p>
+        <p id="game-overlay-text" class="text-[11px] text-slate-300 leading-5">حرّك عربة المعدّن بإصبعك أو الأسهم.<br>التقط 💎 و🪙، وتفادَ 🪨 و💣، واجمع القدرات: 🧲 مغناطيس · 🛡️ درع · ⏳ إبطاء · ⭐ نقاط مضاعفة · ❤️ قلب إضافي</p>
         <button id="game-overlay-btn" onclick="startAdventure()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black py-2.5 px-6 rounded-xl text-sm shadow-lg active:scale-95">▶ العب الآن</button>
       </div>
     </div>
 
     <div class="flex items-center justify-between gap-2">
       <button id="adv-pause-btn" onclick="toggleAdventurePause()" disabled class="bg-slate-800 disabled:opacity-40 font-bold py-2 px-4 rounded-xl text-xs active:scale-95">⏸ إيقاف</button>
+      <button id="adv-mute-btn" onclick="toggleAdventureMute()" class="bg-slate-800 font-bold py-2 px-3 rounded-xl text-xs active:scale-95">🔊</button>
       <div id="adv-combo" class="flex-1 text-center text-xs font-black text-amber-300">حرّك العربة والتقط الجواهر!</div>
       <div class="text-[10px] text-slate-500">الجائزة حتى 100 🪙</div>
     </div>
@@ -767,11 +770,51 @@
     const advCtx = advCanvas.getContext('2d');
     const ADV = { duration: 60, playerW: 78, playerH: 34 };
     const adv = {
-      running: false, paused: false, score: 0, combo: 0, lives: 3, timeLeft: ADV.duration,
-      objects: [], particles: [], playerX: 180, targetX: 180, elapsed: 0, spawnIn: 0,
+      running: false, paused: false, score: 0, combo: 0, maxCombo: 0, lives: 3, timeLeft: ADV.duration,
+      objects: [], particles: [], playerX: 180, targetX: 180, prevX: 180, elapsed: 0, spawnIn: 0,
       lastTs: 0, raf: 0, best: Number(localStorage.getItem('mining_adventure_best') || 0),
+      caught: 0, missed: 0, gemsCaught: 0, missionIndex: 0, shake: 0, flash: 0,
+      banner: '', bannerUntil: 0, phase: 0, muted: false, audio: null,
+      fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: false },
     };
     const advKeys = {};
+    const ADV_MISSIONS = [
+      { text: '🎯 مهمة: التقط 15 جوهرة', reward: 25, progress: () => `${Math.min(15, adv.gemsCaught)}/15`, done: () => adv.gemsCaught >= 15 },
+      { text: '🎯 مهمة: حقق سلسلة ×10', reward: 30, progress: () => `${Math.min(10, adv.maxCombo)}/10`, done: () => adv.maxCombo >= 10 },
+      { text: '🎯 مهمة: اجمع 300 نقطة', reward: 50, progress: () => `${Math.min(300, Math.floor(adv.score))}/300`, done: () => adv.score >= 300 },
+    ];
+    const advFxActive = (k) => adv.elapsed < adv.fx[k];
+    function advBanner(text, sec = 1.6) { adv.banner = text; adv.bannerUntil = adv.elapsed + sec; }
+
+    // 🔊 مؤثرات صوتية مولّدة (WebAudio — بلا ملفات) بنغمة تصعد مع السلسلة
+    function advBeep(freq, dur = 0.08, type = 'sine', vol = 0.05, slideTo = null) {
+      if (adv.muted) return;
+      try {
+        adv.audio = adv.audio || new (window.AudioContext || window.webkitAudioContext)();
+        const ac = adv.audio, t = ac.currentTime;
+        const osc = ac.createOscillator(), gain = ac.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, t);
+        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.start(t); osc.stop(t + dur);
+      } catch (e) {}
+    }
+    function toggleAdventureMute() {
+      adv.muted = !adv.muted;
+      document.getElementById('adv-mute-btn').innerText = adv.muted ? '🔇' : '🔊';
+    }
+
+    function checkAdventureMission() {
+      const m = ADV_MISSIONS[adv.missionIndex];
+      if (!m || !m.done()) return;
+      adv.score += m.reward;
+      advBanner(`✅ أنجزت المهمة! +${m.reward} نقطة`, 1.8);
+      advBeep(880, 0.18, 'triangle', 0.07, 1320);
+      haptic('success');
+      adv.missionIndex += 1;
+    }
 
     function advSize() {
       const rect = advCanvas.getBoundingClientRect();
@@ -792,36 +835,56 @@
       document.getElementById('adv-lives').innerText = '❤️'.repeat(Math.max(0, adv.lives)) || '💀';
       document.getElementById('adv-best').innerText = Math.floor(adv.best);
       const mult = Math.min(3, 1 + Math.floor(adv.combo / 10));
-      document.getElementById('adv-combo').innerText = adv.running
-        ? (adv.combo >= 2 ? `🔥 سلسلة ×${adv.combo} — مضاعِف النقاط ×${mult}` : 'التقط الجواهر دون إسقاطها لبناء سلسلة!')
-        : 'حرّك العربة والتقط الجواهر!';
+      const effects = [
+        advFxActive('magnetUntil') ? `🧲 ${Math.ceil(adv.fx.magnetUntil - adv.elapsed)}ث` : '',
+        adv.fx.shield ? '🛡️' : '',
+        advFxActive('slowUntil') ? `⏳ ${Math.ceil(adv.fx.slowUntil - adv.elapsed)}ث` : '',
+        advFxActive('starUntil') ? `⭐ ${Math.ceil(adv.fx.starUntil - adv.elapsed)}ث` : '',
+        advFxActive('feverUntil') ? `🌟 حمّى ${Math.ceil(adv.fx.feverUntil - adv.elapsed)}ث` : '',
+      ].filter(Boolean).join(' · ');
+      document.getElementById('adv-combo').innerText = !adv.running ? 'حرّك العربة والتقط الجواهر!'
+        : effects || (adv.combo >= 2 ? `🔥 سلسلة ×${adv.combo} — مضاعِف النقاط ×${mult}` : 'التقط الجواهر لبناء سلسلة!');
+      const m = ADV_MISSIONS[adv.missionIndex];
+      document.getElementById('adv-mission').innerText = m ? `${m.text} (${m.progress()}) — مكافأة +${m.reward}` : '🏆 أنجزت كل مهام هذه الجولة!';
       document.getElementById('adv-pause-btn').disabled = !adv.running;
       document.getElementById('adv-pause-btn').innerText = adv.paused ? '▶ أكمال' : '⏸ إيقاف';
     }
 
+    const ADV_POWERUPS = [
+      { kind: 'magnet', icon: '🧲' }, { kind: 'shield', icon: '🛡️' },
+      { kind: 'slow', icon: '⏳' }, { kind: 'star', icon: '⭐' }, { kind: 'heart', icon: '❤️' },
+    ];
     function spawnAdventureObject() {
       const { w } = advSize();
       const roll = Math.random();
-      const type = roll < 0.42 ? 'gem' : roll < 0.76 ? 'coin' : roll < 0.93 ? 'rock' : 'bomb';
-      const data = {
-        gem: { icon: '💎', points: 10, hazard: false },
-        coin: { icon: '🪙', points: 5, hazard: false },
-        rock: { icon: '🪨', points: 0, hazard: true },
-        bomb: { icon: '💣', points: -15, hazard: true },
-      }[type];
+      let data;
+      if (roll < 0.035) data = { type: 'golden', icon: '🌟💎', points: 50, hazard: false };
+      else if (roll < 0.38) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
+      else if (roll < 0.68) data = { type: 'coin', icon: '🪙', points: 5, hazard: false };
+      else if (roll < 0.78) { const p = ADV_POWERUPS[Math.floor(Math.random() * ADV_POWERUPS.length)]; data = { type: 'power', kind: p.kind, icon: p.icon, points: 0, hazard: false }; }
+      else if (roll < 0.92) data = { type: 'rock', icon: '🪨', points: 0, hazard: true };
+      else data = { type: 'bomb', icon: '💣', points: -15, hazard: true };
+      const feverBoost = advFxActive('feverUntil') && !data.hazard && Math.random() < 0.5;
+      if (feverBoost) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
       adv.objects.push({
-        ...data, type, x: 24 + Math.random() * Math.max(20, w - 48), y: -25,
-        r: type === 'gem' ? 19 : 17, vy: 125 + adv.elapsed * 2.6 + Math.random() * 75,
-        vx: (Math.random() - 0.5) * 28, spin: Math.random() * Math.PI,
+        ...data, x: 24 + Math.random() * Math.max(20, w - 48), y: -25,
+        r: data.type === 'golden' ? 22 : data.type === 'gem' ? 19 : 17,
+        vy: 125 + adv.elapsed * 2.6 + Math.random() * 75,
+        vx: (Math.random() - 0.5) * 28, spin: Math.random() * Math.PI, nearMissed: false,
       });
     }
 
     function startAdventure() {
       resizeAdventureCanvas();
       const { w } = advSize();
-      Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, lives: 3,
-        timeLeft: ADV.duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2,
-        elapsed: 0, spawnIn: 0, lastTs: performance.now() });
+      Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, maxCombo: 0, lives: 3,
+        timeLeft: ADV.duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2, prevX: w / 2,
+        elapsed: 0, spawnIn: 0, lastTs: performance.now(), caught: 0, missed: 0, gemsCaught: 0,
+        missionIndex: 0, shake: 0, flash: 0, banner: '', bannerUntil: 0, phase: 0,
+        fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: false } });
+      advBanner('⛏️ اجمع الجواهر وتفادَ الخطر!', 1.6);
+      try { adv.audio = adv.audio || new (window.AudioContext || window.webkitAudioContext)(); adv.audio.resume?.(); } catch (e) {}
+      advBeep(660, 0.12, 'triangle', 0.06, 990);
       document.getElementById('game-overlay').style.display = 'none';
       cancelAnimationFrame(adv.raf);
       adv.raf = requestAnimationFrame(adventureLoop);
@@ -867,16 +930,33 @@
         adv.targetX += ((advKeys.ArrowRight ? 1 : 0) - (advKeys.ArrowLeft ? 1 : 0)) * speed * dt;
       }
       adv.targetX = Math.max(ADV.playerW / 2, Math.min(w - ADV.playerW / 2, adv.targetX));
+      adv.prevX = adv.playerX;
       adv.playerX += (adv.targetX - adv.playerX) * Math.min(1, dt * 18);
+      adv.shake = Math.max(0, adv.shake - dt);
+      adv.flash = Math.max(0, adv.flash - dt);
 
-      // توليد عناصر أسرع تدريجياً
+      // مراحل صعوبة معلنة
+      const newPhase = adv.elapsed >= 40 ? 2 : adv.elapsed >= 20 ? 1 : 0;
+      if (newPhase !== adv.phase) {
+        adv.phase = newPhase;
+        advBanner(newPhase === 2 ? '🔥 المرحلة الأخيرة — كل شيء أسرع!' : '⚠️ ازداد الخطر!', 1.8);
+        advBeep(220, 0.2, 'sawtooth', 0.05, 110);
+      }
+
+      // توليد عناصر أسرع تدريجياً (وأسرع في المرحلة الأخيرة)
       adv.spawnIn -= dt;
-      const spawnEvery = Math.max(0.32, 0.68 - adv.elapsed * 0.006);
+      const spawnEvery = Math.max(0.24, 0.68 - adv.elapsed * 0.006 - adv.phase * 0.05);
       if (adv.spawnIn <= 0) { spawnAdventureObject(); adv.spawnIn = spawnEvery * (0.75 + Math.random() * 0.5); }
 
+      const fallDt = dt * (advFxActive('slowUntil') ? 0.5 : 1); // ⏳ إبطاء زمني
       for (const obj of [...adv.objects]) {
-        obj.y += obj.vy * dt;
-        obj.x += obj.vx * dt;
+        // 🧲 مغناطيس يجذب الكنوز نحو العربة
+        if (advFxActive('magnetUntil') && !obj.hazard) {
+          const dx = adv.playerX - obj.x;
+          if (Math.abs(dx) < 150 && obj.y > h - 190) obj.x += Math.max(-260 * fallDt, Math.min(260 * fallDt, dx * 6 * fallDt));
+        }
+        obj.y += obj.vy * fallDt;
+        obj.x += obj.vx * fallDt;
         obj.spin += dt * 2;
         if (obj.x < obj.r || obj.x > w - obj.r) obj.vx *= -1;
 
@@ -887,8 +967,16 @@
           adv.objects.splice(adv.objects.indexOf(obj), 1);
           continue;
         }
+        // مرور خطر قريب بلا إصابة = مكافأة جرأة
+        if (obj.hazard && !obj.nearMissed && obj.y - obj.r > playerY + ADV.playerH) {
+          obj.nearMissed = true;
+          if (Math.abs(obj.x - adv.playerX) <= ADV.playerW / 2 + obj.r + 22) {
+            adv.score += 2;
+            adv.particles.push({ x: adv.playerX, y: playerY - 14, text: '😱 قريب! +2', color: '#7dd3fc', life: 0.7 });
+          }
+        }
         if (obj.y - obj.r > h) {
-          if (!obj.hazard && adv.combo > 0) adv.combo = 0; // إسقاط جوهرة يكسر السلسلة
+          if (!obj.hazard) { adv.missed += 1; if (adv.combo > 0) adv.combo = 0; } // إسقاط كنز يكسر السلسلة
           adv.objects.splice(adv.objects.indexOf(obj), 1);
         }
       }
@@ -901,22 +989,60 @@
       if (adv.timeLeft <= 0 || adv.lives <= 0) endAdventure();
     }
 
+    function applyAdventurePower(kind, x, yTop) {
+      const notes = {
+        magnet: '🧲 مغناطيس 8 ثوانٍ!', shield: '🛡️ درع يحميك مرة!', slow: '⏳ أبطأنا الزمن!',
+        star: '⭐ نقاط مضاعفة 8 ثوانٍ!', heart: '❤️ قلب إضافي!',
+      };
+      if (kind === 'magnet') adv.fx.magnetUntil = adv.elapsed + 8;
+      if (kind === 'shield') adv.fx.shield = true;
+      if (kind === 'slow') adv.fx.slowUntil = adv.elapsed + 5;
+      if (kind === 'star') adv.fx.starUntil = adv.elapsed + 8;
+      if (kind === 'heart') adv.lives = Math.min(5, adv.lives + 1);
+      adv.particles.push({ x, y: yTop, text: notes[kind], color: '#e879f9', life: 1 });
+      advBeep(740, 0.1, 'triangle', 0.06, 1180);
+      setTimeout(() => advBeep(990, 0.12, 'triangle', 0.05, 1320), 70);
+    }
+
     function collectAdventureObject(obj) {
       const { h } = advSize();
+      const yTop = h - 58;
+      if (obj.type === 'power') { applyAdventurePower(obj.kind, obj.x, yTop); haptic('success'); return; }
       if (obj.hazard) {
+        if (adv.fx.shield) {
+          adv.fx.shield = false;
+          adv.particles.push({ x: obj.x, y: yTop, text: '🛡️ أنقذك الدرع!', color: '#7dd3fc', life: 1 });
+          advBeep(300, 0.12, 'square', 0.05, 500);
+          haptic('success');
+          return;
+        }
         adv.lives -= 1;
         adv.combo = 0;
+        adv.shake = 0.35; adv.flash = 0.3;
         if (obj.type === 'bomb') adv.score = Math.max(0, adv.score - 15);
-        adv.particles.push({ x: obj.x, y: h - 58, text: obj.type === 'bomb' ? '💥 -1 قلب' : '🪨 -1 قلب', color: '#f87171', life: 0.9 });
+        adv.particles.push({ x: obj.x, y: yTop, text: obj.type === 'bomb' ? '💥 -1 قلب' : '🪨 -1 قلب', color: '#f87171', life: 0.9 });
+        advBeep(140, 0.22, 'sawtooth', 0.08, 60);
         haptic('error');
-        if (navigator.vibrate) navigator.vibrate(80);
+        if (navigator.vibrate) navigator.vibrate(90);
       } else {
+        adv.caught += 1;
+        if (obj.type === 'gem' || obj.type === 'golden') adv.gemsCaught += 1;
         adv.combo += 1;
-        const mult = Math.min(3, 1 + Math.floor((adv.combo - 1) / 10));
-        const gained = obj.points * mult;
+        adv.maxCombo = Math.max(adv.maxCombo, adv.combo);
+        const comboMult = Math.min(3, 1 + Math.floor((adv.combo - 1) / 10));
+        const totalMult = Math.min(6, comboMult * (advFxActive('starUntil') ? 2 : 1) * (advFxActive('feverUntil') ? 2 : 1));
+        const gained = obj.points * totalMult;
         adv.score += gained;
-        adv.particles.push({ x: obj.x, y: h - 58, text: `+${gained}`, color: '#fbbf24', life: 0.8 });
+        adv.particles.push({ x: obj.x, y: yTop, text: `+${gained}`, color: obj.type === 'golden' ? '#fde68a' : '#fbbf24', life: 0.8 });
+        advBeep(Math.min(950, 520 + adv.combo * 16), 0.06, 'sine', 0.045);
         haptic('light');
+        // 🌟 حمّى الذهب عند سلسلة 15
+        if (adv.combo === 15 && !advFxActive('feverUntil')) {
+          adv.fx.feverUntil = adv.elapsed + 8;
+          advBanner('🌟 حمّى الذهب! نقاط مضاعفة وجواهر أكثر', 2);
+          advBeep(880, 0.25, 'triangle', 0.07, 1760);
+        }
+        checkAdventureMission();
       }
     }
 
@@ -925,6 +1051,16 @@
       const { w, h } = advSize();
       const playerY = h - 48;
       advCtx.clearRect(0, 0, w, h);
+      if (adv.shake > 0) { advCtx.save(); advCtx.translate((Math.random() - 0.5) * 10 * adv.shake * 3, (Math.random() - 0.5) * 7 * adv.shake * 3); }
+      if (advFxActive('feverUntil')) { advCtx.fillStyle = 'rgba(245,158,11,0.10)'; advCtx.fillRect(0, 0, w, h); }
+      // صواعد كهف متحركة (Parallax يعطي إحساس العمق)
+      advCtx.fillStyle = 'rgba(30,27,75,0.85)';
+      const caveOff = (adv.elapsed * 18) % 46;
+      for (let x = -46; x < w + 46; x += 46) {
+        advCtx.beginPath();
+        advCtx.moveTo(x + caveOff - 46, 0); advCtx.lineTo(x + 23 + caveOff - 46, 28 + (x % 3) * 5); advCtx.lineTo(x + 46 + caveOff - 46, 0);
+        advCtx.closePath(); advCtx.fill();
+      }
       // نجوم/غبار المنجم
       advCtx.fillStyle = 'rgba(251,191,36,0.16)';
       for (let i = 0; i < 22; i++) {
@@ -948,19 +1084,26 @@
         advCtx.restore();
       }
 
-      // عربة المعدّن
+      // عربة المعدّن (تميل مع اتجاه الحركة + أيقونة درع عند تفعيله)
       const px = adv.playerX - ADV.playerW / 2;
-      const grad = advCtx.createLinearGradient(px, playerY, px + ADV.playerW, playerY + ADV.playerH);
+      const tilt = Math.max(-0.16, Math.min(0.16, (adv.playerX - adv.prevX) * 0.03));
+      advCtx.save();
+      advCtx.translate(adv.playerX, playerY + ADV.playerH / 2);
+      advCtx.rotate(tilt);
+      const grad = advCtx.createLinearGradient(-ADV.playerW / 2, 0, ADV.playerW / 2, ADV.playerH);
       grad.addColorStop(0, '#f59e0b'); grad.addColorStop(1, '#b45309');
       advCtx.fillStyle = grad;
       advCtx.beginPath();
-      advCtx.roundRect(px, playerY, ADV.playerW, ADV.playerH, 10);
+      advCtx.roundRect(-ADV.playerW / 2, -ADV.playerH / 2, ADV.playerW, ADV.playerH, 10);
       advCtx.fill();
       advCtx.font = '29px serif';
-      advCtx.fillText('⛏️', adv.playerX, playerY + 15);
+      advCtx.fillText('⛏️', 0, 2);
+      if (adv.fx.shield) { advCtx.font = '17px serif'; advCtx.fillText('🛡️', ADV.playerW / 2 - 8, -ADV.playerH / 2 + 4); }
+      if (advFxActive('magnetUntil')) { advCtx.font = '15px serif'; advCtx.fillText('🧲', -ADV.playerW / 2 + 8, -ADV.playerH / 2 + 4); }
       advCtx.fillStyle = '#111827';
-      advCtx.beginPath(); advCtx.arc(px + 15, playerY + ADV.playerH + 5, 6, 0, Math.PI * 2); advCtx.fill();
-      advCtx.beginPath(); advCtx.arc(px + ADV.playerW - 15, playerY + ADV.playerH + 5, 6, 0, Math.PI * 2); advCtx.fill();
+      advCtx.beginPath(); advCtx.arc(-ADV.playerW / 2 + 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
+      advCtx.beginPath(); advCtx.arc(ADV.playerW / 2 - 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
+      advCtx.restore();
 
       // نقاط عائمة
       advCtx.font = 'black 15px Tajawal, sans-serif';
@@ -970,6 +1113,19 @@
         advCtx.fillText(p.text, p.x, p.y);
       }
       advCtx.globalAlpha = 1;
+      if (adv.shake > 0) advCtx.restore();
+      // وميض أحمر عند الإصابة + إعلان منتصف الشاشة
+      if (adv.flash > 0) { advCtx.fillStyle = `rgba(239,68,68,${adv.flash * 0.7})`; advCtx.fillRect(0, 0, w, h); }
+      if (adv.banner && adv.elapsed < adv.bannerUntil) {
+        advCtx.save();
+        advCtx.globalAlpha = Math.max(0, Math.min(1, adv.bannerUntil - adv.elapsed));
+        advCtx.font = 'black 19px Tajawal, sans-serif';
+        advCtx.textAlign = 'center';
+        advCtx.fillStyle = '#fde68a';
+        advCtx.shadowColor = 'rgba(0,0,0,0.8)'; advCtx.shadowBlur = 8;
+        advCtx.fillText(adv.banner, w / 2, 74);
+        advCtx.restore();
+      }
     }
 
     function endAdventure() {
@@ -989,8 +1145,12 @@
       }
       const overlay = document.getElementById('game-overlay');
       document.getElementById('game-overlay-title').innerText = adv.lives <= 0 ? '💀 انتهت المغامرة!' : '⏰ انتهى الوقت!';
+      const accuracy = adv.caught + adv.missed ? Math.round(adv.caught / (adv.caught + adv.missed) * 100) : 0;
+      const rank = finalScore >= 900 ? '🏆 معدّن أسطوري' : finalScore >= 600 ? '👑 خبير مناجم' : finalScore >= 350 ? '💪 معدّن محترف' : finalScore >= 150 ? '⛏️ معدّن صاعد' : '🌱 مبتدئ';
       document.getElementById('game-overlay-text').innerHTML =
-        `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>أفضل نتيجة لك: ${Math.floor(adv.best)}`;
+        `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>` +
+        `🎯 التقطت ${adv.caught} · دقة ${accuracy}٪ · أعلى سلسلة ×${adv.maxCombo}<br>` +
+        `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}`;
       const btn = document.getElementById('game-overlay-btn');
       btn.innerText = '🔁 العب مرة أخرى';
       btn.setAttribute('onclick', 'startAdventure()');
