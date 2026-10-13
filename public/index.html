@@ -327,7 +327,7 @@
         if (data.isNew && state.totalEarned > (data.state?.totalEarned || 0)) {
           // أول دخول من تيليجرام ولديه تقدم محلي أقدم — نرحّله للخادم بدل فقدانه
           syncDirty = true;
-          await saveToServer();
+          await saveToServer(true);
         } else if (data.state) {
           // أرباح غياب محسوبة من آخر حفظ على الخادم (نطرح ما حُسب محلياً لمنع التكرار)
           const elapsedSec = Math.max(0, (Date.now() - (data.state.lastSeen || Date.now())) / 1000);
