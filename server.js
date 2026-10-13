@@ -1,5 +1,6 @@
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
+const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -36,6 +37,7 @@ const defaultState = () => ({
   maxEnergy: 1000,
   owned: { click: 0, bot: 0, rig: 0 },
   costs: { click: 50, bot: 200, rig: 1000 },
+  adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0 },
   boostUntil: 0,
   boostCooldownUntil: 0,
   lastSeen: Date.now(),
@@ -49,6 +51,7 @@ const clampNum = (v, min, max, fallback) => {
 function sanitizeState(input, base = defaultState()) {
   const s = (input && typeof input === 'object') ? input : {};
   const o = (s.owned && typeof s.owned === 'object') ? s.owned : {};
+  const au = (s.adventureUpgrades && typeof s.adventureUpgrades === 'object') ? s.adventureUpgrades : {};
   const c = (s.costs && typeof s.costs === 'object') ? s.costs : {};
   const maxEnergy = 1000; // ثابت في تصميم اللعبة الحالي — لا نقبل تغييره من العميل
   return {
@@ -68,6 +71,9 @@ function sanitizeState(input, base = defaultState()) {
       bot: clampNum(c.bot, 1, 1e12, base.costs.bot),
       rig: clampNum(c.rig, 1, 1e12, base.costs.rig),
     },
+    adventureUpgrades: Object.fromEntries(
+      Object.keys(ADV_UPGRADES_DEF).map((k) => [k, Math.floor(clampNum(au[k], 0, ADV_UPGRADES_DEF[k].max, base.adventureUpgrades?.[k] || 0))])
+    ),
     boostUntil: clampNum(s.boostUntil, 0, Date.now() + 24 * 3600e3, 0),
     boostCooldownUntil: clampNum(s.boostCooldownUntil, 0, Date.now() + 24 * 3600e3, 0),
     lastSeen: Date.now(),
@@ -89,6 +95,27 @@ function spendBetween(type, from, to) {
   let c = costFor(type, from);
   let total = 0;
   for (let i = from; i < to; i++) { total += c; c = Math.floor(c * UPGRADES_DEF[type].growth); }
+  return total;
+}
+
+// ترقيات المغامرة الدائمة — الأسعار تُحسب خادمياً (يجب أن تطابق الواجهة)
+const ADV_UPGRADES_DEF = {
+  magnet: { base: 150, growth: 1.7, max: 5 },
+  cart: { base: 200, growth: 1.7, max: 5 },
+  speed: { base: 150, growth: 1.6, max: 5 },
+  shield: { base: 250, growth: 1.8, max: 3 },
+  heart: { base: 300, growth: 1.8, max: 3 },
+  clock: { base: 150, growth: 1.6, max: 5 },
+  luck: { base: 200, growth: 1.7, max: 5 },
+};
+function advCostFor(key, level) {
+  let c = ADV_UPGRADES_DEF[key].base;
+  for (let i = 0; i < level; i++) c = Math.floor(c * ADV_UPGRADES_DEF[key].growth);
+  return c;
+}
+function advSpendBetween(key, from, to) {
+  let total = 0;
+  for (let i = from; i < to; i++) total += advCostFor(key, i);
   return total;
 }
 
@@ -126,18 +153,39 @@ function validateSave(user, input, { isBaseline = false } = {}) {
 
   const elapsedSec = Math.min(Math.max(0, (now - (user.lastSaveAt || now)) / 1000), OFFLINE_CAP_SEC);
 
-  // 1) المشتريات لا تتناقص، وزيادتها محدودة لكل حفظ
+  // 1) المشتريات (تعدين + مغامرة) لا تتناقص، وزيادتها محدودة لكل حفظ
   let expectedSpend = 0;
   for (const t of Object.keys(UPGRADES_DEF)) {
     if (fix(s.owned[t] < prev.owned[t])) s.owned[t] = prev.owned[t];
     if (fix(s.owned[t] > prev.owned[t] + 200)) s.owned[t] = prev.owned[t] + 200;
     expectedSpend += spendBetween(t, prev.owned[t], s.owned[t]);
   }
+  for (const k of Object.keys(ADV_UPGRADES_DEF)) {
+    const prevLvl = prev.adventureUpgrades?.[k] || 0;
+    if (fix(s.adventureUpgrades[k] < prevLvl)) s.adventureUpgrades[k] = prevLvl;
+    if (fix(s.adventureUpgrades[k] > prevLvl + 5)) s.adventureUpgrades[k] = prevLvl + 5;
+    expectedSpend += advSpendBetween(k, prevLvl, s.adventureUpgrades[k]);
+  }
 
   // 2) القدرات والأسعار مشتقة من المشتريات حصراً
   const beforeDerive = JSON.stringify([s.clickPower, s.passiveIncome, s.costs]);
   deriveStats(s);
   if (JSON.stringify([s.clickPower, s.passiveIncome, s.costs]) !== beforeDerive) corrected = true;
+
+  // 2.5) شراء لا يغطيه الرصيد + أقصى كسب ممكن خلال الفترة يُرفض كلياً (لا شراء بالدين)
+  {
+    const maxClickPower0 = Math.max(prev.clickPower, s.clickPower);
+    const maxPassive0 = Math.max(prev.passiveIncome, s.passiveIncome);
+    const boostGuess = (s.boostUntil > now || prev.boostUntil > user.lastSaveAt) ? 2 : 1;
+    const allowedEarly = elapsedSec * (MAX_CLICKS_PER_SEC * maxClickPower0 * boostGuess + maxPassive0 * boostGuess) + GAIN_SLACK + 120; // 120: هامش جائزة مغامرة/سباق قصيرة
+    if (expectedSpend > prev.gold + allowedEarly) {
+      s.owned = { ...prev.owned };
+      s.adventureUpgrades = { ...(prev.adventureUpgrades || defaultState().adventureUpgrades) };
+      expectedSpend = 0;
+      deriveStats(s);
+      corrected = true;
+    }
+  }
 
   // 3) التعزيز: بداية جديدة فقط بعد انتهاء التهدئة، ولمدة ≤30 ثانية وتهدئة 5 دقائق
   if (s.boostUntil !== prev.boostUntil || s.boostCooldownUntil !== prev.boostCooldownUntil) {
@@ -398,6 +446,167 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
 }));
 
 // ---------------------------------------------------------------------------
+// ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص
+// الخادم يقرّن اللاعبين ويبث التقدم والنتائج؛ محاكاة اللعبة نفسها عند العميل
+// بنفس بذرة عشوائية للطرفين، والنتيجة تُختم بسقف نقاط معقول لمدة السباق.
+// ---------------------------------------------------------------------------
+const raceRooms = new Map();
+let raceQueue = [];
+const sendWs = (ws, obj) => { try { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); } catch (_) {} };
+const raceCode = () => {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return raceRooms.has(code) ? raceCode() : code;
+};
+
+function setupMultiplayer(httpServer) {
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+  wss.on('connection', async (ws, req) => {
+    const url = new URL(req.url, 'http://localhost');
+    let player = null;
+    const initData = url.searchParams.get('initData') || '';
+    const guest = (url.searchParams.get('guest') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+    if (initData) {
+      const tgUser = BOT_TOKEN ? validateInitData(initData) : parseInitDataUser(initData);
+      if (tgUser?.id) player = { id: String(tgUser.id), name: tgUser.first_name || 'لاعب' };
+    } else if (guest && ALLOW_GUEST) {
+      player = { id: `guest_${guest}`, name: 'ضيف' };
+    }
+    if (!player) { ws.close(4001, 'auth required'); return; }
+    try { const dbUser = await store.getUser(player.id); if (dbUser?.name && dbUser.name !== 'ضيف') player.name = dbUser.name; } catch (_) {}
+
+    ws.player = { ...player, roomId: null, ready: false, lastProgress: 0 };
+    sendWs(ws, { type: 'welcome', id: player.id, name: player.name });
+
+    const leaveRoom = (notify = true) => {
+      raceQueue = raceQueue.filter((q) => q !== ws);
+      const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+      ws.player.roomId = null;
+      if (!room) return;
+      room.players.delete(ws);
+      for (const other of room.players) {
+        other.player.roomId = null;
+        other.player.ready = false;
+        if (notify) sendWs(other, { type: room.state === 'racing' ? 'opponent_left' : 'room_closed', message: 'غادر الخصم' });
+      }
+      if (room.players.size === 0) raceRooms.delete(room.id);
+    };
+    ws.leaveRaceRoom = leaveRoom;
+
+    const pairInto = (room, other) => {
+      room.players.add(ws); room.players.add(other);
+      ws.player.roomId = room.id; other.player.roomId = room.id;
+      sendWs(ws, { type: 'matched', code: room.code, opponent: { id: other.player.id, name: other.player.name } });
+      sendWs(other, { type: 'matched', code: room.code, opponent: { id: ws.player.id, name: ws.player.name } });
+    };
+
+    ws.on('message', (raw) => {
+      if (raw.length > 4096) return;
+      let msg;
+      try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+      if (msg.type === 'quick') {
+        leaveRoom(false);
+        raceQueue = raceQueue.filter((q) => q.readyState === q.OPEN && q !== ws);
+        const other = raceQueue.shift();
+        if (other) {
+          const room = { id: raceCode(), code: 'سريع', players: new Set(), state: 'lobby', results: new Map() };
+          raceRooms.set(room.id, room);
+          pairInto(room, other);
+        }
+        else { raceQueue.push(ws); sendWs(ws, { type: 'waiting', message: 'بانتظار خصم…' }); }
+      }
+
+      if (msg.type === 'create') {
+        leaveRoom(false);
+        const code = raceCode();
+        const room = { id: code, code, players: new Set([ws]), state: 'lobby', results: new Map() };
+        raceRooms.set(code, room);
+        ws.player.roomId = code;
+        sendWs(ws, { type: 'room_created', code, message: `شارك الرمز ${code} مع صديقك` });
+      }
+
+      if (msg.type === 'join') {
+        const room = raceRooms.get(String(msg.code || '').toUpperCase().trim());
+        if (!room || room.state !== 'lobby' || room.players.size >= 2) { sendWs(ws, { type: 'error', message: 'الغرفة غير موجودة أو ممتلئة' }); return; }
+        const [host] = [...room.players];
+        if (host === ws) return;
+        pairInto(room, host);
+      }
+
+      if (msg.type === 'ready') {
+        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+        if (!room || room.players.size !== 2) return;
+        ws.player.ready = true;
+        const players = [...room.players];
+        if (players.every((p) => p.player.ready)) {
+          room.state = 'racing';
+          room.seed = Math.floor(Math.random() * 2 ** 31);
+          room.startAt = Date.now() + 2500;
+          room.startedAt = Date.now();
+          room.results = new Map();
+          for (const p of players) {
+            const opp = players.find((q) => q !== p);
+            sendWs(p, { type: 'start', seed: room.seed, startAt: room.startAt, opponent: { id: opp.player.id, name: opp.player.name } });
+          }
+        }
+      }
+
+      if (msg.type === 'progress') {
+        const now = Date.now();
+        if (now - ws.player.lastProgress < 100) return;
+        ws.player.lastProgress = now;
+        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+        if (!room || room.state !== 'racing') return;
+        const payload = {
+          type: 'opponent_progress',
+          score: Math.max(0, Math.min(100000, Number(msg.score) || 0)),
+          lives: Math.max(0, Math.min(5, Number(msg.lives) || 0)),
+          xRatio: Math.max(0, Math.min(1, Number(msg.xRatio) || 0.5)),
+          finished: Boolean(msg.finished),
+        };
+        for (const other of room.players) if (other !== ws) sendWs(other, payload);
+      }
+
+      if (msg.type === 'finish') {
+        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+        if (!room || room.state !== 'racing') return;
+        // سقف نتيجة معقول: مدة السباق × أقصى معدل نقاط/ثانية تقريبي
+        const elapsedRace = Math.min(75, Math.max(0, (Date.now() - (room.startedAt || Date.now())) / 1000));
+        const maxScore = Math.floor(elapsedRace * 45) + 100;
+        const score = Math.max(0, Math.min(maxScore, Math.floor(Number(msg.score) || 0)));
+        room.results.set(ws.player.id, { id: ws.player.id, name: ws.player.name, score });
+        for (const other of room.players) if (other !== ws) sendWs(other, { type: 'opponent_finished', score });
+        if (room.results.size >= 2) {
+          room.state = 'finished';
+          const results = [...room.results.values()].sort((a, b) => b.score - a.score);
+          const winnerId = results[0].score === results[1].score ? null : results[0].id;
+          for (const p of room.players) sendWs(p, { type: 'result', winnerId, results });
+        }
+      }
+
+      if (msg.type === 'leave') leaveRoom(true);
+    });
+
+    ws.on('close', leaveRoom);
+    ws.on('error', () => leaveRoom());
+  });
+
+  const heartbeat = setInterval(() => {
+    for (const ws of wss.clients) {
+      if (ws.isAlive === false) { ws.terminate(); continue; }
+      ws.isAlive = false;
+      try { ws.ping(); } catch (_) {}
+    }
+  }, 30000);
+  wss.on('connection', (ws) => { ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; }); });
+  wss.on('close', () => clearInterval(heartbeat));
+  console.log('⚔️  خادم سباقات WebSocket جاهز على /ws');
+}
+
+// ---------------------------------------------------------------------------
 // بوت تيليجرام
 // ---------------------------------------------------------------------------
 let bot = null;
@@ -434,7 +643,8 @@ if (BOT_TOKEN) {
 }
 
 migrateLegacyJson().finally(() => {
-  app.listen(PORT, HOST, () => {
+  const httpServer = app.listen(PORT, HOST, () => {
     console.log(`🎮 خادم اللعبة يعمل الآن على: http://localhost:${PORT}`);
   });
+  setupMultiplayer(httpServer);
 });

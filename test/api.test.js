@@ -42,6 +42,7 @@ const save = async (id, state, extra = {}) => {
 const baseState = (over = {}) => ({
   gold: 0, totalEarned: 0, clickPower: 1, passiveIncome: 0, energy: 1000, maxEnergy: 1000,
   owned: { click: 0, bot: 0, rig: 0 }, costs: { click: 50, bot: 200, rig: 1000 },
+  adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0 },
   boostUntil: 0, boostCooldownUntil: 0, ...over,
 });
 
@@ -87,16 +88,17 @@ test('🛡️ قفزة ذهب مستحيلة تُقتطع وتُسجّل مخا�
   assert.equal(body.violations, 1);
 });
 
-test('🛡️ القدرات مشتقة من المشتريات — تضخيم passiveIncome يُلغى', async () => {
+test('🛡️ القدرات مشتقة من المشتريات — تضخيم passiveIncome وشراء بلا رصيد يُلغيان', async () => {
   await me('cheater2');
   const { body } = await save('cheater2', baseState({
     passiveIncome: 99999, clickPower: 999,
-    owned: { click: 0, bot: 1, rig: 0 },
+    owned: { click: 0, bot: 1, rig: 0 }, // يدّعي عاملاً آلياً بلا أي ذهب لشرائه
   }));
   assert.equal(body.corrected, true);
-  assert.equal(body.state.passiveIncome, 5);   // عامل آلي واحد = +5 فقط
-  assert.equal(body.state.clickPower, 1);
-  assert.equal(body.state.costs.bot, 280);     // السعر التالي المشتق
+  assert.equal(body.state.passiveIncome, 0);   // أُلغي الشراء غير المموّل من أساسه
+  assert.equal(body.state.owned.bot, 0);
+  assert.equal(body.state.clickPower, 1);      // لا قدرات من العدم
+  assert.equal(body.state.costs.bot, 200);     // السعر الأساسي لأنه لم يشترِ شيئاً
 });
 
 test('🛡️ تعزيز مزوّر (بدون تهدئة/بمدة أطول) يُرفض', async () => {
@@ -104,6 +106,20 @@ test('🛡️ تعزيز مزوّر (بدون تهدئة/بمدة أطول) يُ
   const now = Date.now();
   const { body } = await save('cheater3', baseState({ boostUntil: now + 3600e3, boostCooldownUntil: now + 3600e3 }));
   assert.equal(body.state.boostUntil, 0);
+});
+
+test('🛠️ ترقية مغامرة مشروعة تُقبل، وقفزة مستويات بلا رصيد تُرفض كلياً', async () => {
+  await me('upbuyer');
+  const migrated = await save('upbuyer', baseState({ gold: 1000, totalEarned: 1000 }), { migrate: true });
+  assert.equal(migrated.body.state.gold, 1000);
+  const adv = { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0 };
+  const legit = await save('upbuyer', baseState({ gold: 850, totalEarned: 1000, adventureUpgrades: { ...adv, magnet: 1 } }));
+  assert.equal(legit.body.corrected, false);
+  assert.equal(legit.body.state.adventureUpgrades.magnet, 1);
+  assert.equal(legit.body.state.gold, 850);
+  const cheat = await save('upbuyer', baseState({ gold: 850, totalEarned: 1000, adventureUpgrades: { ...adv, magnet: 5 } }));
+  assert.equal(cheat.body.corrected, true);
+  assert.equal(cheat.body.state.adventureUpgrades.magnet, 1); // رُفض الشراء غير المموّل وبقي المستوى الحقيقي
 });
 
 test('البيانات تبقى بعد إعادة تشغيل الخادم (قاعدة حقيقية)', async () => {

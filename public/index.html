@@ -109,6 +109,28 @@
       <div id="adv-combo" class="flex-1 text-center text-xs font-black text-amber-300">حرّك العربة والتقط الجواهر!</div>
       <div class="text-[10px] text-slate-500">الجائزة حتى 100 🪙</div>
     </div>
+
+    <!-- ⚔️ سباق مباشر ضد لاعب آخر -->
+    <div class="bg-slate-900/90 border border-indigo-800/50 rounded-xl p-2.5">
+      <div class="flex justify-between items-center mb-1.5">
+        <span class="font-black text-xs">⚔️ سباق مباشر ضد لاعب</span>
+        <span id="race-opponent" class="text-[10px] text-indigo-300"></span>
+      </div>
+      <div id="race-status" class="text-[11px] text-slate-300 mb-2">العب ضد صديق أو لاعب عشوائي بنفس تساقط الجواهر — الأعلى نقاطاً يفوز!</div>
+      <div class="flex gap-1.5">
+        <button onclick="raceQuick()" class="flex-1 bg-indigo-600 font-bold py-2 rounded-lg text-[11px] active:scale-95">🎲 خصم عشوائي</button>
+        <button onclick="raceCreate()" class="flex-1 bg-slate-800 font-bold py-2 rounded-lg text-[11px] active:scale-95">🔑 إنشاء غرفة</button>
+        <input id="race-code-input" maxlength="4" placeholder="رمز" class="w-16 bg-slate-950 border border-slate-700 rounded-lg text-center text-[11px] font-black uppercase" dir="ltr">
+        <button onclick="raceJoin()" class="bg-slate-800 font-bold py-2 px-3 rounded-lg text-[11px] active:scale-95">دخول</button>
+      </div>
+      <button id="race-ready-btn" onclick="raceReady()" disabled class="hidden w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 font-black py-2 rounded-lg text-xs active:scale-95">✅ أنا جاهز — ابدأ السباق</button>
+    </div>
+
+    <!-- 🛠️ ترقيات المغامرة الدائمة -->
+    <details class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-2.5" open>
+      <summary class="font-black text-xs cursor-pointer">🛠️ ترقيات المغامرة الدائمة — قوِّ قدراتك بالذهب</summary>
+      <div id="adv-upgrades-list" class="flex flex-col gap-1.5 mt-2"></div>
+    </details>
   </main>
 
   <!-- TAB 1: MINING (QUICK CLICK) -->
@@ -296,10 +318,15 @@
       maxEnergy: 1000,
       owned: { click: 0, bot: 0, rig: 0 },
       costs: { click: 50, bot: 200, rig: 1000 },
+      adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0 },
+      boostUntil: 0,
+      boostCooldownUntil: 0,
+      dailyLastClaim: null,
+      dailyStreak: 0,
       lastSeen: Date.now()
     };
 
-    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned } };
+    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades } };
 
     let localOfflineGain = 0;
 
@@ -311,7 +338,8 @@
           ...DEFAULT_STATE,
           ...saved,
           costs: { ...DEFAULT_STATE.costs, ...(saved.costs || {}) },
-          owned: { ...DEFAULT_STATE.owned, ...(saved.owned || {}) }
+          owned: { ...DEFAULT_STATE.owned, ...(saved.owned || {}) },
+          adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(saved.adventureUpgrades || {}) }
         };
         // ترحيل الحفظ القديم: إن لم يوجد totalEarned اعتبر الرصيد الحالي هو المجموع
         if (!saved.totalEarned) state.totalEarned = Math.max(saved.gold || 0, (state.clickPower - 1) * 50 + state.passiveIncome * 20);
@@ -389,11 +417,18 @@
       return data;
     }
 
-    async function saveToServer() {
-      if (!serverMode || !syncDirty) return;
+    async function saveToServer(isMigrate = false) {
+      if (!serverMode || (!syncDirty && !isMigrate)) return;
       syncDirty = false;
       try {
-        await api('/api/save', { method: 'POST', body: JSON.stringify({ state }), keepalive: true });
+        const data = await api('/api/save', { method: 'POST', body: JSON.stringify({ state, migrate: isMigrate === true }) });
+        if ((data.corrected || data.serverCreditsApplied > 0) && data.state) {
+          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(data.state.adventureUpgrades || {}) } };
+          if (data.corrected) document.getElementById('sync-status').innerText = '🛡️ صحّح الخادم حفظاً غير متسق';
+          updateUI();
+          if (typeof updateAdvUpgradesUI === 'function') updateAdvUpgradesUI();
+          save();
+        }
       } catch (e) { syncDirty = true; }
     }
     setInterval(saveToServer, 5000);
@@ -417,7 +452,7 @@
           // أرباح غياب محسوبة من آخر حفظ على الخادم (نطرح ما حُسب محلياً لمنع التكرار)
           const elapsedSec = Math.max(0, (Date.now() - (data.state.lastSeen || Date.now())) / 1000);
           const serverOffline = Math.min(elapsedSec, 8 * 3600) * (data.state.passiveIncome || 0);
-          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) } };
+          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(data.state.adventureUpgrades || {}) } };
           if (serverOffline > localOfflineGain + 1) {
             const diff = serverOffline - localOfflineGain;
             state.gold += diff;
@@ -426,6 +461,7 @@
           save();
         }
         updateUI();
+        updateAdvUpgradesUI();
       } catch (e) {
         serverMode = false; // نكمل بالحفظ المحلي (متصفح بدون خادم/توكن)
       }
@@ -774,16 +810,87 @@
       objects: [], particles: [], playerX: 180, targetX: 180, prevX: 180, elapsed: 0, spawnIn: 0,
       lastTs: 0, raf: 0, best: Number(localStorage.getItem('mining_adventure_best') || 0),
       caught: 0, missed: 0, gemsCaught: 0, missionIndex: 0, shake: 0, flash: 0,
-      banner: '', bannerUntil: 0, phase: 0, muted: false, audio: null,
+      banner: '', bannerUntil: 0, phase: 0, muted: false, audio: null, shieldCharges: 0,
+      mode: 'solo', rng: null, raceLastSend: 0,
       fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: false },
     };
     const advKeys = {};
+
+    // 🛠️ ترقيات المغامرة الدائمة (الأسعار مطابقة للخادم — يُتحقق منها هناك)
+    const ADV_UPGRADE_DEFS = {
+      magnet: { icon: '🧲', name: 'مغناطيس مطوّر', desc: 'مدة جذب أطول ونطاق أوسع', base: 150, growth: 1.7, max: 5 },
+      cart: { icon: '🛒', name: 'عربة أوسع', desc: 'عربة أكبر تلتقط بسهولة', base: 200, growth: 1.7, max: 5 },
+      speed: { icon: '👢', name: 'حذاء سريع', desc: 'حركة أسرع واستجابة أعلى', base: 150, growth: 1.6, max: 5 },
+      shield: { icon: '🛡️', name: 'درع البداية', desc: 'ابدأ كل جولة محمياً (مستوى 3: درعان)', base: 250, growth: 1.8, max: 3 },
+      heart: { icon: '❤️', name: 'قلب إضافي', desc: 'قلب بداية إضافي لكل مستوى', base: 300, growth: 1.8, max: 3 },
+      clock: { icon: '⏳', name: 'رمال أطول', desc: 'إبطاء الزمن يدوم أكثر', base: 150, growth: 1.6, max: 5 },
+      luck: { icon: '🍀', name: 'حظ المعدّن', desc: 'قدرات خاصة تسقط أكثر', base: 200, growth: 1.7, max: 5 },
+    };
+    const advUpLevel = (key) => state.adventureUpgrades?.[key] || 0;
+    function advUpgradeCost(key) {
+      const def = ADV_UPGRADE_DEFS[key];
+      const lvl = advUpLevel(key);
+      if (lvl >= def.max) return null;
+      let c = def.base;
+      for (let i = 0; i < lvl; i++) c = Math.floor(c * def.growth);
+      return c;
+    }
+    function buyAdvUpgrade(key) {
+      const cost = advUpgradeCost(key);
+      if (cost === null || state.gold < cost) { haptic('error'); return; }
+      state.gold -= cost;
+      state.adventureUpgrades[key] = advUpLevel(key) + 1;
+      if (key === 'cart') ADV.playerW = 78 + advUpLevel('cart') * 8;
+      haptic('success');
+      advBeep(880, 0.12, 'triangle', 0.06, 1320);
+      updateUI();
+      updateAdvUpgradesUI();
+      save();
+    }
+    function updateAdvUpgradesUI() {
+      const list = document.getElementById('adv-upgrades-list');
+      if (!list) return;
+      list.innerHTML = '';
+      for (const [key, def] of Object.entries(ADV_UPGRADE_DEFS)) {
+        const lvl = advUpLevel(key);
+        const cost = advUpgradeCost(key);
+        const row = document.createElement('div');
+        row.className = 'flex justify-between items-center bg-slate-950/50 border border-slate-800 p-2 rounded-lg';
+        const info = document.createElement('div');
+        info.className = 'flex items-center gap-2 min-w-0';
+        const icon = document.createElement('span'); icon.className = 'text-xl'; icon.textContent = def.icon;
+        const texts = document.createElement('div');
+        const name = document.createElement('div'); name.className = 'font-bold text-[11px]';
+        name.textContent = `${def.name} ${lvl ? `· مستوى ${lvl}/${def.max}` : ''}`;
+        const desc = document.createElement('div'); desc.className = 'text-[9px] text-slate-400'; desc.textContent = def.desc;
+        texts.append(name, desc); info.append(icon, texts);
+        const btn = document.createElement('button');
+        btn.className = 'buy-btn bg-amber-500 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
+        btn.disabled = cost === null || state.gold < cost;
+        btn.textContent = cost === null ? '✓ أقصى' : `🪙 ${cost.toLocaleString('en-US')}`;
+        btn.onclick = () => buyAdvUpgrade(key);
+        row.append(info, btn);
+        list.appendChild(row);
+      }
+    }
+
     const ADV_MISSIONS = [
       { text: '🎯 مهمة: التقط 15 جوهرة', reward: 25, progress: () => `${Math.min(15, adv.gemsCaught)}/15`, done: () => adv.gemsCaught >= 15 },
       { text: '🎯 مهمة: حقق سلسلة ×10', reward: 30, progress: () => `${Math.min(10, adv.maxCombo)}/10`, done: () => adv.maxCombo >= 10 },
       { text: '🎯 مهمة: اجمع 300 نقطة', reward: 50, progress: () => `${Math.min(300, Math.floor(adv.score))}/300`, done: () => adv.score >= 300 },
     ];
     const advFxActive = (k) => adv.elapsed < adv.fx[k];
+    // مولّد عشوائي ببذرة (نفس التساقط للمتسابقين) + مصدر موحد للأرقام
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const advRandom = () => adv.rng ? adv.rng() : Math.random();
     function advBanner(text, sec = 1.6) { adv.banner = text; adv.bannerUntil = adv.elapsed + sec; }
 
     // 🔊 مؤثرات صوتية مولّدة (WebAudio — بلا ملفات) بنغمة تصعد مع السلسلة
@@ -837,7 +944,7 @@
       const mult = Math.min(3, 1 + Math.floor(adv.combo / 10));
       const effects = [
         advFxActive('magnetUntil') ? `🧲 ${Math.ceil(adv.fx.magnetUntil - adv.elapsed)}ث` : '',
-        adv.fx.shield ? '🛡️' : '',
+        adv.fx.shield ? `🛡️×${Math.max(1, adv.shieldCharges)}` : '',
         advFxActive('slowUntil') ? `⏳ ${Math.ceil(adv.fx.slowUntil - adv.elapsed)}ث` : '',
         advFxActive('starUntil') ? `⭐ ${Math.ceil(adv.fx.starUntil - adv.elapsed)}ث` : '',
         advFxActive('feverUntil') ? `🌟 حمّى ${Math.ceil(adv.fx.feverUntil - adv.elapsed)}ث` : '',
@@ -856,32 +963,37 @@
     ];
     function spawnAdventureObject() {
       const { w } = advSize();
-      const roll = Math.random();
+      const roll = advRandom();
       let data;
       if (roll < 0.035) data = { type: 'golden', icon: '🌟💎', points: 50, hazard: false };
       else if (roll < 0.38) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
       else if (roll < 0.68) data = { type: 'coin', icon: '🪙', points: 5, hazard: false };
-      else if (roll < 0.78) { const p = ADV_POWERUPS[Math.floor(Math.random() * ADV_POWERUPS.length)]; data = { type: 'power', kind: p.kind, icon: p.icon, points: 0, hazard: false }; }
+      else if (roll < 0.78 + advUpLevel('luck') * 0.008) { const p = ADV_POWERUPS[Math.floor(advRandom() * ADV_POWERUPS.length)]; data = { type: 'power', kind: p.kind, icon: p.icon, points: 0, hazard: false }; }
       else if (roll < 0.92) data = { type: 'rock', icon: '🪨', points: 0, hazard: true };
       else data = { type: 'bomb', icon: '💣', points: -15, hazard: true };
-      const feverBoost = advFxActive('feverUntil') && !data.hazard && Math.random() < 0.5;
+      const feverBoost = advFxActive('feverUntil') && !data.hazard && advRandom() < 0.5;
       if (feverBoost) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
       adv.objects.push({
-        ...data, x: 24 + Math.random() * Math.max(20, w - 48), y: -25,
+        ...data, x: 24 + advRandom() * Math.max(20, w - 48), y: -25,
         r: data.type === 'golden' ? 22 : data.type === 'gem' ? 19 : 17,
-        vy: 125 + adv.elapsed * 2.6 + Math.random() * 75,
-        vx: (Math.random() - 0.5) * 28, spin: Math.random() * Math.PI, nearMissed: false,
+        vy: 125 + adv.elapsed * 2.6 + advRandom() * 75,
+        vx: (advRandom() - 0.5) * 28, spin: advRandom() * Math.PI, nearMissed: false,
       });
     }
 
-    function startAdventure() {
+    function startAdventure(mode = 'solo', seed = null) {
       resizeAdventureCanvas();
+      adv.mode = mode;
+      adv.rng = mode === 'race' && seed !== null ? mulberry32(seed) : null;
       const { w } = advSize();
-      Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, maxCombo: 0, lives: 3,
+      ADV.playerW = 78 + advUpLevel('cart') * 8; // 🛒 عربة أوسع حسب الترقية
+      adv.shieldCharges = advUpLevel('shield') >= 3 ? 2 : advUpLevel('shield') >= 1 ? 1 : 0;
+      Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, maxCombo: 0,
+        lives: 3 + advUpLevel('heart'),
         timeLeft: ADV.duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2, prevX: w / 2,
         elapsed: 0, spawnIn: 0, lastTs: performance.now(), caught: 0, missed: 0, gemsCaught: 0,
         missionIndex: 0, shake: 0, flash: 0, banner: '', bannerUntil: 0, phase: 0,
-        fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: false } });
+        fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: adv.shieldCharges > 0 } });
       advBanner('⛏️ اجمع الجواهر وتفادَ الخطر!', 1.6);
       try { adv.audio = adv.audio || new (window.AudioContext || window.webkitAudioContext)(); adv.audio.resume?.(); } catch (e) {}
       advBeep(660, 0.12, 'triangle', 0.06, 990);
@@ -915,6 +1027,11 @@
       adv.lastTs = ts;
       stepAdventure(dt);
       drawAdventure();
+      // بث تقدم السباق للخصم (10 مرات/ثانية كحد أقصى)
+      if (adv.mode === 'race' && race.inRace && ts - adv.raceLastSend > 100) {
+        adv.raceLastSend = ts;
+        raceSend({ type: 'progress', score: Math.floor(adv.score), lives: adv.lives, xRatio: adv.playerX / Math.max(1, advSize().w) });
+      }
       if (adv.running) adv.raf = requestAnimationFrame(adventureLoop);
     }
 
@@ -925,13 +1042,13 @@
       adv.timeLeft -= dt;
 
       // حركة لوحة المفاتيح
-      const speed = 420;
+      const speed = 420 + advUpLevel('speed') * 45;
       if (advKeys.ArrowLeft || advKeys.ArrowRight) {
         adv.targetX += ((advKeys.ArrowRight ? 1 : 0) - (advKeys.ArrowLeft ? 1 : 0)) * speed * dt;
       }
       adv.targetX = Math.max(ADV.playerW / 2, Math.min(w - ADV.playerW / 2, adv.targetX));
       adv.prevX = adv.playerX;
-      adv.playerX += (adv.targetX - adv.playerX) * Math.min(1, dt * 18);
+      adv.playerX += (adv.targetX - adv.playerX) * Math.min(1, dt * (18 + advUpLevel('speed') * 1.2));
       adv.shake = Math.max(0, adv.shake - dt);
       adv.flash = Math.max(0, adv.flash - dt);
 
@@ -946,14 +1063,15 @@
       // توليد عناصر أسرع تدريجياً (وأسرع في المرحلة الأخيرة)
       adv.spawnIn -= dt;
       const spawnEvery = Math.max(0.24, 0.68 - adv.elapsed * 0.006 - adv.phase * 0.05);
-      if (adv.spawnIn <= 0) { spawnAdventureObject(); adv.spawnIn = spawnEvery * (0.75 + Math.random() * 0.5); }
+      if (adv.spawnIn <= 0) { spawnAdventureObject(); adv.spawnIn = spawnEvery * (0.75 + advRandom() * 0.5); }
 
       const fallDt = dt * (advFxActive('slowUntil') ? 0.5 : 1); // ⏳ إبطاء زمني
       for (const obj of [...adv.objects]) {
         // 🧲 مغناطيس يجذب الكنوز نحو العربة
         if (advFxActive('magnetUntil') && !obj.hazard) {
           const dx = adv.playerX - obj.x;
-          if (Math.abs(dx) < 150 && obj.y > h - 190) obj.x += Math.max(-260 * fallDt, Math.min(260 * fallDt, dx * 6 * fallDt));
+          const magnetRadius = 150 + advUpLevel('magnet') * 25;
+          if (Math.abs(dx) < magnetRadius && obj.y > h - 190 - advUpLevel('magnet') * 12) obj.x += Math.max(-260 * fallDt, Math.min(260 * fallDt, dx * 6 * fallDt));
         }
         obj.y += obj.vy * fallDt;
         obj.x += obj.vx * fallDt;
@@ -994,9 +1112,9 @@
         magnet: '🧲 مغناطيس 8 ثوانٍ!', shield: '🛡️ درع يحميك مرة!', slow: '⏳ أبطأنا الزمن!',
         star: '⭐ نقاط مضاعفة 8 ثوانٍ!', heart: '❤️ قلب إضافي!',
       };
-      if (kind === 'magnet') adv.fx.magnetUntil = adv.elapsed + 8;
-      if (kind === 'shield') adv.fx.shield = true;
-      if (kind === 'slow') adv.fx.slowUntil = adv.elapsed + 5;
+      if (kind === 'magnet') adv.fx.magnetUntil = adv.elapsed + 8 + advUpLevel('magnet') * 1.5;
+      if (kind === 'shield') { adv.shieldCharges = Math.min(2, adv.shieldCharges + 1); adv.fx.shield = true; }
+      if (kind === 'slow') adv.fx.slowUntil = adv.elapsed + 5 + advUpLevel('clock');
       if (kind === 'star') adv.fx.starUntil = adv.elapsed + 8;
       if (kind === 'heart') adv.lives = Math.min(5, adv.lives + 1);
       adv.particles.push({ x, y: yTop, text: notes[kind], color: '#e879f9', life: 1 });
@@ -1010,7 +1128,8 @@
       if (obj.type === 'power') { applyAdventurePower(obj.kind, obj.x, yTop); haptic('success'); return; }
       if (obj.hazard) {
         if (adv.fx.shield) {
-          adv.fx.shield = false;
+          adv.shieldCharges = Math.max(0, adv.shieldCharges - 1);
+          adv.fx.shield = adv.shieldCharges > 0;
           adv.particles.push({ x: obj.x, y: yTop, text: '🛡️ أنقذك الدرع!', color: '#7dd3fc', life: 1 });
           advBeep(300, 0.12, 'square', 0.05, 500);
           haptic('success');
@@ -1084,6 +1203,24 @@
         advCtx.restore();
       }
 
+      // 👥 شبح الخصم في السباق المباشر
+      if (adv.mode === 'race' && race.inRace && race.opponent) {
+        const gx = race.opponent.xRatio * w;
+        advCtx.save();
+        advCtx.globalAlpha = 0.45;
+        advCtx.fillStyle = '#6366f1';
+        advCtx.beginPath();
+        advCtx.roundRect(gx - ADV.playerW / 2, playerY, ADV.playerW, ADV.playerH, 10);
+        advCtx.fill();
+        advCtx.font = '24px serif';
+        advCtx.fillText('🧑‍🚀', gx, playerY + 15);
+        advCtx.globalAlpha = 0.9;
+        advCtx.font = 'bold 10px Tajawal, sans-serif';
+        advCtx.fillStyle = '#c7d2fe';
+        advCtx.fillText(`${race.opponent.name} · ${Math.floor(race.opponent.score)}`, gx, playerY - 10);
+        advCtx.restore();
+      }
+
       // عربة المعدّن (تميل مع اتجاه الحركة + أيقونة درع عند تفعيله)
       const px = adv.playerX - ADV.playerW / 2;
       const tilt = Math.max(-0.16, Math.min(0.16, (adv.playerX - adv.prevX) * 0.03));
@@ -1134,7 +1271,9 @@
       adv.paused = false;
       cancelAnimationFrame(adv.raf);
       const finalScore = Math.floor(adv.score);
-      const reward = Math.min(100, Math.floor(finalScore / 5));
+      const inRace = adv.mode === 'race' && race.inRace;
+      const reward = inRace ? 0 : Math.min(100, Math.floor(finalScore / 5)); // السباق للمجد لا للذهب (حتى لا يُزرع)
+      if (inRace) raceSendFinish(finalScore);
       if (finalScore > adv.best) {
         adv.best = finalScore;
         try { localStorage.setItem('mining_adventure_best', String(adv.best)); } catch (e) {}
@@ -1151,8 +1290,13 @@
         `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>` +
         `🎯 التقطت ${adv.caught} · دقة ${accuracy}٪ · أعلى سلسلة ×${adv.maxCombo}<br>` +
         `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}`;
+      if (inRace) {
+        document.getElementById('game-overlay-title').innerText = '🏁 انتهى سباقك!';
+        document.getElementById('game-overlay-text').innerHTML =
+          `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة<br>بانتظار انتهاء الخصم لإعلان الفائز…`;
+      }
       const btn = document.getElementById('game-overlay-btn');
-      btn.innerText = '🔁 العب مرة أخرى';
+      btn.innerText = inRace ? '⏳ بانتظار الخصم…' : '🔁 العب مرة أخرى';
       btn.setAttribute('onclick', 'startAdventure()');
       overlay.style.display = 'flex';
       haptic(reward > 0 ? 'success' : 'error');
@@ -1178,6 +1322,122 @@
     window.addEventListener('keyup', (e) => { advKeys[e.key] = false; });
     window.addEventListener('resize', resizeAdventureCanvas);
     document.addEventListener('visibilitychange', () => { if (document.hidden && adv.running && !adv.paused) setAdventurePaused(true); });
+
+    // ================= ⚔️ عميل السباق المباشر (WebSocket) =================
+    const race = { ws: null, connecting: null, inRace: false, opponent: null, myId: null, finishedSent: false, countdownTimer: 0 };
+    const raceStatus = (text) => { const el = document.getElementById('race-status'); if (el) el.innerText = text; };
+    const raceSend = (obj) => { try { if (race.ws?.readyState === WebSocket.OPEN) race.ws.send(JSON.stringify(obj)); } catch (e) {} };
+    function raceSendFinish(score) {
+      if (race.finishedSent) return;
+      race.finishedSent = true;
+      raceSend({ type: 'finish', score });
+      raceSend({ type: 'progress', score, lives: adv.lives, xRatio: 0.5, finished: true });
+    }
+
+    function ensureRaceSocket() {
+      if (race.ws?.readyState === WebSocket.OPEN) return Promise.resolve();
+      if (race.connecting) return race.connecting;
+      race.connecting = new Promise((resolve, reject) => {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const auth = tg?.initData ? `initData=${encodeURIComponent(tg.initData)}` : `guest=${encodeURIComponent(guestId)}`;
+        const ws = new WebSocket(`${proto}//${location.host}/ws?${auth}`);
+        race.ws = ws;
+        ws.onopen = () => { race.connecting = null; resolve(); };
+        ws.onerror = () => { race.connecting = null; reject(new Error('ws')); };
+        ws.onclose = () => {
+          race.connecting = null;
+          if (race.inRace) { race.inRace = false; raceStatus('انقطع اتصال السباق'); }
+        };
+        ws.onmessage = (ev) => handleRaceMessage(JSON.parse(ev.data));
+      });
+      return race.connecting;
+    }
+
+    function handleRaceMessage(msg) {
+      if (msg.type === 'welcome') race.myId = msg.id;
+      if (msg.type === 'waiting') raceStatus('🎲 بانتظار خصم عشوائي… خلك جاهز!');
+      if (msg.type === 'room_created') raceStatus(`🔑 غرفتك جاهزة! أرسل الرمز «${msg.code}» لصديقك وخله يضغط دخول`);
+      if (msg.type === 'error') { raceStatus(`⚠️ ${msg.message}`); haptic('error'); }
+      if (msg.type === 'matched') {
+        race.opponent = { name: msg.opponent.name, score: 0, lives: 3, xRatio: 0.5 };
+        document.getElementById('race-opponent').innerText = `ضد: ${msg.opponent.name}`;
+        raceStatus(`تم إيجاد خصم: ${msg.opponent.name} — اضغط «أنا جاهز» وبيبدأ السباق بعد جاهزيته`);
+        const btn = document.getElementById('race-ready-btn');
+        btn.classList.remove('hidden'); btn.disabled = false; btn.innerText = '✅ أنا جاهز — ابدأ السباق';
+        haptic('success');
+      }
+      if (msg.type === 'start') {
+        race.inRace = true;
+        race.finishedSent = false;
+        race.opponent = { name: msg.opponent.name, score: 0, lives: 3, xRatio: 0.5 };
+        document.getElementById('race-ready-btn').classList.add('hidden');
+        const delay = Math.max(0, msg.startAt - Date.now());
+        raceStatus(`🏁 السباق يبدأ بعد ${Math.ceil(delay / 1000)} ثوانٍ… نفس الجواهر لك وله — الأعلى نقاطاً يفوز!`);
+        race.countdownTimer = setTimeout(() => {
+          switchTabSilent('play');
+          startAdventure('race', msg.seed);
+          advBanner(`⚔️ سباق ضد ${msg.opponent.name}!`, 2);
+        }, delay);
+      }
+      if (msg.type === 'opponent_progress' && race.opponent) {
+        race.opponent.score = msg.score; race.opponent.lives = msg.lives; race.opponent.xRatio = msg.xRatio;
+        document.getElementById('race-opponent').innerText = `الخصم: ${Math.floor(msg.score)} نقطة · ${'❤️'.repeat(Math.max(0, msg.lives))}`;
+      }
+      if (msg.type === 'opponent_finished') raceStatus('خصمك أنهى سباقه — أكمل بقوة!');
+      if (msg.type === 'opponent_left') {
+        race.inRace = false;
+        if (adv.running && adv.mode === 'race') endAdventureByForfeit();
+        else raceStatus('غادر الخصم الغرفة');
+      }
+      if (msg.type === 'room_closed') raceStatus('أُغلقت الغرفة — أنشئ سباقاً جديداً');
+      if (msg.type === 'result') {
+        race.inRace = false;
+        const mine = msg.results.find((r) => String(r.id) === String(race.myId));
+        const theirs = msg.results.find((r) => String(r.id) !== String(race.myId));
+        const won = msg.winnerId && String(msg.winnerId) === String(race.myId);
+        const draw = !msg.winnerId;
+        document.getElementById('game-overlay').style.display = 'flex';
+        document.getElementById('game-overlay-title').innerText = draw ? '🤝 تعادل!' : won ? '🏆 فزت بالسباق!' : '💀 فاز الخصم';
+        document.getElementById('game-overlay-text').innerHTML =
+          `أنت: <b class="text-amber-400">${mine?.score ?? 0}</b> — الخصم: <b class="text-indigo-300">${theirs?.score ?? 0}</b><br>${draw ? 'متقاربان جداً!' : won ? 'أداء أسطوري يا بطل ⛏️' : 'المرة الجاية ركّز على السلاسل والقدرات!'}`;
+        const btn = document.getElementById('game-overlay-btn');
+        btn.innerText = '🔁 العب فردياً';
+        btn.setAttribute('onclick', 'startAdventure()');
+        raceStatus(draw ? 'انتهى السباق بتعادل' : won ? '🏆 مبروك الفوز!' : 'انتهى السباق — جرّب مرة أخرى');
+        haptic(won || draw ? 'success' : 'error');
+      }
+    }
+
+    function endAdventureByForfeit() {
+      adv.running = false;
+      cancelAnimationFrame(adv.raf);
+      document.getElementById('game-overlay').style.display = 'flex';
+      document.getElementById('game-overlay-title').innerText = '🏆 فزت — غادر الخصم!';
+      document.getElementById('game-overlay-text').innerHTML = `نتيجتك عند الانسحاب: <b class="text-amber-400">${Math.floor(adv.score)}</b>`;
+      const btn = document.getElementById('game-overlay-btn');
+      btn.innerText = '🔁 العب فردياً';
+      btn.setAttribute('onclick', 'startAdventure()');
+      raceStatus('🏆 فزت بانسحاب الخصم');
+      haptic('success');
+      updateAdventureUI();
+    }
+
+    // تبديل تبويب بلا إيقاف المغامرة (نستخدمه عند بدء السباق)
+    function switchTabSilent(tabId) { if (!document.getElementById('tab-play').classList.contains('active')) switchTab(tabId); }
+
+    async function raceQuick() { try { raceStatus('جارٍ الاتصال…'); await ensureRaceSocket(); raceSend({ type: 'quick' }); } catch (e) { raceStatus('تعذر الاتصال بخادم السباقات'); } }
+    async function raceCreate() { try { raceStatus('جارٍ إنشاء الغرفة…'); await ensureRaceSocket(); raceSend({ type: 'create' }); } catch (e) { raceStatus('تعذر الاتصال بخادم السباقات'); } }
+    async function raceJoin() {
+      const code = document.getElementById('race-code-input').value.toUpperCase().trim();
+      if (code.length !== 4) { raceStatus('أدخل رمز غرفة من 4 أحرف'); return; }
+      try { await ensureRaceSocket(); raceSend({ type: 'join', code }); } catch (e) { raceStatus('تعذر الاتصال بخادم السباقات'); }
+    }
+    function raceReady() {
+      raceSend({ type: 'ready' });
+      const btn = document.getElementById('race-ready-btn');
+      btn.disabled = true; btn.innerText = '⏳ بانتظار جاهزية الخصم…';
+      raceStatus('أنت جاهز — بانتظار الخصم');
+    }
 
     // --- Upgrade Logic ---
     const UPGRADES = {
@@ -1235,7 +1495,7 @@
 
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
-      if (tabId === 'play') setTimeout(resizeAdventureCanvas, 30);
+      if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
       if (tabId === 'leaderboard') loadLeaderboard();
       if (tabId === 'arena') updateArenaUI();
       haptic('light');
@@ -1278,6 +1538,7 @@
     updateUI();
     updateArenaUI();
     updateAdventureUI();
+    updateAdvUpgradesUI();
     setTimeout(resizeAdventureCanvas, 50);
     bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
   </script>
