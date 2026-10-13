@@ -82,8 +82,34 @@
     </div>
   </div>
 
-  <!-- TAB 1: MINING (MAIN) -->
-  <main id="tab-mining" class="tab-content active flex-col items-center justify-center relative my-auto">
+  <!-- TAB 0: INTERACTIVE ADVENTURE GAME (الشاشة الرئيسية) -->
+  <main id="tab-play" class="tab-content active flex-col gap-2 flex-1 py-1 px-0.5">
+    <div class="grid grid-cols-4 gap-1.5 text-center">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الوقت</div><div id="adv-time" class="font-black text-sky-300 text-sm">60</div></div>
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">القلوب</div><div id="adv-lives" class="text-sm">❤️❤️❤️</div></div>
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الأفضل</div><div id="adv-best" class="font-black text-fuchsia-300 text-sm">0</div></div>
+    </div>
+
+    <div class="relative">
+      <canvas id="game-canvas" width="360" height="330" class="w-full h-[330px] rounded-2xl border border-amber-500/25 bg-[radial-gradient(circle_at_top,#312e81,#020617_70%)] touch-none select-none shadow-[0_0_35px_rgba(245,158,11,0.12)]"></canvas>
+      <div id="game-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center bg-slate-950/55 rounded-2xl backdrop-blur-[1px] p-4">
+        <div class="text-5xl">⛏️💎</div>
+        <h2 id="game-overlay-title" class="text-xl font-black">مغامرة المنجم</h2>
+        <p id="game-overlay-text" class="text-[11px] text-slate-300 leading-5">حرّك عربة المعدّن بإصبعك أو الأسهم.<br>التقط 💎 و🪙، وتفادَ 🪨 و💣 قبل انتهاء الوقت!</p>
+        <button id="game-overlay-btn" onclick="startAdventure()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black py-2.5 px-6 rounded-xl text-sm shadow-lg active:scale-95">▶ العب الآن</button>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between gap-2">
+      <button id="adv-pause-btn" onclick="toggleAdventurePause()" disabled class="bg-slate-800 disabled:opacity-40 font-bold py-2 px-4 rounded-xl text-xs active:scale-95">⏸ إيقاف</button>
+      <div id="adv-combo" class="flex-1 text-center text-xs font-black text-amber-300">حرّك العربة والتقط الجواهر!</div>
+      <div class="text-[10px] text-slate-500">الجائزة حتى 100 🪙</div>
+    </div>
+  </main>
+
+  <!-- TAB 1: MINING (QUICK CLICK) -->
+  <main id="tab-mining" class="tab-content flex-col items-center justify-center relative my-auto">
     <div id="click-area" class="relative flex items-center justify-center">
       <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none">
         <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-[0_0_50px_rgba(245,158,11,0.4)] border-4 border-yellow-200/40 pointer-events-none">
@@ -227,10 +253,14 @@
   </div>
 
   <!-- Bottom Navigation Bar -->
-  <nav class="grid grid-cols-5 gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
-    <button onclick="switchTab('mining')" id="nav-mining" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
+  <nav class="grid grid-cols-6 gap-1 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
+    <button onclick="switchTab('play')" id="nav-play" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
+      <span class="text-lg">🎮</span>
+      <span class="text-[9px] font-bold mt-0.5">اللعب</span>
+    </button>
+    <button onclick="switchTab('mining')" id="nav-mining" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
       <span class="text-lg">⛏️</span>
-      <span class="text-[11px] font-bold mt-0.5">تعدين</span>
+      <span class="text-[9px] font-bold mt-0.5">تعدين</span>
     </button>
     <button onclick="switchTab('shop')" id="nav-shop" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
       <span class="text-lg">🛒</span>
@@ -732,6 +762,263 @@
     document.getElementById('mine-btn').addEventListener('pointerdown', handleMine);
     document.addEventListener('contextmenu', (e) => e.preventDefault());
 
+    // ================= 🎮 لعبة مغامرة المنجم التفاعلية =================
+    const advCanvas = document.getElementById('game-canvas');
+    const advCtx = advCanvas.getContext('2d');
+    const ADV = { duration: 60, playerW: 78, playerH: 34 };
+    const adv = {
+      running: false, paused: false, score: 0, combo: 0, lives: 3, timeLeft: ADV.duration,
+      objects: [], particles: [], playerX: 180, targetX: 180, elapsed: 0, spawnIn: 0,
+      lastTs: 0, raf: 0, best: Number(localStorage.getItem('mining_adventure_best') || 0),
+    };
+    const advKeys = {};
+
+    function advSize() {
+      const rect = advCanvas.getBoundingClientRect();
+      return { w: rect.width || 360, h: rect.height || 330 };
+    }
+    function resizeAdventureCanvas() {
+      const rect = advCanvas.getBoundingClientRect();
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      advCanvas.width = Math.max(300, rect.width) * dpr;
+      advCanvas.height = Math.max(280, rect.height) * dpr;
+      advCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawAdventure();
+    }
+
+    function updateAdventureUI() {
+      document.getElementById('adv-score').innerText = Math.floor(adv.score);
+      document.getElementById('adv-time').innerText = Math.max(0, Math.ceil(adv.timeLeft));
+      document.getElementById('adv-lives').innerText = '❤️'.repeat(Math.max(0, adv.lives)) || '💀';
+      document.getElementById('adv-best').innerText = Math.floor(adv.best);
+      const mult = Math.min(3, 1 + Math.floor(adv.combo / 10));
+      document.getElementById('adv-combo').innerText = adv.running
+        ? (adv.combo >= 2 ? `🔥 سلسلة ×${adv.combo} — مضاعِف النقاط ×${mult}` : 'التقط الجواهر دون إسقاطها لبناء سلسلة!')
+        : 'حرّك العربة والتقط الجواهر!';
+      document.getElementById('adv-pause-btn').disabled = !adv.running;
+      document.getElementById('adv-pause-btn').innerText = adv.paused ? '▶ أكمال' : '⏸ إيقاف';
+    }
+
+    function spawnAdventureObject() {
+      const { w } = advSize();
+      const roll = Math.random();
+      const type = roll < 0.42 ? 'gem' : roll < 0.76 ? 'coin' : roll < 0.93 ? 'rock' : 'bomb';
+      const data = {
+        gem: { icon: '💎', points: 10, hazard: false },
+        coin: { icon: '🪙', points: 5, hazard: false },
+        rock: { icon: '🪨', points: 0, hazard: true },
+        bomb: { icon: '💣', points: -15, hazard: true },
+      }[type];
+      adv.objects.push({
+        ...data, type, x: 24 + Math.random() * Math.max(20, w - 48), y: -25,
+        r: type === 'gem' ? 19 : 17, vy: 125 + adv.elapsed * 2.6 + Math.random() * 75,
+        vx: (Math.random() - 0.5) * 28, spin: Math.random() * Math.PI,
+      });
+    }
+
+    function startAdventure() {
+      resizeAdventureCanvas();
+      const { w } = advSize();
+      Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, lives: 3,
+        timeLeft: ADV.duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2,
+        elapsed: 0, spawnIn: 0, lastTs: performance.now() });
+      document.getElementById('game-overlay').style.display = 'none';
+      cancelAnimationFrame(adv.raf);
+      adv.raf = requestAnimationFrame(adventureLoop);
+      haptic('success');
+      updateAdventureUI();
+    }
+
+    function toggleAdventurePause() {
+      if (!adv.running) return;
+      setAdventurePaused(!adv.paused);
+    }
+    function setAdventurePaused(paused) {
+      if (!adv.running) return;
+      adv.paused = paused;
+      const overlay = document.getElementById('game-overlay');
+      document.getElementById('game-overlay-title').innerText = paused ? '⏸ توقف مؤقت' : 'مغامرة المنجم';
+      document.getElementById('game-overlay-text').innerHTML = paused ? 'خذ نفساً… المغامرة بانتظارك.' : '';
+      document.getElementById('game-overlay-btn').innerText = paused ? '▶ أكمال اللعب' : '▶ العب الآن';
+      document.getElementById('game-overlay-btn').setAttribute('onclick', paused ? 'toggleAdventurePause()' : 'startAdventure()');
+      overlay.style.display = paused ? 'flex' : 'none';
+      if (!paused) { adv.lastTs = performance.now(); cancelAnimationFrame(adv.raf); adv.raf = requestAnimationFrame(adventureLoop); }
+      updateAdventureUI();
+    }
+
+    function adventureLoop(ts) {
+      if (!adv.running || adv.paused) return;
+      const dt = Math.min(0.033, (ts - adv.lastTs) / 1000 || 0.016);
+      adv.lastTs = ts;
+      stepAdventure(dt);
+      drawAdventure();
+      if (adv.running) adv.raf = requestAnimationFrame(adventureLoop);
+    }
+
+    function stepAdventure(dt) {
+      const { w, h } = advSize();
+      const playerY = h - 48;
+      adv.elapsed += dt;
+      adv.timeLeft -= dt;
+
+      // حركة لوحة المفاتيح
+      const speed = 420;
+      if (advKeys.ArrowLeft || advKeys.ArrowRight) {
+        adv.targetX += ((advKeys.ArrowRight ? 1 : 0) - (advKeys.ArrowLeft ? 1 : 0)) * speed * dt;
+      }
+      adv.targetX = Math.max(ADV.playerW / 2, Math.min(w - ADV.playerW / 2, adv.targetX));
+      adv.playerX += (adv.targetX - adv.playerX) * Math.min(1, dt * 18);
+
+      // توليد عناصر أسرع تدريجياً
+      adv.spawnIn -= dt;
+      const spawnEvery = Math.max(0.32, 0.68 - adv.elapsed * 0.006);
+      if (adv.spawnIn <= 0) { spawnAdventureObject(); adv.spawnIn = spawnEvery * (0.75 + Math.random() * 0.5); }
+
+      for (const obj of [...adv.objects]) {
+        obj.y += obj.vy * dt;
+        obj.x += obj.vx * dt;
+        obj.spin += dt * 2;
+        if (obj.x < obj.r || obj.x > w - obj.r) obj.vx *= -1;
+
+        const hitPlayer = obj.y + obj.r >= playerY && obj.y - obj.r <= playerY + ADV.playerH
+          && Math.abs(obj.x - adv.playerX) <= ADV.playerW / 2 + obj.r * 0.55;
+        if (hitPlayer) {
+          collectAdventureObject(obj);
+          adv.objects.splice(adv.objects.indexOf(obj), 1);
+          continue;
+        }
+        if (obj.y - obj.r > h) {
+          if (!obj.hazard && adv.combo > 0) adv.combo = 0; // إسقاط جوهرة يكسر السلسلة
+          adv.objects.splice(adv.objects.indexOf(obj), 1);
+        }
+      }
+
+      for (const p of [...adv.particles]) {
+        p.y -= 45 * dt; p.life -= dt;
+        if (p.life <= 0) adv.particles.splice(adv.particles.indexOf(p), 1);
+      }
+      updateAdventureUI();
+      if (adv.timeLeft <= 0 || adv.lives <= 0) endAdventure();
+    }
+
+    function collectAdventureObject(obj) {
+      const { h } = advSize();
+      if (obj.hazard) {
+        adv.lives -= 1;
+        adv.combo = 0;
+        if (obj.type === 'bomb') adv.score = Math.max(0, adv.score - 15);
+        adv.particles.push({ x: obj.x, y: h - 58, text: obj.type === 'bomb' ? '💥 -1 قلب' : '🪨 -1 قلب', color: '#f87171', life: 0.9 });
+        haptic('error');
+        if (navigator.vibrate) navigator.vibrate(80);
+      } else {
+        adv.combo += 1;
+        const mult = Math.min(3, 1 + Math.floor((adv.combo - 1) / 10));
+        const gained = obj.points * mult;
+        adv.score += gained;
+        adv.particles.push({ x: obj.x, y: h - 58, text: `+${gained}`, color: '#fbbf24', life: 0.8 });
+        haptic('light');
+      }
+    }
+
+    function drawAdventure() {
+      if (!advCtx) return;
+      const { w, h } = advSize();
+      const playerY = h - 48;
+      advCtx.clearRect(0, 0, w, h);
+      // نجوم/غبار المنجم
+      advCtx.fillStyle = 'rgba(251,191,36,0.16)';
+      for (let i = 0; i < 22; i++) {
+        const x = (i * 67 + 25) % w, y = (i * 41 + 18) % Math.max(40, h - 70);
+        advCtx.fillRect(x, y, 2, 2);
+      }
+      // أرضية المنجم
+      advCtx.fillStyle = '#1c1917';
+      advCtx.fillRect(0, h - 22, w, 22);
+      advCtx.fillStyle = '#f59e0b';
+      advCtx.fillRect(0, h - 22, w, 2);
+
+      // الأجسام المتساقطة
+      advCtx.textAlign = 'center'; advCtx.textBaseline = 'middle';
+      for (const obj of adv.objects) {
+        advCtx.save();
+        advCtx.translate(obj.x, obj.y);
+        advCtx.rotate(Math.sin(obj.spin) * 0.18);
+        advCtx.font = `${obj.r * 2}px serif`;
+        advCtx.fillText(obj.icon, 0, 0);
+        advCtx.restore();
+      }
+
+      // عربة المعدّن
+      const px = adv.playerX - ADV.playerW / 2;
+      const grad = advCtx.createLinearGradient(px, playerY, px + ADV.playerW, playerY + ADV.playerH);
+      grad.addColorStop(0, '#f59e0b'); grad.addColorStop(1, '#b45309');
+      advCtx.fillStyle = grad;
+      advCtx.beginPath();
+      advCtx.roundRect(px, playerY, ADV.playerW, ADV.playerH, 10);
+      advCtx.fill();
+      advCtx.font = '29px serif';
+      advCtx.fillText('⛏️', adv.playerX, playerY + 15);
+      advCtx.fillStyle = '#111827';
+      advCtx.beginPath(); advCtx.arc(px + 15, playerY + ADV.playerH + 5, 6, 0, Math.PI * 2); advCtx.fill();
+      advCtx.beginPath(); advCtx.arc(px + ADV.playerW - 15, playerY + ADV.playerH + 5, 6, 0, Math.PI * 2); advCtx.fill();
+
+      // نقاط عائمة
+      advCtx.font = 'black 15px Tajawal, sans-serif';
+      for (const p of adv.particles) {
+        advCtx.globalAlpha = Math.max(0, Math.min(1, p.life));
+        advCtx.fillStyle = p.color;
+        advCtx.fillText(p.text, p.x, p.y);
+      }
+      advCtx.globalAlpha = 1;
+    }
+
+    function endAdventure() {
+      if (!adv.running) return;
+      adv.running = false;
+      adv.paused = false;
+      cancelAnimationFrame(adv.raf);
+      const finalScore = Math.floor(adv.score);
+      const reward = Math.min(100, Math.floor(finalScore / 5));
+      if (finalScore > adv.best) {
+        adv.best = finalScore;
+        try { localStorage.setItem('mining_adventure_best', String(adv.best)); } catch (e) {}
+      }
+      if (reward > 0) {
+        state.gold += reward;
+        state.totalEarned += reward;
+      }
+      const overlay = document.getElementById('game-overlay');
+      document.getElementById('game-overlay-title').innerText = adv.lives <= 0 ? '💀 انتهت المغامرة!' : '⏰ انتهى الوقت!';
+      document.getElementById('game-overlay-text').innerHTML =
+        `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>أفضل نتيجة لك: ${Math.floor(adv.best)}`;
+      const btn = document.getElementById('game-overlay-btn');
+      btn.innerText = '🔁 العب مرة أخرى';
+      btn.setAttribute('onclick', 'startAdventure()');
+      overlay.style.display = 'flex';
+      haptic(reward > 0 ? 'success' : 'error');
+      updateUI();
+      save();
+      updateAdventureUI();
+      drawAdventure();
+    }
+
+    // تحكم باللمس/الفأرة على الكانفس
+    function moveAdventureTo(clientX) {
+      const rect = advCanvas.getBoundingClientRect();
+      adv.targetX = Math.max(ADV.playerW / 2, Math.min(rect.width - ADV.playerW / 2, clientX - rect.left));
+    }
+    advCanvas.addEventListener('pointerdown', (e) => { advCanvas.setPointerCapture?.(e.pointerId); moveAdventureTo(e.clientX); });
+    advCanvas.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') moveAdventureTo(e.clientX); });
+    window.addEventListener('keydown', (e) => {
+      if (!document.getElementById('tab-play').classList.contains('active')) return;
+      if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      advKeys[e.key] = true;
+      if (e.key === ' ' && !adv.running) startAdventure();
+    });
+    window.addEventListener('keyup', (e) => { advKeys[e.key] = false; });
+    window.addEventListener('resize', resizeAdventureCanvas);
+    document.addEventListener('visibilitychange', () => { if (document.hidden && adv.running && !adv.paused) setAdventurePaused(true); });
+
     // --- Upgrade Logic ---
     const UPGRADES = {
       click: { apply: () => { state.clickPower += 1; },      growth: 1.5 },
@@ -787,6 +1074,10 @@
       activeBtn.classList.remove('text-slate-400');
 
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
+      if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
+      if (tabId === 'play') setTimeout(resizeAdventureCanvas, 30);
+      if (tabId === 'leaderboard') loadLeaderboard();
+      if (tabId === 'arena') updateArenaUI();
       haptic('light');
     }
 
@@ -826,6 +1117,8 @@
 
     updateUI();
     updateArenaUI();
+    updateAdventureUI();
+    setTimeout(resizeAdventureCanvas, 50);
     bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
   </script>
 </body>
