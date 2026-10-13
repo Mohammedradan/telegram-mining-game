@@ -1,0 +1,23 @@
+# إعدادات النشر على Render (Blueprint) — تُقرأ تلقائياً عند إنشاء
+# Blueprint من هذا المستودع، أو تُستخدم مرجعاً للإعداد اليدوي.
+services:
+  - type: web
+    name: telegram-mining-game
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # القيم السرية/الخاصة بنشرك — تُدخل يدوياً في لوحة Render (غير محفوظة هنا)
+      - key: BOT_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: MAX_CLICKS_PER_SEC
+        value: "20"
+      # لا تضف ALLOW_GUEST_AUTH في الإنتاج — المصادقة بتيليجرام فقط عند وجود التوكن

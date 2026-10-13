@@ -1,0 +1,25 @@
+{
+  "name": "telegram-mining-clicker",
+  "version": "1.0.0",
+  "description": "Telegram Mini App Mining Game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "node --check server.js && node --check db.js",
+    "test": "node --test test/api.test.js test/multiplayer.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.23.1",
+    "telegraf": "^4.16.3",
+    "ws": "^8.22.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^13.0.3"
+  }
+}

@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mining Clicker Empire</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      font-family: 'Tajawal', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1e1b4b, #09090b);
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    .mining-btn { transition: transform 0.05s ease-out; }
+    .mining-btn:active { transform: scale(0.92); }
+
+    .floating-text {
+      position: absolute;
+      animation: floatUp 0.8s ease-out forwards;
+      pointer-events: none;
+      font-weight: 900;
+      color: #fbbf24;
+      text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+      z-index: 20;
+    }
+
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -80px) scale(1.3); }
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: flex; }
+
+    .buy-btn:disabled { opacity: .45; filter: grayscale(.4); }
+    .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
+  </style>
+</head>
+<body class="h-screen flex flex-col justify-between p-4 select-none">
+
+  <!-- Header Info -->
+  <header class="flex justify-between items-center bg-slate-900/80 border border-slate-800 p-3 rounded-2xl backdrop-blur-md">
+    <div class="flex items-center gap-2">
+      <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-xl shadow-lg shadow-amber-500/30">
+        ⛏️
+      </div>
+      <div>
+        <div id="username" class="font-bold text-sm text-slate-200">معدّن أسطوري</div>
+        <div class="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span><span id="profit-per-sec">+0</span> /ثانية</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/50 text-right">
+      <div class="text-[10px] text-slate-400">المستوى</div>
+      <div id="level-badge" class="font-black text-amber-400 text-sm">1 (مبتدئ)</div>
+    </div>
+  </header>
+
+  <!-- Total Balance Display -->
+  <div class="text-center mt-3">
+    <div class="text-slate-400 text-xs font-semibold mb-1">إجمالي الذهب المستخرج</div>
+    <div class="flex items-center justify-center gap-2">
+      <span class="text-4xl text-amber-400">🪙</span>
+      <span id="gold-counter" class="text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md">0</span>
+    </div>
+  </div>
+
+  <!-- TAB 0: INTERACTIVE ADVENTURE GAME (الشاشة الرئيسية) -->
+  <main id="tab-play" class="tab-content active flex-col gap-2 flex-1 py-1 px-0.5">
+    <div class="grid grid-cols-4 gap-1.5 text-center">
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الوقت</div><div id="adv-time" class="font-black text-sky-300 text-sm">60</div></div>
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">القلوب</div><div id="adv-lives" class="text-sm">❤️❤️❤️</div></div>
+      <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الأفضل</div><div id="adv-best" class="font-black text-fuchsia-300 text-sm">0</div></div>
+    </div>
+
+    <div class="grid grid-cols-4 gap-1.5" role="group" aria-label="وضع اللعب">
+      <button data-adv-mode="classic" onclick="setAdventureMode('classic')" class="adv-setting-btn bg-slate-900 border border-slate-700 rounded-xl py-1.5 text-[10px] font-black">⏱️ كلاسيك<br><span class="font-normal text-slate-400">60 ثانية</span></button>
+      <button data-adv-mode="blitz" onclick="setAdventureMode('blitz')" class="adv-setting-btn bg-slate-900 border border-slate-700 rounded-xl py-1.5 text-[10px] font-black">⚡ البرق<br><span class="font-normal text-slate-400">30 ثانية سريعة</span></button>
+      <button data-adv-mode="survival" onclick="setAdventureMode('survival')" class="adv-setting-btn bg-slate-900 border border-slate-700 rounded-xl py-1.5 text-[10px] font-black">💀 البقاء<br><span class="font-normal text-slate-400">حتى آخر قلب</span></button>
+      <button data-adv-mode="boss" onclick="setAdventureMode('boss')" class="adv-setting-btn bg-slate-900 border border-red-900 rounded-xl py-1.5 text-[10px] font-black">👹 الزعيم<br><span class="font-normal text-slate-400">اهزمه وخذ كنزه</span></button>
+    </div>
+    <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="الصعوبة">
+      <button data-adv-diff="easy" onclick="setAdventureDifficulty('easy')" class="adv-setting-btn bg-slate-900 border border-slate-700 rounded-xl py-1 text-[10px] font-black">🌱 سهل</button>
+      <button data-adv-diff="normal" onclick="setAdventureDifficulty('normal')" class="adv-setting-btn bg-slate-900 border border-slate-700 rounded-xl py-1 text-[10px] font-black">⛏️ عادي</button>
+      <button data-adv-diff="hard" onclick="setAdventureDifficulty('hard')" class="adv-setting-btn bg-slate-900 border border-slate-700 rounded-xl py-1 text-[10px] font-black">🔥 صعب · نقاط أكثر</button>
+    </div>
+
+    <div id="adv-mission" class="text-center text-[11px] font-bold text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl py-1.5">🎯 مهمة: التقط 15 جوهرة — مكافأة +25 نقطة</div>
+
+    <div class="relative">
+      <canvas id="game-canvas" width="360" height="330" class="w-full h-[330px] rounded-2xl border border-amber-500/25 bg-[radial-gradient(circle_at_top,#312e81,#020617_70%)] touch-none select-none shadow-[0_0_35px_rgba(245,158,11,0.12)]"></canvas>
+      <div id="game-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center bg-slate-950/55 rounded-2xl backdrop-blur-[1px] p-4">
+        <div class="text-5xl">⛏️💎</div>
+        <h2 id="game-overlay-title" class="text-xl font-black">مغامرة المنجم</h2>
+        <p id="game-overlay-text" class="text-[11px] text-slate-300 leading-5">حرّك عربة المعدّن بإصبعك أو الأسهم.<br>التقط 💎 و🪙، وتفادَ 🪨 و💣، واجمع القدرات: 🧲 مغناطيس · 🛡️ درع · ⏳ إبطاء · ⭐ نقاط مضاعفة · ❤️ قلب إضافي</p>
+        <button id="game-overlay-btn" onclick="startAdventure()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black py-2.5 px-6 rounded-xl text-sm shadow-lg active:scale-95">▶ العب الآن</button>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between gap-2">
+      <button id="adv-pause-btn" onclick="toggleAdventurePause()" disabled class="bg-slate-800 disabled:opacity-40 font-bold py-2 px-4 rounded-xl text-xs active:scale-95">⏸ إيقاف</button>
+      <button id="adv-skill-btn" onclick="useAdventureSkill()" disabled class="bg-red-600 disabled:opacity-40 font-black py-2 px-3 rounded-xl text-xs active:scale-95">🧨 ×1</button>
+      <button id="adv-boss-btn" onclick="bossAttack()" disabled class="hidden bg-purple-700 disabled:opacity-40 font-black py-2 px-3 rounded-xl text-xs active:scale-95">🎯 هجوم 0/20</button>
+      <button id="adv-mute-btn" onclick="toggleAdventureMute()" class="bg-slate-800 font-bold py-2 px-3 rounded-xl text-xs active:scale-95">🔊</button>
+      <div id="adv-combo" class="flex-1 text-center text-xs font-black text-amber-300">حرّك العربة والتقط الجواهر!</div>
+      <div class="text-[10px] text-slate-500">الجائزة حتى 100 🪙</div>
+    </div>
+
+    <!-- ⚔️ سباق مباشر ضد لاعب آخر -->
+    <div class="bg-slate-900/90 border border-indigo-800/50 rounded-xl p-2.5">
+      <div class="flex justify-between items-center mb-1.5">
+        <span class="font-black text-xs">⚔️ سباق مباشر ضد لاعب</span>
+        <span id="race-opponent" class="text-[10px] text-indigo-300"></span>
+      </div>
+      <div id="race-status" class="text-[11px] text-slate-300 mb-2">العب ضد صديق أو لاعب عشوائي بنفس تساقط الجواهر — الأعلى نقاطاً يفوز!</div>
+      <div class="flex gap-1.5">
+        <button onclick="raceQuick()" class="flex-1 bg-indigo-600 font-bold py-2 rounded-lg text-[11px] active:scale-95">🎲 خصم عشوائي</button>
+        <button onclick="raceCreate()" class="flex-1 bg-slate-800 font-bold py-2 rounded-lg text-[11px] active:scale-95">🔑 إنشاء غرفة</button>
+        <input id="race-code-input" maxlength="4" placeholder="رمز" class="w-16 bg-slate-950 border border-slate-700 rounded-lg text-center text-[11px] font-black uppercase" dir="ltr">
+        <button onclick="raceJoin()" class="bg-slate-800 font-bold py-2 px-3 rounded-lg text-[11px] active:scale-95">دخول</button>
+      </div>
+      <button id="race-ready-btn" onclick="raceReady()" disabled class="hidden w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 font-black py-2 rounded-lg text-xs active:scale-95">✅ أنا جاهز — ابدأ السباق</button>
+    </div>
+
+    <!-- 🛠️ ترقيات المغامرة الدائمة -->
+    <details class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-2.5" open>
+      <summary class="font-black text-xs cursor-pointer">🛠️ ترقيات المغامرة الدائمة — قوِّ قدراتك بالذهب</summary>
+      <div id="adv-upgrades-list" class="flex flex-col gap-1.5 mt-2"></div>
+    </details>
+
+    <!-- 🎨 أشكال العربة -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+      <div class="font-black text-xs mb-1.5">🎨 شكل العربة — تُفتح بأفضل نتيجة</div>
+      <div id="adv-skins" class="grid grid-cols-4 gap-1.5"></div>
+    </div>
+
+    <!-- 🏅 الإنجازات -->
+    <details class="bg-slate-900/90 border border-yellow-800/40 rounded-xl p-2.5">
+      <summary class="font-black text-xs cursor-pointer">🏅 الإنجازات والمكافآت</summary>
+      <div id="adv-achievements" class="flex flex-col gap-1.5 mt-2"></div>
+    </details>
+  </main>
+
+  <!-- TAB 1: MINING (QUICK CLICK) -->
+  <main id="tab-mining" class="tab-content flex-col items-center justify-center relative my-auto">
+    <div id="click-area" class="relative flex items-center justify-center">
+      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none">
+        <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-[0_0_50px_rgba(245,158,11,0.4)] border-4 border-yellow-200/40 pointer-events-none">
+          <span class="text-7xl sm:text-8xl drop-shadow-2xl">💎</span>
+        </div>
+      </button>
+    </div>
+    <p id="tap-hint" class="text-xs text-slate-500 mt-3">اضغط على الجوهرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
+  </main>
+
+  <!-- TAB 2: UPGRADES / SHOP -->
+  <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 overflow-y-auto max-h-[60vh] py-2 px-1">
+    <h2 class="text-lg font-bold text-slate-200 mb-1">ترقية المعدات والمعدنين</h2>
+
+    <!-- Upgrade 1: Click Power -->
+    <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl bg-slate-800 p-2 rounded-xl">🔨</div>
+        <div>
+          <div class="font-bold text-sm">فأس فولاذي <span id="owned-click" class="text-[10px] text-amber-400 font-black"></span></div>
+          <div class="text-xs text-slate-400">+1 لكل نقرة (الحالي: <span id="current-click-power">1</span>)</div>
+        </div>
+      </div>
+      <button onclick="buyUpgrade('click')" id="btn-upgrade-click" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
+        <span>🪙</span> <span id="cost-upgrade-click">50</span>
+      </button>
+    </div>
+
+    <!-- Upgrade 2: Auto Miner -->
+    <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl bg-slate-800 p-2 rounded-xl">🤖</div>
+        <div>
+          <div class="font-bold text-sm">عامل آلي <span id="owned-bot" class="text-[10px] text-amber-400 font-black"></span></div>
+          <div class="text-xs text-slate-400">+5 ذهب/ثانية</div>
+        </div>
+      </div>
+      <button onclick="buyUpgrade('bot')" id="btn-upgrade-bot" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
+        <span>🪙</span> <span id="cost-upgrade-bot">200</span>
+      </button>
+    </div>
+
+    <!-- Upgrade 3: Mining Rig -->
+    <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl bg-slate-800 p-2 rounded-xl">⚡</div>
+        <div>
+          <div class="font-bold text-sm">منصة تعدين عملاقة <span id="owned-rig" class="text-[10px] text-amber-400 font-black"></span></div>
+          <div class="text-xs text-slate-400">+25 ذهب/ثانية</div>
+        </div>
+      </div>
+      <button onclick="buyUpgrade('rig')" id="btn-upgrade-rig" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
+        <span>🪙</span> <span id="cost-upgrade-rig">1000</span>
+      </button>
+    </div>
+
+    <button onclick="resetGame()" class="mt-2 text-[11px] text-slate-500 hover:text-red-400 underline self-center">إعادة تعيين التقدم</button>
+  </main>
+
+  <!-- TAB 3: FRIENDS / EARN -->
+  <main id="tab-friends" class="tab-content flex-col items-center justify-center text-center gap-4 flex-1">
+    <div class="text-5xl">🎁</div>
+    <div>
+      <h2 class="text-xl font-bold mb-1">ادعُ أصدقاءك واكسب!</h2>
+      <p class="text-xs text-slate-400 max-w-xs mx-auto">احصل على 1,000 قطعة نقدية فورية لكل صديق ينضم عن طريق رابطك الخاص ويفتح اللعبة.</p>
+      <div class="flex gap-2 justify-center mt-1">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2"><div class="text-[10px] text-slate-400">أصدقاء انضموا</div><div id="ref-count" class="font-black text-amber-400">0</div></div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2"><div class="text-[10px] text-slate-400">أرباح الدعوات</div><div class="font-black text-amber-400">🪙 <span id="ref-earnings">0</span></div></div>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-2">رابطك: <span id="ref-link-preview" dir="ltr" class="text-slate-300 break-all"></span></p>
+    </div>
+    <button onclick="shareReferral()" class="w-full max-w-xs bg-gradient-to-r from-blue-500 to-indigo-600 font-bold py-3 px-4 rounded-xl text-sm shadow-lg shadow-indigo-500/30 active:scale-95">
+      📋 نسخ رابط الدعوة
+    </button>
+  </main>
+
+  <!-- TAB 4: LEADERBOARD -->
+  <main id="tab-leaderboard" class="tab-content flex-col gap-2 flex-1 overflow-y-auto max-h-[62vh] py-2 px-1">
+    <div class="flex justify-between items-center">
+      <h2 class="text-lg font-bold text-slate-200">🏆 لوحة الصدارة</h2>
+      <button onclick="loadLeaderboard()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg font-bold">↻ تحديث</button>
+    </div>
+    <div id="leaderboard-list" class="flex flex-col gap-2">
+      <p class="text-xs text-slate-500 text-center py-6">جارٍ التحميل…</p>
+    </div>
+    <h2 class="text-lg font-bold text-slate-200 mt-4">🏆 بطولة سباقات الأسبوع <span id="race-week" class="text-[10px] text-slate-400"></span></h2>
+    <p class="text-[10px] text-slate-500">ترتيب المتسابقين هذا الأسبوع — انتصارات أكثر، ثم أفضل نتيجة. افُز بسباقات ⚔️ لتصعد هنا!</p>
+    <div id="race-leaderboard-list" class="flex flex-col gap-2">
+      <p class="text-xs text-slate-500 text-center py-4">لا سباقات بعد هذا الأسبوع — كن أول بطل!</p>
+    </div>
+  </main>
+
+  <!-- TAB 5: ARENA (تجريبي) -->
+  <main id="tab-arena" class="tab-content flex-col gap-3 flex-1 overflow-y-auto max-h-[64vh] py-2 px-1">
+    <div class="text-center">
+      <h2 class="text-lg font-bold text-slate-200">⚔️ ساحة القتال <span class="text-[10px] text-fuchsia-400">تجريبي</span></h2>
+      <p class="text-[11px] text-slate-400">قاتل الخصم الآلي دوراً بدور — الفائز يحصل على <b class="text-amber-400">+50 🪙</b> · سجلّك: <span id="arena-record">0 فوز · 0 خسارة</span></p>
+    </div>
+
+    <!-- الخصم -->
+    <div class="bg-slate-900/90 border border-red-900/50 p-3 rounded-xl">
+      <div class="flex justify-between items-center mb-1">
+        <span id="arena-enemy-name" class="font-bold text-sm">🤖 روبوت المنقب</span>
+        <span id="arena-enemy-status" class="text-[10px] text-slate-400"></span>
+      </div>
+      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
+      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
+      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+    </div>
+
+    <div id="arena-turn" class="text-center text-xs font-black text-amber-400">اضغط «بدء مباراة» للقتال</div>
+
+    <!-- أنت -->
+    <div class="bg-slate-900/90 border border-emerald-900/50 p-3 rounded-xl">
+      <div class="flex justify-between items-center mb-1">
+        <span class="font-bold text-sm">⛏️ أنت</span>
+        <span id="arena-player-status" class="text-[10px] text-slate-400"></span>
+      </div>
+      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
+      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
+      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+    </div>
+
+    <!-- الحركات -->
+    <div class="grid grid-cols-4 gap-2">
+      <button id="arena-btn-attack" onclick="arenaAction('ATTACK')" disabled class="arena-btn bg-red-500/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⚔️ هجوم<br><span class="text-[9px] font-normal">3⚡ · ضرر 10-15</span></button>
+      <button id="arena-btn-defend" onclick="arenaAction('DEFEND')" disabled class="arena-btn bg-sky-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">🛡️ دفاع<br><span class="text-[9px] font-normal">1⚡ · ضرر وارد −50%</span></button>
+      <button id="arena-btn-heal" onclick="arenaAction('HEAL')" disabled class="arena-btn bg-emerald-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">💚 علاج<br><span class="text-[9px] font-normal">4⚡ · ‎+20❤️</span></button>
+      <button id="arena-btn-wait" onclick="arenaAction('WAIT')" disabled class="arena-btn bg-slate-700 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⏳ انتظار<br><span class="text-[9px] font-normal">‎+3⚡</span></button>
+    </div>
+
+    <button id="arena-start-btn" onclick="startBattle()" class="w-full bg-gradient-to-r from-fuchsia-500 to-purple-600 font-bold py-3 rounded-xl text-sm shadow-lg active:scale-95">🚀 بدء مباراة</button>
+
+    <div id="arena-log" class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-[11px] leading-6 text-slate-300 min-h-[96px]">سجل المباراة سيظهر هنا…</div>
+  </main>
+
+  <!-- Energy Section (Only on Mining Tab) -->
+  <div id="energy-container" class="w-full mb-3">
+    <div class="flex justify-between items-center text-xs font-bold text-slate-400 mb-1 px-1">
+      <span class="flex items-center gap-1">⚡ الطاقة</span>
+      <span><span id="energy-counter">1000</span> / <span id="max-energy">1000</span></span>
+    </div>
+    <div class="w-full h-3 bg-slate-800/90 rounded-full border border-slate-700/50 overflow-hidden p-[1px]">
+      <div id="energy-bar" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 rounded-full transition-all duration-200" style="width: 100%;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="grid grid-cols-6 gap-1 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
+    <button onclick="switchTab('play')" id="nav-play" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
+      <span class="text-lg">🎮</span>
+      <span class="text-[9px] font-bold mt-0.5">اللعب</span>
+    </button>
+    <button onclick="switchTab('mining')" id="nav-mining" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">⛏️</span>
+      <span class="text-[9px] font-bold mt-0.5">تعدين</span>
+    </button>
+    <button onclick="switchTab('shop')" id="nav-shop" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">🛒</span>
+      <span class="text-[11px] font-bold mt-0.5">ترقيات</span>
+    </button>
+    <button onclick="switchTab('friends')" id="nav-friends" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">👥</span>
+      <span class="text-[10px] font-bold mt-0.5">الأصدقاء</span>
+    </button>
+    <button onclick="switchTab('leaderboard')" id="nav-leaderboard" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">🏆</span>
+      <span class="text-[10px] font-bold mt-0.5">الصدارة</span>
+    </button>
+    <button onclick="switchTab('arena')" id="nav-arena" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">⚔️</span>
+      <span class="text-[10px] font-bold mt-0.5">الساحة</span>
+    </button>
+  </nav>
+
+  <!-- Game Logic Script -->
+  <script>
+    // --- State Management ---
+    const STORAGE_KEY = 'mining_game_state';
+    const DEFAULT_STATE = {
+      gold: 0,
+      totalEarned: 0,        // للمستوى — لا ينقص عند الشراء
+      clickPower: 1,
+      passiveIncome: 0,
+      energy: 1000,
+      maxEnergy: 1000,
+      owned: { click: 0, bot: 0, rig: 0 },
+      costs: { click: 50, bot: 200, rig: 1000 },
+      adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
+      boostUntil: 0,
+      boostCooldownUntil: 0,
+      dailyLastClaim: null,
+      dailyStreak: 0,
+      lastSeen: Date.now()
+    };
+
+    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades } };
+
+    let localOfflineGain = 0;
+
+    // Load Saved Game
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved) {
+        state = {
+          ...DEFAULT_STATE,
+          ...saved,
+          costs: { ...DEFAULT_STATE.costs, ...(saved.costs || {}) },
+          owned: { ...DEFAULT_STATE.owned, ...(saved.owned || {}) },
+          adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(saved.adventureUpgrades || {}) }
+        };
+        // ترحيل الحفظ القديم: إن لم يوجد totalEarned اعتبر الرصيد الحالي هو المجموع
+        if (!saved.totalEarned) state.totalEarned = Math.max(saved.gold || 0, (state.clickPower - 1) * 50 + state.passiveIncome * 20);
+        // أرباح أثناء الغياب (حتى 8 ساعات)
+        const elapsedSec = Math.max(0, (Date.now() - (saved.lastSeen || Date.now())) / 1000);
+        const offlineGain = Math.min(elapsedSec, 8 * 3600) * state.passiveIncome;
+        if (offlineGain >= 1) {
+          state.gold += offlineGain;
+          state.totalEarned += offlineGain;
+          setTimeout(() => alert(`💤 أثناء غيابك عدّن عمالك ${Math.floor(offlineGain).toLocaleString()} 🪙`), 400);
+        }
+        // تجديد الطاقة أثناء الغياب (3/ثانية)
+        state.energy = Math.min(state.maxEnergy, state.energy + elapsedSec * 3);
+      }
+    } catch (e) { /* حفظ تالف — نبدأ من جديد */ }
+
+    // Init Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      if (tg.initDataUnsafe?.user?.first_name) {
+        document.getElementById('username').innerText = tg.initDataUnsafe.user.first_name;
+      }
+    }
+
+    // --- DOM Elements ---
+    const goldCounter = document.getElementById('gold-counter');
+    const energyCounter = document.getElementById('energy-counter');
+    const energyBar = document.getElementById('energy-bar');
+    const profitCounter = document.getElementById('profit-per-sec');
+    const levelBadge = document.getElementById('level-badge');
+    const clickArea = document.getElementById('click-area');
+    const fmt = (n) => Math.floor(n).toLocaleString('en-US');
+
+    let saveQueued = false;
+    function save() {
+      syncDirty = true;
+      if (saveQueued) return;
+      saveQueued = true;
+      requestAnimationFrame(() => {
+        saveQueued = false;
+        state.lastSeen = Date.now();
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+      });
+    }
+    window.addEventListener('beforeunload', () => {
+      state.lastSeen = Date.now();
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveToServer(); });
+
+    // --- المزامنة مع الخادم (حفظ سحابي + دعوات + صدارة) ---
+    let serverMode = false;
+    let syncDirty = false;
+    let profile = null;
+    let myId = null;
+    let guestId = localStorage.getItem('mining_guest_id');
+    if (!guestId) {
+      guestId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { localStorage.setItem('mining_guest_id', guestId); } catch (e) {}
+    }
+
+    function authHeaders() {
+      const h = { 'Content-Type': 'application/json' };
+      if (tg?.initData) h['X-Telegram-Init-Data'] = tg.initData;
+      else h['X-Guest-Id'] = guestId;
+      return h;
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status, data });
+      return data;
+    }
+
+    async function saveToServer(isMigrate = false) {
+      if (!serverMode || (!syncDirty && !isMigrate)) return;
+      syncDirty = false;
+      try {
+        const data = await api('/api/save', { method: 'POST', body: JSON.stringify({ state, migrate: isMigrate === true }) });
+        if ((data.corrected || data.serverCreditsApplied > 0) && data.state) {
+          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(data.state.adventureUpgrades || {}) } };
+          if (data.corrected) document.getElementById('sync-status').innerText = '🛡️ صحّح الخادم حفظاً غير متسق';
+          updateUI();
+          if (typeof updateAdvUpgradesUI === 'function') updateAdvUpgradesUI();
+          save();
+        }
+      } catch (e) { syncDirty = true; }
+    }
+    setInterval(saveToServer, 5000);
+
+    async function bootstrap() {
+      try {
+        const startParam = tg?.initDataUnsafe?.start_param || new URLSearchParams(location.search).get('ref') || '';
+        const data = await api(`/api/me${startParam ? `?ref=${encodeURIComponent(startParam)}` : ''}`);
+        profile = data;
+        serverMode = true;
+        myId = String(data.user.id);
+        if (data.user.name && data.user.name !== 'ضيف') document.getElementById('username').innerText = data.user.name;
+        document.getElementById('sync-status').innerText = '☁️ محفوظ على الخادم';
+        document.getElementById('ref-link-preview').innerText = referralUrl();
+
+        if (data.isNew && state.totalEarned > (data.state?.totalEarned || 0)) {
+          // أول دخول من تيليجرام ولديه تقدم محلي أقدم — نرحّله للخادم بدل فقدانه
+          syncDirty = true;
+          await saveToServer(true);
+        } else if (data.state) {
+          // أرباح غياب محسوبة من آخر حفظ على الخادم (نطرح ما حُسب محلياً لمنع التكرار)
+          const elapsedSec = Math.max(0, (Date.now() - (data.state.lastSeen || Date.now())) / 1000);
+          const serverOffline = Math.min(elapsedSec, 8 * 3600) * (data.state.passiveIncome || 0);
+          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(data.state.adventureUpgrades || {}) } };
+          if (serverOffline > localOfflineGain + 1) {
+            const diff = serverOffline - localOfflineGain;
+            state.gold += diff;
+            state.totalEarned += diff;
+          }
+          save();
+        }
+        updateUI();
+        updateAdvUpgradesUI();
+      } catch (e) {
+        serverMode = false; // نكمل بالحفظ المحلي (متصفح بدون خادم/توكن)
+      }
+    }
+
+    // ================= ⚔️ ساحة القتال (تجريبي — قتال محلي ضد خصم آلي) =================
+    const ARENA = { maxHp: 100, maxEnergy: 10, regen: 2, winReward: 50, maxRounds: 30,
+      costs: { ATTACK: 3, DEFEND: 1, HEAL: 4, WAIT: 0 } };
+    let battle = null;
+    let arenaRecord = { wins: 0, losses: 0 };
+    try { arenaRecord = { ...arenaRecord, ...JSON.parse(localStorage.getItem('mining_arena_record') || '{}') }; } catch (e) {}
+    const saveArenaRecord = () => { try { localStorage.setItem('mining_arena_record', JSON.stringify(arenaRecord)); } catch (e) {} };
+    const rand = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
+
+    function arenaLog(msg) {
+      const el = document.getElementById('arena-log');
+      const line = document.createElement('div');
+      line.textContent = msg;
+      el.prepend(line);
+      while (el.children.length > 6) el.lastChild.remove();
+    }
+
+    function playerLevel() { return Math.floor(state.totalEarned / 5000) + 1; }
+
+    function startBattle() {
+      const lvl = playerLevel();
+      battle = {
+        active: true, busy: false, round: 1,
+        player: { hp: ARENA.maxHp, maxHp: ARENA.maxHp, energy: ARENA.maxEnergy, defending: false },
+        enemy: { hp: 80 + lvl * 10, maxHp: 80 + lvl * 10, energy: ARENA.maxEnergy, defending: false, level: lvl },
+      };
+      document.getElementById('arena-log').innerHTML = '';
+      arenaLog(`⚔️ بدأت مباراة ضد روبوت المنقب (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
+      arenaLog('اختر حركتك الأولى!');
+      haptic('success');
+      updateArenaUI();
+    }
+
+    function updateArenaUI() {
+      const p = battle?.player || { hp: ARENA.maxHp, energy: ARENA.maxEnergy, defending: false };
+      const e = battle?.enemy || { hp: 100, maxHp: 100, energy: ARENA.maxEnergy, defending: false, level: 1 };
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = `${Math.max(0, v)}%`; };
+      const txt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+      set('arena-player-hp', p.hp / ARENA.maxHp * 100);
+      set('arena-player-energy', p.energy / ARENA.maxEnergy * 100);
+      set('arena-enemy-hp', e.hp / e.maxHp * 100);
+      set('arena-enemy-energy', e.energy / ARENA.maxEnergy * 100);
+      txt('arena-player-hp-text', `${Math.max(0, Math.ceil(p.hp))}/${ARENA.maxHp}`);
+      txt('arena-player-energy-text', `${p.energy}/${ARENA.maxEnergy}`);
+      txt('arena-enemy-hp-text', `${Math.max(0, Math.ceil(e.hp))}/${e.maxHp}`);
+      txt('arena-enemy-energy-text', `${e.energy}/${ARENA.maxEnergy}`);
+      txt('arena-enemy-name', `🤖 روبوت المنقب · مستوى ${e.level}`);
+      txt('arena-player-status', p.defending ? '🛡️ دفاع مفعّل' : '');
+      txt('arena-enemy-status', e.defending ? '🛡️ دفاع مفعّل' : '');
+      txt('arena-record', `${arenaRecord.wins} فوز · ${arenaRecord.losses} خسارة`);
+      txt('arena-turn', !battle?.active ? (battle ? 'انتهت المباراة — ابدأ واحدة جديدة' : 'اضغط «بدء مباراة» للقتال')
+        : battle.busy ? '⏳ دور الخصم…' : `🎯 الجولة ${battle.round} — دورك! اختر حركة`);
+      document.getElementById('arena-start-btn').innerText = battle?.active ? '🔄 إعادة بدء المباراة' : '🚀 بدء مباراة';
+      for (const [key, action] of [['attack', 'ATTACK'], ['defend', 'DEFEND'], ['heal', 'HEAL'], ['wait', 'WAIT']]) {
+        const btn = document.getElementById(`arena-btn-${key}`);
+        btn.disabled = !battle?.active || battle.busy || p.energy < ARENA.costs[action]
+          || (action === 'HEAL' && p.hp >= ARENA.maxHp);
+      }
+    }
+
+    // تطبيق حركة على مقاتل ضد آخر، تُرجع وصفاً نصياً
+    function applyMove(actor, target, action, actorName) {
+      switch (action) {
+        case 'ATTACK': {
+          actor.energy -= 3;
+          let dmg = rand(10, 15);
+          if (target.defending) { dmg = Math.round(dmg / 2); target.defending = false; }
+          target.hp -= dmg;
+          return `⚔️ ${actorName} هاجم وأصاب بـ ${dmg} ضرر`;
+        }
+        case 'DEFEND': actor.energy -= 1; actor.defending = true; return `🛡️ ${actorName} تدرّع (الضرر القادم −50%)`;
+        case 'HEAL': {
+          actor.energy -= 4;
+          const healed = Math.min(20, ARENA.maxHp - actor.hp);
+          actor.hp += healed;
+          return `💚 ${actorName} عالج نفسه +${healed}`;
+        }
+        default: actor.energy = Math.min(ARENA.maxEnergy, actor.energy + 3); return `⏳ ${actorName} انتظر وشحن +3 طاقة`;
+      }
+    }
+
+    // 🧠 قرارات الخصم الآلي — نفس منطق برومبت الـArena
+    function enemyDecide() {
+      const e = battle.enemy, p = battle.player;
+      if (e.hp <= e.maxHp * 0.35 && e.energy >= 4 && Math.random() < 0.7) return 'HEAL'; // أولوية البقاء
+      if (e.energy < 3) return Math.random() < 0.8 ? 'WAIT' : 'DEFEND';                    // إدارة الطاقة
+      if (p.hp <= 15) return 'ATTACK';                                                     // إنهاء الخصم الضعيف
+      if (e.hp <= e.maxHp * 0.5 && p.energy >= 3 && e.energy >= 1 && Math.random() < 0.3) return 'DEFEND'; // توقّع هجومك
+      return Math.random() < 0.75 ? 'ATTACK' : (e.energy >= 4 && e.hp < e.maxHp ? 'HEAL' : 'WAIT');
+    }
+
+    function arenaAction(action) {
+      if (!battle?.active || battle.busy) return;
+      if (battle.player.energy < ARENA.costs[action]) { haptic('error'); return; }
+      arenaLog(applyMove(battle.player, battle.enemy, action, 'أنت'));
+      haptic(action === 'ATTACK' ? 'light' : 'success');
+      if (checkBattleEnd()) return;
+      battle.busy = true;
+      updateArenaUI();
+      setTimeout(() => {
+        if (!battle?.active) return;
+        arenaLog(applyMove(battle.enemy, battle.player, enemyDecide(), 'الروبوت'));
+        haptic('light');
+        if (checkBattleEnd()) return;
+        // بداية جولة جديدة: تجدد طاقة +2 للطرفين
+        battle.round += 1;
+        if (battle.round > ARENA.maxRounds) { judgeBattle(); return; }
+        battle.player.energy = Math.min(ARENA.maxEnergy, battle.player.energy + ARENA.regen);
+        battle.enemy.energy = Math.min(ARENA.maxEnergy, battle.enemy.energy + ARENA.regen);
+        battle.busy = false;
+        updateArenaUI();
+      }, 750);
+      updateArenaUI();
+    }
+
+    // حسم عند انتهاء الجولات: الأعلى نسبة صحة يفوز، والتعادل بلا فائز
+    function judgeBattle() {
+      const pRatio = battle.player.hp / battle.player.maxHp;
+      const eRatio = battle.enemy.hp / battle.enemy.maxHp;
+      battle.busy = false;
+      if (Math.abs(pRatio - eRatio) < 0.001) {
+        battle.active = false;
+        arenaLog('🤝 انتهت الجولات بتعادل — لا فائز ولا مكافأة');
+        haptic('error');
+        updateArenaUI();
+        return;
+      }
+      arenaLog(`⏱️ انتهت ${ARENA.maxRounds} جولة — الحسم بنسبة الصحة (${Math.round(pRatio * 100)}٪ مقابل ${Math.round(eRatio * 100)}٪)`);
+      if (pRatio > eRatio) battle.enemy.hp = 0; else battle.player.hp = 0;
+      checkBattleEnd();
+    }
+
+    function checkBattleEnd() {
+      if (!battle) return true;
+      if (battle.enemy.hp <= 0 || battle.player.hp <= 0) {
+        battle.active = false;
+        battle.busy = false;
+        if (battle.enemy.hp <= 0) {
+          arenaRecord.wins += 1;
+          state.gold += ARENA.winReward;
+          state.totalEarned += ARENA.winReward;
+          arenaLog(`🏆 انتصرت! حصلت على +${ARENA.winReward} 🪙`);
+          haptic('success');
+        } else {
+          arenaRecord.losses += 1;
+          arenaLog('💀 هُزمت… جرّب خطة مختلفة: عالِج مبكراً ولا تهاجم بلا طاقة احتياطية');
+          haptic('error');
+        }
+        saveArenaRecord();
+        updateUI();
+        save();
+        updateArenaUI();
+        return true;
+      }
+      return false;
+    }
+
+    // --- التعزيز والمكافأة اليومية ---
+    const boostActive = () => Date.now() < (state.boostUntil || 0);
+    const clickGain = () => state.clickPower * (boostActive() ? 2 : 1);
+    const passiveGain = () => state.passiveIncome * (boostActive() ? 2 : 1);
+
+    function dailyInfoLocal() {
+      if (profile?.daily) return profile.daily;
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400e3).toISOString().slice(0, 10);
+      const canClaim = state.dailyLastClaim !== today;
+      const streak = !canClaim ? state.dailyStreak : (state.dailyLastClaim === yesterday ? state.dailyStreak + 1 : 1);
+      return { canClaim, streak, reward: Math.min(1500, 500 + (streak - 1) * 100) };
+    }
+
+    function activateBoost() {
+      const now = Date.now();
+      if (boostActive() || now < (state.boostCooldownUntil || 0)) { haptic('error'); return; }
+      state.boostUntil = now + 30_000;              // ×2 لمدة 30 ثانية
+      state.boostCooldownUntil = now + 5 * 60_000;  // تهدئة 5 دقائق
+      haptic('success');
+      updateUI();
+      save();
+    }
+
+    async function claimDaily() {
+      if (serverMode) {
+        try {
+          const data = await api('/api/claim-daily', { method: 'POST', body: '{}' });
+          state = { ...state, ...data.state };
+          if (profile) profile.daily = data.daily;
+          haptic('success');
+          alert(`🎁 حصلت على مكافأة يومية ${fmt(data.reward)} 🪙 (سلسلة ${data.daily.streak} يوم)`);
+        } catch (e) {
+          if (e.status === 409 && profile) profile.daily = e.data.daily;
+          haptic('error');
+          alert(e.message);
+        }
+      } else {
+        const info = dailyInfoLocal();
+        if (!info.canClaim) { haptic('error'); alert('استلمت مكافأة اليوم — عُد غداً!'); return; }
+        state.dailyStreak = info.streak;
+        state.dailyLastClaim = new Date().toISOString().slice(0, 10);
+        state.gold += info.reward;
+        state.totalEarned += info.reward;
+        haptic('success');
+        alert(`🎁 حصلت على مكافأة يومية ${fmt(info.reward)} 🪙 (سلسلة ${info.streak} يوم)`);
+      }
+      updateUI();
+      save();
+    }
+
+    // --- لوحة الصدارة ---
+    async function loadRaceLeaderboard() {
+      const list = document.getElementById('race-leaderboard-list');
+      if (!list) return;
+      try {
+        const { week, leaderboard } = await api('/api/race-leaderboard');
+        document.getElementById('race-week').innerText = `(${week.replace('-W', ' · أسبوع ')})`;
+        list.innerHTML = '';
+        if (!leaderboard.length) {
+          list.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">لا سباقات بعد هذا الأسبوع — كن أول بطل!</p>';
+          return;
+        }
+        for (const row of leaderboard) {
+          const el = document.createElement('div');
+          const mine = myId && String(row.id) === myId;
+          el.className = `flex justify-between items-center border p-3 rounded-xl ${mine ? 'bg-indigo-500/15 border-indigo-500/50' : 'bg-slate-900/90 border-slate-800'}`;
+          const medal = row.rank === 1 ? '👑' : row.rank === 2 ? '🥈' : row.rank === 3 ? '🥉' : `#${row.rank}`;
+          const left = document.createElement('div');
+          left.className = 'min-w-0';
+          const name = document.createElement('div');
+          name.className = 'font-bold text-sm truncate';
+          name.textContent = `${medal} ${row.name}${mine ? ' (أنت)' : ''}`;
+          const sub = document.createElement('div');
+          sub.className = 'text-[10px] text-slate-400';
+          sub.textContent = `${row.races} سباق · أفضل ${row.bestScore}`;
+          left.append(name, sub);
+          const wins = document.createElement('div');
+          wins.className = 'font-black text-indigo-300 text-sm shrink-0';
+          wins.textContent = `🏆 ${row.wins}`;
+          el.append(left, wins);
+          list.appendChild(el);
+        }
+      } catch (e) { /* السباقات تحتاج خادماً */ }
+    }
+
+    async function loadLeaderboard() {
+      loadRaceLeaderboard();
+      const list = document.getElementById('leaderboard-list');
+      try {
+        const { leaderboard } = await api('/api/leaderboard');
+        list.innerHTML = '';
+        if (!leaderboard.length) {
+          list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">لا لاعبين بعد — كن أول معدّن! ⛏️</p>';
+          return;
+        }
+        for (const row of leaderboard) {
+          const el = document.createElement('div');
+          const mine = myId && String(row.id) === myId;
+          el.className = `flex justify-between items-center border p-3 rounded-xl ${mine ? 'bg-amber-500/15 border-amber-500/50' : 'bg-slate-900/90 border-slate-800'}`;
+          const medal = row.rank === 1 ? '🥇' : row.rank === 2 ? '🥈' : row.rank === 3 ? '🥉' : `#${row.rank}`;
+          const left = document.createElement('div');
+          left.className = 'flex items-center gap-2 min-w-0';
+          const name = document.createElement('span');
+          name.className = 'font-bold text-sm truncate';
+          name.textContent = `${medal} ${row.name}${mine ? ' (أنت)' : ''}`;
+          const lvl = document.createElement('span');
+          lvl.className = 'text-[10px] text-slate-400 shrink-0';
+          lvl.textContent = `مستوى ${row.level}`;
+          left.append(name, lvl);
+          const gold = document.createElement('div');
+          gold.className = 'font-black text-amber-400 text-sm shrink-0';
+          gold.textContent = `🪙 ${fmt(row.totalEarned)}`;
+          el.append(left, gold);
+          list.appendChild(el);
+        }
+      } catch (e) {
+        list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">تعذّر تحميل الصدارة (تحتاج اتصالاً بالخادم)</p>';
+      }
+    }
+
+    function updateUI() {
+      goldCounter.innerText = fmt(state.gold);
+      energyCounter.innerText = fmt(state.energy);
+      document.getElementById('max-energy').innerText = fmt(state.maxEnergy);
+      energyBar.style.width = `${Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100))}%`;
+      profitCounter.innerText = `+${fmt(passiveGain())}${boostActive() ? ' 🚀' : ''}`;
+      document.getElementById('tap-cost').innerText = state.clickPower;
+      document.getElementById('current-click-power').innerText = state.clickPower;
+
+      // أزرار المكافأة والتعزيز
+      const now = Date.now();
+      const daily = dailyInfoLocal();
+      const dailyBtn = document.getElementById('daily-btn');
+      dailyBtn.disabled = !daily.canClaim;
+      dailyBtn.innerText = daily.canClaim ? `🎁 مكافأة يومية +${fmt(daily.reward)}` : '🎁 استُلمت اليوم ✓';
+      const boostBtn = document.getElementById('boost-btn');
+      if (boostActive()) {
+        boostBtn.disabled = true;
+        boostBtn.innerText = `🚀 تعزيز ×2 (${Math.ceil((state.boostUntil - now) / 1000)}ث)`;
+      } else if (now < (state.boostCooldownUntil || 0)) {
+        boostBtn.disabled = true;
+        const s = Math.ceil((state.boostCooldownUntil - now) / 1000);
+        boostBtn.innerText = `🚀 تعزيز (${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')})`;
+      } else {
+        boostBtn.disabled = false;
+        boostBtn.innerText = '🚀 تعزيز ×2';
+      }
+
+      // إحصائيات الدعوات
+      document.getElementById('ref-count').innerText = fmt(profile?.referralCount || 0);
+      document.getElementById('ref-earnings').innerText = fmt(profile?.referralEarnings || 0);
+
+      for (const type of ['click', 'bot', 'rig']) {
+        document.getElementById(`cost-upgrade-${type}`).innerText = fmt(state.costs[type]);
+        document.getElementById(`btn-upgrade-${type}`).disabled = state.gold < state.costs[type];
+        const ownedEl = document.getElementById(`owned-${type}`);
+        ownedEl.innerText = state.owned[type] > 0 ? `×${state.owned[type]}` : '';
+      }
+
+      // المستوى يعتمد على إجمالي ما كُسب عبر الزمن (لا ينقص عند الشراء)
+      const level = Math.floor(state.totalEarned / 5000) + 1;
+      const titles = ['مبتدئ 🔥', 'هاوٍ ⛏️', 'محترف 💪', 'خبير 👑', 'أسطورة 🏆'];
+      levelBadge.innerText = `${level} (${titles[Math.min(titles.length - 1, Math.floor((level - 1) / 3))]})`;
+    }
+
+    function haptic(type) {
+      try {
+        if (tg?.HapticFeedback) {
+          if (type === 'success' || type === 'error') tg.HapticFeedback.notificationOccurred(type);
+          else tg.HapticFeedback.impactOccurred('light');
+        } else if (navigator.vibrate) {
+          navigator.vibrate(type === 'error' ? [30, 30, 30] : 10);
+        }
+      } catch (e) {}
+    }
+
+    // --- Mining Click Action (يدعم اللمس المتعدد عبر pointer events) ---
+    function handleMine(e) {
+      if (state.energy < state.clickPower) { haptic('error'); return; }
+
+      state.energy -= state.clickPower;
+      state.gold += state.clickPower;
+      state.totalEarned += state.clickPower;
+
+      haptic('light');
+
+      const rect = clickArea.getBoundingClientRect();
+      const x = (e.clientX ?? (rect.left + rect.width / 2)) - rect.left;
+      const y = (e.clientY ?? (rect.top + rect.height / 2)) - rect.top;
+      createFloatingText(`+${state.clickPower}`, x, y);
+      updateUI();
+      save();
+    }
+
+    function createFloatingText(text, x, y) {
+      const el = document.createElement('div');
+      el.className = 'floating-text text-2xl';
+      el.innerText = text;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      clickArea.appendChild(el);
+      setTimeout(() => el.remove(), 800);
+      // حدّ أقصى للعناصر المتطايرة عند النقر السريع جداً
+      while (clickArea.querySelectorAll('.floating-text').length > 25) {
+        clickArea.querySelector('.floating-text')?.remove();
+      }
+    }
+
+    document.getElementById('mine-btn').addEventListener('pointerdown', handleMine);
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // ================= 🎮 لعبة مغامرة المنجم التفاعلية =================
+    const advCanvas = document.getElementById('game-canvas');
+    const advCtx = advCanvas.getContext('2d');
+    const ADV = { duration: 60, playerW: 78, playerH: 34 };
+    const adv = {
+      running: false, paused: false, score: 0, combo: 0, maxCombo: 0, lives: 3, timeLeft: ADV.duration,
+      objects: [], particles: [], playerX: 180, targetX: 180, prevX: 180, elapsed: 0, spawnIn: 0,
+      lastTs: 0, raf: 0, best: Number(localStorage.getItem('mining_adventure_best') || 0),
+      caught: 0, missed: 0, gemsCaught: 0, missionIndex: 0, shake: 0, flash: 0,
+      banner: '', bannerUntil: 0, phase: 0, muted: false, audio: null, shieldCharges: 0,
+      mode: 'solo', rng: null, raceLastSend: 0, gameMode: 'classic', gameDifficulty: 'normal',
+      skillCharges: 1, nextEventAt: 18, eventUntil: -1, eventType: null,
+      boss: null, bossCharge: 0, bossDefeated: false,
+      fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: false },
+    };
+    const advKeys = {};
+
+    // ⚙️ خيارات اللعب: أوضاع + صعوبة + شكل (محفوظة على الجهاز)
+    let advSettings = { mode: 'classic', difficulty: 'normal', skin: 'miner' };
+    let advStats = { runs: 0, totalGems: 0, maxCombo: 0, bestSurvival: 0, raceWins: 0, rewardEarned: 0, bossWins: 0 };
+    let advClaimed = {};
+    try { advSettings = { ...advSettings, ...JSON.parse(localStorage.getItem('mining_adventure_settings') || '{}') }; } catch (e) {}
+    try { advStats = { ...advStats, ...JSON.parse(localStorage.getItem('mining_adventure_stats') || '{}') }; } catch (e) {}
+    try { advClaimed = JSON.parse(localStorage.getItem('mining_adventure_claimed') || '{}'); } catch (e) {}
+    const saveAdvSettings = () => { try { localStorage.setItem('mining_adventure_settings', JSON.stringify(advSettings)); } catch (e) {} };
+    const saveAdvStats = () => { try { localStorage.setItem('mining_adventure_stats', JSON.stringify(advStats)); localStorage.setItem('mining_adventure_claimed', JSON.stringify(advClaimed)); } catch (e) {} };
+
+    const ADV_MODES = {
+      classic: { label: 'كلاسيك', duration: 60, spawnScale: 1, fallScale: 1, rewardScale: 1 },
+      blitz: { label: 'البرق', duration: 30, spawnScale: 0.7, fallScale: 1.28, rewardScale: 1.15 },
+      survival: { label: 'البقاء', duration: Infinity, spawnScale: 0.88, fallScale: 1.05, rewardScale: 1.4 },
+      boss: { label: 'الزعيم', duration: 75, spawnScale: 0.95, fallScale: 1.05, rewardScale: 1.1 },
+    };
+    const ADV_DIFFS = {
+      easy: { label: 'سهل', lives: 1, fallScale: 0.85, scoreScale: 0.85 },
+      normal: { label: 'عادي', lives: 0, fallScale: 1, scoreScale: 1 },
+      hard: { label: 'صعب', lives: -1, fallScale: 1.2, scoreScale: 1.4 },
+    };
+    const advModeCfg = () => ADV_MODES[adv.gameMode || advSettings.mode] || ADV_MODES.classic;
+    const advDiffCfg = () => ADV_DIFFS[adv.gameDifficulty || advSettings.difficulty] || ADV_DIFFS.normal;
+
+    const ADV_SKINS = [
+      { id: 'miner', icon: '⛏️', name: 'المعدّن', colors: ['#f59e0b', '#b45309'], unlock: 0 },
+      { id: 'rocket', icon: '🚀', name: 'الصاروخ', colors: ['#818cf8', '#4338ca'], unlock: 200 },
+      { id: 'truck', icon: '🛻', name: 'الشاحنة', colors: ['#34d399', '#065f46'], unlock: 400 },
+      { id: 'dragon', icon: '🐉', name: 'التنين', colors: ['#e879f9', '#86198f'], unlock: 700 },
+    ];
+    const advSkin = () => ADV_SKINS.find((s) => s.id === advSettings.skin) || ADV_SKINS[0];
+
+    function updateAdvSettingsUI() {
+      document.querySelectorAll('[data-adv-mode]').forEach((b) => {
+        const on = b.dataset.advMode === advSettings.mode;
+        b.classList.toggle('border-amber-400', on); b.classList.toggle('bg-amber-500/15', on); b.classList.toggle('text-amber-300', on);
+      });
+      document.querySelectorAll('[data-adv-diff]').forEach((b) => {
+        const on = b.dataset.advDiff === advSettings.difficulty;
+        b.classList.toggle('border-amber-400', on); b.classList.toggle('bg-amber-500/15', on); b.classList.toggle('text-amber-300', on);
+      });
+      const skins = document.getElementById('adv-skins');
+      if (skins) {
+        skins.innerHTML = '';
+        for (const skin of ADV_SKINS) {
+          const unlocked = adv.best >= skin.unlock;
+          const btn = document.createElement('button');
+          btn.className = `border rounded-xl py-2 text-[10px] font-bold ${advSettings.skin === skin.id ? 'border-amber-400 bg-amber-500/15 text-amber-300' : 'border-slate-700 bg-slate-950/50'} ${unlocked ? '' : 'opacity-45'}`;
+          btn.innerHTML = `<span class="text-xl block">${skin.icon}</span>${unlocked ? skin.name : `🔒 ${skin.unlock}`}`;
+          btn.onclick = () => setAdventureSkin(skin.id);
+          skins.appendChild(btn);
+        }
+      }
+    }
+    function setAdventureMode(mode) {
+      if (adv.running) { haptic('error'); return; }
+      advSettings.mode = mode; saveAdvSettings(); updateAdvSettingsUI(); haptic('light');
+    }
+    function setAdventureDifficulty(diff) {
+      if (adv.running) { haptic('error'); return; }
+      advSettings.difficulty = diff; saveAdvSettings(); updateAdvSettingsUI(); haptic('light');
+    }
+    function setAdventureSkin(id) {
+      const skin = ADV_SKINS.find((s) => s.id === id);
+      if (!skin || adv.best < skin.unlock) { haptic('error'); return; }
+      advSettings.skin = id; saveAdvSettings(); updateAdvSettingsUI(); drawAdventure(); haptic('success');
+    }
+
+    // 🏅 الإنجازات
+    const ADV_ACHIEVEMENTS = [
+      { id: 'first_run', icon: '🎬', name: 'أول مغامرة', desc: 'أكمل جولة واحدة', reward: 25, met: () => advStats.runs >= 1, progress: () => `${Math.min(1, advStats.runs)}/1` },
+      { id: 'score500', icon: '💎', name: 'نتيجة 500', desc: 'حقق أفضل نتيجة 500+', reward: 75, met: () => adv.best >= 500, progress: () => `${Math.min(500, Math.floor(adv.best))}/500` },
+      { id: 'combo20', icon: '🔥', name: 'سلسلة 20', desc: 'حقق أعلى سلسلة ×20', reward: 75, met: () => advStats.maxCombo >= 20, progress: () => `${Math.min(20, advStats.maxCombo)}/20` },
+      { id: 'collector', icon: '🧲', name: 'جامع الكنوز', desc: 'التقط 300 جوهرة إجمالاً', reward: 100, met: () => advStats.totalGems >= 300, progress: () => `${Math.min(300, advStats.totalGems)}/300` },
+      { id: 'survivor', icon: '💀', name: 'الناجي', desc: 'حقق 300 نقطة في وضع البقاء', reward: 100, met: () => advStats.bestSurvival >= 300, progress: () => `${Math.min(300, Math.floor(advStats.bestSurvival))}/300` },
+      { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', reward: 100, met: () => advStats.bossWins >= 1, progress: () => `${Math.min(1, advStats.bossWins)}/1` },
+      { id: 'racer', icon: '⚔️', name: 'بطل السباقات', desc: 'افُز بسباق مباشر واحد', reward: 50, met: () => advStats.raceWins >= 1, progress: () => `${Math.min(1, advStats.raceWins)}/1` },
+      { id: 'earner', icon: '🪙', name: 'صانع الذهب', desc: 'اكسب 500 ذهب من المغامرات', reward: 100, met: () => advStats.rewardEarned >= 500, progress: () => `${Math.min(500, advStats.rewardEarned)}/500` },
+    ];
+    function renderAchievements() {
+      const box = document.getElementById('adv-achievements');
+      if (!box) return;
+      box.innerHTML = '';
+      for (const a of ADV_ACHIEVEMENTS) {
+        const claimed = Boolean(advClaimed[a.id]);
+        const met = a.met();
+        const row = document.createElement('div');
+        row.className = `flex justify-between items-center border p-2 rounded-lg ${claimed ? 'bg-emerald-500/10 border-emerald-700/40' : met ? 'bg-amber-500/10 border-amber-700/40' : 'bg-slate-950/50 border-slate-800'}`;
+        const info = document.createElement('div');
+        info.innerHTML = `<div class="font-bold text-[11px]">${a.icon} ${a.name} <span class="text-slate-400 font-normal">(${a.progress()})</span></div><div class="text-[9px] text-slate-400">${a.desc} — مكافأة ${a.reward} 🪙</div>`;
+        const btn = document.createElement('button');
+        btn.className = 'bg-amber-500 disabled:opacity-40 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
+        btn.textContent = claimed ? '✓ استُلمت' : met ? `استلم ${a.reward}` : '🔒';
+        btn.disabled = claimed || !met;
+        btn.onclick = () => claimAchievement(a.id);
+        row.append(info, btn);
+        box.appendChild(row);
+      }
+    }
+    function claimAchievement(id) {
+      const a = ADV_ACHIEVEMENTS.find((x) => x.id === id);
+      if (!a || advClaimed[id] || !a.met()) { haptic('error'); return; }
+      advClaimed[id] = true;
+      state.gold += a.reward;
+      state.totalEarned += a.reward;
+      saveAdvStats();
+      haptic('success');
+      advBeep(880, 0.15, 'triangle', 0.06, 1320);
+      renderAchievements();
+      updateUI();
+      save();
+    }
+
+    // 🛠️ ترقيات المغامرة الدائمة (الأسعار مطابقة للخادم — يُتحقق منها هناك)
+    const ADV_UPGRADE_DEFS = {
+      magnet: { icon: '🧲', name: 'مغناطيس مطوّر', desc: 'مدة جذب أطول ونطاق أوسع', base: 150, growth: 1.7, max: 5 },
+      cart: { icon: '🛒', name: 'عربة أوسع', desc: 'عربة أكبر تلتقط بسهولة', base: 200, growth: 1.7, max: 5 },
+      speed: { icon: '👢', name: 'حذاء سريع', desc: 'حركة أسرع واستجابة أعلى', base: 150, growth: 1.6, max: 5 },
+      shield: { icon: '🛡️', name: 'درع البداية', desc: 'ابدأ كل جولة محمياً (مستوى 3: درعان)', base: 250, growth: 1.8, max: 3 },
+      heart: { icon: '❤️', name: 'قلب إضافي', desc: 'قلب بداية إضافي لكل مستوى', base: 300, growth: 1.8, max: 3 },
+      clock: { icon: '⏳', name: 'رمال أطول', desc: 'إبطاء الزمن يدوم أكثر', base: 150, growth: 1.6, max: 5 },
+      luck: { icon: '🍀', name: 'حظ المعدّن', desc: 'قدرات خاصة تسقط أكثر', base: 200, growth: 1.7, max: 5 },
+      skill: { icon: '🧨', name: 'شحنات التفجير', desc: 'قنبلة إضافية تدمر كل خطر على الشاشة', base: 250, growth: 1.8, max: 3 },
+    };
+    const advUpLevel = (key) => state.adventureUpgrades?.[key] || 0;
+    function advUpgradeCost(key) {
+      const def = ADV_UPGRADE_DEFS[key];
+      const lvl = advUpLevel(key);
+      if (lvl >= def.max) return null;
+      let c = def.base;
+      for (let i = 0; i < lvl; i++) c = Math.floor(c * def.growth);
+      return c;
+    }
+    function buyAdvUpgrade(key) {
+      const cost = advUpgradeCost(key);
+      if (cost === null || state.gold < cost) { haptic('error'); return; }
+      state.gold -= cost;
+      state.adventureUpgrades[key] = advUpLevel(key) + 1;
+      if (key === 'cart') ADV.playerW = 78 + advUpLevel('cart') * 8;
+      haptic('success');
+      advBeep(880, 0.12, 'triangle', 0.06, 1320);
+      updateUI();
+      updateAdvUpgradesUI();
+      save();
+    }
+    function updateAdvUpgradesUI() {
+      const list = document.getElementById('adv-upgrades-list');
+      if (!list) return;
+      list.innerHTML = '';
+      for (const [key, def] of Object.entries(ADV_UPGRADE_DEFS)) {
+        const lvl = advUpLevel(key);
+        const cost = advUpgradeCost(key);
+        const row = document.createElement('div');
+        row.className = 'flex justify-between items-center bg-slate-950/50 border border-slate-800 p-2 rounded-lg';
+        const info = document.createElement('div');
+        info.className = 'flex items-center gap-2 min-w-0';
+        const icon = document.createElement('span'); icon.className = 'text-xl'; icon.textContent = def.icon;
+        const texts = document.createElement('div');
+        const name = document.createElement('div'); name.className = 'font-bold text-[11px]';
+        name.textContent = `${def.name} ${lvl ? `· مستوى ${lvl}/${def.max}` : ''}`;
+        const desc = document.createElement('div'); desc.className = 'text-[9px] text-slate-400'; desc.textContent = def.desc;
+        texts.append(name, desc); info.append(icon, texts);
+        const btn = document.createElement('button');
+        btn.className = 'buy-btn bg-amber-500 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
+        btn.disabled = cost === null || state.gold < cost;
+        btn.textContent = cost === null ? '✓ أقصى' : `🪙 ${cost.toLocaleString('en-US')}`;
+        btn.onclick = () => buyAdvUpgrade(key);
+        row.append(info, btn);
+        list.appendChild(row);
+      }
+    }
+
+    const ADV_MISSIONS = [
+      { text: '🎯 مهمة: التقط 15 جوهرة', reward: 25, progress: () => `${Math.min(15, adv.gemsCaught)}/15`, done: () => adv.gemsCaught >= 15 },
+      { text: '🎯 مهمة: حقق سلسلة ×10', reward: 30, progress: () => `${Math.min(10, adv.maxCombo)}/10`, done: () => adv.maxCombo >= 10 },
+      { text: '🎯 مهمة: اجمع 300 نقطة', reward: 50, progress: () => `${Math.min(300, Math.floor(adv.score))}/300`, done: () => adv.score >= 300 },
+    ];
+    const advFxActive = (k) => adv.elapsed < adv.fx[k];
+    // مولّد عشوائي ببذرة (نفس التساقط للمتسابقين) + مصدر موحد للأرقام
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const advRandom = () => adv.rng ? adv.rng() : Math.random();
+    function advBanner(text, sec = 1.6) { adv.banner = text; adv.bannerUntil = adv.elapsed + sec; }
+
+    // 🔊 مؤثرات صوتية مولّدة (WebAudio — بلا ملفات) بنغمة تصعد مع السلسلة
+    function advBeep(freq, dur = 0.08, type = 'sine', vol = 0.05, slideTo = null) {
+      if (adv.muted) return;
+      try {
+        adv.audio = adv.audio || new (window.AudioContext || window.webkitAudioContext)();
+        const ac = adv.audio, t = ac.currentTime;
+        const osc = ac.createOscillator(), gain = ac.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, t);
+        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        osc.connect(gain); gain.connect(ac.destination);
+        osc.start(t); osc.stop(t + dur);
+      } catch (e) {}
+    }
+    function toggleAdventureMute() {
+      adv.muted = !adv.muted;
+      document.getElementById('adv-mute-btn').innerText = adv.muted ? '🔇' : '🔊';
+    }
+
+    function checkAdventureMission() {
+      const m = ADV_MISSIONS[adv.missionIndex];
+      if (!m || !m.done()) return;
+      adv.score += m.reward;
+      advBanner(`✅ أنجزت المهمة! +${m.reward} نقطة`, 1.8);
+      advBeep(880, 0.18, 'triangle', 0.07, 1320);
+      haptic('success');
+      adv.missionIndex += 1;
+    }
+
+    function advSize() {
+      const rect = advCanvas.getBoundingClientRect();
+      return { w: rect.width || 360, h: rect.height || 330 };
+    }
+    function resizeAdventureCanvas() {
+      const rect = advCanvas.getBoundingClientRect();
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      advCanvas.width = Math.max(300, rect.width) * dpr;
+      advCanvas.height = Math.max(280, rect.height) * dpr;
+      advCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawAdventure();
+    }
+
+    function updateAdventureUI() {
+      document.getElementById('adv-score').innerText = Math.floor(adv.score);
+      document.getElementById('adv-time').innerText = adv.gameMode === 'survival' && adv.running ? '∞' : Math.max(0, Math.ceil(adv.timeLeft));
+      document.getElementById('adv-lives').innerText = '❤️'.repeat(Math.max(0, adv.lives)) || '💀';
+      document.getElementById('adv-best').innerText = Math.floor(adv.best);
+      const mult = Math.min(3, 1 + Math.floor(adv.combo / 10));
+      const effects = [
+        advFxActive('magnetUntil') ? `🧲 ${Math.ceil(adv.fx.magnetUntil - adv.elapsed)}ث` : '',
+        adv.fx.shield ? `🛡️×${Math.max(1, adv.shieldCharges)}` : '',
+        advFxActive('slowUntil') ? `⏳ ${Math.ceil(adv.fx.slowUntil - adv.elapsed)}ث` : '',
+        advFxActive('starUntil') ? `⭐ ${Math.ceil(adv.fx.starUntil - adv.elapsed)}ث` : '',
+        advFxActive('feverUntil') ? `🌟 حمّى ${Math.ceil(adv.fx.feverUntil - adv.elapsed)}ث` : '',
+      ].filter(Boolean).join(' · ');
+      document.getElementById('adv-combo').innerText = !adv.running ? 'حرّك العربة والتقط الجواهر!'
+        : effects || (adv.combo >= 2 ? `🔥 سلسلة ×${adv.combo} — مضاعِف النقاط ×${mult}` : 'التقط الجواهر لبناء سلسلة!');
+      const m = ADV_MISSIONS[adv.missionIndex];
+      document.getElementById('adv-mission').innerText = m ? `${m.text} (${m.progress()}) — مكافأة +${m.reward}` : '🏆 أنجزت كل مهام هذه الجولة!';
+      document.getElementById('adv-pause-btn').disabled = !adv.running;
+      document.getElementById('adv-pause-btn').innerText = adv.paused ? '▶ أكمال' : '⏸ إيقاف';
+      const skillBtn = document.getElementById('adv-skill-btn');
+      skillBtn.disabled = !adv.running || adv.paused || adv.skillCharges <= 0;
+      skillBtn.innerText = `🧨 ×${adv.skillCharges}`;
+      const bossBtn = document.getElementById('adv-boss-btn');
+      const inBoss = adv.gameMode === 'boss';
+      bossBtn.classList.toggle('hidden', !inBoss);
+      bossBtn.disabled = !adv.running || adv.paused || !inBoss || adv.bossCharge < 20;
+      bossBtn.innerText = `🎯 هجوم ${Math.floor(adv.bossCharge)}/20`;
+    }
+
+    const ADV_POWERUPS = [
+      { kind: 'magnet', icon: '🧲' }, { kind: 'shield', icon: '🛡️' },
+      { kind: 'slow', icon: '⏳' }, { kind: 'star', icon: '⭐' }, { kind: 'heart', icon: '❤️' },
+    ];
+    function spawnAdventureObject() {
+      const { w } = advSize();
+      const roll = advRandom();
+      let data;
+      const eventActive = adv.elapsed < adv.eventUntil;
+      if (eventActive && adv.eventType === 'rain' && roll < 0.68) data = advRandom() < 0.6 ? { type: 'gem', icon: '💎', points: 10, hazard: false } : { type: 'coin', icon: '🪙', points: 5, hazard: false };
+      else if (eventActive && adv.eventType === 'storm' && roll < 0.58) data = advRandom() < 0.7 ? { type: 'rock', icon: '🪨', points: 0, hazard: true } : { type: 'bomb', icon: '💣', points: -15, hazard: true };
+      else if (roll < 0.02) data = { type: 'chest', icon: '🧰', points: 40, hazard: false };
+      else if (roll < 0.05) data = { type: 'golden', icon: '🌟💎', points: 50, hazard: false };
+      else if (roll < 0.12) data = { type: 'crystal', icon: '💠', points: 15, hazard: false, pattern: 'zigzag' };
+      else if (roll < 0.38) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
+      else if (roll < 0.68) data = { type: 'coin', icon: '🪙', points: 5, hazard: false };
+      else if (roll < 0.78 + advUpLevel('luck') * 0.008) { const p = ADV_POWERUPS[Math.floor(advRandom() * ADV_POWERUPS.length)]; data = { type: 'power', kind: p.kind, icon: p.icon, points: 0, hazard: false }; }
+      else if (roll < 0.92) data = { type: 'rock', icon: '🪨', points: 0, hazard: true };
+      else data = { type: 'bomb', icon: '💣', points: -15, hazard: true };
+      const feverBoost = advFxActive('feverUntil') && !data.hazard && advRandom() < 0.5;
+      if (feverBoost) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
+      const startX = 24 + advRandom() * Math.max(20, w - 48);
+      adv.objects.push({
+        ...data, x: startX, baseX: startX, age: 0, y: -25,
+        r: data.type === 'golden' || data.type === 'chest' ? 23 : data.type === 'gem' ? 19 : 17,
+        vy: (125 + adv.elapsed * 2.6 + advRandom() * 75) * advModeCfg().fallScale * advDiffCfg().fallScale * (data.type === 'chest' ? 0.62 : 1),
+        vx: (advRandom() - 0.5) * 28, spin: advRandom() * Math.PI, nearMissed: false,
+      });
+    }
+
+    // 🧨 مهارة التفجير: تدمر كل الأخطار الظاهرة وتمنح نقاط أمان
+    function useAdventureSkill() {
+      if (!adv.running || adv.paused || adv.skillCharges <= 0) { haptic('error'); return; }
+      adv.skillCharges -= 1;
+      const hazards = adv.objects.filter((o) => o.hazard);
+      adv.objects = adv.objects.filter((o) => !o.hazard);
+      adv.score += hazards.length * 2;
+      adv.shake = 0.3; adv.flash = 0.18;
+      advBanner(`🧨 دُمّر ${hazards.length} خطر!`, 1.2);
+      advBeep(120, 0.3, 'sawtooth', 0.09, 45);
+      if (navigator.vibrate) navigator.vibrate([40, 30, 60]);
+      haptic('success');
+      updateAdventureUI();
+      drawAdventure();
+    }
+
+    // 🎯 هجوم مضاد على الزعيم — يُشحن من نقاط الالتقاط
+    function bossAttack() {
+      if (!adv.running || adv.paused || adv.gameMode !== 'boss' || !adv.boss || adv.bossCharge < 20) { haptic('error'); return; }
+      adv.bossCharge -= 20;
+      const dmg = 12 + Math.floor(advRandom() * 7);
+      adv.boss.hp -= dmg;
+      adv.boss.hitFlash = 0.3;
+      adv.particles.push({ x: adv.boss.x, y: adv.boss.y + 28, text: `🎯 -${dmg}`, color: '#e879f9', life: 0.9 });
+      advBeep(180, 0.18, 'square', 0.07, 70);
+      adv.shake = Math.max(adv.shake, 0.18);
+      haptic('success');
+      if (adv.boss.hp <= 0) {
+        adv.bossDefeated = true;
+        adv.score += 150;
+        advBanner('👹 سقط الزعيم! +150 نقطة', 2);
+        advBeep(880, 0.3, 'triangle', 0.08, 1760);
+        endAdventure();
+        return;
+      }
+      updateAdventureUI();
+      drawAdventure();
+    }
+
+    function spawnBossRock() {
+      if (!adv.boss) return;
+      const { w } = advSize();
+      adv.objects.push({
+        type: 'rock', icon: '☄️', points: 0, hazard: true, x: adv.boss.x, baseX: adv.boss.x, age: 0, y: 82,
+        r: 19, vy: 235 + adv.elapsed * 2, vx: Math.max(-170, Math.min(170, (adv.playerX - adv.boss.x) / 1.15)),
+        spin: 0, nearMissed: false,
+      });
+      adv.particles.push({ x: adv.boss.x, y: adv.boss.y + 24, text: '🎯 يستهدفك!', color: '#f87171', life: 0.8 });
+      advBeep(240, 0.12, 'sawtooth', 0.04, 120);
+      void w;
+    }
+
+    function startAdventure(mode = 'solo', seed = null) {
+      resizeAdventureCanvas();
+      adv.mode = mode;
+      adv.rng = mode === 'race' && seed !== null ? mulberry32(seed) : null;
+      // السباق دائماً كلاسيك/عادي للعدالة — الفردي يستخدم خيارات اللاعب
+      adv.gameMode = mode === 'race' ? 'classic' : advSettings.mode;
+      adv.gameDifficulty = mode === 'race' ? 'normal' : advSettings.difficulty;
+      const { w } = advSize();
+      ADV.playerW = 78 + advUpLevel('cart') * 8; // 🛒 عربة أوسع حسب الترقية
+      adv.shieldCharges = advUpLevel('shield') >= 3 ? 2 : advUpLevel('shield') >= 1 ? 1 : 0;
+      Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, maxCombo: 0,
+        lives: Math.max(1, 3 + advUpLevel('heart') + advDiffCfg().lives),
+        timeLeft: advModeCfg().duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2, prevX: w / 2,
+        elapsed: 0, spawnIn: 0, lastTs: performance.now(), caught: 0, missed: 0, gemsCaught: 0,
+        missionIndex: 0, shake: 0, flash: 0, banner: '', bannerUntil: 0, phase: 0,
+        skillCharges: 1 + advUpLevel('skill'), nextEventAt: 18, eventUntil: -1, eventType: null,
+        boss: adv.gameMode === 'boss'
+          ? { hp: adv.gameDifficulty === 'easy' ? 90 : adv.gameDifficulty === 'hard' ? 170 : 120,
+              maxHp: adv.gameDifficulty === 'easy' ? 90 : adv.gameDifficulty === 'hard' ? 170 : 120,
+              x: w / 2, y: 58, attackAt: 4, hitFlash: 0 }
+          : null,
+        bossCharge: 0, bossDefeated: false,
+        fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: adv.shieldCharges > 0 } });
+      if (adv.gameMode === 'boss') advBanner('👹 اهزم الزعيم قبل انتهاء الوقت! اجمع نقاطاً لشحن هجومك', 2.4);
+      advBanner('⛏️ اجمع الجواهر وتفادَ الخطر!', 1.6);
+      try { adv.audio = adv.audio || new (window.AudioContext || window.webkitAudioContext)(); adv.audio.resume?.(); } catch (e) {}
+      advBeep(660, 0.12, 'triangle', 0.06, 990);
+      document.getElementById('game-overlay').style.display = 'none';
+      cancelAnimationFrame(adv.raf);
+      adv.raf = requestAnimationFrame(adventureLoop);
+      haptic('success');
+      updateAdventureUI();
+    }
+
+    function toggleAdventurePause() {
+      if (!adv.running) return;
+      setAdventurePaused(!adv.paused);
+    }
+    function setAdventurePaused(paused) {
+      if (!adv.running) return;
+      adv.paused = paused;
+      const overlay = document.getElementById('game-overlay');
+      document.getElementById('game-overlay-title').innerText = paused ? '⏸ توقف مؤقت' : 'مغامرة المنجم';
+      document.getElementById('game-overlay-text').innerHTML = paused ? 'خذ نفساً… المغامرة بانتظارك.' : '';
+      document.getElementById('game-overlay-btn').innerText = paused ? '▶ أكمال اللعب' : '▶ العب الآن';
+      document.getElementById('game-overlay-btn').setAttribute('onclick', paused ? 'toggleAdventurePause()' : 'startAdventure()');
+      overlay.style.display = paused ? 'flex' : 'none';
+      if (!paused) { adv.lastTs = performance.now(); cancelAnimationFrame(adv.raf); adv.raf = requestAnimationFrame(adventureLoop); }
+      updateAdventureUI();
+    }
+
+    function adventureLoop(ts) {
+      if (!adv.running || adv.paused) return;
+      const dt = Math.min(0.033, (ts - adv.lastTs) / 1000 || 0.016);
+      adv.lastTs = ts;
+      stepAdventure(dt);
+      drawAdventure();
+      // بث تقدم السباق للخصم (10 مرات/ثانية كحد أقصى)
+      if (adv.mode === 'race' && race.inRace && ts - adv.raceLastSend > 100) {
+        adv.raceLastSend = ts;
+        raceSend({ type: 'progress', score: Math.floor(adv.score), lives: adv.lives, xRatio: adv.playerX / Math.max(1, advSize().w) });
+      }
+      if (adv.running) adv.raf = requestAnimationFrame(adventureLoop);
+    }
+
+    function stepAdventure(dt) {
+      const { w, h } = advSize();
+      const playerY = h - 48;
+      adv.elapsed += dt;
+      if (Number.isFinite(adv.timeLeft)) adv.timeLeft -= dt;
+
+      // 🎲 أحداث عشوائية داخل الجولة
+      if (adv.elapsed >= adv.nextEventAt) {
+        adv.eventType = advRandom() < 0.5 ? 'rain' : 'storm';
+        adv.eventUntil = adv.elapsed + 5;
+        adv.nextEventAt = adv.elapsed + 20;
+        advBanner(adv.eventType === 'rain' ? '🌧️ وابل جواهر! اجمع كل ما تقدر' : '☄️ عاصفة صخور! ركّز على التفادي', 2);
+        advBeep(adv.eventType === 'rain' ? 980 : 180, 0.22, 'triangle', 0.06, adv.eventType === 'rain' ? 1480 : 90);
+      }
+
+      // حركة لوحة المفاتيح
+      const speed = 420 + advUpLevel('speed') * 45;
+      if (advKeys.ArrowLeft || advKeys.ArrowRight) {
+        adv.targetX += ((advKeys.ArrowRight ? 1 : 0) - (advKeys.ArrowLeft ? 1 : 0)) * speed * dt;
+      }
+      adv.targetX = Math.max(ADV.playerW / 2, Math.min(w - ADV.playerW / 2, adv.targetX));
+      adv.prevX = adv.playerX;
+      adv.playerX += (adv.targetX - adv.playerX) * Math.min(1, dt * (18 + advUpLevel('speed') * 1.2));
+      adv.shake = Math.max(0, adv.shake - dt);
+      adv.flash = Math.max(0, adv.flash - dt);
+
+      // مراحل صعوبة معلنة
+      const newPhase = adv.elapsed >= 40 ? 2 : adv.elapsed >= 20 ? 1 : 0;
+      if (newPhase !== adv.phase) {
+        adv.phase = newPhase;
+        advBanner(newPhase === 2 ? '🔥 المرحلة الأخيرة — كل شيء أسرع!' : '⚠️ ازداد الخطر!', 1.8);
+        advBeep(220, 0.2, 'sawtooth', 0.05, 110);
+      }
+
+      // 👹 حركة الزعيم وهجومه المستهدف الدوري
+      if (adv.boss && adv.gameMode === 'boss') {
+        adv.boss.x = w / 2 + Math.sin(adv.elapsed * 0.8) * Math.max(30, w / 2 - 62);
+        adv.boss.y = 58 + Math.sin(adv.elapsed * 1.7) * 8;
+        adv.boss.hitFlash = Math.max(0, adv.boss.hitFlash - dt);
+        if (adv.elapsed >= adv.boss.attackAt) {
+          spawnBossRock();
+          adv.boss.attackAt = adv.elapsed + Math.max(2.5, 4.2 - adv.elapsed * 0.018);
+        }
+      }
+
+      // توليد عناصر أسرع تدريجياً (وأسرع في المرحلة الأخيرة)
+      adv.spawnIn -= dt;
+      const spawnEvery = Math.max(0.2, (0.68 - adv.elapsed * 0.006 - adv.phase * 0.05) * advModeCfg().spawnScale * (adv.elapsed < adv.eventUntil ? 0.62 : 1));
+      if (adv.spawnIn <= 0) { spawnAdventureObject(); adv.spawnIn = spawnEvery * (0.75 + advRandom() * 0.5); }
+
+      const fallDt = dt * (advFxActive('slowUntil') ? 0.5 : 1); // ⏳ إبطاء زمني
+      for (const obj of [...adv.objects]) {
+        // 🧲 مغناطيس يجذب الكنوز نحو العربة
+        if (advFxActive('magnetUntil') && !obj.hazard) {
+          const dx = adv.playerX - obj.x;
+          const magnetRadius = 150 + advUpLevel('magnet') * 25;
+          if (Math.abs(dx) < magnetRadius && obj.y > h - 190 - advUpLevel('magnet') * 12) obj.x += Math.max(-260 * fallDt, Math.min(260 * fallDt, dx * 6 * fallDt));
+        }
+        obj.age = (obj.age || 0) + fallDt;
+        obj.y += obj.vy * fallDt;
+        obj.x += obj.vx * fallDt;
+        if (obj.pattern === 'zigzag') obj.x = Math.max(obj.r, Math.min(w - obj.r, obj.baseX + Math.sin(obj.age * 4.2) * 38));
+        obj.spin += dt * 2;
+        if (obj.x < obj.r || obj.x > w - obj.r) obj.vx *= -1;
+
+        const hitPlayer = obj.y + obj.r >= playerY && obj.y - obj.r <= playerY + ADV.playerH
+          && Math.abs(obj.x - adv.playerX) <= ADV.playerW / 2 + obj.r * 0.55;
+        if (hitPlayer) {
+          collectAdventureObject(obj);
+          adv.objects.splice(adv.objects.indexOf(obj), 1);
+          continue;
+        }
+        // مرور خطر قريب بلا إصابة = مكافأة جرأة
+        if (obj.hazard && !obj.nearMissed && obj.y - obj.r > playerY + ADV.playerH) {
+          obj.nearMissed = true;
+          if (Math.abs(obj.x - adv.playerX) <= ADV.playerW / 2 + obj.r + 22) {
+            adv.score += 2;
+            adv.particles.push({ x: adv.playerX, y: playerY - 14, text: '😱 قريب! +2', color: '#7dd3fc', life: 0.7 });
+          }
+        }
+        if (obj.y - obj.r > h) {
+          if (!obj.hazard) { adv.missed += 1; if (adv.combo > 0) adv.combo = 0; } // إسقاط كنز يكسر السلسلة
+          adv.objects.splice(adv.objects.indexOf(obj), 1);
+        }
+      }
+
+      for (const p of [...adv.particles]) {
+        p.y -= 45 * dt; p.life -= dt;
+        if (p.life <= 0) adv.particles.splice(adv.particles.indexOf(p), 1);
+      }
+      updateAdventureUI();
+      if (adv.timeLeft <= 0 || adv.lives <= 0) endAdventure();
+    }
+
+    function applyAdventurePower(kind, x, yTop) {
+      const notes = {
+        magnet: '🧲 مغناطيس 8 ثوانٍ!', shield: '🛡️ درع يحميك مرة!', slow: '⏳ أبطأنا الزمن!',
+        star: '⭐ نقاط مضاعفة 8 ثوانٍ!', heart: '❤️ قلب إضافي!',
+      };
+      if (kind === 'magnet') adv.fx.magnetUntil = adv.elapsed + 8 + advUpLevel('magnet') * 1.5;
+      if (kind === 'shield') { adv.shieldCharges = Math.min(2, adv.shieldCharges + 1); adv.fx.shield = true; }
+      if (kind === 'slow') adv.fx.slowUntil = adv.elapsed + 5 + advUpLevel('clock');
+      if (kind === 'star') adv.fx.starUntil = adv.elapsed + 8;
+      if (kind === 'heart') adv.lives = Math.min(5, adv.lives + 1);
+      adv.particles.push({ x, y: yTop, text: notes[kind], color: '#e879f9', life: 1 });
+      advBeep(740, 0.1, 'triangle', 0.06, 1180);
+      setTimeout(() => advBeep(990, 0.12, 'triangle', 0.05, 1320), 70);
+    }
+
+    function collectAdventureObject(obj) {
+      const { h } = advSize();
+      const yTop = h - 58;
+      if (obj.type === 'power') { applyAdventurePower(obj.kind, obj.x, yTop); haptic('success'); return; }
+      if (obj.hazard) {
+        if (adv.fx.shield) {
+          adv.shieldCharges = Math.max(0, adv.shieldCharges - 1);
+          adv.fx.shield = adv.shieldCharges > 0;
+          adv.particles.push({ x: obj.x, y: yTop, text: '🛡️ أنقذك الدرع!', color: '#7dd3fc', life: 1 });
+          advBeep(300, 0.12, 'square', 0.05, 500);
+          haptic('success');
+          return;
+        }
+        adv.lives -= 1;
+        adv.combo = 0;
+        adv.shake = 0.35; adv.flash = 0.3;
+        if (obj.type === 'bomb') adv.score = Math.max(0, adv.score - 15);
+        adv.particles.push({ x: obj.x, y: yTop, text: obj.type === 'bomb' ? '💥 -1 قلب' : '🪨 -1 قلب', color: '#f87171', life: 0.9 });
+        advBeep(140, 0.22, 'sawtooth', 0.08, 60);
+        haptic('error');
+        if (navigator.vibrate) navigator.vibrate(90);
+      } else {
+        adv.caught += 1;
+        if (obj.type === 'gem' || obj.type === 'golden') adv.gemsCaught += 1;
+        adv.combo += 1;
+        adv.maxCombo = Math.max(adv.maxCombo, adv.combo);
+        const comboMult = Math.min(3, 1 + Math.floor((adv.combo - 1) / 10));
+        const totalMult = Math.min(6, comboMult * (advFxActive('starUntil') ? 2 : 1) * (advFxActive('feverUntil') ? 2 : 1));
+        const gained = Math.round(obj.points * totalMult * advDiffCfg().scoreScale);
+        adv.score += gained;
+        if (adv.gameMode === 'boss' && adv.boss) adv.bossCharge = Math.min(60, adv.bossCharge + gained);
+        adv.particles.push({ x: obj.x, y: yTop, text: `+${gained}`, color: obj.type === 'golden' ? '#fde68a' : '#fbbf24', life: 0.8 });
+        advBeep(Math.min(950, 520 + adv.combo * 16), 0.06, 'sine', 0.045);
+        haptic('light');
+        // 🌟 حمّى الذهب عند سلسلة 15
+        if (adv.combo === 15 && !advFxActive('feverUntil')) {
+          adv.fx.feverUntil = adv.elapsed + 8;
+          advBanner('🌟 حمّى الذهب! نقاط مضاعفة وجواهر أكثر', 2);
+          advBeep(880, 0.25, 'triangle', 0.07, 1760);
+        }
+        checkAdventureMission();
+      }
+    }
+
+    function drawAdventure() {
+      if (!advCtx) return;
+      const { w, h } = advSize();
+      const playerY = h - 48;
+      advCtx.clearRect(0, 0, w, h);
+      if (adv.shake > 0) { advCtx.save(); advCtx.translate((Math.random() - 0.5) * 10 * adv.shake * 3, (Math.random() - 0.5) * 7 * adv.shake * 3); }
+      if (advFxActive('feverUntil')) { advCtx.fillStyle = 'rgba(245,158,11,0.10)'; advCtx.fillRect(0, 0, w, h); }
+      // صواعد كهف متحركة (Parallax يعطي إحساس العمق)
+      advCtx.fillStyle = 'rgba(30,27,75,0.85)';
+      const caveOff = (adv.elapsed * 18) % 46;
+      for (let x = -46; x < w + 46; x += 46) {
+        advCtx.beginPath();
+        advCtx.moveTo(x + caveOff - 46, 0); advCtx.lineTo(x + 23 + caveOff - 46, 28 + (x % 3) * 5); advCtx.lineTo(x + 46 + caveOff - 46, 0);
+        advCtx.closePath(); advCtx.fill();
+      }
+      // نجوم/غبار المنجم
+      advCtx.fillStyle = 'rgba(251,191,36,0.16)';
+      for (let i = 0; i < 22; i++) {
+        const x = (i * 67 + 25) % w, y = (i * 41 + 18) % Math.max(40, h - 70);
+        advCtx.fillRect(x, y, 2, 2);
+      }
+      // أرضية المنجم
+      advCtx.fillStyle = '#1c1917';
+      advCtx.fillRect(0, h - 22, w, 22);
+      advCtx.fillStyle = '#f59e0b';
+      advCtx.fillRect(0, h - 22, w, 2);
+
+      // الأجسام المتساقطة
+      advCtx.textAlign = 'center'; advCtx.textBaseline = 'middle';
+      for (const obj of adv.objects) {
+        advCtx.save();
+        advCtx.translate(obj.x, obj.y);
+        advCtx.rotate(Math.sin(obj.spin) * 0.18);
+        advCtx.font = `${obj.r * 2}px serif`;
+        advCtx.fillText(obj.icon, 0, 0);
+        advCtx.restore();
+      }
+
+      // 👹 الزعيم وشريط صحته
+      if (adv.boss && adv.gameMode === 'boss') {
+        advCtx.save();
+        advCtx.font = '46px serif';
+        advCtx.textAlign = 'center'; advCtx.textBaseline = 'middle';
+        if (adv.boss.hitFlash > 0) { advCtx.shadowColor = '#ef4444'; advCtx.shadowBlur = 22; }
+        advCtx.fillText('👹', adv.boss.x, adv.boss.y);
+        advCtx.shadowBlur = 0;
+        const bw = Math.min(210, w - 70), bx = (w - bw) / 2;
+        advCtx.fillStyle = 'rgba(15,23,42,0.85)'; advCtx.fillRect(bx, 12, bw, 11);
+        advCtx.fillStyle = '#ef4444'; advCtx.fillRect(bx, 12, bw * Math.max(0, adv.boss.hp / adv.boss.maxHp), 11);
+        advCtx.font = 'bold 9px Tajawal, sans-serif'; advCtx.fillStyle = '#fecaca';
+        advCtx.fillText(`الزعيم ${Math.max(0, Math.ceil(adv.boss.hp))}/${adv.boss.maxHp}`, w / 2, 31);
+        advCtx.restore();
+      }
+
+      // 👥 شبح الخصم في السباق المباشر
+      if (adv.mode === 'race' && race.inRace && race.opponent) {
+        const gx = race.opponent.xRatio * w;
+        advCtx.save();
+        advCtx.globalAlpha = 0.45;
+        advCtx.fillStyle = '#6366f1';
+        advCtx.beginPath();
+        advCtx.roundRect(gx - ADV.playerW / 2, playerY, ADV.playerW, ADV.playerH, 10);
+        advCtx.fill();
+        advCtx.font = '24px serif';
+        advCtx.fillText('🧑‍🚀', gx, playerY + 15);
+        advCtx.globalAlpha = 0.9;
+        advCtx.font = 'bold 10px Tajawal, sans-serif';
+        advCtx.fillStyle = '#c7d2fe';
+        advCtx.fillText(`${race.opponent.name} · ${Math.floor(race.opponent.score)}`, gx, playerY - 10);
+        advCtx.restore();
+      }
+
+      // عربة المعدّن (تميل مع اتجاه الحركة + أيقونة درع عند تفعيله)
+      const px = adv.playerX - ADV.playerW / 2;
+      const tilt = Math.max(-0.16, Math.min(0.16, (adv.playerX - adv.prevX) * 0.03));
+      advCtx.save();
+      advCtx.translate(adv.playerX, playerY + ADV.playerH / 2);
+      advCtx.rotate(tilt);
+      const skin = advSkin();
+      const grad = advCtx.createLinearGradient(-ADV.playerW / 2, 0, ADV.playerW / 2, ADV.playerH);
+      grad.addColorStop(0, skin.colors[0]); grad.addColorStop(1, skin.colors[1]);
+      advCtx.fillStyle = grad;
+      advCtx.beginPath();
+      advCtx.roundRect(-ADV.playerW / 2, -ADV.playerH / 2, ADV.playerW, ADV.playerH, 10);
+      advCtx.fill();
+      advCtx.font = '29px serif';
+      advCtx.fillText(skin.icon, 0, 2);
+      if (adv.fx.shield) { advCtx.font = '17px serif'; advCtx.fillText('🛡️', ADV.playerW / 2 - 8, -ADV.playerH / 2 + 4); }
+      if (advFxActive('magnetUntil')) { advCtx.font = '15px serif'; advCtx.fillText('🧲', -ADV.playerW / 2 + 8, -ADV.playerH / 2 + 4); }
+      advCtx.fillStyle = '#111827';
+      advCtx.beginPath(); advCtx.arc(-ADV.playerW / 2 + 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
+      advCtx.beginPath(); advCtx.arc(ADV.playerW / 2 - 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
+      advCtx.restore();
+
+      // نقاط عائمة
+      advCtx.font = 'black 15px Tajawal, sans-serif';
+      for (const p of adv.particles) {
+        advCtx.globalAlpha = Math.max(0, Math.min(1, p.life));
+        advCtx.fillStyle = p.color;
+        advCtx.fillText(p.text, p.x, p.y);
+      }
+      advCtx.globalAlpha = 1;
+      if (adv.shake > 0) advCtx.restore();
+      // وميض أحمر عند الإصابة + إعلان منتصف الشاشة
+      if (adv.flash > 0) { advCtx.fillStyle = `rgba(239,68,68,${adv.flash * 0.7})`; advCtx.fillRect(0, 0, w, h); }
+      if (adv.banner && adv.elapsed < adv.bannerUntil) {
+        advCtx.save();
+        advCtx.globalAlpha = Math.max(0, Math.min(1, adv.bannerUntil - adv.elapsed));
+        advCtx.font = 'black 19px Tajawal, sans-serif';
+        advCtx.textAlign = 'center';
+        advCtx.fillStyle = '#fde68a';
+        advCtx.shadowColor = 'rgba(0,0,0,0.8)'; advCtx.shadowBlur = 8;
+        advCtx.fillText(adv.banner, w / 2, 74);
+        advCtx.restore();
+      }
+    }
+
+    function endAdventure() {
+      if (!adv.running) return;
+      adv.running = false;
+      adv.paused = false;
+      cancelAnimationFrame(adv.raf);
+      const finalScore = Math.floor(adv.score);
+      const inRace = adv.mode === 'race' && race.inRace;
+      const rewardCap = adv.gameMode === 'survival' ? 150 : 100;
+      const victoryBonus = adv.bossDefeated ? 150 : 0;
+      const reward = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)
+      if (adv.bossDefeated) advStats.bossWins += 1;
+      if (inRace) raceSendFinish(finalScore);
+      advStats.runs += 1;
+      advStats.totalGems += adv.gemsCaught;
+      advStats.maxCombo = Math.max(advStats.maxCombo, adv.maxCombo);
+      if (adv.gameMode === 'survival') advStats.bestSurvival = Math.max(advStats.bestSurvival, finalScore);
+      advStats.rewardEarned += reward;
+      saveAdvStats();
+      if (finalScore > adv.best) {
+        adv.best = finalScore;
+        try { localStorage.setItem('mining_adventure_best', String(adv.best)); } catch (e) {}
+      }
+      if (reward > 0) {
+        state.gold += reward;
+        state.totalEarned += reward;
+      }
+      const overlay = document.getElementById('game-overlay');
+      document.getElementById('game-overlay-title').innerText = adv.bossDefeated ? '🏆 قتلت الزعيم!' : adv.lives <= 0 ? '💀 انتهت المغامرة!' : adv.gameMode === 'boss' ? '👹 هرب الزعيم هذه المرة!' : '⏰ انتهى الوقت!';
+      const accuracy = adv.caught + adv.missed ? Math.round(adv.caught / (adv.caught + adv.missed) * 100) : 0;
+      const rank = finalScore >= 900 ? '🏆 معدّن أسطوري' : finalScore >= 600 ? '👑 خبير مناجم' : finalScore >= 350 ? '💪 معدّن محترف' : finalScore >= 150 ? '⛏️ معدّن صاعد' : '🌱 مبتدئ';
+      renderAchievements();
+      updateAdvSettingsUI();
+      document.getElementById('game-overlay-text').innerHTML =
+        `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>` +
+        `🎯 التقطت ${adv.caught} · دقة ${accuracy}٪ · أعلى سلسلة ×${adv.maxCombo}<br>` +
+        `الوضع: ${advModeCfg().label} · الصعوبة: ${advDiffCfg().label}<br>` +
+        `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}`;
+      if (inRace) {
+        document.getElementById('game-overlay-title').innerText = '🏁 انتهى سباقك!';
+        document.getElementById('game-overlay-text').innerHTML =
+          `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة<br>بانتظار انتهاء الخصم لإعلان الفائز…`;
+      }
+      const btn = document.getElementById('game-overlay-btn');
+      btn.innerText = inRace ? '⏳ بانتظار الخصم…' : '🔁 العب مرة أخرى';
+      btn.setAttribute('onclick', 'startAdventure()');
+      overlay.style.display = 'flex';
+      haptic(reward > 0 ? 'success' : 'error');
+      updateUI();
+      save();
+      updateAdventureUI();
+      drawAdventure();
+    }
+
+    // تحكم باللمس/الفأرة على الكانفس
+    function moveAdventureTo(clientX) {
+      const rect = advCanvas.getBoundingClientRect();
+      adv.targetX = Math.max(ADV.playerW / 2, Math.min(rect.width - ADV.playerW / 2, clientX - rect.left));
+    }
+    advCanvas.addEventListener('pointerdown', (e) => { advCanvas.setPointerCapture?.(e.pointerId); moveAdventureTo(e.clientX); });
+    advCanvas.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') moveAdventureTo(e.clientX); });
+    window.addEventListener('keydown', (e) => {
+      if (!document.getElementById('tab-play').classList.contains('active')) return;
+      if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      advKeys[e.key] = true;
+      if (e.key === ' ' && adv.running) useAdventureSkill();
+      else if (e.key === ' ' && !adv.running) startAdventure();
+    });
+    window.addEventListener('keyup', (e) => { advKeys[e.key] = false; });
+    window.addEventListener('resize', resizeAdventureCanvas);
+    document.addEventListener('visibilitychange', () => { if (document.hidden && adv.running && !adv.paused) setAdventurePaused(true); });
+
+    // ================= ⚔️ عميل السباق المباشر (WebSocket) =================
+    const race = { ws: null, connecting: null, inRace: false, opponent: null, myId: null, finishedSent: false, countdownTimer: 0 };
+    const raceStatus = (text) => { const el = document.getElementById('race-status'); if (el) el.innerText = text; };
+    const raceSend = (obj) => { try { if (race.ws?.readyState === WebSocket.OPEN) race.ws.send(JSON.stringify(obj)); } catch (e) {} };
+    function raceSendFinish(score) {
+      if (race.finishedSent) return;
+      race.finishedSent = true;
+      raceSend({ type: 'finish', score });
+      raceSend({ type: 'progress', score, lives: adv.lives, xRatio: 0.5, finished: true });
+    }
+
+    function ensureRaceSocket() {
+      if (race.ws?.readyState === WebSocket.OPEN) return Promise.resolve();
+      if (race.connecting) return race.connecting;
+      race.connecting = new Promise((resolve, reject) => {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const auth = tg?.initData ? `initData=${encodeURIComponent(tg.initData)}` : `guest=${encodeURIComponent(guestId)}`;
+        const ws = new WebSocket(`${proto}//${location.host}/ws?${auth}`);
+        race.ws = ws;
+        ws.onopen = () => { race.connecting = null; resolve(); };
+        ws.onerror = () => { race.connecting = null; reject(new Error('ws')); };
+        ws.onclose = () => {
+          race.connecting = null;
+          if (race.inRace) { race.inRace = false; raceStatus('انقطع اتصال السباق'); }
+        };
+        ws.onmessage = (ev) => handleRaceMessage(JSON.parse(ev.data));
+      });
+      return race.connecting;
+    }
+
+    function handleRaceMessage(msg) {
+      if (msg.type === 'welcome') race.myId = msg.id;
+      if (msg.type === 'waiting') raceStatus('🎲 بانتظار خصم عشوائي… خلك جاهز!');
+      if (msg.type === 'room_created') raceStatus(`🔑 غرفتك جاهزة! أرسل الرمز «${msg.code}» لصديقك وخله يضغط دخول`);
+      if (msg.type === 'error') { raceStatus(`⚠️ ${msg.message}`); haptic('error'); }
+      if (msg.type === 'matched') {
+        race.opponent = { name: msg.opponent.name, score: 0, lives: 3, xRatio: 0.5 };
+        document.getElementById('race-opponent').innerText = `ضد: ${msg.opponent.name}`;
+        raceStatus(`تم إيجاد خصم: ${msg.opponent.name} — اضغط «أنا جاهز» وبيبدأ السباق بعد جاهزيته`);
+        const btn = document.getElementById('race-ready-btn');
+        btn.classList.remove('hidden'); btn.disabled = false; btn.innerText = '✅ أنا جاهز — ابدأ السباق';
+        haptic('success');
+      }
+      if (msg.type === 'start') {
+        race.inRace = true;
+        race.finishedSent = false;
+        race.opponent = { name: msg.opponent.name, score: 0, lives: 3, xRatio: 0.5 };
+        document.getElementById('race-ready-btn').classList.add('hidden');
+        const delay = Math.max(0, msg.startAt - Date.now());
+        raceStatus(`🏁 السباق يبدأ بعد ${Math.ceil(delay / 1000)} ثوانٍ… نفس الجواهر لك وله — الأعلى نقاطاً يفوز!`);
+        race.countdownTimer = setTimeout(() => {
+          switchTabSilent('play');
+          startAdventure('race', msg.seed);
+          advBanner(`⚔️ سباق ضد ${msg.opponent.name}!`, 2);
+        }, delay);
+      }
+      if (msg.type === 'opponent_progress' && race.opponent) {
+        race.opponent.score = msg.score; race.opponent.lives = msg.lives; race.opponent.xRatio = msg.xRatio;
+        document.getElementById('race-opponent').innerText = `الخصم: ${Math.floor(msg.score)} نقطة · ${'❤️'.repeat(Math.max(0, msg.lives))}`;
+      }
+      if (msg.type === 'opponent_finished') raceStatus('خصمك أنهى سباقه — أكمل بقوة!');
+      if (msg.type === 'rematch_requested') raceStatus('🔁 الخصم طلب إعادة السباق — اضغط «إعادة السباق» للموافقة');
+      if (msg.type === 'opponent_left') {
+        race.inRace = false;
+        if (adv.running && adv.mode === 'race') endAdventureByForfeit();
+        else raceStatus('غادر الخصم الغرفة');
+      }
+      if (msg.type === 'room_closed') raceStatus('أُغلقت الغرفة — أنشئ سباقاً جديداً');
+      if (msg.type === 'result') {
+        race.inRace = false;
+        const mine = msg.results.find((r) => String(r.id) === String(race.myId));
+        const theirs = msg.results.find((r) => String(r.id) !== String(race.myId));
+        const won = msg.winnerId && String(msg.winnerId) === String(race.myId);
+        const draw = !msg.winnerId;
+        if (won) { advStats.raceWins += 1; saveAdvStats(); renderAchievements(); }
+        document.getElementById('game-overlay').style.display = 'flex';
+        document.getElementById('game-overlay-title').innerText = draw ? '🤝 تعادل!' : won ? '🏆 فزت بالسباق!' : '💀 فاز الخصم';
+        document.getElementById('game-overlay-text').innerHTML =
+          `أنت: <b class="text-amber-400">${mine?.score ?? 0}</b> — الخصم: <b class="text-indigo-300">${theirs?.score ?? 0}</b><br>${draw ? 'متقاربان جداً!' : won ? 'أداء أسطوري يا بطل ⛏️' : 'المرة الجاية ركّز على السلاسل والقدرات!'}`;
+        const btn = document.getElementById('game-overlay-btn');
+        btn.innerText = '🔁 إعادة السباق';
+        btn.setAttribute('onclick', 'raceRematch()');
+        raceStatus(draw ? 'انتهى السباق بتعادل — اطلب إعادة للمباراة' : won ? '🏆 مبروك الفوز! اطلب إعادة إن أردت' : 'انتهى السباق — اطلب إعادة للمباراة');
+        haptic(won || draw ? 'success' : 'error');
+      }
+    }
+
+    function endAdventureByForfeit() {
+      adv.running = false;
+      cancelAnimationFrame(adv.raf);
+      document.getElementById('game-overlay').style.display = 'flex';
+      document.getElementById('game-overlay-title').innerText = '🏆 فزت — غادر الخصم!';
+      document.getElementById('game-overlay-text').innerHTML = `نتيجتك عند الانسحاب: <b class="text-amber-400">${Math.floor(adv.score)}</b>`;
+      const btn = document.getElementById('game-overlay-btn');
+      btn.innerText = '🔁 العب فردياً';
+      btn.setAttribute('onclick', 'startAdventure()');
+      raceStatus('🏆 فزت بانسحاب الخصم');
+      haptic('success');
+      updateAdventureUI();
+    }
+
+    // تبديل تبويب بلا إيقاف المغامرة (نستخدمه عند بدء السباق)
+    function switchTabSilent(tabId) { if (!document.getElementById('tab-play').classList.contains('active')) switchTab(tabId); }
+
+    async function raceQuick() { try { raceStatus('جارٍ الاتصال…'); await ensureRaceSocket(); raceSend({ type: 'quick' }); } catch (e) { raceStatus('تعذر الاتصال بخادم السباقات'); } }
+    async function raceCreate() { try { raceStatus('جارٍ إنشاء الغرفة…'); await ensureRaceSocket(); raceSend({ type: 'create' }); } catch (e) { raceStatus('تعذر الاتصال بخادم السباقات'); } }
+    async function raceJoin() {
+      const code = document.getElementById('race-code-input').value.toUpperCase().trim();
+      if (code.length !== 4) { raceStatus('أدخل رمز غرفة من 4 أحرف'); return; }
+      try { await ensureRaceSocket(); raceSend({ type: 'join', code }); } catch (e) { raceStatus('تعذر الاتصال بخادم السباقات'); }
+    }
+    function raceReady() {
+      raceSend({ type: 'ready' });
+      const btn = document.getElementById('race-ready-btn');
+      btn.disabled = true; btn.innerText = '⏳ بانتظار جاهزية الخصم…';
+      raceStatus('أنت جاهز — بانتظار الخصم');
+    }
+    function raceRematch() {
+      raceSend({ type: 'rematch' });
+      document.getElementById('game-overlay').style.display = 'none';
+      raceStatus('طلبت إعادة السباق — بانتظار موافقة الخصم…');
+      haptic('light');
+    }
+
+    // --- Upgrade Logic ---
+    const UPGRADES = {
+      click: { apply: () => { state.clickPower += 1; },      growth: 1.5 },
+      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4 },
+      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3 }
+    };
+
+    function buyUpgrade(type) {
+      const up = UPGRADES[type];
+      const cost = state.costs[type];
+      if (!up || state.gold < cost) { haptic('error'); return; }
+
+      state.gold -= cost;
+      state.owned[type] += 1;
+      up.apply();
+      state.costs[type] = Math.floor(cost * up.growth);
+      haptic('success');
+      updateUI();
+      save();
+    }
+
+    function resetGame() {
+      if (!confirm('⚠️ سيتم حذف كل تقدمك نهائياً. متأكد؟')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+
+    // --- Auto Income & Energy Regeneration Loop ---
+    setInterval(() => {
+      if (state.passiveIncome > 0) {
+        state.gold += state.passiveIncome / 10;
+        state.totalEarned += state.passiveIncome / 10;
+      }
+      // تجديد الطاقة: 3/ثانية
+      if (state.energy < state.maxEnergy) {
+        state.energy = Math.min(state.maxEnergy, state.energy + 0.3);
+      }
+      updateUI();
+    }, 100);
+    setInterval(save, 2000); // حفظ دوري خفيف بدلاً من الحفظ كل 100ms
+
+    // --- Navigation Tabs ---
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => {
+        b.classList.remove('text-amber-400', 'bg-slate-800/80');
+        b.classList.add('text-slate-400');
+      });
+
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+      const activeBtn = document.getElementById(`nav-${tabId}`);
+      activeBtn.classList.add('text-amber-400', 'bg-slate-800/80');
+      activeBtn.classList.remove('text-slate-400');
+
+      document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
+      if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
+      if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
+      if (tabId === 'leaderboard') loadLeaderboard();
+      if (tabId === 'arena') updateArenaUI();
+      haptic('light');
+    }
+
+    // --- Referral / Share ---
+    // ⚠️ استبدل MiningClickerBot باسم مستخدم بوتك الفعلي من BotFather
+    const BOT_USERNAME = 'MiningClickerBot';
+    function myPlayerId() {
+      return myId || tg?.initDataUnsafe?.user?.id || `guest_${guestId}`;
+    }
+    function referralUrl() {
+      return `https://t.me/${BOT_USERNAME}?start=ref_${myPlayerId()}`;
+    }
+    document.getElementById('ref-link-preview').innerText = referralUrl();
+
+    async function shareReferral() {
+      const refUrl = referralUrl();
+      const shareText = `⛏️ انضم إليّ في إمبراطورية التعدين واجمع الذهب! ${refUrl}`;
+      // داخل تيليجرام: فتح نافذة مشاركة أصلية
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refUrl)}&text=${encodeURIComponent('⛏️ انضم إليّ في إمبراطورية التعدين!')}`);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(shareText);
+        alert('✅ تم نسخ رابط الدعوة بنجاح!');
+      } catch (e) {
+        // احتياطي للمتصفحات/النطاقات غير الآمنة
+        const ta = document.createElement('textarea');
+        ta.value = shareText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        alert('✅ تم نسخ رابط الدعوة بنجاح!');
+      }
+    }
+
+    updateUI();
+    updateArenaUI();
+    updateAdventureUI();
+    updateAdvUpgradesUI();
+    updateAdvSettingsUI();
+    renderAchievements();
+    setTimeout(resizeAdventureCanvas, 50);
+    bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
+  </script>
+</body>
+</html>
