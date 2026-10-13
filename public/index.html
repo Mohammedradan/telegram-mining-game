@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mining Clicker Empire</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      font-family: 'Tajawal', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1e1b4b, #09090b);
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    .mining-btn { transition: transform 0.05s ease-out; }
+    .mining-btn:active { transform: scale(0.92); }
+
+    .floating-text {
+      position: absolute;
+      animation: floatUp 0.8s ease-out forwards;
+      pointer-events: none;
+      font-weight: 900;
+      color: #fbbf24;
+      text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
+      z-index: 20;
+    }
+
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -80px) scale(1.3); }
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: flex; }
+
+    .buy-btn:disabled { opacity: .45; filter: grayscale(.4); }
+    .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
+  </style>
+</head>
+<body class="h-screen flex flex-col justify-between p-4 select-none">
+
+  <!-- Header Info -->
+  <header class="flex justify-between items-center bg-slate-900/80 border border-slate-800 p-3 rounded-2xl backdrop-blur-md">
+    <div class="flex items-center gap-2">
+      <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-xl shadow-lg shadow-amber-500/30">
+        ⛏️
+      </div>
+      <div>
+        <div id="username" class="font-bold text-sm text-slate-200">معدّن أسطوري</div>
+        <div class="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span><span id="profit-per-sec">+0</span> /ثانية</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/50 text-right">
+      <div class="text-[10px] text-slate-400">المستوى</div>
+      <div id="level-badge" class="font-black text-amber-400 text-sm">1 (مبتدئ)</div>
+    </div>
+  </header>
+
+  <!-- Total Balance Display -->
+  <div class="text-center mt-3">
+    <div class="text-slate-400 text-xs font-semibold mb-1">إجمالي الذهب المستخرج</div>
+    <div class="flex items-center justify-center gap-2">
+      <span class="text-4xl text-amber-400">🪙</span>
+      <span id="gold-counter" class="text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md">0</span>
+    </div>
+  </div>
+
+  <!-- TAB 1: MINING (MAIN) -->
+  <main id="tab-mining" class="tab-content active flex-col items-center justify-center relative my-auto">
+    <div id="click-area" class="relative flex items-center justify-center">
+      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none">
+        <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-[0_0_50px_rgba(245,158,11,0.4)] border-4 border-yellow-200/40 pointer-events-none">
+          <span class="text-7xl sm:text-8xl drop-shadow-2xl">💎</span>
+        </div>
+      </button>
+    </div>
+    <p id="tap-hint" class="text-xs text-slate-500 mt-3">اضغط على الجوهرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
+  </main>
+
+  <!-- TAB 2: UPGRADES / SHOP -->
+  <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 overflow-y-auto max-h-[60vh] py-2 px-1">
+    <h2 class="text-lg font-bold text-slate-200 mb-1">ترقية المعدات والمعدنين</h2>
+
+    <!-- Upgrade 1: Click Power -->
+    <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl bg-slate-800 p-2 rounded-xl">🔨</div>
+        <div>
+          <div class="font-bold text-sm">فأس فولاذي <span id="owned-click" class="text-[10px] text-amber-400 font-black"></span></div>
+          <div class="text-xs text-slate-400">+1 لكل نقرة (الحالي: <span id="current-click-power">1</span>)</div>
+        </div>
+      </div>
+      <button onclick="buyUpgrade('click')" id="btn-upgrade-click" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
+        <span>🪙</span> <span id="cost-upgrade-click">50</span>
+      </button>
+    </div>
+
+    <!-- Upgrade 2: Auto Miner -->
+    <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl bg-slate-800 p-2 rounded-xl">🤖</div>
+        <div>
+          <div class="font-bold text-sm">عامل آلي <span id="owned-bot" class="text-[10px] text-amber-400 font-black"></span></div>
+          <div class="text-xs text-slate-400">+5 ذهب/ثانية</div>
+        </div>
+      </div>
+      <button onclick="buyUpgrade('bot')" id="btn-upgrade-bot" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
+        <span>🪙</span> <span id="cost-upgrade-bot">200</span>
+      </button>
+    </div>
+
+    <!-- Upgrade 3: Mining Rig -->
+    <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl bg-slate-800 p-2 rounded-xl">⚡</div>
+        <div>
+          <div class="font-bold text-sm">منصة تعدين عملاقة <span id="owned-rig" class="text-[10px] text-amber-400 font-black"></span></div>
+          <div class="text-xs text-slate-400">+25 ذهب/ثانية</div>
+        </div>
+      </div>
+      <button onclick="buyUpgrade('rig')" id="btn-upgrade-rig" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
+        <span>🪙</span> <span id="cost-upgrade-rig">1000</span>
+      </button>
+    </div>
+
+    <button onclick="resetGame()" class="mt-2 text-[11px] text-slate-500 hover:text-red-400 underline self-center">إعادة تعيين التقدم</button>
+  </main>
+
+  <!-- TAB 3: FRIENDS / EARN -->
+  <main id="tab-friends" class="tab-content flex-col items-center justify-center text-center gap-4 flex-1">
+    <div class="text-5xl">🎁</div>
+    <div>
+      <h2 class="text-xl font-bold mb-1">ادعُ أصدقاءك واكسب!</h2>
+      <p class="text-xs text-slate-400 max-w-xs mx-auto">احصل على 1,000 قطعة نقدية فورية لكل صديق ينضم عن طريق رابطك الخاص.</p>
+      <p class="text-[11px] text-slate-500 mt-2">رابطك: <span id="ref-link-preview" dir="ltr" class="text-slate-300 break-all"></span></p>
+    </div>
+    <button onclick="shareReferral()" class="w-full max-w-xs bg-gradient-to-r from-blue-500 to-indigo-600 font-bold py-3 px-4 rounded-xl text-sm shadow-lg shadow-indigo-500/30 active:scale-95">
+      📋 نسخ رابط الدعوة
+    </button>
+  </main>
+
+  <!-- Energy Section (Only on Mining Tab) -->
+  <div id="energy-container" class="w-full mb-3">
+    <div class="flex justify-between items-center text-xs font-bold text-slate-400 mb-1 px-1">
+      <span class="flex items-center gap-1">⚡ الطاقة</span>
+      <span><span id="energy-counter">1000</span> / <span id="max-energy">1000</span></span>
+    </div>
+    <div class="w-full h-3 bg-slate-800/90 rounded-full border border-slate-700/50 overflow-hidden p-[1px]">
+      <div id="energy-bar" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 rounded-full transition-all duration-200" style="width: 100%;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="grid grid-cols-3 gap-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
+    <button onclick="switchTab('mining')" id="nav-mining" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
+      <span class="text-lg">⛏️</span>
+      <span class="text-[11px] font-bold mt-0.5">تعدين</span>
+    </button>
+    <button onclick="switchTab('shop')" id="nav-shop" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">🛒</span>
+      <span class="text-[11px] font-bold mt-0.5">ترقيات</span>
+    </button>
+    <button onclick="switchTab('friends')" id="nav-friends" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">👥</span>
+      <span class="text-[11px] font-bold mt-0.5">الأصدقاء</span>
+    </button>
+  </nav>
+
+  <!-- Game Logic Script -->
+  <script>
+    // --- State Management ---
+    const STORAGE_KEY = 'mining_game_state';
+    const DEFAULT_STATE = {
+      gold: 0,
+      totalEarned: 0,        // للمستوى — لا ينقص عند الشراء
+      clickPower: 1,
+      passiveIncome: 0,
+      energy: 1000,
+      maxEnergy: 1000,
+      owned: { click: 0, bot: 0, rig: 0 },
+      costs: { click: 50, bot: 200, rig: 1000 },
+      lastSeen: Date.now()
+    };
+
+    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned } };
+
+    // Load Saved Game
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved) {
+        state = {
+          ...DEFAULT_STATE,
+          ...saved,
+          costs: { ...DEFAULT_STATE.costs, ...(saved.costs || {}) },
+          owned: { ...DEFAULT_STATE.owned, ...(saved.owned || {}) }
+        };
+        // ترحيل الحفظ القديم: إن لم يوجد totalEarned اعتبر الرصيد الحالي هو المجموع
+        if (!saved.totalEarned) state.totalEarned = Math.max(saved.gold || 0, (state.clickPower - 1) * 50 + state.passiveIncome * 20);
+        // أرباح أثناء الغياب (حتى 8 ساعات)
+        const elapsedSec = Math.max(0, (Date.now() - (saved.lastSeen || Date.now())) / 1000);
+        const offlineGain = Math.min(elapsedSec, 8 * 3600) * state.passiveIncome;
+        if (offlineGain >= 1) {
+          state.gold += offlineGain;
+          state.totalEarned += offlineGain;
+          setTimeout(() => alert(`💤 أثناء غيابك عدّن عمالك ${Math.floor(offlineGain).toLocaleString()} 🪙`), 400);
+        }
+        // تجديد الطاقة أثناء الغياب (3/ثانية)
+        state.energy = Math.min(state.maxEnergy, state.energy + elapsedSec * 3);
+      }
+    } catch (e) { /* حفظ تالف — نبدأ من جديد */ }
+
+    // Init Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      if (tg.initDataUnsafe?.user?.first_name) {
+        document.getElementById('username').innerText = tg.initDataUnsafe.user.first_name;
+      }
+    }
+
+    // --- DOM Elements ---
+    const goldCounter = document.getElementById('gold-counter');
+    const energyCounter = document.getElementById('energy-counter');
+    const energyBar = document.getElementById('energy-bar');
+    const profitCounter = document.getElementById('profit-per-sec');
+    const levelBadge = document.getElementById('level-badge');
+    const clickArea = document.getElementById('click-area');
+    const fmt = (n) => Math.floor(n).toLocaleString('en-US');
+
+    let saveQueued = false;
+    function save() {
+      if (saveQueued) return;
+      saveQueued = true;
+      requestAnimationFrame(() => {
+        saveQueued = false;
+        state.lastSeen = Date.now();
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+      });
+    }
+    window.addEventListener('beforeunload', () => {
+      state.lastSeen = Date.now();
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    });
+
+    function updateUI() {
+      goldCounter.innerText = fmt(state.gold);
+      energyCounter.innerText = fmt(state.energy);
+      document.getElementById('max-energy').innerText = fmt(state.maxEnergy);
+      energyBar.style.width = `${Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100))}%`;
+      profitCounter.innerText = `+${fmt(state.passiveIncome)}`;
+      document.getElementById('tap-cost').innerText = state.clickPower;
+      document.getElementById('current-click-power').innerText = state.clickPower;
+
+      for (const type of ['click', 'bot', 'rig']) {
+        document.getElementById(`cost-upgrade-${type}`).innerText = fmt(state.costs[type]);
+        document.getElementById(`btn-upgrade-${type}`).disabled = state.gold < state.costs[type];
+        const ownedEl = document.getElementById(`owned-${type}`);
+        ownedEl.innerText = state.owned[type] > 0 ? `×${state.owned[type]}` : '';
+      }
+
+      // المستوى يعتمد على إجمالي ما كُسب عبر الزمن (لا ينقص عند الشراء)
+      const level = Math.floor(state.totalEarned / 5000) + 1;
+      const titles = ['مبتدئ 🔥', 'هاوٍ ⛏️', 'محترف 💪', 'خبير 👑', 'أسطورة 🏆'];
+      levelBadge.innerText = `${level} (${titles[Math.min(titles.length - 1, Math.floor((level - 1) / 3))]})`;
+    }
+
+    function haptic(type) {
+      try {
+        if (tg?.HapticFeedback) {
+          if (type === 'success' || type === 'error') tg.HapticFeedback.notificationOccurred(type);
+          else tg.HapticFeedback.impactOccurred('light');
+        } else if (navigator.vibrate) {
+          navigator.vibrate(type === 'error' ? [30, 30, 30] : 10);
+        }
+      } catch (e) {}
+    }
+
+    // --- Mining Click Action (يدعم اللمس المتعدد عبر pointer events) ---
+    function handleMine(e) {
+      if (state.energy < state.clickPower) { haptic('error'); return; }
+
+      state.energy -= state.clickPower;
+      state.gold += state.clickPower;
+      state.totalEarned += state.clickPower;
+
+      haptic('light');
+
+      const rect = clickArea.getBoundingClientRect();
+      const x = (e.clientX ?? (rect.left + rect.width / 2)) - rect.left;
+      const y = (e.clientY ?? (rect.top + rect.height / 2)) - rect.top;
+      createFloatingText(`+${state.clickPower}`, x, y);
+      updateUI();
+      save();
+    }
+
+    function createFloatingText(text, x, y) {
+      const el = document.createElement('div');
+      el.className = 'floating-text text-2xl';
+      el.innerText = text;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      clickArea.appendChild(el);
+      setTimeout(() => el.remove(), 800);
+      // حدّ أقصى للعناصر المتطايرة عند النقر السريع جداً
+      while (clickArea.querySelectorAll('.floating-text').length > 25) {
+        clickArea.querySelector('.floating-text')?.remove();
+      }
+    }
+
+    document.getElementById('mine-btn').addEventListener('pointerdown', handleMine);
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // --- Upgrade Logic ---
+    const UPGRADES = {
+      click: { apply: () => { state.clickPower += 1; },      growth: 1.5 },
+      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4 },
+      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3 }
+    };
+
+    function buyUpgrade(type) {
+      const up = UPGRADES[type];
+      const cost = state.costs[type];
+      if (!up || state.gold < cost) { haptic('error'); return; }
+
+      state.gold -= cost;
+      state.owned[type] += 1;
+      up.apply();
+      state.costs[type] = Math.floor(cost * up.growth);
+      haptic('success');
+      updateUI();
+      save();
+    }
+
+    function resetGame() {
+      if (!confirm('⚠️ سيتم حذف كل تقدمك نهائياً. متأكد؟')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+
+    // --- Auto Income & Energy Regeneration Loop ---
+    setInterval(() => {
+      if (state.passiveIncome > 0) {
+        state.gold += state.passiveIncome / 10;
+        state.totalEarned += state.passiveIncome / 10;
+      }
+      // تجديد الطاقة: 3/ثانية
+      if (state.energy < state.maxEnergy) {
+        state.energy = Math.min(state.maxEnergy, state.energy + 0.3);
+      }
+      updateUI();
+    }, 100);
+    setInterval(save, 2000); // حفظ دوري خفيف بدلاً من الحفظ كل 100ms
+
+    // --- Navigation Tabs ---
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => {
+        b.classList.remove('text-amber-400', 'bg-slate-800/80');
+        b.classList.add('text-slate-400');
+      });
+
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+      const activeBtn = document.getElementById(`nav-${tabId}`);
+      activeBtn.classList.add('text-amber-400', 'bg-slate-800/80');
+      activeBtn.classList.remove('text-slate-400');
+
+      document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
+      haptic('light');
+    }
+
+    // --- Referral / Share ---
+    // ⚠️ استبدل MiningClickerBot باسم مستخدم بوتك الفعلي من BotFather
+    const BOT_USERNAME = 'MiningClickerBot';
+    function referralUrl() {
+      const uid = tg?.initDataUnsafe?.user?.id || 'guest';
+      return `https://t.me/${BOT_USERNAME}?start=ref_${uid}`;
+    }
+    document.getElementById('ref-link-preview').innerText = referralUrl();
+
+    async function shareReferral() {
+      const refUrl = referralUrl();
+      const shareText = `⛏️ انضم إليّ في إمبراطورية التعدين واجمع الذهب! ${refUrl}`;
+      // داخل تيليجرام: فتح نافذة مشاركة أصلية
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refUrl)}&text=${encodeURIComponent('⛏️ انضم إليّ في إمبراطورية التعدين!')}`);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(shareText);
+        alert('✅ تم نسخ رابط الدعوة بنجاح!');
+      } catch (e) {
+        // احتياطي للمتصفحات/النطاقات غير الآمنة
+        const ta = document.createElement('textarea');
+        ta.value = shareText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        alert('✅ تم نسخ رابط الدعوة بنجاح!');
+      }
+    }
+
+    updateUI();
+  </script>
+</body>
+</html>
