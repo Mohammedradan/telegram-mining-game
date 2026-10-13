@@ -39,7 +39,7 @@ const defaultState = () => ({
   maxEnergy: 1000,
   owned: { click: 0, bot: 0, rig: 0 },
   costs: { click: 50, bot: 200, rig: 1000 },
-  adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0 },
+  adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
   boostUntil: 0,
   boostCooldownUntil: 0,
   lastSeen: Date.now(),
@@ -109,6 +109,7 @@ const ADV_UPGRADES_DEF = {
   heart: { base: 300, growth: 1.8, max: 3 },
   clock: { base: 150, growth: 1.6, max: 5 },
   luck: { base: 200, growth: 1.7, max: 5 },
+  skill: { base: 250, growth: 1.8, max: 3 },
 };
 function advCostFor(key, level) {
   let c = ADV_UPGRADES_DEF[key].base;
@@ -515,7 +516,7 @@ function setupMultiplayer(httpServer) {
         raceQueue = raceQueue.filter((q) => q.readyState === q.OPEN && q !== ws);
         const other = raceQueue.shift();
         if (other) {
-          const room = { id: raceCode(), code: 'سريع', players: new Set(), state: 'lobby', results: new Map() };
+          const room = { id: raceCode(), code: 'سريع', players: new Set(), state: 'lobby', results: new Map(), rematchRequests: new Set() };
           raceRooms.set(room.id, room);
           pairInto(room, other);
         }
@@ -525,7 +526,7 @@ function setupMultiplayer(httpServer) {
       if (msg.type === 'create') {
         leaveRoom(false);
         const code = raceCode();
-        const room = { id: code, code, players: new Set([ws]), state: 'lobby', results: new Map() };
+        const room = { id: code, code, players: new Set([ws]), state: 'lobby', results: new Map(), rematchRequests: new Set() };
         raceRooms.set(code, room);
         ws.player.roomId = code;
         sendWs(ws, { type: 'room_created', code, message: `شارك الرمز ${code} مع صديقك` });
@@ -587,6 +588,28 @@ function setupMultiplayer(httpServer) {
           const results = [...room.results.values()].sort((a, b) => b.score - a.score);
           const winnerId = results[0].score === results[1].score ? null : results[0].id;
           for (const p of room.players) sendWs(p, { type: 'result', winnerId, results });
+        }
+      }
+
+      if (msg.type === 'rematch') {
+        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+        if (!room || room.state !== 'finished' || room.players.size !== 2) return;
+        room.rematchRequests = room.rematchRequests || new Set();
+        room.rematchRequests.add(ws.player.id);
+        const players = [...room.players];
+        for (const other of players) if (other !== ws) sendWs(other, { type: 'rematch_requested' });
+        if (room.rematchRequests.size >= 2) {
+          room.rematchRequests.clear();
+          room.state = 'racing';
+          room.seed = Math.floor(Math.random() * 2 ** 31);
+          room.startAt = Date.now() + 2500;
+          room.startedAt = Date.now();
+          room.results = new Map();
+          for (const p of players) {
+            p.player.ready = false;
+            const opp = players.find((q) => q !== p);
+            sendWs(p, { type: 'start', seed: room.seed, startAt: room.startAt, opponent: { id: opp.player.id, name: opp.player.name } });
+          }
         }
       }
 

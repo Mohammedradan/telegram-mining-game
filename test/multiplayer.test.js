@@ -83,6 +83,19 @@ test('⚔️ سباق سريع: إقراّن وبذرة موحدة وبث تقد
   assert.equal(ra.winnerId, 'guest_racer_a');
   assert.equal(rb.winnerId, 'guest_racer_a');
   assert.deepEqual(ra.results.map((r) => r.score), [90, 80]);
+
+  // 🔁 إعادة سباق بموافقة الطرفين: بداية ثانية بنفس الإقراّن
+  const secondStart = (ws) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout waiting rematch start')), 5000);
+    const iv = setInterval(() => {
+      const starts = ws.messages.filter((m) => m.type === 'start');
+      if (starts.length >= 2) { clearTimeout(timer); clearInterval(iv); resolve(starts[1]); }
+    }, 25);
+  });
+  send(a, { type: 'rematch' });
+  send(b, { type: 'rematch' });
+  const [sa2, sb2] = await Promise.all([secondStart(a), secondStart(b)]);
+  assert.equal(sa2.seed, sb2.seed);
 });
 
 test('🔑 غرفة خاصة برمز: إنشاء وانضمام', async () => {
