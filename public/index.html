@@ -148,12 +148,27 @@
     <div class="text-5xl">🎁</div>
     <div>
       <h2 class="text-xl font-bold mb-1">ادعُ أصدقاءك واكسب!</h2>
-      <p class="text-xs text-slate-400 max-w-xs mx-auto">احصل على 1,000 قطعة نقدية فورية لكل صديق ينضم عن طريق رابطك الخاص.</p>
+      <p class="text-xs text-slate-400 max-w-xs mx-auto">احصل على 1,000 قطعة نقدية فورية لكل صديق ينضم عن طريق رابطك الخاص ويفتح اللعبة.</p>
+      <div class="flex gap-2 justify-center mt-1">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2"><div class="text-[10px] text-slate-400">أصدقاء انضموا</div><div id="ref-count" class="font-black text-amber-400">0</div></div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2"><div class="text-[10px] text-slate-400">أرباح الدعوات</div><div class="font-black text-amber-400">🪙 <span id="ref-earnings">0</span></div></div>
+      </div>
       <p class="text-[11px] text-slate-500 mt-2">رابطك: <span id="ref-link-preview" dir="ltr" class="text-slate-300 break-all"></span></p>
     </div>
     <button onclick="shareReferral()" class="w-full max-w-xs bg-gradient-to-r from-blue-500 to-indigo-600 font-bold py-3 px-4 rounded-xl text-sm shadow-lg shadow-indigo-500/30 active:scale-95">
       📋 نسخ رابط الدعوة
     </button>
+  </main>
+
+  <!-- TAB 4: LEADERBOARD -->
+  <main id="tab-leaderboard" class="tab-content flex-col gap-2 flex-1 overflow-y-auto max-h-[62vh] py-2 px-1">
+    <div class="flex justify-between items-center">
+      <h2 class="text-lg font-bold text-slate-200">🏆 لوحة الصدارة</h2>
+      <button onclick="loadLeaderboard()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg font-bold">↻ تحديث</button>
+    </div>
+    <div id="leaderboard-list" class="flex flex-col gap-2">
+      <p class="text-xs text-slate-500 text-center py-6">جارٍ التحميل…</p>
+    </div>
   </main>
 
   <!-- Energy Section (Only on Mining Tab) -->
@@ -201,6 +216,8 @@
 
     let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned } };
 
+    let localOfflineGain = 0;
+
     // Load Saved Game
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
@@ -247,6 +264,7 @@
 
     let saveQueued = false;
     function save() {
+      syncDirty = true;
       if (saveQueued) return;
       saveQueued = true;
       requestAnimationFrame(() => {
@@ -259,15 +277,192 @@
       state.lastSeen = Date.now();
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
     });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) saveToServer(); });
+
+    // --- المزامنة مع الخادم (حفظ سحابي + دعوات + صدارة) ---
+    let serverMode = false;
+    let syncDirty = false;
+    let profile = null;
+    let myId = null;
+    let guestId = localStorage.getItem('mining_guest_id');
+    if (!guestId) {
+      guestId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { localStorage.setItem('mining_guest_id', guestId); } catch (e) {}
+    }
+
+    function authHeaders() {
+      const h = { 'Content-Type': 'application/json' };
+      if (tg?.initData) h['X-Telegram-Init-Data'] = tg.initData;
+      else h['X-Guest-Id'] = guestId;
+      return h;
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status, data });
+      return data;
+    }
+
+    async function saveToServer() {
+      if (!serverMode || !syncDirty) return;
+      syncDirty = false;
+      try {
+        await api('/api/save', { method: 'POST', body: JSON.stringify({ state }), keepalive: true });
+      } catch (e) { syncDirty = true; }
+    }
+    setInterval(saveToServer, 5000);
+
+    async function bootstrap() {
+      try {
+        const startParam = tg?.initDataUnsafe?.start_param || new URLSearchParams(location.search).get('ref') || '';
+        const data = await api(`/api/me${startParam ? `?ref=${encodeURIComponent(startParam)}` : ''}`);
+        profile = data;
+        serverMode = true;
+        myId = String(data.user.id);
+        if (data.user.name && data.user.name !== 'ضيف') document.getElementById('username').innerText = data.user.name;
+        document.getElementById('sync-status').innerText = '☁️ محفوظ على الخادم';
+        document.getElementById('ref-link-preview').innerText = referralUrl();
+
+        if (data.isNew && state.totalEarned > (data.state?.totalEarned || 0)) {
+          // أول دخول من تيليجرام ولديه تقدم محلي أقدم — نرحّله للخادم بدل فقدانه
+          syncDirty = true;
+          await saveToServer();
+        } else if (data.state) {
+          // أرباح غياب محسوبة من آخر حفظ على الخادم (نطرح ما حُسب محلياً لمنع التكرار)
+          const elapsedSec = Math.max(0, (Date.now() - (data.state.lastSeen || Date.now())) / 1000);
+          const serverOffline = Math.min(elapsedSec, 8 * 3600) * (data.state.passiveIncome || 0);
+          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) } };
+          if (serverOffline > localOfflineGain + 1) {
+            const diff = serverOffline - localOfflineGain;
+            state.gold += diff;
+            state.totalEarned += diff;
+          }
+          save();
+        }
+        updateUI();
+      } catch (e) {
+        serverMode = false; // نكمل بالحفظ المحلي (متصفح بدون خادم/توكن)
+      }
+    }
+
+    // --- التعزيز والمكافأة اليومية ---
+    const boostActive = () => Date.now() < (state.boostUntil || 0);
+    const clickGain = () => state.clickPower * (boostActive() ? 2 : 1);
+    const passiveGain = () => state.passiveIncome * (boostActive() ? 2 : 1);
+
+    function dailyInfoLocal() {
+      if (profile?.daily) return profile.daily;
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400e3).toISOString().slice(0, 10);
+      const canClaim = state.dailyLastClaim !== today;
+      const streak = !canClaim ? state.dailyStreak : (state.dailyLastClaim === yesterday ? state.dailyStreak + 1 : 1);
+      return { canClaim, streak, reward: Math.min(1500, 500 + (streak - 1) * 100) };
+    }
+
+    function activateBoost() {
+      const now = Date.now();
+      if (boostActive() || now < (state.boostCooldownUntil || 0)) { haptic('error'); return; }
+      state.boostUntil = now + 30_000;              // ×2 لمدة 30 ثانية
+      state.boostCooldownUntil = now + 5 * 60_000;  // تهدئة 5 دقائق
+      haptic('success');
+      updateUI();
+      save();
+    }
+
+    async function claimDaily() {
+      if (serverMode) {
+        try {
+          const data = await api('/api/claim-daily', { method: 'POST', body: '{}' });
+          state = { ...state, ...data.state };
+          if (profile) profile.daily = data.daily;
+          haptic('success');
+          alert(`🎁 حصلت على مكافأة يومية ${fmt(data.reward)} 🪙 (سلسلة ${data.daily.streak} يوم)`);
+        } catch (e) {
+          if (e.status === 409 && profile) profile.daily = e.data.daily;
+          haptic('error');
+          alert(e.message);
+        }
+      } else {
+        const info = dailyInfoLocal();
+        if (!info.canClaim) { haptic('error'); alert('استلمت مكافأة اليوم — عُد غداً!'); return; }
+        state.dailyStreak = info.streak;
+        state.dailyLastClaim = new Date().toISOString().slice(0, 10);
+        state.gold += info.reward;
+        state.totalEarned += info.reward;
+        haptic('success');
+        alert(`🎁 حصلت على مكافأة يومية ${fmt(info.reward)} 🪙 (سلسلة ${info.streak} يوم)`);
+      }
+      updateUI();
+      save();
+    }
+
+    // --- لوحة الصدارة ---
+    async function loadLeaderboard() {
+      const list = document.getElementById('leaderboard-list');
+      try {
+        const { leaderboard } = await api('/api/leaderboard');
+        list.innerHTML = '';
+        if (!leaderboard.length) {
+          list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">لا لاعبين بعد — كن أول معدّن! ⛏️</p>';
+          return;
+        }
+        for (const row of leaderboard) {
+          const el = document.createElement('div');
+          const mine = myId && String(row.id) === myId;
+          el.className = `flex justify-between items-center border p-3 rounded-xl ${mine ? 'bg-amber-500/15 border-amber-500/50' : 'bg-slate-900/90 border-slate-800'}`;
+          const medal = row.rank === 1 ? '🥇' : row.rank === 2 ? '🥈' : row.rank === 3 ? '🥉' : `#${row.rank}`;
+          const left = document.createElement('div');
+          left.className = 'flex items-center gap-2 min-w-0';
+          const name = document.createElement('span');
+          name.className = 'font-bold text-sm truncate';
+          name.textContent = `${medal} ${row.name}${mine ? ' (أنت)' : ''}`;
+          const lvl = document.createElement('span');
+          lvl.className = 'text-[10px] text-slate-400 shrink-0';
+          lvl.textContent = `مستوى ${row.level}`;
+          left.append(name, lvl);
+          const gold = document.createElement('div');
+          gold.className = 'font-black text-amber-400 text-sm shrink-0';
+          gold.textContent = `🪙 ${fmt(row.totalEarned)}`;
+          el.append(left, gold);
+          list.appendChild(el);
+        }
+      } catch (e) {
+        list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">تعذّر تحميل الصدارة (تحتاج اتصالاً بالخادم)</p>';
+      }
+    }
 
     function updateUI() {
       goldCounter.innerText = fmt(state.gold);
       energyCounter.innerText = fmt(state.energy);
       document.getElementById('max-energy').innerText = fmt(state.maxEnergy);
       energyBar.style.width = `${Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100))}%`;
-      profitCounter.innerText = `+${fmt(state.passiveIncome)}`;
+      profitCounter.innerText = `+${fmt(passiveGain())}${boostActive() ? ' 🚀' : ''}`;
       document.getElementById('tap-cost').innerText = state.clickPower;
       document.getElementById('current-click-power').innerText = state.clickPower;
+
+      // أزرار المكافأة والتعزيز
+      const now = Date.now();
+      const daily = dailyInfoLocal();
+      const dailyBtn = document.getElementById('daily-btn');
+      dailyBtn.disabled = !daily.canClaim;
+      dailyBtn.innerText = daily.canClaim ? `🎁 مكافأة يومية +${fmt(daily.reward)}` : '🎁 استُلمت اليوم ✓';
+      const boostBtn = document.getElementById('boost-btn');
+      if (boostActive()) {
+        boostBtn.disabled = true;
+        boostBtn.innerText = `🚀 تعزيز ×2 (${Math.ceil((state.boostUntil - now) / 1000)}ث)`;
+      } else if (now < (state.boostCooldownUntil || 0)) {
+        boostBtn.disabled = true;
+        const s = Math.ceil((state.boostCooldownUntil - now) / 1000);
+        boostBtn.innerText = `🚀 تعزيز (${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')})`;
+      } else {
+        boostBtn.disabled = false;
+        boostBtn.innerText = '🚀 تعزيز ×2';
+      }
+
+      // إحصائيات الدعوات
+      document.getElementById('ref-count').innerText = fmt(profile?.referralCount || 0);
+      document.getElementById('ref-earnings').innerText = fmt(profile?.referralEarnings || 0);
 
       for (const type of ['click', 'bot', 'rig']) {
         document.getElementById(`cost-upgrade-${type}`).innerText = fmt(state.costs[type]);
@@ -389,9 +584,11 @@
     // --- Referral / Share ---
     // ⚠️ استبدل MiningClickerBot باسم مستخدم بوتك الفعلي من BotFather
     const BOT_USERNAME = 'MiningClickerBot';
+    function myPlayerId() {
+      return myId || tg?.initDataUnsafe?.user?.id || `guest_${guestId}`;
+    }
     function referralUrl() {
-      const uid = tg?.initDataUnsafe?.user?.id || 'guest';
-      return `https://t.me/${BOT_USERNAME}?start=ref_${uid}`;
+      return `https://t.me/${BOT_USERNAME}?start=ref_${myPlayerId()}`;
     }
     document.getElementById('ref-link-preview').innerText = referralUrl();
 
@@ -421,4 +618,6 @@
     updateUI();
   </script>
 </body>
+</html>
+y>
 </html>
