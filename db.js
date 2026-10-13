@@ -43,6 +43,12 @@ CREATE TABLE IF NOT EXISTS users (
   last_save_at INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS pending_referrals (id TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS race_stats (
+  week TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL,
+  races INTEGER NOT NULL DEFAULT 0, wins INTEGER NOT NULL DEFAULT 0,
+  best_score INTEGER NOT NULL DEFAULT 0, total_score INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL, PRIMARY KEY (week, user_id)
+);
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
 `;
 
@@ -55,6 +61,12 @@ CREATE TABLE IF NOT EXISTS users (
   last_save_at BIGINT NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS pending_referrals (id TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS race_stats (
+  week TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL,
+  races INTEGER NOT NULL DEFAULT 0, wins INTEGER NOT NULL DEFAULT 0,
+  best_score INTEGER NOT NULL DEFAULT 0, total_score INTEGER NOT NULL DEFAULT 0,
+  updated_at BIGINT NOT NULL, PRIMARY KEY (week, user_id)
+);
 `;
 
 function createSqliteStore(file) {
@@ -79,6 +91,21 @@ function createSqliteStore(file) {
     async topUsers(limit) {
       return conn.prepare('SELECT * FROM users ORDER BY CAST(json_extract(state_json, \'$.totalEarned\') AS REAL) DESC LIMIT ?')
         .all(limit).map(rowToUser);
+    },
+    async recordRaceResult(week, { id, name, score, won }) {
+      conn.prepare(`INSERT INTO race_stats (week, user_id, name, races, wins, best_score, total_score, updated_at)
+        VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+        ON CONFLICT(week, user_id) DO UPDATE SET name = excluded.name,
+          races = race_stats.races + 1, wins = race_stats.wins + excluded.wins,
+          best_score = MAX(race_stats.best_score, excluded.best_score),
+          total_score = race_stats.total_score + excluded.total_score,
+          updated_at = excluded.updated_at`)
+        .run(week, String(id), name || 'لاعب', won ? 1 : 0, Math.floor(score) || 0, Math.floor(score) || 0, Date.now());
+    },
+    async raceLeaderboard(week, limit) {
+      return conn.prepare(`SELECT user_id, name, races, wins, best_score, total_score FROM race_stats
+        WHERE week = ? ORDER BY wins DESC, best_score DESC, total_score DESC LIMIT ?`).all(week, limit)
+        .map((r) => ({ id: r.user_id, name: r.name, races: r.races, wins: r.wins, bestScore: r.best_score, totalScore: r.total_score }));
     },
     async getPending(id) { return conn.prepare('SELECT count FROM pending_referrals WHERE id = ?').get(String(id))?.count || 0; },
     async addPending(id) {
@@ -126,6 +153,24 @@ function createPgStore(url) {
         ON CONFLICT(id) DO UPDATE SET count = pending_referrals.count + 1`, [String(id)]);
     },
     async clearPending(id) { await q('DELETE FROM pending_referrals WHERE id = $1', [String(id)]); },
+    async setPending(id, count) {
+      if (count > 0) await q('INSERT INTO pending_referrals (id, count) VALUES ($1, $2) ON CONFLICT(id) DO UPDATE SET count = EXCLUDED.count', [String(id), count]);
+    },
+    async recordRaceResult(week, { id, name, score, won }) {
+      await q(`INSERT INTO race_stats (week, user_id, name, races, wins, best_score, total_score, updated_at)
+        VALUES ($1, $2, $3, 1, $4, $5, $5, $6)
+        ON CONFLICT(week, user_id) DO UPDATE SET name = EXCLUDED.name,
+          races = race_stats.races + 1, wins = race_stats.wins + EXCLUDED.wins,
+          best_score = GREATEST(race_stats.best_score, EXCLUDED.best_score),
+          total_score = race_stats.total_score + EXCLUDED.total_score,
+          updated_at = EXCLUDED.updated_at`,
+      [week, String(id), name || 'لاعب', won ? 1 : 0, Math.floor(score) || 0, Date.now()]);
+    },
+    async raceLeaderboard(week, limit) {
+      return (await q(`SELECT user_id, name, races, wins, best_score, total_score FROM race_stats
+        WHERE week = $1 ORDER BY wins DESC, best_score DESC, total_score DESC LIMIT $2`, [week, limit])).rows
+        .map((r) => ({ id: r.user_id, name: r.name, races: Number(r.races), wins: Number(r.wins), bestScore: Number(r.best_score), totalScore: Number(r.total_score) }));
+    },
     async close() { await pool.end(); },
   };
 }

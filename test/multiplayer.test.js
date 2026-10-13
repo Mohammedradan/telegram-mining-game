@@ -96,6 +96,15 @@ test('⚔️ سباق سريع: إقراّن وبذرة موحدة وبث تقد
   send(b, { type: 'rematch' });
   const [sa2, sb2] = await Promise.all([secondStart(a), secondStart(b)]);
   assert.equal(sa2.seed, sb2.seed);
+
+  // 🏆 النتيجة وصلت لبطولة الأسبوع على الخادم
+  const board = await (await fetch(`${BASE}/api/race-leaderboard`)).json();
+  const champ = board.leaderboard.find((r) => r.id === 'guest_racer_a');
+  const runner = board.leaderboard.find((r) => r.id === 'guest_racer_b');
+  assert.equal(champ.wins, 1);
+  assert.equal(champ.races, 1);
+  assert.equal(champ.bestScore, 90);
+  assert.equal(runner.wins, 0);
 });
 
 test('🔑 غرفة خاصة برمز: إنشاء وانضمام', async () => {

@@ -229,6 +229,16 @@ function validateSave(user, input, { isBaseline = false } = {}) {
 const dayStr = (d = new Date()) => d.toISOString().slice(0, 10);
 const levelOf = (totalEarned) => Math.floor(totalEarned / 5000) + 1;
 
+// مفتاح أسبوع ISO (مثل 2026-W42) لبطولة السباقات الأسبوعية
+function currentWeekKey(d = new Date()) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day); // الخميس من هذا الأسبوع
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date - yearStart) / 86400e3 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
 function dailyInfo(user) {
   const today = dayStr();
   const yesterday = dayStr(new Date(Date.now() - 86400e3));
@@ -437,6 +447,12 @@ app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(asy
   res.json({ ok: true, reward: info.reward, state: user.state, daily: dailyInfo(user) });
 }));
 
+app.get('/api/race-leaderboard', rateLimit('raceboard', 120), asyncRoute(async (req, res) => {
+  const week = currentWeekKey();
+  const rows = await store.raceLeaderboard(week, 20);
+  res.json({ week, leaderboard: rows.map((r, i) => ({ rank: i + 1, ...r })) });
+}));
+
 app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res) => {
   const top = await store.topUsers(20);
   res.json({
@@ -506,7 +522,7 @@ function setupMultiplayer(httpServer) {
       sendWs(other, { type: 'matched', code: room.code, opponent: { id: ws.player.id, name: ws.player.name } });
     };
 
-    ws.on('message', (raw) => {
+    ws.on('message', async (raw) => {
       if (raw.length > 4096) return;
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -587,6 +603,11 @@ function setupMultiplayer(httpServer) {
           room.state = 'finished';
           const results = [...room.results.values()].sort((a, b) => b.score - a.score);
           const winnerId = results[0].score === results[1].score ? null : results[0].id;
+          // 🏆 تسجيل البطولة الأسبوعية قبل إعلان النتيجة (فشل التخزين لا يعطّل السباق)
+          try {
+            const week = currentWeekKey();
+            for (const r of results) await store.recordRaceResult(week, { ...r, won: winnerId === r.id });
+          } catch (e) { console.error('تعذّر تسجيل نتيجة سباق:', e.message); }
           for (const p of room.players) sendWs(p, { type: 'result', winnerId, results });
         }
       }
