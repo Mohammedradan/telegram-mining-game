@@ -171,6 +171,50 @@
     </div>
   </main>
 
+  <!-- TAB 5: ARENA (تجريبي) -->
+  <main id="tab-arena" class="tab-content flex-col gap-3 flex-1 overflow-y-auto max-h-[64vh] py-2 px-1">
+    <div class="text-center">
+      <h2 class="text-lg font-bold text-slate-200">⚔️ ساحة القتال <span class="text-[10px] text-fuchsia-400">تجريبي</span></h2>
+      <p class="text-[11px] text-slate-400">قاتل الخصم الآلي دوراً بدور — الفائز يحصل على <b class="text-amber-400">+50 🪙</b> · سجلّك: <span id="arena-record">0 فوز · 0 خسارة</span></p>
+    </div>
+
+    <!-- الخصم -->
+    <div class="bg-slate-900/90 border border-red-900/50 p-3 rounded-xl">
+      <div class="flex justify-between items-center mb-1">
+        <span id="arena-enemy-name" class="font-bold text-sm">🤖 روبوت المنقب</span>
+        <span id="arena-enemy-status" class="text-[10px] text-slate-400"></span>
+      </div>
+      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
+      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
+      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+    </div>
+
+    <div id="arena-turn" class="text-center text-xs font-black text-amber-400">اضغط «بدء مباراة» للقتال</div>
+
+    <!-- أنت -->
+    <div class="bg-slate-900/90 border border-emerald-900/50 p-3 rounded-xl">
+      <div class="flex justify-between items-center mb-1">
+        <span class="font-bold text-sm">⛏️ أنت</span>
+        <span id="arena-player-status" class="text-[10px] text-slate-400"></span>
+      </div>
+      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
+      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
+      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+    </div>
+
+    <!-- الحركات -->
+    <div class="grid grid-cols-4 gap-2">
+      <button id="arena-btn-attack" onclick="arenaAction('ATTACK')" disabled class="arena-btn bg-red-500/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⚔️ هجوم<br><span class="text-[9px] font-normal">3⚡ · ضرر 10-15</span></button>
+      <button id="arena-btn-defend" onclick="arenaAction('DEFEND')" disabled class="arena-btn bg-sky-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">🛡️ دفاع<br><span class="text-[9px] font-normal">1⚡ · ضرر وارد −50%</span></button>
+      <button id="arena-btn-heal" onclick="arenaAction('HEAL')" disabled class="arena-btn bg-emerald-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">💚 علاج<br><span class="text-[9px] font-normal">4⚡ · ‎+20❤️</span></button>
+      <button id="arena-btn-wait" onclick="arenaAction('WAIT')" disabled class="arena-btn bg-slate-700 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⏳ انتظار<br><span class="text-[9px] font-normal">‎+3⚡</span></button>
+    </div>
+
+    <button id="arena-start-btn" onclick="startBattle()" class="w-full bg-gradient-to-r from-fuchsia-500 to-purple-600 font-bold py-3 rounded-xl text-sm shadow-lg active:scale-95">🚀 بدء مباراة</button>
+
+    <div id="arena-log" class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-[11px] leading-6 text-slate-300 min-h-[96px]">سجل المباراة سيظهر هنا…</div>
+  </main>
+
   <!-- Energy Section (Only on Mining Tab) -->
   <div id="energy-container" class="w-full mb-3">
     <div class="flex justify-between items-center text-xs font-bold text-slate-400 mb-1 px-1">
@@ -183,7 +227,7 @@
   </div>
 
   <!-- Bottom Navigation Bar -->
-  <nav class="grid grid-cols-3 gap-2 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
+  <nav class="grid grid-cols-5 gap-1.5 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
     <button onclick="switchTab('mining')" id="nav-mining" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
       <span class="text-lg">⛏️</span>
       <span class="text-[11px] font-bold mt-0.5">تعدين</span>
@@ -194,7 +238,15 @@
     </button>
     <button onclick="switchTab('friends')" id="nav-friends" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
       <span class="text-lg">👥</span>
-      <span class="text-[11px] font-bold mt-0.5">الأصدقاء</span>
+      <span class="text-[10px] font-bold mt-0.5">الأصدقاء</span>
+    </button>
+    <button onclick="switchTab('leaderboard')" id="nav-leaderboard" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">🏆</span>
+      <span class="text-[10px] font-bold mt-0.5">الصدارة</span>
+    </button>
+    <button onclick="switchTab('arena')" id="nav-arena" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
+      <span class="text-lg">⚔️</span>
+      <span class="text-[10px] font-bold mt-0.5">الساحة</span>
     </button>
   </nav>
 
@@ -344,6 +396,163 @@
       } catch (e) {
         serverMode = false; // نكمل بالحفظ المحلي (متصفح بدون خادم/توكن)
       }
+    }
+
+    // ================= ⚔️ ساحة القتال (تجريبي — قتال محلي ضد خصم آلي) =================
+    const ARENA = { maxHp: 100, maxEnergy: 10, regen: 2, winReward: 50, maxRounds: 30,
+      costs: { ATTACK: 3, DEFEND: 1, HEAL: 4, WAIT: 0 } };
+    let battle = null;
+    let arenaRecord = { wins: 0, losses: 0 };
+    try { arenaRecord = { ...arenaRecord, ...JSON.parse(localStorage.getItem('mining_arena_record') || '{}') }; } catch (e) {}
+    const saveArenaRecord = () => { try { localStorage.setItem('mining_arena_record', JSON.stringify(arenaRecord)); } catch (e) {} };
+    const rand = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
+
+    function arenaLog(msg) {
+      const el = document.getElementById('arena-log');
+      const line = document.createElement('div');
+      line.textContent = msg;
+      el.prepend(line);
+      while (el.children.length > 6) el.lastChild.remove();
+    }
+
+    function playerLevel() { return Math.floor(state.totalEarned / 5000) + 1; }
+
+    function startBattle() {
+      const lvl = playerLevel();
+      battle = {
+        active: true, busy: false, round: 1,
+        player: { hp: ARENA.maxHp, maxHp: ARENA.maxHp, energy: ARENA.maxEnergy, defending: false },
+        enemy: { hp: 80 + lvl * 10, maxHp: 80 + lvl * 10, energy: ARENA.maxEnergy, defending: false, level: lvl },
+      };
+      document.getElementById('arena-log').innerHTML = '';
+      arenaLog(`⚔️ بدأت مباراة ضد روبوت المنقب (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
+      arenaLog('اختر حركتك الأولى!');
+      haptic('success');
+      updateArenaUI();
+    }
+
+    function updateArenaUI() {
+      const p = battle?.player || { hp: ARENA.maxHp, energy: ARENA.maxEnergy, defending: false };
+      const e = battle?.enemy || { hp: 100, maxHp: 100, energy: ARENA.maxEnergy, defending: false, level: 1 };
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = `${Math.max(0, v)}%`; };
+      const txt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+      set('arena-player-hp', p.hp / ARENA.maxHp * 100);
+      set('arena-player-energy', p.energy / ARENA.maxEnergy * 100);
+      set('arena-enemy-hp', e.hp / e.maxHp * 100);
+      set('arena-enemy-energy', e.energy / ARENA.maxEnergy * 100);
+      txt('arena-player-hp-text', `${Math.max(0, Math.ceil(p.hp))}/${ARENA.maxHp}`);
+      txt('arena-player-energy-text', `${p.energy}/${ARENA.maxEnergy}`);
+      txt('arena-enemy-hp-text', `${Math.max(0, Math.ceil(e.hp))}/${e.maxHp}`);
+      txt('arena-enemy-energy-text', `${e.energy}/${ARENA.maxEnergy}`);
+      txt('arena-enemy-name', `🤖 روبوت المنقب · مستوى ${e.level}`);
+      txt('arena-player-status', p.defending ? '🛡️ دفاع مفعّل' : '');
+      txt('arena-enemy-status', e.defending ? '🛡️ دفاع مفعّل' : '');
+      txt('arena-record', `${arenaRecord.wins} فوز · ${arenaRecord.losses} خسارة`);
+      txt('arena-turn', !battle?.active ? (battle ? 'انتهت المباراة — ابدأ واحدة جديدة' : 'اضغط «بدء مباراة» للقتال')
+        : battle.busy ? '⏳ دور الخصم…' : `🎯 الجولة ${battle.round} — دورك! اختر حركة`);
+      document.getElementById('arena-start-btn').innerText = battle?.active ? '🔄 إعادة بدء المباراة' : '🚀 بدء مباراة';
+      for (const [key, action] of [['attack', 'ATTACK'], ['defend', 'DEFEND'], ['heal', 'HEAL'], ['wait', 'WAIT']]) {
+        const btn = document.getElementById(`arena-btn-${key}`);
+        btn.disabled = !battle?.active || battle.busy || p.energy < ARENA.costs[action]
+          || (action === 'HEAL' && p.hp >= ARENA.maxHp);
+      }
+    }
+
+    // تطبيق حركة على مقاتل ضد آخر، تُرجع وصفاً نصياً
+    function applyMove(actor, target, action, actorName) {
+      switch (action) {
+        case 'ATTACK': {
+          actor.energy -= 3;
+          let dmg = rand(10, 15);
+          if (target.defending) { dmg = Math.round(dmg / 2); target.defending = false; }
+          target.hp -= dmg;
+          return `⚔️ ${actorName} هاجم وأصاب بـ ${dmg} ضرر`;
+        }
+        case 'DEFEND': actor.energy -= 1; actor.defending = true; return `🛡️ ${actorName} تدرّع (الضرر القادم −50%)`;
+        case 'HEAL': {
+          actor.energy -= 4;
+          const healed = Math.min(20, ARENA.maxHp - actor.hp);
+          actor.hp += healed;
+          return `💚 ${actorName} عالج نفسه +${healed}`;
+        }
+        default: actor.energy = Math.min(ARENA.maxEnergy, actor.energy + 3); return `⏳ ${actorName} انتظر وشحن +3 طاقة`;
+      }
+    }
+
+    // 🧠 قرارات الخصم الآلي — نفس منطق برومبت الـArena
+    function enemyDecide() {
+      const e = battle.enemy, p = battle.player;
+      if (e.hp <= e.maxHp * 0.35 && e.energy >= 4 && Math.random() < 0.7) return 'HEAL'; // أولوية البقاء
+      if (e.energy < 3) return Math.random() < 0.8 ? 'WAIT' : 'DEFEND';                    // إدارة الطاقة
+      if (p.hp <= 15) return 'ATTACK';                                                     // إنهاء الخصم الضعيف
+      if (e.hp <= e.maxHp * 0.5 && p.energy >= 3 && e.energy >= 1 && Math.random() < 0.3) return 'DEFEND'; // توقّع هجومك
+      return Math.random() < 0.75 ? 'ATTACK' : (e.energy >= 4 && e.hp < e.maxHp ? 'HEAL' : 'WAIT');
+    }
+
+    function arenaAction(action) {
+      if (!battle?.active || battle.busy) return;
+      if (battle.player.energy < ARENA.costs[action]) { haptic('error'); return; }
+      arenaLog(applyMove(battle.player, battle.enemy, action, 'أنت'));
+      haptic(action === 'ATTACK' ? 'light' : 'success');
+      if (checkBattleEnd()) return;
+      battle.busy = true;
+      updateArenaUI();
+      setTimeout(() => {
+        if (!battle?.active) return;
+        arenaLog(applyMove(battle.enemy, battle.player, enemyDecide(), 'الروبوت'));
+        haptic('light');
+        if (checkBattleEnd()) return;
+        // بداية جولة جديدة: تجدد طاقة +2 للطرفين
+        battle.round += 1;
+        if (battle.round > ARENA.maxRounds) { judgeBattle(); return; }
+        battle.player.energy = Math.min(ARENA.maxEnergy, battle.player.energy + ARENA.regen);
+        battle.enemy.energy = Math.min(ARENA.maxEnergy, battle.enemy.energy + ARENA.regen);
+        battle.busy = false;
+        updateArenaUI();
+      }, 750);
+      updateArenaUI();
+    }
+
+    // حسم عند انتهاء الجولات: الأعلى نسبة صحة يفوز، والتعادل بلا فائز
+    function judgeBattle() {
+      const pRatio = battle.player.hp / battle.player.maxHp;
+      const eRatio = battle.enemy.hp / battle.enemy.maxHp;
+      battle.busy = false;
+      if (Math.abs(pRatio - eRatio) < 0.001) {
+        battle.active = false;
+        arenaLog('🤝 انتهت الجولات بتعادل — لا فائز ولا مكافأة');
+        haptic('error');
+        updateArenaUI();
+        return;
+      }
+      arenaLog(`⏱️ انتهت ${ARENA.maxRounds} جولة — الحسم بنسبة الصحة (${Math.round(pRatio * 100)}٪ مقابل ${Math.round(eRatio * 100)}٪)`);
+      if (pRatio > eRatio) battle.enemy.hp = 0; else battle.player.hp = 0;
+      checkBattleEnd();
+    }
+
+    function checkBattleEnd() {
+      if (!battle) return true;
+      if (battle.enemy.hp <= 0 || battle.player.hp <= 0) {
+        battle.active = false;
+        battle.busy = false;
+        if (battle.enemy.hp <= 0) {
+          arenaRecord.wins += 1;
+          state.gold += ARENA.winReward;
+          state.totalEarned += ARENA.winReward;
+          arenaLog(`🏆 انتصرت! حصلت على +${ARENA.winReward} 🪙`);
+          haptic('success');
+        } else {
+          arenaRecord.losses += 1;
+          arenaLog('💀 هُزمت… جرّب خطة مختلفة: عالِج مبكراً ولا تهاجم بلا طاقة احتياطية');
+          haptic('error');
+        }
+        saveArenaRecord();
+        updateUI();
+        save();
+        updateArenaUI();
+        return true;
+      }
+      return false;
     }
 
     // --- التعزيز والمكافأة اليومية ---
@@ -616,8 +825,8 @@
     }
 
     updateUI();
+    updateArenaUI();
+    bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
   </script>
 </body>
-</html>
-y>
 </html>
