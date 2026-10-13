@@ -95,7 +95,8 @@ function createSqliteStore(file) {
 
 function createPgStore(url) {
   const { Pool } = require('pg');
-  const isLocal = /localhost|127\.0\.0\.1/.test(url);
+  // اتصالات داخلية (localhost أو شبكة Render الداخلية) بلا SSL، وغيرها بـ SSL كما تفرضه السحابة
+  const isLocal = /localhost|127\.0\.0\.1|\.internal\b/.test(url);
   const pool = new Pool({
     connectionString: url,
     ssl: !isLocal && process.env.PGSSL !== 'disable' ? { rejectUnauthorized: false } : undefined,

@@ -24,6 +24,11 @@ npm start
 
 > بدون `BOT_TOKEN` يعمل خادم الويب فقط — البوت اختياري للتجربة المحلية.
 
+## 🌐 النشر للإنتاج (Render + PostgreSQL مجاناً)
+
+دليل كامل خطوة بخطوة — من التشغيل على جهازك إلى ربط البوت: **[DEPLOYMENT.md](DEPLOYMENT.md)**
+(يتضمن `render.yaml` جاهزاً للنشر بضغطة Blueprint، ومتغيرات البيئة، وقائمة تحقق قبل دعوة اللاعبين.)
+
 ## 🤖 ربطها بتيليجرام كـ Mini App
 
 1. انسخ `.env.example` إلى `.env` وضع `BOT_TOKEN` من [@BotFather](https://t.me/BotFather).
