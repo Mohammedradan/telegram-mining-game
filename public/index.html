@@ -119,6 +119,7 @@
       <span class="text-4xl text-amber-400">🪙</span>
       <span id="gold-counter" class="text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md">0</span>
     </div>
+    <div id="sync-status" class="text-[10px] text-slate-500 mt-1 min-h-[14px]" aria-live="polite">💾 حفظ محلي — جارٍ الاتصال بالخادم…</div>
   </div>
 
   <!-- TAB 0: INTERACTIVE ADVENTURE GAME (الشاشة الرئيسية) -->
@@ -179,6 +180,18 @@
       <button id="race-ready-btn" onclick="raceReady()" disabled class="hidden w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 font-black py-2 rounded-lg text-xs active:scale-95">✅ أنا جاهز — ابدأ السباق</button>
     </div>
 
+    <!-- 📅 مهام اليوم + المكافأة اليومية (يولّدها الخادم ويتحقق من تقدّمها) -->
+    <details id="missions-box" class="bg-slate-900/90 border border-emerald-800/40 rounded-xl p-2.5" open>
+      <summary class="font-black text-xs cursor-pointer flex justify-between items-center">
+        <span>📅 مهام اليوم</span>
+        <span id="missions-reset" class="text-[10px] text-slate-400 font-normal"></span>
+      </summary>
+      <button id="daily-btn" onclick="claimDaily()" class="w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 disabled:opacity-40 disabled:grayscale text-slate-950 font-black py-2 rounded-lg text-xs active:scale-95">🎁 مكافأة يومية</button>
+      <div id="missions-list" class="flex flex-col gap-1.5 mt-2">
+        <p class="text-[10px] text-slate-500 text-center py-2">المهام اليومية تُحمَّل من الخادم عند الاتصال.</p>
+      </div>
+    </details>
+
     <!-- 🛠️ ترقيات المغامرة الدائمة -->
     <details class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-2.5" open>
       <summary class="font-black text-xs cursor-pointer">🛠️ ترقيات المغامرة الدائمة — قوِّ قدراتك بالذهب</summary>
@@ -208,6 +221,7 @@
       </button>
     </div>
     <p id="tap-hint" class="text-xs text-slate-500 mt-3">اضغط على الجوهرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
+    <button id="boost-btn" onclick="activateBoost()" class="mt-3 w-full max-w-xs bg-gradient-to-r from-fuchsia-500 to-purple-600 disabled:opacity-40 disabled:grayscale font-black py-2.5 rounded-xl text-xs shadow-lg shadow-fuchsia-500/20 active:scale-95">🚀 تعزيز ×2</button>
   </main>
 
   <!-- TAB 2: UPGRADES / SHOP -->
@@ -572,7 +586,7 @@
         if (now < (s.boostUntil || 0) || now < (s.boostCooldownUntil || 0)) return;
         s.boostUntil = now + 30_000;
         s.boostCooldownUntil = now + 5 * 60_000;
-      } else if (op.type === 'reward' || op.type === 'run') {
+      } else if (op.type === 'reward' || op.type === 'run' || op.type === 'mission') {
         const g = Math.max(0, Math.floor(op.expected || 0));
         s.gold += g; s.totalEarned += g;
       }
@@ -591,7 +605,9 @@
         if (Number.isFinite(data.referralEarnings)) profile.referralEarnings = data.referralEarnings;
         if (data.daily) profile.daily = data.daily;
         if (data.progress && Number.isFinite(data.progress.level)) profile.progress = data.progress;
+        if (data.missions && Array.isArray(data.missions.items)) profile.missions = data.missions;
       }
+      if (typeof renderMissions === 'function') renderMissions();
       // إحصاءات المغامرة والمناطق المفتوحة كما يحتسبها الخادم من جولات تحقق منها
       if (typeof adoptServerAdventure === 'function') adoptServerAdventure(data.state.adventure, data.race);
       if (typeof ADV !== 'undefined') ADV.playerW = 78 + (state.adventureUpgrades?.cart || 0) * 8;
@@ -644,8 +660,10 @@
         const results = data.results || [];
         const refused = results.filter((r) => r.status === 'rejected' || r.status === 'clamped');
         const runs = results.filter((r) => r.type === 'run');
+        const missionsDone = results.filter((r) => r.type === 'mission' && r.status === 'ok');
         if (data.levelUp && data.levelUp.to > data.levelUp.from) { setSyncStatus(`🎉 مستوى جديد: ${data.levelUp.to} — خبرتك من نشاط تحقق منه الخادم`); haptic('success'); }
         else if (refused.length) setSyncStatus(refused.some((r) => r.type === 'run') ? '🛡️ لم يُحتسب تقرير جولة لا يطابق زمن اللعب الحقيقي' : '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك');
+        else if (missionsDone.length) setSyncStatus(`🎯 ${missionsDone.some((r) => r.key === 'bonus') ? 'مكافأة إكمال مهام اليوم' : 'مهمة مكتملة'}: +${missionsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${missionsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
         else if (runs.some((r) => r.unlocked)) setSyncStatus(`🗺️ فُتحت منطقة جديدة — تقدّمك محفوظ في حسابك (${runs[runs.length - 1].zones}/3)`);
         else if (runs.some((r) => r.reason === 'too_soon')) setSyncStatus('⏱️ جولة متسارعة: حُفظت إحصاؤها دون جائزة ذهب');
         else setSyncStatus(runs.length ? '☁️ محفوظ على الخادم — جولتك أُضيفت إلى سجلك' : '☁️ محفوظ على الخادم');
@@ -704,6 +722,8 @@
       } catch (e) {
         serverMode = false; // نكمل بالحفظ المحلي (متصفح بدون خادم/توكن)
         SYNC.clicks = 0; SYNC.boostedClicks = 0;
+        setSyncStatus('💾 حفظ محلي فقط — لا اتصال بالخادم');
+        renderMissions();
         if (localOfflineGain >= 1) setTimeout(() => alert(`💤 أثناء غيابك عدّن عمالك ${Math.floor(localOfflineGain).toLocaleString()} 🪙`), 400);
       }
     }
@@ -871,6 +891,68 @@
     const clickGain = () => state.clickPower * (boostActive() ? 2 : 1);
     const passiveGain = () => state.passiveIncome * (boostActive() ? 2 : 1);
 
+    // 📅 مهام اليوم: يولّدها الخادم ويحتسب تقدّمها من العمليات الموثوقة؛ هنا عرض واستلام فقط
+    function renderMissions() {
+      const list = document.getElementById('missions-list');
+      const reset = document.getElementById('missions-reset');
+      if (!list) return;
+      const m = serverMode && profile?.missions;
+      if (!m) {
+        list.innerHTML = '<p class="text-[10px] text-slate-500 text-center py-2">المهام اليومية تتطلب اتصالاً بالخادم — المكافأة اليومية متاحة محلياً.</p>';
+        if (reset) reset.innerText = '';
+        return;
+      }
+      if (reset) { const h = Math.floor(m.resetsIn / 3600); const mi = Math.floor((m.resetsIn % 3600) / 60); reset.innerText = `تتجدد خلال ${h}:${String(mi).padStart(2, '0')}`; }
+      list.innerHTML = '';
+      for (const it of m.items) {
+        const row = document.createElement('div');
+        row.className = `border rounded-lg p-2 ${it.claimed ? 'bg-emerald-500/10 border-emerald-700/40' : it.done ? 'bg-amber-500/10 border-amber-700/40' : 'bg-slate-950/50 border-slate-800'}`;
+        const top = document.createElement('div');
+        top.className = 'flex justify-between items-center gap-2';
+        const info = document.createElement('div');
+        info.className = 'min-w-0';
+        info.innerHTML = `<div class="font-bold text-[11px] truncate">${it.icon} ${it.title}</div><div class="text-[9px] text-slate-400">${fmt(it.progress)}/${fmt(it.target)} · مكافأة ${it.gold} 🪙 + ${it.xp} خبرة</div>`;
+        const btn = document.createElement('button');
+        btn.className = 'bg-amber-500 disabled:opacity-40 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
+        btn.textContent = it.claimed ? '✓ استُلمت' : it.done ? `استلم ${it.gold}` : '🔒';
+        btn.disabled = it.claimed || !it.done;
+        btn.onclick = () => claimMission(it.key);
+        top.append(info, btn);
+        const bar = document.createElement('div');
+        bar.className = 'h-1 mt-1.5 rounded-full bg-slate-800 overflow-hidden';
+        bar.innerHTML = `<div class="h-full rounded-full ${it.claimed ? 'bg-emerald-400' : 'bg-amber-400'}" style="width:${Math.max(it.progress > 0 ? 3 : 0, Math.min(100, Math.floor(it.progress / Math.max(1, it.target) * 100)))}%"></div>`;
+        row.append(top, bar);
+        list.appendChild(row);
+      }
+      const bonus = document.createElement('div');
+      const b = m.bonus || {};
+      bonus.className = `flex justify-between items-center border rounded-lg p-2 ${b.claimed ? 'bg-emerald-500/10 border-emerald-700/40' : b.ready ? 'bg-fuchsia-500/10 border-fuchsia-700/40' : 'bg-slate-950/50 border-slate-800'}`;
+      bonus.innerHTML = `<div><div class="font-bold text-[11px]">🏆 أكمل مهام اليوم الثلاث</div><div class="text-[9px] text-slate-400">مكافأة إضافية ${b.gold || 0} 🪙 + ${b.xp || 0} خبرة</div></div>`;
+      const bbtn = document.createElement('button');
+      bbtn.className = 'bg-fuchsia-500 disabled:opacity-40 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
+      bbtn.textContent = b.claimed ? '✓ استُلمت' : b.ready ? `استلم ${b.gold}` : '🔒';
+      bbtn.disabled = b.claimed || !b.ready;
+      bbtn.onclick = () => claimMission('bonus');
+      bonus.appendChild(bbtn);
+      list.appendChild(bonus);
+    }
+    function claimMission(key) {
+      const m = serverMode && profile?.missions;
+      if (!m) { haptic('error'); return; }
+      const target = key === 'bonus' ? m.bonus : m.items.find((i) => i.key === key);
+      const ready = key === 'bonus' ? target?.ready : target?.done;
+      if (!target || target.claimed || !ready) { haptic('error'); return; }
+      // تفاؤلياً: نعرض الذهب فوراً، والخادم يؤكد (أو يصحح) في المزامنة التالية
+      target.claimed = true;
+      if (key === 'bonus') target.ready = false;
+      state.gold += target.gold; state.totalEarned += target.gold;
+      enqueueOp({ type: 'mission', key, expected: target.gold });
+      haptic('success');
+      renderMissions();
+      updateUI();
+      save();
+    }
+
     function dailyInfoLocal() {
       if (profile?.daily) return profile.daily;
       const today = new Date().toISOString().slice(0, 10);
@@ -999,10 +1081,10 @@
       // أزرار المكافأة والتعزيز
       const now = Date.now();
       const daily = dailyInfoLocal();
-      const dailyBtn = document.getElementById('daily-btn');
+      const dailyBtn = document.getElementById('daily-btn') || {};
       dailyBtn.disabled = !daily.canClaim;
-      dailyBtn.innerText = daily.canClaim ? `🎁 مكافأة يومية +${fmt(daily.reward)}` : '🎁 استُلمت اليوم ✓';
-      const boostBtn = document.getElementById('boost-btn');
+      dailyBtn.innerText = daily.canClaim ? `🎁 مكافأة يومية +${fmt(daily.reward)}` : `🎁 استُلمت اليوم ✓ (سلسلة ${daily.streak || 1})`;
+      const boostBtn = document.getElementById('boost-btn') || {};
       if (boostActive()) {
         boostBtn.disabled = true;
         boostBtn.innerText = `🚀 تعزيز ×2 (${Math.ceil((state.boostUntil - now) / 1000)}ث)`;

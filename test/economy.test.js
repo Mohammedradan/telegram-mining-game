@@ -490,6 +490,115 @@ test('xp: players from before experience points keep exactly their old level (an
   assert.equal(body.progress.level, 5);
 });
 
+const today = () => new Date().toISOString().slice(0, 10);
+const setMissions = (id, keys, extra = {}) => patchUser(`guest_${id}`, (u) => {
+  u.sync.missions = { day: today(), items: keys.map((key) => ({ key, progress: 0, claimed: false })), bonusClaimed: false, ...extra };
+});
+
+test('missions: the server deals three distinct missions per player per UTC day, deterministically', async () => {
+  const id = uid('missions');
+  const first = await me(id);
+  const m = first.missions;
+  assert.equal(m.day, today());
+  assert.equal(m.items.length, 3);
+  assert.equal(new Set(m.items.map((i) => i.key)).size, 3);
+  for (const it of m.items) {
+    assert.match(it.title, /[\u0600-\u06FF]/, 'titles come from the server in Arabic');
+    assert.ok(it.target > 0 && it.gold > 0 && it.xp > 0);
+    assert.deepEqual([it.progress, it.done, it.claimed], [0, false, false]);
+  }
+  assert.ok(m.resetsIn > 0 && m.resetsIn <= 86_400);
+  assert.deepEqual(m.bonus, { gold: 300, xp: 100, ready: false, claimed: false });
+  // نفس اليوم ونفس اللاعب ⇒ نفس المهام (ولاعب آخر غالباً مجموعة مختلفة لكن ليس شرطاً)
+  const again = await me(id);
+  assert.deepEqual(again.missions.items.map((i) => i.key), m.items.map((i) => i.key));
+  // لا يمكن استلام مهمة ليست ضمن مهام اليوم أو مفتاح مجهول
+  const other = ['mine_energy', 'runs', 'boost', 'buy'].find((k) => !m.items.some((i) => i.key === k));
+  const { body } = await sendOps(id, [{ type: 'mission', key: other }, { type: 'mission', key: 'nope' }]);
+  assert.deepEqual(body.results.map((r) => r.status), ['invalid', 'invalid']);
+});
+
+test('missions: progress comes only from verified operations and rewards are paid once, then the day bonus', async () => {
+  const id = uid('missionprog');
+  await fund(id); // 1000 ذهب موثوق للشراء
+  await setMissions(id, ['boost', 'buy', 'mine_energy']);
+  const before = (await me(id)).state;
+  // تعزيز واحد + شراءان: التعزيز 1/2 (غير مكتمل)، الشراء 2/2 (مكتمل)، الطاقة تتقدم بالنقر الموثوق فقط
+  let { body } = await sendOps(id, [{ type: 'boost' }, { type: 'buy', item: 'click' }, { type: 'buy', item: 'click' }, { type: 'mine', clicks: 15 }]);
+  assert.deepEqual(body.results.map((r) => r.status), ['ok', 'ok', 'ok', 'ok']);
+  const by = (res) => Object.fromEntries(res.missions.items.map((i) => [i.key, i]));
+  let mm = by(body);
+  assert.deepEqual([mm.boost.progress, mm.boost.done], [1, false]);
+  assert.deepEqual([mm.buy.progress, mm.buy.done], [2, true]);
+  assert.equal(mm.mine_energy.progress, 15 * body.state.clickPower);
+  // الاستلام قبل الاكتمال مرفوض، وبعده يُدفع الذهب والخبرة مرة واحدة فقط
+  const goldBefore = body.state.gold; const xpBefore = body.state.xp;
+  ({ body } = await sendOps(id, [{ type: 'mission', key: 'boost' }, { type: 'mission', key: 'buy' }, { type: 'mission', key: 'buy' }], { from: 5 }));
+  assert.deepEqual(body.results.map((r) => [r.status, r.reason]), [['rejected', 'incomplete'], ['ok', undefined], ['rejected', 'claimed']]);
+  assert.equal(body.results[1].gold, 150);
+  assert.equal(body.results[1].xp, 40);
+  assert.ok(body.state.gold >= goldBefore + 150 && body.state.gold < goldBefore + 150 + 50, `gold ${body.state.gold} vs ${goldBefore}`);
+  assert.equal(body.state.xp, xpBefore + 40);
+  assert.equal(by(body).buy.claimed, true);
+  assert.equal(body.missions.bonus.ready, false);
+  // دفتر العمليات يحفظ الاستلام
+  const ledger = await store.ledgerFor(`guest_${id}`, 20);
+  assert.ok(ledger.some((e) => e.kind === 'mission' && e.goldDelta === 150));
+  // إكمال الباقي (عبر الدفتر لتجاوز التهدئة) ثم مكافأة اليوم
+  await patchUser(`guest_${id}`, (u) => { for (const it of u.sync.missions.items) if (it.key !== 'buy') it.progress = 999; });
+  ({ body } = await sendOps(id, [{ type: 'mission', key: 'bonus' }, { type: 'mission', key: 'boost' }, { type: 'mission', key: 'mine_energy' }, { type: 'mission', key: 'bonus' }, { type: 'mission', key: 'bonus' }], { from: 8 }));
+  assert.deepEqual(body.results.map((r) => [r.status, r.reason]), [['rejected', 'incomplete'], ['ok', undefined], ['ok', undefined], ['ok', undefined], ['rejected', 'claimed']]);
+  assert.equal(body.results[3].gold, 300);
+  assert.equal(body.results[3].xp, 100);
+  assert.equal(body.missions.bonus.claimed, true);
+  assert.ok(body.missions.items.every((i) => i.claimed));
+  assert.equal(body.state.totalEarned >= before.totalEarned + 150 + 100 + 150 + 300, true);
+});
+
+test('missions: adventure runs feed run/gem/score/boss/survival missions; a claimed mission stops counting', async () => {
+  const id = uid('missionrun');
+  await me(id);
+  await setMissions(id, ['boss', 'score', 'survival']);
+  let { body } = await sendOps(id, [{ type: 'run', mode: 'boss', difficulty: 'normal', score: 420, gems: 10, combo: 4, duration: 30, boss: true, ago: 0 }]);
+  assert.equal(body.results[0].status, 'ok');
+  const by = (res) => Object.fromEntries(res.missions.items.map((i) => [i.key, i]));
+  let mm = by(body);
+  assert.deepEqual([mm.boss.progress, mm.boss.done], [1, true]);
+  assert.deepEqual([mm.score.progress, mm.score.done], [400, true], 'max-type mission caps its display at the target');
+  assert.equal(mm.survival.progress, 0, 'a boss run does not count for survival');
+  ({ body } = await sendOps(id, [{ type: 'mission', key: 'boss' }], { from: 2 }));
+  assert.equal(body.results[0].status, 'ok');
+  assert.equal(body.results[0].gold, 300);
+  // جولة بقاء بعد فجوة المكافأة (نحرّك آخر جولة في الدفتر) — تتقدم مهمة البقاء فقط
+  await patchUser(`guest_${id}`, (u) => { u.sync.lastRunAt = Date.now() - 60_000; });
+  ({ body } = await sendOps(id, [{ type: 'run', mode: 'survival', difficulty: 'normal', score: 260, gems: 3, combo: 2, duration: 40, boss: false, ago: 0 }], { from: 3 }));
+  assert.equal(body.results[0].status, 'ok');
+  mm = by(body);
+  assert.deepEqual([mm.survival.progress, mm.survival.done], [250, true]);
+  assert.deepEqual([mm.boss.progress, mm.boss.claimed], [1, true]);
+});
+
+test('missions: a new UTC day deals a fresh set and legacy rows without a mission record just get one', async () => {
+  const id = uid('missionday');
+  await me(id);
+  const first = (await me(id)).missions;
+  // صف قديم من قبل الميزة: لا سجل مهام إطلاقاً
+  await patchUser(`guest_${id}`, (u) => { delete u.sync.missions; });
+  const regenerated = (await me(id)).missions;
+  assert.deepEqual(regenerated.items.map((i) => i.key), first.items.map((i) => i.key), 'same day ⇒ same deterministic set');
+  // سجل من يوم سابق بتقدم ومهام مستلمة ⇒ يُستبدل بمجموعة اليوم من الصفر
+  await patchUser(`guest_${id}`, (u) => { u.sync.missions = { day: '2026-01-01', items: [{ key: 'boost', progress: 2, claimed: true }], bonusClaimed: true }; });
+  const rolled = (await me(id)).missions;
+  assert.equal(rolled.day, today());
+  assert.equal(rolled.items.length, 3);
+  assert.ok(rolled.items.every((i) => i.progress === 0 && !i.claimed));
+  assert.equal(rolled.bonus.claimed, false);
+  // سجل تالف (مفتاح مجهول) لا يكسر الحساب
+  await patchUser(`guest_${id}`, (u) => { u.sync.missions = { day: today(), items: [{ key: 'ghost', progress: 1 }], bonusClaimed: false }; });
+  const healed = (await me(id)).missions;
+  assert.deepEqual(healed.items.map((i) => i.key), first.items.map((i) => i.key));
+});
+
 test('referral credits reach the inviter through the authoritative state without a client save', async () => {
   const id = uid('inviter2');
   await me(id);

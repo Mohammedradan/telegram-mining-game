@@ -258,3 +258,44 @@ test('mining clicks and purchases are routed through the ops queue in the game c
   assert.doesNotMatch(html, /api\('\/api\/save'/, 'the browser must not push full state to the legacy endpoint');
   assert.match(html, /const gain = clickGain\(\);/, 'boost must actually double clicks as the button advertises');
 });
+
+test('daily missions from the server are adopted into the profile, claims are optimistic and announced once confirmed', async () => {
+  const missions = { day: '2026-10-14', resetsIn: 3600, items: [{ key: 'buy', icon: '🛒', title: 'اشترِ 2 ترقيات', target: 2, progress: 2, done: true, claimed: false, gold: 150, xp: 40 }], bonus: { gold: 300, xp: 100, ready: false, claimed: false } };
+  let statuses = [];
+  const h = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: [{ seq: 1, type: 'mission', key: 'buy', status: 'ok', gold: 150, xp: 40 }], state: serverState({ gold: 150, totalEarned: 150 }), missions: { ...missions, items: [{ ...missions.items[0], claimed: true }] } }) });
+  h.ctx.document = { getElementById: () => ({ set innerText(v) { statuses.push(v); } }) };
+  h.e.loadSyncQueue();
+  h.e.adoptServerState({ revision: 0, state: serverState(), missions });
+  assert.deepEqual(plain(h.ctx.profile.missions), missions);
+  // الاستلام المتفائل (كما يفعل claimMission في اللعبة): الذهب المتوقع يظهر فوراً ويُعاد تطبيقه فوق أي حالة خادم قبل التأكيد
+  h.ctx.state.gold += 150; h.ctx.state.totalEarned += 150;
+  h.e.enqueueOp({ type: 'mission', key: 'buy', expected: 150 });
+  h.e.adoptServerState({ revision: 0, state: serverState({ gold: 0 }), missions });
+  assert.equal(h.ctx.state.gold, 150, 'pending claim is re-applied over a server state that predates it');
+  await h.e.flushOps();
+  assert.equal(h.ctx.state.gold, 150);
+  assert.equal(h.ctx.profile.missions.items[0].claimed, true);
+  assert.ok(statuses.some((t) => t.includes('مهمة مكتملة') && t.includes('150')), statuses.join(' | '));
+  // رفض الخادم (مستلمة مسبقاً) ⇒ لا ذهب متفائل يبقى: حالة الخادم تحسم
+  const h2 = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: [{ seq: 1, type: 'mission', key: 'buy', status: 'rejected', reason: 'claimed' }], state: serverState({ gold: 0 }), missions }) });
+  h2.e.loadSyncQueue();
+  h2.ctx.state.gold += 150; h2.ctx.state.totalEarned += 150;
+  h2.e.enqueueOp({ type: 'mission', key: 'buy', expected: 150 });
+  assert.equal(h2.ctx.state.gold, 150);
+  await h2.e.flushOps();
+  assert.equal(h2.ctx.state.gold, 0);
+});
+
+test('every element the script addresses by id exists in the markup (daily/boost buttons, sync line, missions card)', () => {
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  const refs = [...html.matchAll(/getElementById\((['"`])([^'"`$]+)\1\)/g)].map((m) => m[2]);
+  const missing = [...new Set(refs.filter((id) => !ids.has(id)))];
+  assert.deepEqual(missing, [], `script references elements that do not exist: ${missing.join(', ')}`);
+  for (const id of ['daily-btn', 'boost-btn', 'sync-status', 'missions-list', 'missions-reset']) assert.ok(ids.has(id), `${id} must exist`);
+  assert.match(html, /id="daily-btn" onclick="claimDaily\(\)"/);
+  assert.match(html, /id="boost-btn" onclick="activateBoost\(\)"/);
+  assert.match(html, /enqueueOp\(\{ type: 'mission', key, expected: target\.gold \}\)/);
+  // updateUI لا يجب أن ينهار (ويمنع bootstrap) إن غاب عنصر — كان هذا يحدث قبل إصلاح هذه الدفعة
+  assert.match(html, /getElementById\('daily-btn'\) \|\| \{\}/);
+  assert.match(html, /getElementById\('boost-btn'\) \|\| \{\}/);
+});
