@@ -17,7 +17,7 @@ function startServer() {
   child = spawn('node', ['server.js'], {
     cwd: path.join(__dirname, '..'),
     env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: path.join(tmpDir, 'game.db'), DATABASE_URL: '' },
-    stdio: 'ignore',
+    stdio: 'inherit',
   });
 }
 async function waitReady() {
