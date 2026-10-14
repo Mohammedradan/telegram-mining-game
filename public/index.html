@@ -976,8 +976,11 @@
         info.innerHTML = `<div class="font-bold text-[11px]">${a.icon} ${a.name} <span class="text-slate-400 font-normal">(${a.progress()})</span></div><div class="text-[9px] text-slate-400">${a.desc} — مكافأة ${a.reward} 🪙</div>`;
         const btn = document.createElement('button');
         btn.className = 'bg-amber-500 disabled:opacity-40 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
-        btn.textContent = claimed ? '✓ استُلمت' : met ? `استلم ${a.reward}` : '🔒';
-        btn.disabled = claimed || !met;
+        // في وضع الحساب السحابي لا نثق بإحصاءات المغامرة المحفوظة في المتصفح
+        // لمنح ذهب دائم؛ تبقى المطالبة المحلية متاحة عند اللعب دون خادم.
+        btn.textContent = claimed ? '✓ استُلمت' : (serverMode && met) ? '🔒 يتطلب تحققًا' : met ? `استلم ${a.reward}` : '🔒';
+        btn.disabled = claimed || !met || serverMode;
+        btn.title = serverMode && met ? 'مكافآت الإنجازات السحابية ستتاح بعد إضافة تحقق خادمي موثوق' : '';
         btn.onclick = () => claimAchievement(a.id);
         row.append(info, btn);
         box.appendChild(row);
@@ -986,6 +989,13 @@
     function claimAchievement(id) {
       const a = ADV_ACHIEVEMENTS.find((x) => x.id === id);
       if (!a || advClaimed[id] || !a.met()) { haptic('error'); return; }
+      // لا تمنح عملات دائمة في الحساب السحابي بناءً على إحصاءات client-side قابلة للتعديل.
+      // اللعب المحلي يحتفظ بالسلوك الحالي إلى أن تُضاف أحداث مغامرة موثوقة على الخادم.
+      if (serverMode) {
+        haptic('error');
+        alert('مكافآت الإنجازات السحابية قيد التطوير لحماية رصيدك من الغش. يمكنك متابعة اللعب والمطالبة في الوضع المحلي.');
+        return;
+      }
       advClaimed[id] = true;
       state.gold += a.reward;
       state.totalEarned += a.reward;
