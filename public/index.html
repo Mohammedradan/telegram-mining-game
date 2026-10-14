@@ -876,7 +876,7 @@
       objects: [], particles: [], playerX: 180, targetX: 180, prevX: 180, elapsed: 0, spawnIn: 0,
       lastTs: 0, raf: 0, best: Number(localStorage.getItem('mining_adventure_best') || 0),
       caught: 0, missed: 0, gemsCaught: 0, missionIndex: 0, shake: 0, flash: 0,
-      banner: '', bannerUntil: 0, phase: 0, muted: false, audio: null, shieldCharges: 0,
+      banner: '', bannerUntil: 0, phase: 0, zoneSpawnCount: 0, muted: false, audio: null, shieldCharges: 0,
       mode: 'solo', rng: null, raceLastSend: 0, gameMode: 'classic', gameDifficulty: 'normal',
       skillCharges: 1, nextEventAt: 18, eventUntil: -1, eventType: null,
       boss: null, bossCharge: 0, bossDefeated: false,
@@ -885,8 +885,8 @@
     // مناطق متدرجة بصرياً مع تصاعد كثافة التحدي في حلقة اللعب الحالية.
     const ADV_MINE_ZONES = [
       { name: 'كهف البداية', icon: '🪨', hint: 'اجمع الموارد وتعلّم الإيقاع', top: '#312e81', glow: '#f59e0b', floor: '#1c1917' },
-      { name: 'كهف الكريستال', icon: '💎', hint: 'تزداد سرعة التساقط — تحرّك بدقة', top: '#164e63', glow: '#22d3ee', floor: '#083344' },
-      { name: 'منجم الحمم', icon: '🌋', hint: 'تزداد كثافة العناصر — ركّز على النجاة', top: '#7f1d1d', glow: '#fb7185', floor: '#450a0a' },
+      { name: 'كهف الكريستال', icon: '💎', hint: 'الجواهر أثمن بـ25% — تحرّك بدقة', top: '#164e63', glow: '#22d3ee', floor: '#083344' },
+      { name: 'منجم الحمم', icon: '🌋', hint: 'في المغامرة الفردية، كل خامس كنز يصبح صخرة خطرة', top: '#7f1d1d', glow: '#fb7185', floor: '#450a0a' },
     ];
     const advKeys = {};
 
@@ -1182,6 +1182,14 @@
       else if (roll < 0.78 + advUpLevel('luck') * 0.008) { const p = ADV_POWERUPS[Math.floor(advRandom() * ADV_POWERUPS.length)]; data = { type: 'power', kind: p.kind, icon: p.icon, points: 0, hazard: false }; }
       else if (roll < 0.92) data = { type: 'rock', icon: '🪨', points: 0, hazard: true };
       else data = { type: 'bomb', icon: '💣', points: -15, hazard: true };
+      // كهف الكريستال يكافئ التقاط الكنوز؛ منجم الحمم يزيد المخاطر في الفردي فقط.
+      if (adv.phase === 1 && !data.hazard && ['gem', 'crystal', 'golden', 'chest'].includes(data.type)) {
+        data = { ...data, points: Math.ceil(data.points * 1.25) };
+      }
+      if (adv.phase === 2 && adv.mode !== 'race' && !eventActive && !data.hazard) {
+        adv.zoneSpawnCount += 1;
+        if (adv.zoneSpawnCount % 5 === 0) data = { type: 'rock', icon: '🌋', points: 0, hazard: true };
+      }
       const feverBoost = advFxActive('feverUntil') && !data.hazard && advRandom() < 0.5;
       if (feverBoost) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
       const startX = 24 + advRandom() * Math.max(20, w - 48);
@@ -1258,7 +1266,7 @@
       Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, maxCombo: 0,
         lives: Math.max(1, 3 + advUpLevel('heart') + advDiffCfg().lives),
         timeLeft: advModeCfg().duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2, prevX: w / 2,
-        elapsed: 0, spawnIn: 0, lastTs: performance.now(), caught: 0, missed: 0, gemsCaught: 0,
+        elapsed: 0, spawnIn: 0, zoneSpawnCount: 0, lastTs: performance.now(), caught: 0, missed: 0, gemsCaught: 0,
         missionIndex: 0, shake: 0, flash: 0, banner: '', bannerUntil: 0, phase: 0,
         skillCharges: 1 + advUpLevel('skill'), nextEventAt: 18, eventUntil: -1, eventType: null,
         boss: adv.gameMode === 'boss'
