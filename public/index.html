@@ -19,10 +19,46 @@
       font-family: 'Tajawal', sans-serif;
     }
 
-    body {
+    /* الخلفية على الجذر لتغطي الشاشة كاملة حتى عندما يكون المحتوى عموداً بعرض هاتف */
+    html {
+      height: 100%;
       background: radial-gradient(circle at top, #1e1b4b, #09090b);
+    }
+
+    body {
+      background: transparent;
       color: #ffffff;
       overflow: hidden;
+      /* الشاشات الكبيرة: عمود بعرض هاتف في المنتصف بدل تمدد العناصر على كامل العرض */
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      /* الهاتف: ارتفاع منفذ العرض الفعلي (تيليجرام يضبط --app-height، والمتصفح يستخدم dvh) */
+      height: var(--app-height, 100vh);
+    }
+    @supports (height: 100dvh) {
+      body { height: var(--app-height, 100dvh); }
+    }
+    @media (min-width: 640px) {
+      body {
+        border-left: 1px solid rgba(51, 65, 85, 0.55);
+        border-right: 1px solid rgba(51, 65, 85, 0.55);
+      }
+    }
+
+    /* كل تبويب يتمرّج داخل المساحة المتاحة بدل أن يُقصّ محتواه على الشاشات الصغيرة */
+    .tab-content {
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+
+    /* ارتفاع ملعب المغامرة يتبع الشاشة: أقصر على الهواتف الصغيرة، 330px كحد أقصى */
+    #game-canvas { height: clamp(230px, 40vh, 330px); }
+    @supports (height: 100dvh) {
+      #game-canvas { height: clamp(230px, 40dvh, 330px); }
     }
 
     .mining-btn { transition: transform 0.05s ease-out; }
@@ -50,7 +86,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
 </head>
-<body class="h-screen flex flex-col justify-between p-4 select-none">
+<body class="flex flex-col justify-between p-4 select-none">
 
   <!-- Header Info -->
   <header class="flex justify-between items-center bg-slate-900/80 border border-slate-800 p-3 rounded-2xl backdrop-blur-md">
@@ -106,7 +142,7 @@
     <div id="adv-mission" class="text-center text-[11px] font-bold text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl py-1.5">🎯 مهمة: التقط 15 جوهرة — مكافأة +25 نقطة</div>
 
     <div class="relative">
-      <canvas id="game-canvas" width="360" height="330" class="w-full h-[330px] rounded-2xl border border-amber-500/25 bg-[radial-gradient(circle_at_top,#312e81,#020617_70%)] touch-none select-none shadow-[0_0_35px_rgba(245,158,11,0.12)]"></canvas>
+      <canvas id="game-canvas" width="360" height="330" class="w-full rounded-2xl border border-amber-500/25 bg-[radial-gradient(circle_at_top,#312e81,#020617_70%)] touch-none select-none shadow-[0_0_35px_rgba(245,158,11,0.12)]"></canvas>
       <div id="game-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center bg-slate-950/55 rounded-2xl backdrop-blur-[1px] p-4">
         <div class="text-5xl">⛏️💎</div>
         <h2 id="game-overlay-title" class="text-xl font-black">مغامرة المنجم</h2>
@@ -172,7 +208,7 @@
   </main>
 
   <!-- TAB 2: UPGRADES / SHOP -->
-  <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 overflow-y-auto max-h-[60vh] py-2 px-1">
+  <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 py-2 px-1">
     <h2 class="text-lg font-bold text-slate-200 mb-1">ترقية المعدات والمعدنين</h2>
 
     <!-- Upgrade 1: Click Power -->
@@ -238,7 +274,7 @@
   </main>
 
   <!-- TAB 4: LEADERBOARD -->
-  <main id="tab-leaderboard" class="tab-content flex-col gap-2 flex-1 overflow-y-auto max-h-[62vh] py-2 px-1">
+  <main id="tab-leaderboard" class="tab-content flex-col gap-2 flex-1 py-2 px-1">
     <div class="flex justify-between items-center">
       <h2 class="text-lg font-bold text-slate-200">🏆 لوحة الصدارة</h2>
       <button onclick="loadLeaderboard()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg font-bold">↻ تحديث</button>
@@ -254,7 +290,7 @@
   </main>
 
   <!-- TAB 5: ARENA (تجريبي) -->
-  <main id="tab-arena" class="tab-content flex-col gap-3 flex-1 overflow-y-auto max-h-[64vh] py-2 px-1">
+  <main id="tab-arena" class="tab-content flex-col gap-3 flex-1 py-2 px-1">
     <div class="text-center">
       <h2 class="text-lg font-bold text-slate-200">⚔️ ساحة القتال <span class="text-[10px] text-fuchsia-400">تجريبي</span></h2>
       <p class="text-[11px] text-slate-400">قاتل الخصم الآلي دوراً بدور — الفائز يحصل على <b class="text-amber-400">+50 🪙</b> · سجلّك: <span id="arena-record">0 فوز · 0 خسارة</span></p>
@@ -298,7 +334,7 @@
   </main>
 
   <!-- Energy Section (Only on Mining Tab) -->
-  <div id="energy-container" class="w-full mb-3">
+  <div id="energy-container" class="w-full mb-3" style="display:none">
     <div class="flex justify-between items-center text-xs font-bold text-slate-400 mb-1 px-1">
       <span class="flex items-center gap-1">⚡ الطاقة</span>
       <span><span id="energy-counter">1000</span> / <span id="max-energy">1000</span></span>
@@ -392,6 +428,15 @@
     if (tg) {
       tg.ready();
       tg.expand();
+      // ارتفاع منفذ العرض المستقر من تيليجرام (يتغير مع التوسيع/لوحة المفاتيح) بدل 100vh غير الدقيق على الهاتف
+      const applyTelegramViewport = () => {
+        const h = Number(tg.viewportStableHeight);
+        if (h > 0) document.documentElement.style.setProperty('--app-height', `${Math.round(h)}px`);
+      };
+      applyTelegramViewport();
+      try { tg.onEvent?.('viewportChanged', (e) => { if (!e || e.isStateStable !== false) applyTelegramViewport(); }); } catch (e) {}
+      // التبويبات تتمرّج داخلياً؛ لا نترك سحب الإصبع يغلق التطبيق بدل التمرير (متاح في إصدارات تيليجرام الأحدث)
+      try { tg.disableVerticalSwipes?.(); } catch (e) {}
       if (tg.initDataUnsafe?.user?.first_name) {
         document.getElementById('username').innerText = tg.initDataUnsafe.user.first_name;
       }
@@ -1151,8 +1196,8 @@
     function resizeAdventureCanvas() {
       const rect = advCanvas.getBoundingClientRect();
       const dpr = Math.min(2, window.devicePixelRatio || 1);
-      advCanvas.width = Math.max(300, rect.width) * dpr;
-      advCanvas.height = Math.max(280, rect.height) * dpr;
+      advCanvas.width = Math.max(200, rect.width) * dpr;
+      advCanvas.height = Math.max(200, rect.height) * dpr;
       advCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       drawAdventure();
     }
