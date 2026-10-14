@@ -292,13 +292,39 @@ test('every element the script addresses by id exists in the markup (daily/boost
   const refs = [...html.matchAll(/getElementById\((['"`])([^'"`$]+)\1\)/g)].map((m) => m[2]);
   const missing = [...new Set(refs.filter((id) => !ids.has(id)))];
   assert.deepEqual(missing, [], `script references elements that do not exist: ${missing.join(', ')}`);
-  for (const id of ['daily-btn', 'boost-btn', 'sync-status', 'missions-list', 'missions-reset']) assert.ok(ids.has(id), `${id} must exist`);
+  for (const id of ['daily-btn', 'boost-btn', 'sync-status', 'missions-list', 'missions-reset', 'weekly-missions-box', 'weekly-missions-list', 'weekly-missions-reset']) assert.ok(ids.has(id), `${id} must exist`);
   assert.match(html, /id="daily-btn" onclick="claimDaily\(\)"/);
   assert.match(html, /id="boost-btn" onclick="activateBoost\(\)"/);
   assert.match(html, /enqueueOp\(\{ type: 'mission', key, expected: target\.gold \}\)/);
+  assert.match(html, /enqueueOp\(\{ type: 'weekly_mission', key, expected: target\.gold \}\)/);
   // updateUI لا يجب أن ينهار (ويمنع bootstrap) إن غاب عنصر — كان هذا يحدث قبل إصلاح هذه الدفعة
   assert.match(html, /getElementById\('daily-btn'\) \|\| \{\}/);
   assert.match(html, /getElementById\('boost-btn'\) \|\| \{\}/);
+});
+
+test('weekly missions from the server are adopted into the profile, claims are optimistic and announced once confirmed, and refused claims revert', async () => {
+  const weeklyMissions = { week: '2026-W42', resetsIn: 259200, items: [{ key: 'buy', icon: '🛒', title: 'اشترِ 6 ترقيات هذا الأسبوع', target: 6, progress: 6, done: true, claimed: false, gold: 500, xp: 120 }], bonus: { gold: 1000, xp: 300, ready: false, claimed: false } };
+  const statuses = [];
+  const h = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: [{ seq: 1, type: 'weekly_mission', key: 'buy', status: 'ok', gold: 500, xp: 120 }], state: serverState({ gold: 500, totalEarned: 500 }), weeklyMissions: { ...weeklyMissions, items: [{ ...weeklyMissions.items[0], claimed: true }] } }) });
+  h.ctx.document = { getElementById: () => ({ set innerText(v) { statuses.push(v); } }) };
+  h.e.loadSyncQueue();
+  h.e.adoptServerState({ revision: 0, state: serverState(), weeklyMissions });
+  assert.deepEqual(plain(h.ctx.profile.weeklyMissions), weeklyMissions);
+  h.ctx.state.gold += 500; h.ctx.state.totalEarned += 500;
+  h.e.enqueueOp({ type: 'weekly_mission', key: 'buy', expected: 500 });
+  h.e.adoptServerState({ revision: 0, state: serverState({ gold: 0 }), weeklyMissions });
+  assert.equal(h.ctx.state.gold, 500, 'pending weekly claim is re-applied over a server state that predates it');
+  await h.e.flushOps();
+  assert.equal(h.ctx.state.gold, 500);
+  assert.equal(h.ctx.profile.weeklyMissions.items[0].claimed, true);
+  assert.ok(statuses.some((t) => t.includes('مهمة أسبوعية مكتملة') && t.includes('500')), statuses.join(' | '));
+  const h2 = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: [{ seq: 1, type: 'weekly_mission', key: 'buy', status: 'rejected', reason: 'claimed' }], state: serverState({ gold: 0 }), weeklyMissions }) });
+  h2.e.loadSyncQueue();
+  h2.ctx.state.gold += 500; h2.ctx.state.totalEarned += 500;
+  h2.e.enqueueOp({ type: 'weekly_mission', key: 'buy', expected: 500 });
+  assert.equal(h2.ctx.state.gold, 500);
+  await h2.e.flushOps();
+  assert.equal(h2.ctx.state.gold, 0);
 });
 
 test('server achievements are adopted into the profile; a claim is optimistic, announced once confirmed and reverted when refused', async () => {

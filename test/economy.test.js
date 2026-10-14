@@ -757,6 +757,151 @@ test('missions: a new UTC day deals a fresh set and legacy rows without a missio
   assert.deepEqual(healed.items.map((i) => i.key), first.items.map((i) => i.key));
 });
 
+const thisWeek = (d = new Date()) => {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date - yearStart) / 86400e3 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+};
+const setWeeklyMissions = (id, keys, extra = {}) => patchUser(`guest_${id}`, (u) => {
+  u.sync.weeklyMissions = { week: thisWeek(), items: keys.map((key) => ({ key, progress: 0, claimed: false })), bonusClaimed: false, ...extra };
+});
+
+test('weekly missions: the server deals three distinct missions per player per ISO week, deterministically', async () => {
+  const id = uid('weekly');
+  const first = await me(id);
+  const w = first.weeklyMissions;
+  assert.equal(w.week, thisWeek());
+  assert.equal(w.items.length, 3);
+  assert.equal(new Set(w.items.map((i) => i.key)).size, 3);
+  for (const it of w.items) {
+    assert.match(it.title, /[\u0600-\u06FF]/, 'titles come from the server in Arabic');
+    assert.ok(it.target > 0 && it.gold > 0 && it.xp > 0);
+    assert.deepEqual([it.progress, it.done, it.claimed], [0, false, false]);
+  }
+  assert.ok(w.resetsIn > 0 && w.resetsIn <= 7 * 86_400);
+  assert.deepEqual(w.bonus, { gold: 1000, xp: 300, ready: false, claimed: false });
+  // نفس الأسبوع ونفس اللاعب ⇒ نفس المهام
+  const again = await me(id);
+  assert.deepEqual(again.weeklyMissions.items.map((i) => i.key), w.items.map((i) => i.key));
+  // لا يمكن استلام مهمة أسبوعية ليست ضمن مهام هذا الأسبوع أو مفتاح مجهول
+  const other = ['mine_energy', 'runs', 'boost', 'buy'].find((k) => !w.items.some((i) => i.key === k));
+  const { body } = await sendOps(id, [{ type: 'weekly_mission', key: other }, { type: 'weekly_mission', key: 'nope' }]);
+  assert.deepEqual(body.results.map((r) => r.status), ['invalid', 'invalid']);
+});
+
+test('weekly missions: progress comes only from verified operations and rewards are paid once, then the week bonus', async () => {
+  const id = uid('weeklyprog');
+  await fund(id); // 1000 ذهب موثوق للشراء
+  await setWeeklyMissions(id, ['boost', 'buy', 'mine_energy']);
+  const before = (await me(id)).state;
+  // عمليات مرفوضة لا ترفع التقدّم؛ عمليات مقبولة ترفع تقدّم اليوم والأسبوع معاً
+  let { body } = await sendOps(id, [
+    { type: 'boost' }, { type: 'boost' }, // الثانية active فلا تُحتسب
+    { type: 'buy', item: 'rig' }, { type: 'buy', item: 'rig' }, // الثانية insufficient فلا تُحتسب
+    ...Array.from({ length: 5 }, () => ({ type: 'buy', item: 'click' })), // لا يكفي الذهب بعد نفاد الرصيد!
+  ]);
+  const by = (res) => Object.fromEntries(res.weeklyMissions.items.map((i) => [i.key, i]));
+  assert.equal(by(body).boost.progress, 1, 'active/cooldown boosts do not advance weekly progress');
+  assert.equal(by(body).buy.progress, 1, 'unfunded purchases do not advance weekly progress');
+  // تمويل إضافي وإكمال 6 مشتريات
+  await patchUser(`guest_${id}`, (u) => { u.state.gold += 2000; });
+  ({ body } = await sendOps(id, [
+    ...Array.from({ length: 5 }, () => ({ type: 'buy', item: 'click' })),
+    { type: 'mine', clicks: 15 },
+  ], { from: 10 }));
+  let wm = by(body);
+  assert.deepEqual([wm.buy.progress, wm.buy.done], [6, true]);
+  assert.equal(wm.mine_energy.progress, 15 * body.state.clickPower);
+  // الاستلام قبل الاكتمال مرفوض، وبعده يُدفع الذهب والخبرة مرة واحدة فقط ويُسجَّل في op_ledger
+  const goldBefore = body.state.gold; const xpBefore = body.state.xp;
+  ({ body } = await sendOps(id, [
+    { type: 'weekly_mission', key: 'boost' },
+    { type: 'weekly_mission', key: 'buy' },
+    { type: 'weekly_mission', key: 'buy' },
+  ], { from: 16 }));
+  assert.deepEqual(body.results.map((r) => [r.status, r.reason]), [['rejected', 'incomplete'], ['ok', undefined], ['rejected', 'claimed']]);
+  assert.equal(body.results[1].gold, 500);
+  assert.equal(body.results[1].xp, 120);
+  assert.ok(body.state.gold >= goldBefore + 500 && body.state.gold < goldBefore + 500 + 80);
+  assert.equal(body.state.xp, xpBefore + 120);
+  assert.equal(by(body).buy.claimed, true);
+  assert.equal(body.weeklyMissions.bonus.ready, false);
+  const ledger = await store.ledgerFor(`guest_${id}`, 20);
+  assert.ok(ledger.some((e) => e.kind === 'weekly_mission' && e.goldDelta === 500 && e.detail.key === 'buy' && e.detail.week === thisWeek()));
+  const stored = await store.getUser(`guest_${id}`);
+  assert.equal(stored.sync.weeklyClaimed, 1);
+  // إكمال الباقي ثم استلام مكافأة الأسبوع (1000 ذهب + 300 خبرة) مرة واحدة فقط
+  await patchUser(`guest_${id}`, (u) => { for (const it of u.sync.weeklyMissions.items) if (it.key !== 'buy') it.progress = 9999; });
+  ({ body } = await sendOps(id, [
+    { type: 'weekly_mission', key: 'bonus' },
+    { type: 'weekly_mission', key: 'boost' },
+    { type: 'weekly_mission', key: 'mine_energy' },
+    { type: 'weekly_mission', key: 'bonus' },
+    { type: 'weekly_mission', key: 'bonus' },
+  ], { from: 19 }));
+  assert.deepEqual(body.results.map((r) => [r.status, r.reason]), [['rejected', 'incomplete'], ['ok', undefined], ['ok', undefined], ['ok', undefined], ['rejected', 'claimed']]);
+  assert.equal(body.results[3].gold, 1000);
+  assert.equal(body.results[3].xp, 300);
+  assert.equal(body.weeklyMissions.bonus.claimed, true);
+  assert.ok(body.weeklyMissions.items.every((i) => i.claimed));
+  assert.equal(body.state.totalEarned >= before.totalEarned + 500 + 400 + 500 + 1000, true);
+});
+
+test('weekly missions: adventure runs and verified arena wins feed weekly counters; a claimed weekly mission stops counting', async () => {
+  const id = uid('weeklyrun');
+  await me(id);
+  await setWeeklyMissions(id, ['boss', 'score', 'arena']);
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const win = winningArena(1, 4242);
+  let { body } = await sendOps(id, [
+    { type: 'run', mode: 'boss', difficulty: 'normal', score: 680, gems: 12, combo: 5, duration: 30, boss: true, ago: 0 },
+    { type: 'arena', matchNo: 1, moves: win.moves },
+  ]);
+  assert.deepEqual(body.results.map((r) => r.status), ['ok', 'ok']);
+  const by = (res) => Object.fromEntries(res.weeklyMissions.items.map((i) => [i.key, i]));
+  let wm = by(body);
+  assert.deepEqual([wm.boss.progress, wm.boss.done], [1, false]);
+  assert.deepEqual([wm.score.progress, wm.score.done], [650, true], 'max-type weekly mission caps display at target');
+  assert.deepEqual([wm.arena.progress, wm.arena.done], [1, false]);
+  // فوز ساحة ثانٍ داخل فاصل الـ10 ثوانٍ (too_soon) لا يرفع عدّاد المهمة الأسبوعية
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  ({ body } = await sendOps(id, [
+    { type: 'arena', matchNo: 2, moves: win.moves },
+    { type: 'weekly_mission', key: 'score' },
+  ], { from: 3 }));
+  assert.equal(body.results[0].status, 'too_soon');
+  assert.equal(body.results[1].status, 'ok');
+  assert.equal(body.results[1].gold, 700);
+  wm = by(body);
+  assert.equal(wm.arena.progress, 1, 'unpaid too_soon arena win does not advance mission progress');
+  assert.equal(wm.score.claimed, true);
+});
+
+test('weekly missions: a new ISO week deals a fresh set and legacy rows without a weekly record just get one', async () => {
+  const id = uid('weeklyroll');
+  await fund(id);
+  const first = (await me(id)).weeklyMissions;
+  // صف قديم من قبل الميزة: لا سجل مهام أسبوعية في sync_json، والأرصدة محفوظة
+  await patchUser(`guest_${id}`, (u) => { delete u.sync.weeklyMissions; delete u.sync.weeklyClaimed; });
+  const profile = await me(id);
+  assert.equal(profile.state.gold, 1000);
+  assert.deepEqual(profile.weeklyMissions.items.map((i) => i.key), first.items.map((i) => i.key), 'same week ⇒ same deterministic set');
+  // سجل من أسبوع سابق بتقدم ومهام مستلمة ⇒ يُستبدل بمجموعة الأسبوع الحالي من الصفر
+  await patchUser(`guest_${id}`, (u) => { u.sync.weeklyMissions = { week: '2026-W01', items: [{ key: 'boost', progress: 8, claimed: true }], bonusClaimed: true }; });
+  const rolled = (await me(id)).weeklyMissions;
+  assert.equal(rolled.week, thisWeek());
+  assert.equal(rolled.items.length, 3);
+  assert.ok(rolled.items.every((i) => i.progress === 0 && !i.claimed));
+  assert.equal(rolled.bonus.claimed, false);
+  // سجل تالف (مفتاح مجهول أو مصفوفة فارغة) يُرمَّم إلى مجموعة الأسبوع الحالي
+  await patchUser(`guest_${id}`, (u) => { u.sync.weeklyMissions = { week: thisWeek(), items: [{ key: 'ghost', progress: 1 }], bonusClaimed: false }; });
+  const healed = (await me(id)).weeklyMissions;
+  assert.deepEqual(healed.items.map((i) => i.key), first.items.map((i) => i.key));
+});
+
 test('achievements: the server lists them with progress from its own stats; claims pay once and locked/unknown ones are refused', async () => {
   const id = uid('ach');
   const first = await me(id);

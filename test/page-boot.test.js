@@ -96,6 +96,11 @@ const meResponse = {
     { key: 'runs', icon: '🎮', title: 'أكمل 3 جولات مغامرة', target: 3, progress: 1, done: false, claimed: false, gold: 200, xp: 50 },
     { key: 'boost', icon: '🚀', title: 'فعّل التعزيز 2 مرات', target: 2, progress: 2, done: true, claimed: true, gold: 100, xp: 30 },
   ], bonus: { gold: 300, xp: 100, ready: false, claimed: false } },
+  weeklyMissions: { week: '2026-W42', resetsIn: 259200, items: [
+    { key: 'buy', icon: '🛒', title: 'اشترِ 6 ترقيات هذا الأسبوع', target: 6, progress: 6, done: true, claimed: false, gold: 500, xp: 120 },
+    { key: 'runs', icon: '🎮', title: 'أكمل 15 جولات مغامرة هذا الأسبوع', target: 15, progress: 4, done: false, claimed: false, gold: 600, xp: 150 },
+    { key: 'boost', icon: '🚀', title: 'فعّل التعزيز 8 مرات هذا الأسبوع', target: 8, progress: 8, done: true, claimed: true, gold: 400, xp: 100 },
+  ], bonus: { gold: 1000, xp: 300, ready: false, claimed: false } },
   achievements: { total: 3, claimedCount: 1, items: [
     { id: 'first_run', icon: '🎬', name: 'أول مغامرة', desc: 'أكمل جولة مغامرة واحدة', target: 1, value: 1, done: true, claimed: false, gold: 25, xp: 10 },
     { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', target: 1, value: 0, done: false, claimed: false, gold: 100, xp: 30 },
@@ -173,4 +178,31 @@ test('the achievements card is rendered from the server list (not the local stat
   box.children[0].children[1].onclick();
   assert.equal(page.dbg().state.gold, before + 25);
   assert.equal(page.dbg().SYNC.pending.filter((op) => op.type === 'achievement').length, 1);
+});
+
+test('the weekly missions card is rendered from the server payload: progress, claimable, claimed and the week bonus', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  const list = page.byId('weekly-missions-list');
+  assert.equal(list.children.length, 4, 'three weekly missions + the bonus row');
+  const rows = list.children.slice(0, 3).map((row) => ({ info: row.children[0].children[0].innerHTML, button: row.children[0].children[1] }));
+  assert.match(rows[0].info, /اشترِ 6 ترقيات هذا الأسبوع/);
+  assert.match(rows[0].info, /6\/6/);
+  assert.deepEqual([rows[0].button.disabled, rows[0].button.textContent], [false, 'استلم 500']);
+  assert.match(rows[1].info, /4\/15/);
+  assert.deepEqual([rows[1].button.disabled, rows[1].button.textContent], [true, '🔒']);
+  assert.deepEqual([rows[2].button.disabled, rows[2].button.textContent], [true, '✓ استُلمت']);
+  const bonusBtn = list.children[3].children[0];
+  assert.deepEqual([bonusBtn.disabled, bonusBtn.textContent], [true, '🔒']);
+  assert.match(page.byId('weekly-missions-reset').innerText, /2026-W42/);
+  const before = page.dbg().state.gold;
+  rows[0].button.onclick();
+  const after = page.dbg();
+  assert.equal(after.state.gold, before + 500);
+  assert.ok(after.SYNC.pending.some((op) => op.type === 'weekly_mission' && op.key === 'buy' && op.expected === 500), JSON.stringify(after.SYNC.pending));
+  assert.equal(list.children[0].children[0].children[1].textContent, '✓ استُلمت');
+  // الضغط مرة أخرى لا يضيف عملية ثانية ولا ذهباً إضافياً
+  list.children[0].children[0].children[1].onclick();
+  assert.equal(page.dbg().state.gold, before + 500);
+  assert.equal(page.dbg().SYNC.pending.filter((op) => op.type === 'weekly_mission').length, 1);
 });
