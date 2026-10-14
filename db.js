@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS op_ledger (
   created_at INTEGER NOT NULL, PRIMARY KEY (user_id, session, seq)
 );
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
+CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 `;
 
 const SCHEMA_PG = `
@@ -98,6 +99,7 @@ CREATE TABLE IF NOT EXISTS op_ledger (
   kind TEXT NOT NULL, detail_json JSONB NOT NULL, gold_delta DOUBLE PRECISION NOT NULL DEFAULT 0,
   created_at BIGINT NOT NULL, PRIMARY KEY (user_id, session, seq)
 );
+CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 `;
 
 function createSqliteStore(file) {

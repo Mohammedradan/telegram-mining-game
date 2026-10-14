@@ -599,6 +599,80 @@ test('missions: a new UTC day deals a fresh set and legacy rows without a missio
   assert.deepEqual(healed.items.map((i) => i.key), first.items.map((i) => i.key));
 });
 
+test('achievements: the server lists them with progress from its own stats; claims pay once and locked/unknown ones are refused', async () => {
+  const id = uid('ach');
+  const first = await me(id);
+  const a = first.achievements;
+  assert.equal(a.total, 15);
+  assert.equal(a.claimedCount, 0);
+  const ids = a.items.map((i) => i.id);
+  for (const legacy of ['first_run', 'score500', 'combo20', 'collector', 'survivor', 'boss', 'racer', 'earner']) assert.ok(ids.includes(legacy), `${legacy} keeps its id for the existing UI`);
+  for (const i of a.items) {
+    assert.match(i.name, /[\u0600-\u06FF]/, 'names come from the server in Arabic');
+    assert.ok(i.target > 0 && i.gold > 0, i.id);
+    assert.deepEqual([i.value, i.done, i.claimed], [i.id.startsWith('level') ? 1 : 0, false, false], i.id);
+  }
+  // جولة زعيم مقبولة ⇒ «أول مغامرة» و«قاتل الزعماء» مكتملان من إحصاءات الخادم، لا من العميل
+  let { body } = await sendOps(id, [
+    { type: 'run', mode: 'boss', difficulty: 'normal', score: 300, gems: 8, combo: 5, duration: 20, boss: true, ago: 0 },
+    { type: 'achievement', id: 'first_run' }, { type: 'achievement', id: 'boss' }, { type: 'achievement', id: 'boss' },
+    { type: 'achievement', id: 'score500' }, { type: 'achievement', id: 'nope' },
+  ]);
+  assert.deepEqual(body.results.map((r) => [r.status, r.reason]), [['ok', undefined], ['ok', undefined], ['ok', undefined], ['rejected', 'claimed'], ['rejected', 'locked'], ['invalid', undefined]]);
+  assert.deepEqual([body.results[1].gold, body.results[1].xp], [25, 10]);
+  assert.deepEqual([body.results[2].gold, body.results[2].xp], [100, 30]);
+  assert.deepEqual([body.results[4].value, body.results[4].target], [300, 500]);
+  const by = Object.fromEntries(body.achievements.items.map((i) => [i.id, i]));
+  assert.deepEqual([by.first_run.claimed, by.boss.claimed, by.score500.done, by.score500.value], [true, true, false, 300]);
+  assert.equal(body.achievements.claimedCount, 2);
+  assert.equal(body.state.gold, body.results[0].gold + 25 + 100);
+  assert.equal(body.state.xp, body.results[0].xp + 10 + 30);
+  const ledger = await store.ledgerFor(`guest_${id}`, 20);
+  assert.deepEqual(ledger.filter((e) => e.kind === 'achievement').map((e) => e.goldDelta).sort((x, y) => x - y), [25, 100]);
+  // الاستلام محفوظ عبر الطلبات (sync_json) ولا يمكن تكراره من جلسة أخرى
+  ({ body } = await sendOps(id, [{ type: 'achievement', id: 'first_run' }], { session: 'other' }));
+  assert.deepEqual([body.results[0].status, body.results[0].reason], ['rejected', 'claimed']);
+});
+
+test('achievements: server-only sources — purchases, level, missions claimed, daily streak, referrals, race wins', async () => {
+  const id = uid('achsrc');
+  await fund(id); // دعوة ⇒ «صاحب الدعوة» مكتمل + 100 خبرة
+  let { body } = await sendOps(id, [{ type: 'achievement', id: 'inviter' }, { type: 'achievement', id: 'level5' }]);
+  assert.deepEqual(body.results.map((r) => [r.status, r.reason]), [['ok', undefined], ['rejected', 'locked']]);
+  const by = (res) => Object.fromEntries(res.achievements.items.map((i) => [i.id, i]));
+  assert.equal(by(body).level5.value, 2);
+  // 10 ترقيات ⇒ «مهندس المنجم»؛ المستوى 5 يُبلَغ بالخبرة التي يمنحها الخادم (نحقنها في الدفتر لاختصار الوقت)
+  await patchUser(`guest_${id}`, (u) => { u.state.gold += 100_000; u.state.xp = 1120; u.sync.missionsClaimed = 10; u.dailyStreak = 7; });
+  ({ body } = await sendOps(id, [
+    ...Array.from({ length: 10 }, () => ({ type: 'buy', item: 'click' })),
+    { type: 'achievement', id: 'upgrades10' }, { type: 'achievement', id: 'level5' }, { type: 'achievement', id: 'missions10' }, { type: 'achievement', id: 'streak7' }, { type: 'achievement', id: 'racer' },
+  ], { from: 3 }));
+  const statuses = body.results.slice(10).map((r) => [r.status, r.reason]);
+  assert.deepEqual(statuses, [['ok', undefined], ['ok', undefined], ['ok', undefined], ['ok', undefined], ['rejected', 'locked']]);
+  assert.equal(body.results[11].xp, 0, 'level achievements pay gold only (no XP loop)');
+  assert.equal(by(body).upgrades10.value, 10);
+  assert.equal(by(body).level5.claimed, true);
+  // فوز سباق مختوم خادميًا (جدول race_stats) ⇒ «بطل السباقات»
+  await store.recordRaceResult('2026-W42', { id: `guest_${id}`, name: 'r', score: 500, won: true });
+  ({ body } = await sendOps(id, [{ type: 'achievement', id: 'racer' }], { from: 20 }));
+  assert.equal(body.results[0].status, 'ok');
+  assert.equal(by(body).racer.claimed, true);
+  const profile = await me(id);
+  assert.equal(profile.achievements.claimedCount, 6);
+  assert.equal(profile.race.wins, 1);
+});
+
+test('achievements: legacy rows without an achievement record simply start unclaimed', async () => {
+  const id = uid('achlegacy');
+  await me(id);
+  await patchUser(`guest_${id}`, (u) => { delete u.sync.achievements; delete u.sync.missionsClaimed; u.state.adventure = { runs: 4, gems: 10, maxCombo: 3, bestScore: 120, bestSurvival: 0, bossWins: 0, rewardEarned: 80, playSec: 100, zones: 2 }; });
+  const profile = await me(id);
+  const by = Object.fromEntries(profile.achievements.items.map((i) => [i.id, i]));
+  assert.deepEqual([by.first_run.done, by.first_run.claimed, by.collector.value], [true, false, 10]);
+  const { body } = await sendOps(id, [{ type: 'achievement', id: 'first_run' }]);
+  assert.equal(body.results[0].status, 'ok');
+});
+
 test('referral credits reach the inviter through the authoritative state without a client save', async () => {
   const id = uid('inviter2');
   await me(id);

@@ -299,3 +299,40 @@ test('every element the script addresses by id exists in the markup (daily/boost
   assert.match(html, /getElementById\('daily-btn'\) \|\| \{\}/);
   assert.match(html, /getElementById\('boost-btn'\) \|\| \{\}/);
 });
+
+test('server achievements are adopted into the profile; a claim is optimistic, announced once confirmed and reverted when refused', async () => {
+  const achievements = { total: 2, claimedCount: 0, items: [
+    { id: 'first_run', icon: '🎬', name: 'أول مغامرة', desc: 'أكمل جولة', target: 1, value: 1, done: true, claimed: false, gold: 25, xp: 10 },
+    { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم الزعيم', target: 1, value: 0, done: false, claimed: false, gold: 100, xp: 30 },
+  ] };
+  const statuses = [];
+  const h = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: [{ seq: 1, type: 'achievement', id: 'first_run', status: 'ok', gold: 25, xp: 10 }], state: serverState({ gold: 25, totalEarned: 25 }), achievements: { ...achievements, claimedCount: 1, items: [{ ...achievements.items[0], claimed: true }, achievements.items[1]] } }) });
+  h.ctx.document = { getElementById: () => ({ set innerText(v) { statuses.push(v); } }) };
+  h.e.loadSyncQueue();
+  h.e.adoptServerState({ revision: 0, state: serverState(), achievements });
+  assert.deepEqual(plain(h.ctx.profile.achievements), achievements);
+  h.ctx.state.gold += 25; h.ctx.state.totalEarned += 25; // كما يفعل claimAchievement في اللعبة
+  h.e.enqueueOp({ type: 'achievement', id: 'first_run', expected: 25 });
+  h.e.adoptServerState({ revision: 0, state: serverState({ gold: 0 }), achievements });
+  assert.equal(h.ctx.state.gold, 25, 'pending claim is re-applied over an older server state');
+  await h.e.flushOps();
+  assert.equal(h.ctx.state.gold, 25);
+  assert.equal(h.ctx.profile.achievements.items[0].claimed, true);
+  assert.ok(statuses.some((t) => t.includes('إنجاز مُعتمد') && t.includes('25') && t.includes('10 خبرة')), statuses.join(' | '));
+  const h2 = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: [{ seq: 1, type: 'achievement', id: 'boss', status: 'rejected', reason: 'locked', value: 0, target: 1 }], state: serverState({ gold: 0 }), achievements }) });
+  h2.e.loadSyncQueue();
+  h2.ctx.state.gold += 100; h2.ctx.state.totalEarned += 100;
+  h2.e.enqueueOp({ type: 'achievement', id: 'boss', expected: 100 });
+  await h2.e.flushOps();
+  assert.equal(h2.ctx.state.gold, 0, 'the server refusal wins; no optimistic gold survives');
+});
+
+test('achievement rewards are no longer blocked in cloud mode: the claim goes through the ops queue, never from local stats', () => {
+  assert.match(html, /enqueueOp\(\{ type: 'achievement', id, expected: a\.gold \}\)/);
+  assert.doesNotMatch(html, /يتطلب تحققًا/, 'the old "requires verification" lock is gone');
+  assert.doesNotMatch(html, /مكافآت الإنجازات السحابية قيد التطوير/);
+  assert.match(html, /const serverAchievements = \(\) => \(serverMode && profile\?\.achievements && Array\.isArray\(profile\.achievements\.items\)\) \? profile\.achievements : null;/);
+  // لا ذهب سحابي من advStats/advClaimed المحليين: المسار المحلي يبقى خلف فحص الخادم فقط
+  const claimFn = html.slice(html.indexOf('function claimAchievement(id)'), html.indexOf('// 🛠️ ترقيات المغامرة الدائمة'));
+  assert.ok(claimFn.indexOf('const cloud = serverAchievements();') < claimFn.indexOf('advClaimed[id] = true;'));
+});

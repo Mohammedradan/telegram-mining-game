@@ -206,7 +206,7 @@
 
     <!-- 🏅 الإنجازات -->
     <details class="bg-slate-900/90 border border-yellow-800/40 rounded-xl p-2.5">
-      <summary class="font-black text-xs cursor-pointer">🏅 الإنجازات والمكافآت</summary>
+      <summary class="font-black text-xs cursor-pointer flex justify-between items-center"><span>🏅 الإنجازات والمكافآت</span><span id="ach-count" class="text-[10px] text-slate-400 font-normal"></span></summary>
       <div id="adv-achievements" class="flex flex-col gap-1.5 mt-2"></div>
     </details>
   </main>
@@ -586,7 +586,7 @@
         if (now < (s.boostUntil || 0) || now < (s.boostCooldownUntil || 0)) return;
         s.boostUntil = now + 30_000;
         s.boostCooldownUntil = now + 5 * 60_000;
-      } else if (op.type === 'reward' || op.type === 'run' || op.type === 'mission') {
+      } else if (op.type === 'reward' || op.type === 'run' || op.type === 'mission' || op.type === 'achievement') {
         const g = Math.max(0, Math.floor(op.expected || 0));
         s.gold += g; s.totalEarned += g;
       }
@@ -606,6 +606,7 @@
         if (data.daily) profile.daily = data.daily;
         if (data.progress && Number.isFinite(data.progress.level)) profile.progress = data.progress;
         if (data.missions && Array.isArray(data.missions.items)) profile.missions = data.missions;
+        if (data.achievements && Array.isArray(data.achievements.items)) profile.achievements = data.achievements;
       }
       if (typeof renderMissions === 'function') renderMissions();
       // إحصاءات المغامرة والمناطق المفتوحة كما يحتسبها الخادم من جولات تحقق منها
@@ -661,9 +662,11 @@
         const refused = results.filter((r) => r.status === 'rejected' || r.status === 'clamped');
         const runs = results.filter((r) => r.type === 'run');
         const missionsDone = results.filter((r) => r.type === 'mission' && r.status === 'ok');
+        const achievementsDone = results.filter((r) => r.type === 'achievement' && r.status === 'ok');
         if (data.levelUp && data.levelUp.to > data.levelUp.from) { setSyncStatus(`🎉 مستوى جديد: ${data.levelUp.to} — خبرتك من نشاط تحقق منه الخادم`); haptic('success'); }
         else if (refused.length) setSyncStatus(refused.some((r) => r.type === 'run') ? '🛡️ لم يُحتسب تقرير جولة لا يطابق زمن اللعب الحقيقي' : '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك');
         else if (missionsDone.length) setSyncStatus(`🎯 ${missionsDone.some((r) => r.key === 'bonus') ? 'مكافأة إكمال مهام اليوم' : 'مهمة مكتملة'}: +${missionsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${missionsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
+        else if (achievementsDone.length) setSyncStatus(`🏅 إنجاز مُعتمد: +${achievementsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙${achievementsDone.some((r) => r.xp) ? ` +${achievementsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة` : ''}`);
         else if (runs.some((r) => r.unlocked)) setSyncStatus(`🗺️ فُتحت منطقة جديدة — تقدّمك محفوظ في حسابك (${runs[runs.length - 1].zones}/3)`);
         else if (runs.some((r) => r.reason === 'too_soon')) setSyncStatus('⏱️ جولة متسارعة: حُفظت إحصاؤها دون جائزة ذهب');
         else setSyncStatus(runs.length ? '☁️ محفوظ على الخادم — جولتك أُضيفت إلى سجلك' : '☁️ محفوظ على الخادم');
@@ -1321,39 +1324,50 @@
       { id: 'racer', icon: '⚔️', name: 'بطل السباقات', desc: 'افُز بسباق مباشر واحد', reward: 50, met: () => advStats.raceWins >= 1, progress: () => `${Math.min(1, advStats.raceWins)}/1` },
       { id: 'earner', icon: '🪙', name: 'صانع الذهب', desc: 'اكسب 500 ذهب من المغامرات', reward: 100, met: () => advStats.rewardEarned >= 500, progress: () => `${Math.min(500, advStats.rewardEarned)}/500` },
     ];
+    // متصلاً بالخادم: القائمة والتقدّم والاستلام كلها من الخادم (إحصاءات تحقق منها هو)؛ دون خادم: القائمة المحلية القديمة
+    const serverAchievements = () => (serverMode && profile?.achievements && Array.isArray(profile.achievements.items)) ? profile.achievements : null;
     function renderAchievements() {
       const box = document.getElementById('adv-achievements');
       if (!box) return;
       box.innerHTML = '';
-      for (const a of ADV_ACHIEVEMENTS) {
-        const claimed = Boolean(advClaimed[a.id]);
-        const met = a.met();
+      const cloud = serverAchievements();
+      const counter = document.getElementById('ach-count');
+      if (counter) counter.innerText = cloud ? `${cloud.items.filter((i) => i.claimed).length}/${cloud.items.length}` : '';
+      const rows = cloud
+        ? cloud.items.map((a) => ({ id: a.id, icon: a.icon, name: a.name, desc: a.desc, reward: a.gold, xp: a.xp, claimed: a.claimed, met: a.done, progress: `${fmt(a.value)}/${fmt(a.target)}` }))
+        : ADV_ACHIEVEMENTS.map((a) => ({ id: a.id, icon: a.icon, name: a.name, desc: a.desc, reward: a.reward, xp: 0, claimed: Boolean(advClaimed[a.id]), met: a.met(), progress: a.progress() }));
+      for (const a of rows) {
         const row = document.createElement('div');
-        row.className = `flex justify-between items-center border p-2 rounded-lg ${claimed ? 'bg-emerald-500/10 border-emerald-700/40' : met ? 'bg-amber-500/10 border-amber-700/40' : 'bg-slate-950/50 border-slate-800'}`;
+        row.className = `flex justify-between items-center border p-2 rounded-lg ${a.claimed ? 'bg-emerald-500/10 border-emerald-700/40' : a.met ? 'bg-amber-500/10 border-amber-700/40' : 'bg-slate-950/50 border-slate-800'}`;
         const info = document.createElement('div');
-        info.innerHTML = `<div class="font-bold text-[11px]">${a.icon} ${a.name} <span class="text-slate-400 font-normal">(${a.progress()})</span></div><div class="text-[9px] text-slate-400">${a.desc} — مكافأة ${a.reward} 🪙</div>`;
+        info.innerHTML = `<div class="font-bold text-[11px]">${a.icon} ${a.name} <span class="text-slate-400 font-normal">(${a.progress})</span></div><div class="text-[9px] text-slate-400">${a.desc} — مكافأة ${a.reward} 🪙${a.xp ? ` + ${a.xp} خبرة` : ''}</div>`;
         const btn = document.createElement('button');
         btn.className = 'bg-amber-500 disabled:opacity-40 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
-        // في وضع الحساب السحابي لا نثق بإحصاءات المغامرة المحفوظة في المتصفح
-        // لمنح ذهب دائم؛ تبقى المطالبة المحلية متاحة عند اللعب دون خادم.
-        btn.textContent = claimed ? '✓ استُلمت' : (serverMode && met) ? '🔒 يتطلب تحققًا' : met ? `استلم ${a.reward}` : '🔒';
-        btn.disabled = claimed || !met || serverMode;
-        btn.title = serverMode && met ? 'مكافآت الإنجازات السحابية ستتاح بعد إضافة تحقق خادمي موثوق' : '';
+        btn.textContent = a.claimed ? '✓ استُلمت' : a.met ? `استلم ${a.reward}` : '🔒';
+        btn.disabled = a.claimed || !a.met;
         btn.onclick = () => claimAchievement(a.id);
         row.append(info, btn);
         box.appendChild(row);
       }
     }
     function claimAchievement(id) {
-      const a = ADV_ACHIEVEMENTS.find((x) => x.id === id);
-      if (!a || advClaimed[id] || !a.met()) { haptic('error'); return; }
-      // لا تمنح عملات دائمة في الحساب السحابي بناءً على إحصاءات client-side قابلة للتعديل.
-      // اللعب المحلي يحتفظ بالسلوك الحالي إلى أن تُضاف أحداث مغامرة موثوقة على الخادم.
-      if (serverMode) {
-        haptic('error');
-        alert('مكافآت الإنجازات السحابية قيد التطوير لحماية رصيدك من الغش. يمكنك متابعة اللعب والمطالبة في الوضع المحلي.');
+      const cloud = serverAchievements();
+      if (cloud) {
+        // الخادم يتحقق من الإنجاز من إحصاءاته هو؛ هنا عرض متفائل يؤكده (أو يصححه) الرد التالي
+        const a = cloud.items.find((x) => x.id === id);
+        if (!a || a.claimed || !a.done) { haptic('error'); return; }
+        a.claimed = true;
+        state.gold += a.gold; state.totalEarned += a.gold;
+        enqueueOp({ type: 'achievement', id, expected: a.gold });
+        haptic('success');
+        advBeep(880, 0.15, 'triangle', 0.06, 1320);
+        renderAchievements();
+        updateUI();
+        save();
         return;
       }
+      const a = ADV_ACHIEVEMENTS.find((x) => x.id === id);
+      if (!a || advClaimed[id] || !a.met()) { haptic('error'); return; }
       advClaimed[id] = true;
       state.gold += a.reward;
       state.totalEarned += a.reward;

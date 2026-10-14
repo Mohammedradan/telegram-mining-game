@@ -215,7 +215,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'achievement']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -353,12 +353,65 @@ function claimMission(user, key, now) {
   if (item.claimed) return { status: 'rejected', reason: 'claimed' };
   if ((item.progress || 0) < def.target) return { status: 'rejected', reason: 'incomplete', progress: Math.floor(item.progress || 0), target: def.target };
   item.claimed = true;
+  user.sync.missionsClaimed = (Number(user.sync.missionsClaimed) || 0) + 1; // يغذّي إنجاز «مثابر»
   s.gold += def.gold; s.totalEarned += def.gold;
   return { status: 'ok', key, gold: def.gold, xp: grantXp(s, def.xp), day: m.day };
 }
 
+// ---------------------------------------------------------------------------
+// الإنجازات — تُحتسب من بيانات لا يملكها إلا الخادم (إحصاءات جولات تحقق منها، سباقات مختومة،
+// خبرة، مهام مستلمة، سلسلة يومية، دعوات، مشتريات). المعرّفات الثمانية الأولى مطابقة لواجهة اللعبة القديمة.
+// ---------------------------------------------------------------------------
+const advOf = (u) => (u.state.adventure && typeof u.state.adventure === 'object') ? u.state.adventure : {};
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const ACHIEVEMENTS = [
+  { id: 'first_run', icon: '🎬', name: 'أول مغامرة', desc: 'أكمل جولة مغامرة واحدة', target: 1, gold: 25, xp: 10, value: (u) => num(advOf(u).runs) },
+  { id: 'score500', icon: '💎', name: 'نتيجة 500', desc: 'حقق أفضل نتيجة 500+', target: 500, gold: 75, xp: 20, value: (u) => num(advOf(u).bestScore) },
+  { id: 'combo20', icon: '🔥', name: 'سلسلة 20', desc: 'حقق أعلى سلسلة ×20', target: 20, gold: 75, xp: 20, value: (u) => num(advOf(u).maxCombo) },
+  { id: 'collector', icon: '🧲', name: 'جامع الكنوز', desc: 'التقط 300 جوهرة إجمالاً', target: 300, gold: 100, xp: 30, value: (u) => num(advOf(u).gems) },
+  { id: 'survivor', icon: '💀', name: 'الناجي', desc: 'حقق 300 نقطة في وضع البقاء', target: 300, gold: 100, xp: 30, value: (u) => num(advOf(u).bestSurvival) },
+  { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', target: 1, gold: 100, xp: 30, value: (u) => num(advOf(u).bossWins) },
+  { id: 'racer', icon: '⚔️', name: 'بطل السباقات', desc: 'افُز بسباق مباشر واحد', target: 1, gold: 50, xp: 20, value: (u, ctx) => num(ctx.raceWins) },
+  { id: 'earner', icon: '🪙', name: 'صانع الذهب', desc: 'اكسب 500 ذهب من المغامرات', target: 500, gold: 100, xp: 30, value: (u) => num(advOf(u).rewardEarned) },
+  { id: 'upgrades10', icon: '🛠️', name: 'مهندس المنجم', desc: 'اشترِ 10 ترقيات إجمالاً', target: 10, gold: 150, xp: 40, value: (u) => Object.values(u.state.owned || {}).reduce((a, v) => a + num(v), 0) + Object.values(u.state.adventureUpgrades || {}).reduce((a, v) => a + num(v), 0) },
+  { id: 'missions10', icon: '📅', name: 'مثابر', desc: 'استلم 10 مهام يومية', target: 10, gold: 200, xp: 50, value: (u) => num(u.sync.missionsClaimed) },
+  { id: 'streak7', icon: '🗓️', name: 'أسبوع كامل', desc: 'سلسلة مكافأة يومية 7 أيام', target: 7, gold: 300, xp: 60, value: (u) => num(u.dailyStreak) },
+  { id: 'inviter', icon: '👥', name: 'صاحب الدعوة', desc: 'ادعُ صديقاً واحداً', target: 1, gold: 100, xp: 30, value: (u) => num(u.referralCount) },
+  { id: 'level5', icon: '⭐', name: 'معدّن متمرس', desc: 'ابلغ المستوى 5', target: 5, gold: 150, xp: 0, value: (u) => levelFromXp(u.state.xp) },
+  { id: 'level10', icon: '🌟', name: 'معدّن أسطوري', desc: 'ابلغ المستوى 10', target: 10, gold: 400, xp: 0, value: (u) => levelFromXp(u.state.xp) },
+  { id: 'tycoon', icon: '🏦', name: 'قطب الذهب', desc: 'اكسب 50,000 ذهب إجمالاً', target: 50_000, gold: 500, xp: 100, value: (u) => num(u.state.totalEarned) },
+];
+const ACHIEVEMENT_BY_ID = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
+function claimedAchievements(user) {
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  if (!isObj(user.sync.achievements)) user.sync.achievements = {};
+  const rec = user.sync.achievements;
+  if (!isObj(rec.claimed)) rec.claimed = {};
+  return rec.claimed;
+}
+function achievementsView(user, ctx = {}) {
+  const claimed = claimedAchievements(user);
+  const items = ACHIEVEMENTS.map((a) => {
+    const value = Math.min(a.target, Math.floor(a.value(user, ctx)));
+    return { id: a.id, icon: a.icon, name: a.name, desc: a.desc, target: a.target, value, done: value >= a.target, claimed: Boolean(claimed[a.id]), gold: a.gold, xp: a.xp };
+  });
+  return { items, claimedCount: items.filter((i) => i.claimed).length, total: items.length };
+}
+function claimAchievement(user, id, ctx, now) {
+  const a = ACHIEVEMENT_BY_ID[id];
+  if (!a) return { status: 'invalid' };
+  const claimed = claimedAchievements(user);
+  if (claimed[a.id]) return { status: 'rejected', reason: 'claimed' };
+  const value = Math.floor(a.value(user, ctx));
+  if (value < a.target) return { status: 'rejected', reason: 'locked', value: Math.min(a.target, value), target: a.target };
+  claimed[a.id] = now;
+  const s = user.state;
+  s.gold += a.gold; s.totalEarned += a.gold;
+  return { status: 'ok', id: a.id, gold: a.gold, xp: a.xp ? grantXp(s, a.xp) : 0 };
+}
+
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0 });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, achievements: {} });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -373,6 +426,8 @@ function ensureSync(user) {
     lastRunAt: Number.isFinite(sync.lastRunAt) ? sync.lastRunAt : 0,
     xpCarry: Number.isFinite(sync.xpCarry) ? sync.xpCarry : 0,
     missions: obj(sync.missions),
+    missionsClaimed: Number.isFinite(sync.missionsClaimed) ? sync.missionsClaimed : 0,
+    achievements: obj(sync.achievements),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
@@ -413,7 +468,7 @@ function parseOpsRequest(body) {
     prev = seq;
     const str = (v) => (typeof v === 'string' ? v.slice(0, 32) : '');
     ops.push({
-      seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), game: str(raw.game),
+      seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), id: str(raw.id), game: str(raw.game),
       score: raw.score, mode: str(raw.mode), boss: raw.boss === true,
       difficulty: str(raw.difficulty), gems: raw.gems, combo: raw.combo, duration: raw.duration, race: raw.race === true, ago: raw.ago,
     });
@@ -422,7 +477,7 @@ function parseOpsRequest(body) {
 }
 
 // تطبيق دفعة عمليات على حالة موثوقة. يجب استدعاؤها داخل معاملة اللاعب وبعد settlePassive.
-function applyOps(user, session, ops, now) {
+function applyOps(user, session, ops, now, ctx = {}) {
   const s = user.state; const sync = user.sync;
   const prevSeq = Number(sync.sessions[session]?.seq) || 0;
   let lastSeq = prevSeq;
@@ -544,6 +599,12 @@ function applyOps(user, session, ops, now) {
         if (claim.status === 'ok') { goldDelta = claim.gold; detail = { key: claim.key, day: claim.day, xp: claim.xp }; }
         break;
       }
+      case 'achievement': {
+        const claim = claimAchievement(user, op.id, ctx, now);
+        Object.assign(r, claim);
+        if (claim.status === 'ok') { goldDelta = claim.gold; detail = { id: claim.id, xp: claim.xp }; }
+        break;
+      }
       default: r.status = 'invalid';
     }
     results.push(r);
@@ -636,6 +697,7 @@ function profileOf(user, isNew = false, extra = {}) {
     state: projectedState(user, now),
     progress: progressOf(user.state),
     missions: missionsView(user, now),
+    achievements: achievementsView(user, { raceWins: extra.race?.wins || 0 }),
     revision: user.revision,
     referralCount: user.referralCount,
     referralEarnings: user.referralEarnings,
@@ -750,6 +812,8 @@ app.get('/health', asyncRoute(async (req, res) => {
 // جلب/إنشاء ملف اللاعب — يعالج الدعوات عند أول دخول (?ref=ref_<id>) ويسوّي الدخل السلبي خادمياً
 app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res) => {
   const refId = String(req.query.ref || '').replace(/^ref_/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  // سباقات WebSocket يختمها الخادم بنفسه — إجماليها إحصاء موثوق للمغامرة والإنجازات (قراءة فقط خارج معاملة اللاعب)
+  const race = await store.raceTotals(req.player.id);
   const result = await store.withUsers([req.player.id, ...(refId ? [refId] : [])], async () => {
     const now = Date.now();
     let user = await store.getUser(req.player.id);
@@ -785,10 +849,8 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
       user.updatedAt = now;
       await store.putUser(user);
     }
-    return profileOf(user, isNew, { offline: { seconds: offline.seconds, gold: Math.floor(offline.gold) } });
+    return profileOf(user, isNew, { offline: { seconds: offline.seconds, gold: Math.floor(offline.gold) }, race });
   });
-  // سباقات WebSocket يختمها الخادم بنفسه — إجماليها إحصاء موثوق للمغامرة (خارج معاملة اللاعب: قراءة فقط)
-  result.race = await store.raceTotals(req.player.id);
   // Do not acknowledge a reward or save until the database commit succeeded.
   res.json(result);
 }));
@@ -797,13 +859,14 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
 app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, res) => {
   const parsed = parseOpsRequest(req.body);
   if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const ctx = { raceWins: (await store.raceTotals(req.player.id)).wins || 0 };
   const result = await store.withUsers([req.player.id], async () => {
     const now = Date.now();
     let user = await store.getUser(req.player.id);
     if (!user) user = await createUser(req.player.id, req.player.name);
     ensureSync(user);
     settlePassive(user, now);
-    const outcome = applyOps(user, parsed.session, parsed.ops, now);
+    const outcome = applyOps(user, parsed.session, parsed.ops, now, ctx);
     if (outcome.flagged) user.violations += 1;
     if (outcome.ledger.length) await store.appendLedger(user.id, outcome.ledger);
     user.unackedCredits = 0;
@@ -823,6 +886,7 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
       progress: progressOf(user.state),
       levelUp: outcome.levelUp,
       missions: missionsView(user, now),
+      achievements: achievementsView(user, ctx),
       referralCount: user.referralCount,
       referralEarnings: user.referralEarnings,
       daily: dailyInfo(user),
@@ -860,6 +924,7 @@ app.post('/api/save', requireAuth, rateLimit('save', 120), asyncRoute(async (req
 }));
 
 app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(async (req, res) => {
+  const ctx = { raceWins: (await store.raceTotals(req.player.id)).wins || 0 };
   const result = await store.withUsers([req.player.id], async () => {
     const now = Date.now();
     let user = await store.getUser(req.player.id);
@@ -879,7 +944,7 @@ app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(asy
     user.lastSaveAt = now;
     user.updatedAt = now;
     await store.putUser(user);
-    return { status: 200, body: { ok: true, reward: info.reward, xp, state: projectedState(user, now), progress: progressOf(user.state), levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null, missions: missionsView(user, now), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
+    return { status: 200, body: { ok: true, reward: info.reward, xp, state: projectedState(user, now), progress: progressOf(user.state), levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null, missions: missionsView(user, now), achievements: achievementsView(user, ctx), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
   });
   res.status(result.status).json(result.body);
 }));

@@ -90,6 +90,11 @@ const meResponse = {
     { key: 'runs', icon: '🎮', title: 'أكمل 3 جولات مغامرة', target: 3, progress: 1, done: false, claimed: false, gold: 200, xp: 50 },
     { key: 'boost', icon: '🚀', title: 'فعّل التعزيز 2 مرات', target: 2, progress: 2, done: true, claimed: true, gold: 100, xp: 30 },
   ], bonus: { gold: 300, xp: 100, ready: false, claimed: false } },
+  achievements: { total: 3, claimedCount: 1, items: [
+    { id: 'first_run', icon: '🎬', name: 'أول مغامرة', desc: 'أكمل جولة مغامرة واحدة', target: 1, value: 1, done: true, claimed: false, gold: 25, xp: 10 },
+    { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', target: 1, value: 0, done: false, claimed: false, gold: 100, xp: 30 },
+    { id: 'level5', icon: '⭐', name: 'معدّن متمرس', desc: 'ابلغ المستوى 5', target: 5, value: 5, done: true, claimed: true, gold: 150, xp: 0 },
+  ] },
   daily: { canClaim: true, streak: 1, reward: 500 }, offline: { seconds: 0, gold: 0 }, race: { races: 0, wins: 0, bestScore: 0 },
   referralCount: 0, referralEarnings: 0,
 };
@@ -136,4 +141,30 @@ test('the missions card is rendered from the server payload: progress, claimable
   list.children[0].children[0].children[1].onclick();
   assert.equal(page.dbg().state.gold, before + 150);
   assert.equal(page.dbg().SYNC.pending.filter((op) => op.type === 'mission').length, 1);
+});
+
+test('the achievements card is rendered from the server list (not the local stats) and a claim queues one achievement op', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  const box = page.byId('adv-achievements');
+  assert.equal(box.children.length, 3, 'the server list replaces the 8 local definitions when connected');
+  const rows = box.children.map((row) => ({ info: row.children[0].innerHTML, button: row.children[1] }));
+  assert.match(rows[0].info, /أول مغامرة/);
+  assert.match(rows[0].info, /1\/1/);
+  assert.match(rows[0].info, /25 🪙 \+ 10 خبرة/);
+  assert.deepEqual([rows[0].button.disabled, rows[0].button.textContent], [false, 'استلم 25']);
+  assert.deepEqual([rows[1].button.disabled, rows[1].button.textContent], [true, '🔒']);
+  assert.deepEqual([rows[2].button.disabled, rows[2].button.textContent], [true, '✓ استُلمت']);
+  assert.equal(page.byId('ach-count').innerText, '1/3');
+  const before = page.dbg().state.gold;
+  rows[0].button.onclick();
+  const after = page.dbg();
+  assert.equal(after.state.gold, before + 25);
+  assert.deepEqual(JSON.parse(JSON.stringify(after.SYNC.pending.filter((op) => op.type === 'achievement').map((op) => [op.id, op.expected]))), [['first_run', 25]]);
+  assert.equal(box.children[0].children[1].textContent, '✓ استُلمت');
+  assert.equal(page.byId('ach-count').innerText, '2/3');
+  // النقر مرة أخرى لا يضيف عملية ولا ذهباً
+  box.children[0].children[1].onclick();
+  assert.equal(page.dbg().state.gold, before + 25);
+  assert.equal(page.dbg().SYNC.pending.filter((op) => op.type === 'achievement').length, 1);
 });
