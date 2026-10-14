@@ -19,10 +19,12 @@
       font-family: 'Tajawal', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
     }
 
-    /* الخلفية على الجذر لتغطي الشاشة كاملة حتى عندما يكون المحتوى عموداً بعرض هاتف */
+    /* الخلفية على الجذر لتغطي الشاشة كاملة وتوسيط العمود أفقياً منذ اللحظة الأولى حتى قبل تحميل Tailwind */
     html {
       height: 100%;
       background: radial-gradient(circle at top, #1e1b4b, #09090b);
+      display: flex;
+      justify-content: center;
     }
 
     body {
@@ -43,7 +45,7 @@
     }
     @media (min-width: 640px) {
       body {
-        max-width: 640px;
+        max-width: 760px;
         background: rgba(9, 9, 11, 0.45);
         border-left: 1px solid rgba(51, 65, 85, 0.55);
         border-right: 1px solid rgba(51, 65, 85, 0.55);
@@ -52,7 +54,7 @@
     }
     @media (min-width: 1024px) {
       body {
-        max-width: 720px;
+        max-width: 980px;
       }
     }
 
@@ -228,7 +230,7 @@
     </details>
 
     <!-- 🛠️ ترقيات المغامرة الدائمة -->
-    <details class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-2.5" open>
+    <details class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-2.5">
       <summary class="font-black text-xs cursor-pointer">🛠️ ترقيات المغامرة الدائمة — قوِّ قدراتك بالذهب</summary>
       <div id="adv-upgrades-list" class="flex flex-col gap-1.5 mt-2"></div>
     </details>
