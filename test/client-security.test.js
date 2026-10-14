@@ -28,3 +28,11 @@ test('cloud bootstrap keeps offline backup but never requests trusted migration'
   assert.match(html, /localStorage\.setItem\('mining_offline_backup', JSON\.stringify\(state\)\)/);
   assert.doesNotMatch(html, /migrate:|saveToServer\(true\)/);
 });
+
+
+test('all inline browser scripts are syntactically valid', () => {
+  const { Script } = require('node:vm');
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+  assert.ok(scripts.length > 0);
+  for (const [, code] of scripts) new Script(code);
+});

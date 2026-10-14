@@ -384,68 +384,78 @@ app.get('/health', asyncRoute(async (req, res) => {
 
 // جلب/إنشاء ملف اللاعب — يعالج الدعوات عند أول دخول (?ref=ref_<id>)
 app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res) => {
-  let user = await store.getUser(req.player.id);
-  let isNew = false;
-  if (!user) {
-    user = await createUser(req.player.id, req.player.name);
-    isNew = true;
-    const refId = String(req.query.ref || '').replace(/^ref_/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-    if (refId && refId !== user.id) {
-      user.referredBy = refId;
-      const inviter = await store.getUser(refId);
-      if (inviter) {
-        inviter.state.gold += REFERRAL_REWARD;
-        inviter.state.totalEarned += REFERRAL_REWARD;
-        inviter.referralCount += 1;
-        inviter.referralEarnings += REFERRAL_REWARD;
-        inviter.unackedCredits = (inviter.unackedCredits || 0) + REFERRAL_REWARD; // سيُدمج في حفظه القادم أو يُعتمد الآن إن كان يقرأ ملفه
-        inviter.updatedAt = Date.now();
-        await store.putUser(inviter);
-      } else {
-        await store.addPending(refId);
+  const refId = String(req.query.ref || '').replace(/^ref_/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  const result = await store.withUsers([req.player.id, ...(refId ? [refId] : [])], async () => {
+    let user = await store.getUser(req.player.id);
+    let isNew = false;
+    if (!user) {
+      user = await createUser(req.player.id, req.player.name);
+      isNew = true;
+      if (refId && refId !== user.id) {
+        user.referredBy = refId;
+        const inviter = await store.getUser(refId);
+        if (inviter) {
+          inviter.state.gold += REFERRAL_REWARD;
+          inviter.state.totalEarned += REFERRAL_REWARD;
+          inviter.referralCount += 1;
+          inviter.referralEarnings += REFERRAL_REWARD;
+          inviter.unackedCredits = (inviter.unackedCredits || 0) + REFERRAL_REWARD; // سيُدمج في حفظه القادم أو يُعتمد الآن إن كان يقرأ ملفه
+          inviter.updatedAt = Date.now();
+          await store.putUser(inviter);
+        } else {
+          await store.addPending(refId);
+        }
       }
+      await store.putUser(user);
+    } else {
+      if (req.player.name && user.name !== req.player.name && req.player.name !== 'ضيف') user.name = req.player.name;
+      // إيصال الحالة الحالية للعميل يعني اعتماد أي مكافآت خادمية معلّقة
+      if (user.unackedCredits) { user.unackedCredits = 0; }
+      user.updatedAt = Date.now();
+      await store.putUser(user);
     }
-    await store.putUser(user);
-  } else {
-    if (req.player.name && user.name !== req.player.name && req.player.name !== 'ضيف') user.name = req.player.name;
-    // إيصال الحالة الحالية للعميل يعني اعتماد أي مكافآت خادمية معلّقة
-    if (user.unackedCredits) { user.unackedCredits = 0; }
-    user.updatedAt = Date.now();
-    await store.putUser(user);
-  }
-  res.json(profileOf(user, isNew));
+    return profileOf(user, isNew);
+  });
+  // Do not acknowledge a reward or save until the database commit succeeded.
+  res.json(result);
 }));
 
 app.post('/api/save', requireAuth, rateLimit('save', 120), asyncRoute(async (req, res) => {
   if (!req.body?.state || typeof req.body.state !== 'object' || Array.isArray(req.body.state)) {
     return res.status(400).json({ error: 'حالة حفظ غير صالحة' });
   }
-  let user = await store.getUser(req.player.id);
-  if (!user) user = await createUser(req.player.id, req.player.name);
-  // Local/offline state is not evidence of earned cloud currency, even on first login.
-  const { state, corrected, creditApplied } = validateSave(user, req.body.state);
-  user.state = state;
-  user.unackedCredits = 0;
-  if (corrected) user.violations += 1;
-  user.lastSaveAt = Date.now();
-  user.updatedAt = Date.now();
-  await store.putUser(user);
-  res.json({ ok: true, corrected, violations: user.violations, serverCreditsApplied: creditApplied, state: user.state, serverTime: Date.now() });
+  const result = await store.withUsers([req.player.id], async () => {
+    let user = await store.getUser(req.player.id);
+    if (!user) user = await createUser(req.player.id, req.player.name);
+    // Local/offline state is not evidence of earned cloud currency, even on first login.
+    const { state, corrected, creditApplied } = validateSave(user, req.body.state);
+    user.state = state;
+    user.unackedCredits = 0;
+    if (corrected) user.violations += 1;
+    user.lastSaveAt = Date.now();
+    user.updatedAt = Date.now();
+    await store.putUser(user);
+    return { ok: true, corrected, violations: user.violations, serverCreditsApplied: creditApplied, state: user.state, serverTime: Date.now() };
+  });
+  res.json(result);
 }));
 
 app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(async (req, res) => {
-  let user = await store.getUser(req.player.id);
-  if (!user) user = await createUser(req.player.id, req.player.name);
-  const info = dailyInfo(user);
-  if (!info.canClaim) return res.status(409).json({ error: 'استلمت مكافأة اليوم — عُد غداً!', daily: info });
-  user.dailyStreak = info.streak;
-  user.dailyLastClaim = info.today;
-  user.state.gold += info.reward;
-  user.state.totalEarned += info.reward;
-  user.lastSaveAt = Date.now();
-  user.updatedAt = Date.now();
-  await store.putUser(user);
-  res.json({ ok: true, reward: info.reward, state: user.state, daily: dailyInfo(user) });
+  const result = await store.withUsers([req.player.id], async () => {
+    let user = await store.getUser(req.player.id);
+    if (!user) user = await createUser(req.player.id, req.player.name);
+    const info = dailyInfo(user);
+    if (!info.canClaim) return { status: 409, body: { error: 'استلمت مكافأة اليوم — عُد غداً!', daily: info } };
+    user.dailyStreak = info.streak;
+    user.dailyLastClaim = info.today;
+    user.state.gold += info.reward;
+    user.state.totalEarned += info.reward;
+    user.lastSaveAt = Date.now();
+    user.updatedAt = Date.now();
+    await store.putUser(user);
+    return { status: 200, body: { ok: true, reward: info.reward, state: user.state, daily: dailyInfo(user) } };
+  });
+  res.status(result.status).json(result.body);
 }));
 
 app.get('/api/race-leaderboard', rateLimit('raceboard', 120), asyncRoute(async (req, res) => {
