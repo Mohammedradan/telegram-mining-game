@@ -224,6 +224,29 @@ test('adopting a server state hands the authoritative adventure stats and race t
   assert.deepEqual(seen, [[{ runs: 4, gems: 80, zones: 3 }, { races: 2, wins: 1, bestScore: 300 }]]);
 });
 
+test('server progress (xp/level) is adopted into the profile and a level-up is announced on the sync line', async () => {
+  let statuses = [];
+  const h = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: [{ seq: 1, type: 'boost', status: 'ok', xp: 10 }], state: serverState({ xp: 105, level: 2 }), progress: { level: 2, xp: 105, current: 5, needed: 220 }, levelUp: { from: 1, to: 2 } }) });
+  h.ctx.document = { getElementById: () => ({ set innerText(v) { statuses.push(v); } }) };
+  h.e.loadSyncQueue();
+  h.e.enqueueOp({ type: 'boost' });
+  await h.e.flushOps();
+  assert.deepEqual(plain(h.ctx.profile.progress), { level: 2, xp: 105, current: 5, needed: 220 });
+  assert.ok(statuses.some((t) => t.includes('مستوى جديد: 2')), statuses.join(' | '));
+  // دون تغيير مستوى لا إعلان
+  statuses = [];
+  h.e.adoptServerState({ revision: 2, state: serverState({ xp: 110 }), progress: { level: 2, xp: 110, current: 10, needed: 220 } });
+  assert.equal(h.ctx.profile.progress.xp, 110);
+  assert.ok(!statuses.some((t) => t.includes('مستوى جديد')));
+});
+
+test('the level badge follows the server progress when connected and the old local formula offline', () => {
+  assert.match(html, /const prog = serverMode && profile\?\.progress \? profile\.progress : null;\s+const level = prog \? prog\.level : Math\.floor\(state\.totalEarned \/ 5000\) \+ 1;/);
+  assert.match(html, /function playerLevel\(\) \{ return \(serverMode && profile\?\.progress\?\.level\) \|\| Math\.floor\(state\.totalEarned \/ 5000\) \+ 1; \}/);
+  assert.match(html, /id="xp-bar"/);
+  assert.match(html, /id="xp-fill"/);
+});
+
 test('mining clicks and purchases are routed through the ops queue in the game code', () => {
   assert.match(html, /SYNC\.clicks \+= 1;\s+if \(boostActive\(\)\) SYNC\.boostedClicks \+= 1;/);
   assert.match(html, /enqueueOp\(\{ type: 'buy', item: type \}\)/);

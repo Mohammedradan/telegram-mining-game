@@ -39,6 +39,17 @@ const RUN_HARD_SCORE_PER_SEC = 300;       // سقف فيزيائي للنقاط 
 const RUN_MAX_OBJECTS_PER_SEC = 5;        // أقصى توليد عناصر في اللعبة (كل 0.2 ثانية)
 const RUN_MIN_BOSS_SEC = 8;               // لا يُحتسب قتل زعيم في جولة أقصر من ذلك
 const RUN_MIN_SEC = 5;                    // جولة أقصر من ذلك ليست جولة حقيقية (لا تُحتسب)
+// نقاط الخبرة: تُمنح من أحداث يتحقق منها الخادم فقط (طاقة مُنفقة، شراء، تعزيز، جولات، يومية، دعوات)
+const XP_RULES = {
+  energyPerXp: 10,      // كل 10 طاقة تُنفق في التعدين = 1 خبرة (البقية تُرحَّل ولا تضيع)
+  costPerXp: 20,        // كل 20 ذهب يُنفق على ترقية = 1 خبرة
+  boost: 10,
+  runSecPerXp: 4, runGemsPerXp: 2, bossKill: 25,
+  arenaWin: 10,
+  dailyBase: 25, dailyPerStreak: 5, dailyMax: 100,
+  referral: 100,
+};
+const LEGACY_GOLD_PER_LEVEL = 5000;        // صيغة المستوى القديمة (إجمالي المكاسب/5000) — تُحوَّل مرة واحدة إلى خبرة
 const MAX_SESSIONS_TRACKED = 6;
 
 const store = createStore();
@@ -59,6 +70,7 @@ const defaultState = () => ({
   boostUntil: 0,
   boostCooldownUntil: 0,
   adventure: defaultAdventure(),
+  xp: 0,
   lastSeen: Date.now(),
 });
 // إحصاءات المغامرة الموثوقة (تُحدَّث من جولات يتحقق منها الخادم فقط) — المناطق مشتقة منها
@@ -99,9 +111,33 @@ function sanitizeState(input, base = defaultState()) {
     boostUntil: clampNum(s.boostUntil, 0, Date.now() + 24 * 3600e3, 0),
     boostCooldownUntil: clampNum(s.boostCooldownUntil, 0, Date.now() + 24 * 3600e3, 0),
     adventure: sanitizeAdventure(s.adventure, base.adventure),
+    // ملف من قبل نقاط الخبرة: يبدأ بخبرة تعادل مستواه القديم تماماً (لا يخسر لاعب مستواه)
+    xp: (s.xp === undefined || s.xp === null) ? legacyXp(clampNum(s.totalEarned, 0, 1e12, base.totalEarned)) : Math.floor(clampNum(s.xp, 0, 1e15, 0)),
     lastSeen: Date.now(),
   };
 }
+
+// منحنى المستوى: الخبرة اللازمة لبلوغ المستوى n هي 60(n−1)² + 40(n−1) — المستوى 2 عند 100، 5 عند 1120، 10 عند 5220
+const xpForLevel = (n) => { const k = Math.max(0, Math.floor(n) - 1); return 60 * k * k + 40 * k; };
+function levelFromXp(xp) {
+  const x = Math.max(0, Math.floor(Number(xp) || 0));
+  let level = Math.floor((-40 + Math.sqrt(1600 + 240 * x)) / 120) + 1;
+  while (xpForLevel(level + 1) <= x) level += 1;
+  while (level > 1 && xpForLevel(level) > x) level -= 1;
+  return level;
+}
+function legacyXp(totalEarned) {
+  const earned = Math.max(0, Number(totalEarned) || 0);
+  const level = Math.floor(earned / LEGACY_GOLD_PER_LEVEL) + 1;
+  const frac = (earned % LEGACY_GOLD_PER_LEVEL) / LEGACY_GOLD_PER_LEVEL;
+  return Math.floor(xpForLevel(level) + frac * (xpForLevel(level + 1) - xpForLevel(level)));
+}
+function progressOf(s) {
+  const level = levelFromXp(s.xp);
+  const start = xpForLevel(level); const end = xpForLevel(level + 1);
+  return { level, xp: s.xp, current: s.xp - start, needed: end - start };
+}
+const grantXp = (s, amount) => { const n = Math.max(0, Math.floor(amount)); s.xp += n; s.level = levelFromXp(s.xp); return n; };
 function sanitizeAdventure(input, base = defaultAdventure()) {
   const a = (input && typeof input === 'object' && !Array.isArray(input)) ? input : {};
   const out = {};
@@ -169,6 +205,7 @@ function deriveStats(s) {
   for (const t of Object.keys(UPGRADES_DEF)) s.costs[t] = costFor(t, s.owned[t]);
   if (!s.adventure) s.adventure = defaultAdventure();
   s.adventure.zones = zonesFor(s.adventure);
+  s.level = levelFromXp(s.xp);
   return s;
 }
 
@@ -239,7 +276,7 @@ function applyRun(user, op, now, timeline) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0 });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0 });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -252,6 +289,7 @@ function ensureSync(user) {
     sessions: obj(sync.sessions),
     lastRewardAt: obj(sync.lastRewardAt),
     lastRunAt: Number.isFinite(sync.lastRunAt) ? sync.lastRunAt : 0,
+    xpCarry: Number.isFinite(sync.xpCarry) ? sync.xpCarry : 0,
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
@@ -323,6 +361,7 @@ function applyOps(user, session, ops, now) {
     ran: false,
   };
   const results = []; const ledger = [];
+  const levelBefore = levelFromXp(s.xp);
   for (const op of ops) {
     if (op.seq <= lastSeq) { results.push({ seq: op.seq, type: op.type, status: 'duplicate' }); continue; }
     lastSeq = op.seq;
@@ -340,6 +379,9 @@ function applyOps(user, session, ops, now) {
         const gold = cost + boosted * cp; // النقرة المعزّزة تمنح الضعف بنفس تكلفة الطاقة
         clickBudget -= accepted; energyBudget -= cost; boostedBudget -= boosted; energySpent += cost; mined = true;
         s.gold += gold; s.totalEarned += gold;
+        sync.xpCarry += cost;
+        r.xp = grantXp(s, Math.floor(sync.xpCarry / XP_RULES.energyPerXp));
+        sync.xpCarry %= XP_RULES.energyPerXp;
         Object.assign(r, { clicks: accepted, boosted, gold });
         if (accepted < clicks || boosted < claimedBoosted) { r.status = 'clamped'; flagged = true; }
         break;
@@ -351,6 +393,7 @@ function applyOps(user, session, ops, now) {
         r.cost = cost;
         if (s.gold < cost) { r.status = 'rejected'; r.reason = 'insufficient'; flagged = true; break; }
         s.gold -= cost; s.owned[op.item] += 1; deriveStats(s);
+        r.xp = grantXp(s, cost / XP_RULES.costPerXp);
         goldDelta = -cost; detail = { item: op.item, level: s.owned[op.item] };
         break;
       }
@@ -363,6 +406,7 @@ function applyOps(user, session, ops, now) {
         r.cost = cost;
         if (s.gold < cost) { r.status = 'rejected'; r.reason = 'insufficient'; flagged = true; break; }
         s.gold -= cost; s.adventureUpgrades[op.key] = lvl + 1;
+        r.xp = grantXp(s, cost / XP_RULES.costPerXp);
         goldDelta = -cost; detail = { key: op.key, level: lvl + 1 };
         break;
       }
@@ -372,6 +416,7 @@ function applyOps(user, session, ops, now) {
         s.boostUntil = now + BOOST_DURATION_MS;
         s.boostCooldownUntil = now + BOOST_COOLDOWN_MS;
         boostedBudget = null; // نقرات لاحقة في الدفعة نفسها تُقاس على النافذة الجديدة
+        r.xp = grantXp(s, XP_RULES.boost);
         r.until = s.boostUntil; detail = { until: s.boostUntil };
         break;
       }
@@ -382,6 +427,7 @@ function applyOps(user, session, ops, now) {
         Object.assign(r, run);
         if (r.status === 'ok' || r.status === 'clamped') {
           timeline.ran = true;
+          r.xp = grantXp(s, Math.floor(r.duration / XP_RULES.runSecPerXp) + Math.floor(r.gems / XP_RULES.runGemsPerXp) + (r.boss ? XP_RULES.bossKill : 0));
           goldDelta = r.gold;
           detail = { mode: r.mode, difficulty: r.difficulty, score: r.score, gems: r.gems, combo: r.combo, duration: r.duration, boss: r.boss, race: r.race, zones: r.zones };
         }
@@ -397,6 +443,7 @@ function applyOps(user, session, ops, now) {
         if (gold <= 0) break; // جولة بلا جائزة لا تستهلك الفاصل الزمني
         sync.lastRewardAt[op.game] = now;
         s.gold += gold; s.totalEarned += gold;
+        if (op.game === 'arena') r.xp = grantXp(s, XP_RULES.arenaWin);
         goldDelta = gold; detail = { game: op.game, mode: op.mode || null, score: Math.floor(clampNum(op.score, 0, 100_000, 0)), boss: op.boss === true };
         break;
       }
@@ -420,14 +467,20 @@ function applyOps(user, session, ops, now) {
     ids.sort((a, b) => (sync.sessions[b].at || 0) - (sync.sessions[a].at || 0));
     for (const id of ids.slice(MAX_SESSIONS_TRACKED)) delete sync.sessions[id];
   }
-  return { results, ledger, flagged, lastSeq, applied: results.filter((r) => r.status !== 'duplicate').length };
+  const levelAfter = levelFromXp(s.xp);
+  return {
+    results, ledger, flagged, lastSeq,
+    applied: results.filter((r) => r.status !== 'duplicate').length,
+    levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
 // أدوات اليومية/المستوى/الملف الشخصي
 // ---------------------------------------------------------------------------
 const dayStr = (d = new Date()) => d.toISOString().slice(0, 10);
-const levelOf = (totalEarned) => Math.floor(totalEarned / 5000) + 1;
+// مستوى صف قد لا يكون مُحمَّلاً عبر ensureSync بعد (لوحة الصدارة): خبرة مخزّنة أو المكافئ القديم
+const levelOfRow = (state) => levelFromXp((state && state.xp !== undefined && state.xp !== null) ? state.xp : legacyXp(state?.totalEarned));
 
 // مفتاح أسبوع ISO (مثل 2026-W42) لبطولة السباقات الأسبوعية
 function currentWeekKey(d = new Date()) {
@@ -484,6 +537,7 @@ function profileOf(user, isNew = false, extra = {}) {
   return {
     user: { id: user.id, name: user.name },
     state: projectedState(user, now),
+    progress: progressOf(user.state),
     revision: user.revision,
     referralCount: user.referralCount,
     referralEarnings: user.referralEarnings,
@@ -613,6 +667,7 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
           ensureSync(inviter);
           inviter.state.gold += REFERRAL_REWARD;
           inviter.state.totalEarned += REFERRAL_REWARD;
+          grantXp(inviter.state, XP_RULES.referral);
           inviter.referralCount += 1;
           inviter.referralEarnings += REFERRAL_REWARD;
           inviter.revision += 1; // يصل الداعي عبر حالته الموثوقة في مزامنته التالية
@@ -667,6 +722,8 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
       results: outcome.results,
       violations: user.violations,
       state: projectedState(user, now),
+      progress: progressOf(user.state),
+      levelUp: outcome.levelUp,
       referralCount: user.referralCount,
       referralEarnings: user.referralEarnings,
       daily: dailyInfo(user),
@@ -698,7 +755,7 @@ app.post('/api/save', requireAuth, rateLimit('save', 120), asyncRoute(async (req
     const corrected = Math.floor(claimed.gold) !== Math.floor(state.gold)
       || JSON.stringify(claimed.owned) !== JSON.stringify(state.owned)
       || JSON.stringify(claimed.adventureUpgrades) !== JSON.stringify(state.adventureUpgrades);
-    return { ok: true, legacy: true, corrected, violations: user.violations, serverCreditsApplied: 0, state, revision: user.revision, serverTime: now };
+    return { ok: true, legacy: true, corrected, violations: user.violations, serverCreditsApplied: 0, state, progress: progressOf(user.state), revision: user.revision, serverTime: now };
   });
   res.json(result);
 }));
@@ -716,11 +773,14 @@ app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(asy
     user.dailyLastClaim = info.today;
     user.state.gold += info.reward;
     user.state.totalEarned += info.reward;
+    const levelBefore = levelFromXp(user.state.xp);
+    const xp = grantXp(user.state, Math.min(XP_RULES.dailyMax, XP_RULES.dailyBase + XP_RULES.dailyPerStreak * info.streak));
+    const levelAfter = levelFromXp(user.state.xp);
     user.revision += 1;
     user.lastSaveAt = now;
     user.updatedAt = now;
     await store.putUser(user);
-    return { status: 200, body: { ok: true, reward: info.reward, state: projectedState(user, now), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
+    return { status: 200, body: { ok: true, reward: info.reward, xp, state: projectedState(user, now), progress: progressOf(user.state), levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null, revision: user.revision, daily: dailyInfo(user), serverTime: now } };
   });
   res.status(result.status).json(result.body);
 }));
@@ -737,7 +797,7 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
     leaderboard: top.map((u, i) => ({
       rank: i + 1, id: u.id, name: u.name,
       gold: Math.floor(u.state.gold), totalEarned: Math.floor(u.state.totalEarned),
-      level: levelOf(u.state.totalEarned),
+      level: levelOfRow(u.state),
     })),
   });
 }));

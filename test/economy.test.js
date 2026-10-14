@@ -79,7 +79,7 @@ test('mine: clicks are credited at click power and cost energy; the server repor
   assert.equal(fresh.revision, 0);
   const { body } = await sendOps(id, [{ type: 'mine', clicks: 12, boosted: 0 }]);
   assert.equal(body.ok, true);
-  assert.deepEqual(body.results, [{ seq: 1, type: 'mine', status: 'ok', clicks: 12, boosted: 0, gold: 12 }]);
+  assert.deepEqual(body.results, [{ seq: 1, type: 'mine', status: 'ok', xp: 1, clicks: 12, boosted: 0, gold: 12 }]); // 12 طاقة → 1 خبرة (البقية 2 تُرحَّل)
   assert.equal(body.state.gold, 12);
   assert.equal(body.state.totalEarned, 12);
   assert.ok(body.state.energy <= 988.5 && body.state.energy >= 987, `energy ${body.state.energy}`);
@@ -414,6 +414,80 @@ test('profile exposes server-sealed race totals as a trusted adventure stat', as
   await store.recordRaceResult('2026-W02', { id: `guest_${id}`, name: 'r', score: 380, won: false });
   const profile = await me(id);
   assert.deepEqual(profile.race, { races: 2, wins: 1, bestScore: 420 });
+});
+
+test('xp: verified activity grants experience; the level follows the server curve and a level-up is announced', async () => {
+  const id = uid('xp');
+  await fund(id); // 1000 ذهب موثوق عبر دعوة — والدعوة نفسها تمنح الداعي 100 خبرة (= المستوى 2 تماماً)
+  const fresh = await me(id);
+  assert.deepEqual(fresh.progress, { level: 2, xp: 100, current: 0, needed: 220 });
+  await patchUser(`guest_${id}`, (u) => { u.sync.lastRunAt = Date.now() - 600_000; });
+  const { body } = await sendOps(id, [
+    { type: 'mine', clicks: 15, boosted: 0 },                                               // 15 طاقة → 1 خبرة (5 مُرحَّلة)
+    { type: 'buy', item: 'bot' },                                                          // 200 ذهب → 10 خبرة
+    { type: 'boost' },                                                                     // 10 خبرة
+    { type: 'run', mode: 'classic', score: 400, gems: 20, combo: 8, duration: 60, ago: 0 }, // 15 + 10 = 25 خبرة
+    { type: 'reward', game: 'arena' },                                                     // 10 خبرة
+  ]);
+  assert.deepEqual(body.results.map((r) => r.xp), [1, 10, 10, 25, 10]);
+  assert.equal(body.state.xp, 156);
+  assert.equal(body.state.level, 2);
+  assert.deepEqual(body.progress, { level: 2, xp: 156, current: 56, needed: 220 });
+  assert.equal(body.levelUp, null);
+  // النقرات القصيرة لا تضيع خبرتها: 5 مُرحَّلة + 5 جديدة = خبرة واحدة
+  const carry = await sendOps(id, [{ type: 'mine', clicks: 5, boosted: 0 }], { from: 6 });
+  assert.equal(carry.body.results[0].xp, 1);
+  assert.equal(carry.body.state.xp, 157);
+  // شراء مرفوض لا يمنح خبرة؛ شراءان ناجحان يمنحان بحسب السعر (280 و392 ذهب → 14 و19)
+  const rig = await sendOps(id, [{ type: 'buy', item: 'rig' }], { from: 7 });
+  assert.equal(rig.body.results[0].status, 'rejected');
+  assert.equal(rig.body.results[0].xp, undefined);
+  const buys = await sendOps(id, [{ type: 'buy', item: 'bot' }, { type: 'buy', item: 'bot' }], { from: 8 });
+  assert.deepEqual(buys.body.results.map((r) => r.xp), [14, 19]);
+  assert.equal(buys.body.state.xp, 190);
+  assert.equal(buys.body.levelUp, null);
+  // عبور عتبة المستوى 3 (320 خبرة) يُعلَن في الدفعة نفسها
+  await patchUser(`guest_${id}`, (u) => { u.state.xp = 318; u.state.boostUntil = 0; u.state.boostCooldownUntil = 0; });
+  const up = await sendOps(id, [{ type: 'boost' }], { from: 10 });
+  assert.equal(up.body.results[0].xp, 10);
+  assert.deepEqual(up.body.levelUp, { from: 2, to: 3 });
+  assert.deepEqual(up.body.progress, { level: 3, xp: 328, current: 8, needed: 340 });
+  assert.equal((await me(id)).progress.level, 3);
+});
+
+test('xp: the daily reward grants streak-scaled experience and the referral grants the inviter 100', async () => {
+  const id = uid('xpdaily');
+  await me(id);
+  const res = await fetch(`${BASE}/api/claim-daily`, { method: 'POST', headers: guest(id), body: '{}' });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.xp, 30); // 25 + 5 × سلسلة 1
+  assert.equal(body.progress.xp, 30);
+  assert.equal(body.levelUp, null);
+  await me(`${id}-friend`, `?ref=ref_guest_${id}`);
+  const after = await me(id);
+  assert.equal(after.progress.xp, 130);
+  assert.equal(after.progress.level, 2);
+  assert.equal(after.state.gold >= 1500, true);
+});
+
+test('xp: players from before experience points keep exactly their old level (and progress inside it)', async () => {
+  const id = uid('xplegacy');
+  await me(id);
+  // محاكاة صف قديم: لا حقل xp، وإجمالي مكاسب 23,000 → المستوى القديم 5 (floor(23000/5000)+1) بنسبة 60% داخله
+  await patchUser(`guest_${id}`, (u) => { u.state.totalEarned = 23_000; u.state.gold = 23_000; delete u.state.xp; delete u.state.level; });
+  const profile = await me(id);
+  assert.equal(profile.progress.level, 5);
+  // الخبرة اللازمة للمستوى 5 = 1120، وللمستوى 6 = 1700 → 1120 + 0.6 × 580 = 1468
+  assert.equal(profile.progress.xp, 1468);
+  assert.equal(profile.state.level, 5);
+  const board = await (await fetch(`${BASE}/api/leaderboard`)).json();
+  const row = board.leaderboard.find((r) => r.id === `guest_${id}`);
+  assert.equal(row.level, 5);
+  // الخبرة الجديدة تُضاف فوق المحوَّل ولا تُعاد الحسبة
+  const { body } = await sendOps(id, [{ type: 'boost' }]);
+  assert.equal(body.state.xp, 1478);
+  assert.equal(body.progress.level, 5);
 });
 
 test('referral credits reach the inviter through the authoritative state without a client save', async () => {

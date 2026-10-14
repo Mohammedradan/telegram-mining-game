@@ -106,6 +106,9 @@
     <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/50 text-right">
       <div class="text-[10px] text-slate-400">المستوى</div>
       <div id="level-badge" class="font-black text-amber-400 text-sm">1 (مبتدئ)</div>
+      <div id="xp-bar" class="h-1 mt-1 rounded-full bg-slate-700/80 overflow-hidden" title="نقاط الخبرة — تُمنح من الخادم على نشاط موثوق" style="display:none">
+        <div id="xp-fill" class="h-full bg-amber-400 rounded-full" style="width:0%"></div>
+      </div>
     </div>
   </header>
 
@@ -587,6 +590,7 @@
         if (Number.isFinite(data.referralCount)) profile.referralCount = data.referralCount;
         if (Number.isFinite(data.referralEarnings)) profile.referralEarnings = data.referralEarnings;
         if (data.daily) profile.daily = data.daily;
+        if (data.progress && Number.isFinite(data.progress.level)) profile.progress = data.progress;
       }
       // إحصاءات المغامرة والمناطق المفتوحة كما يحتسبها الخادم من جولات تحقق منها
       if (typeof adoptServerAdventure === 'function') adoptServerAdventure(data.state.adventure, data.race);
@@ -640,7 +644,8 @@
         const results = data.results || [];
         const refused = results.filter((r) => r.status === 'rejected' || r.status === 'clamped');
         const runs = results.filter((r) => r.type === 'run');
-        if (refused.length) setSyncStatus(refused.some((r) => r.type === 'run') ? '🛡️ لم يُحتسب تقرير جولة لا يطابق زمن اللعب الحقيقي' : '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك');
+        if (data.levelUp && data.levelUp.to > data.levelUp.from) { setSyncStatus(`🎉 مستوى جديد: ${data.levelUp.to} — خبرتك من نشاط تحقق منه الخادم`); haptic('success'); }
+        else if (refused.length) setSyncStatus(refused.some((r) => r.type === 'run') ? '🛡️ لم يُحتسب تقرير جولة لا يطابق زمن اللعب الحقيقي' : '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك');
         else if (runs.some((r) => r.unlocked)) setSyncStatus(`🗺️ فُتحت منطقة جديدة — تقدّمك محفوظ في حسابك (${runs[runs.length - 1].zones}/3)`);
         else if (runs.some((r) => r.reason === 'too_soon')) setSyncStatus('⏱️ جولة متسارعة: حُفظت إحصاؤها دون جائزة ذهب');
         else setSyncStatus(runs.length ? '☁️ محفوظ على الخادم — جولتك أُضيفت إلى سجلك' : '☁️ محفوظ على الخادم');
@@ -720,7 +725,7 @@
       while (el.children.length > 6) el.lastChild.remove();
     }
 
-    function playerLevel() { return Math.floor(state.totalEarned / 5000) + 1; }
+    function playerLevel() { return (serverMode && profile?.progress?.level) || Math.floor(state.totalEarned / 5000) + 1; }
 
     function startBattle() {
       const lvl = playerLevel();
@@ -892,7 +897,7 @@
           const data = await api('/api/claim-daily', { method: 'POST', body: '{}' });
           adoptServerState(data);
           haptic('success');
-          alert(`🎁 حصلت على مكافأة يومية ${fmt(data.reward)} 🪙 (سلسلة ${data.daily.streak} يوم)`);
+          alert(`🎁 حصلت على مكافأة يومية ${fmt(data.reward)} 🪙 (سلسلة ${data.daily.streak} يوم)${data.xp ? ` +${data.xp} خبرة` : ''}${data.levelUp ? `\n🎉 مستوى جديد: ${data.levelUp.to}` : ''}`);
         } catch (e) {
           if (e.status === 409 && profile) profile.daily = e.data.daily;
           haptic('error');
@@ -1021,10 +1026,21 @@
         ownedEl.innerText = state.owned[type] > 0 ? `×${state.owned[type]}` : '';
       }
 
-      // المستوى يعتمد على إجمالي ما كُسب عبر الزمن (لا ينقص عند الشراء)
-      const level = Math.floor(state.totalEarned / 5000) + 1;
+      // المستوى: من نقاط خبرة يمنحها الخادم على نشاط موثوق (تعدين، شراء، جولات، يومية، دعوات)؛
+      // دون خادم يبقى مشتقاً محلياً من إجمالي المكاسب كما كان
+      const prog = serverMode && profile?.progress ? profile.progress : null;
+      const level = prog ? prog.level : Math.floor(state.totalEarned / 5000) + 1;
       const titles = ['مبتدئ 🔥', 'هاوٍ ⛏️', 'محترف 💪', 'خبير 👑', 'أسطورة 🏆'];
       levelBadge.innerText = `${level} (${titles[Math.min(titles.length - 1, Math.floor((level - 1) / 3))]})`;
+      const xpBar = document.getElementById('xp-bar');
+      if (xpBar) {
+        xpBar.style.display = prog ? '' : 'none';
+        if (prog) {
+          document.getElementById('xp-fill').style.width = `${Math.max(2, Math.min(100, Math.floor(prog.current / Math.max(1, prog.needed) * 100)))}%`;
+          xpBar.title = `${fmt(prog.current)} / ${fmt(prog.needed)} خبرة حتى المستوى ${level + 1}`;
+          levelBadge.title = xpBar.title;
+        }
+      }
     }
 
     function haptic(type) {
