@@ -22,3 +22,9 @@ test('claimAchievement rejects server-mode claims before granting gold', () => {
   assert.ok(award > guard, 'server-mode guard must run before reward mutation');
   assert.match(fn.slice(guard, award), /return;/, 'server-mode guard must exit without granting reward');
 });
+
+
+test('cloud bootstrap keeps offline backup but never requests trusted migration', () => {
+  assert.match(html, /localStorage\.setItem\('mining_offline_backup', JSON\.stringify\(state\)\)/);
+  assert.doesNotMatch(html, /migrate:|saveToServer\(true\)/);
+});
