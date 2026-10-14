@@ -16,7 +16,7 @@ let child = null;
 function startServer() {
   child = spawn('node', ['server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: DB_FILE, DATABASE_URL: '' },
+    env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: DB_FILE, DATABASE_URL: process.env.TEST_DATABASE_URL || '' },
     stdio: 'inherit',
   });
 }
@@ -49,10 +49,10 @@ const baseState = (over = {}) => ({
 before(async () => { startServer(); await waitReady(); });
 after(async () => { await stopServer(); fs.rmSync(tmpDir, { recursive: true, force: true }); });
 
-test('health يعلن قاعدة SQLite', async () => {
+test('health يعلن قاعدة التخزين المختبرة', async () => {
   const h = await (await fetch(`${BASE}/health`)).json();
   assert.equal(h.ok, true);
-  assert.equal(h.db, 'sqlite');
+  assert.equal(h.db, process.env.TEST_DATABASE_URL ? 'postgres' : 'sqlite');
 });
 
 test('دعوة تمنح الداعي 1000 مرة واحدة فقط', async () => {
@@ -164,4 +164,84 @@ test('save rejects missing, primitive and array states without changing balances
     assert.equal((await save('invalid-state', state)).status, 400);
   }
   assert.equal((await me('invalid-state')).state.gold, 0);
+});
+
+
+test('concurrent first-login referrals credit an inviter exactly once per new user', async () => {
+  await me('concurrent-inviter');
+  const results = await Promise.all(Array.from({ length: 8 }, () => me('same-friend', '?ref=ref_guest_concurrent-inviter')));
+  assert.equal(results.filter((r) => r.isNew).length, 1);
+  await Promise.all(Array.from({ length: 8 }, (_, i) => me(`distinct-friend-${i}`, '?ref=ref_guest_concurrent-inviter')));
+  const inviter = await me('concurrent-inviter');
+  assert.equal(inviter.referralCount, 9);
+  assert.equal(inviter.state.gold, 9000);
+  assert.equal(inviter.state.totalEarned, 9000);
+});
+
+test('concurrent daily claims issue one reward and stale saves do not remove it', async () => {
+  const initial = await me('concurrent-daily');
+  const responses = await Promise.all(Array.from({ length: 8 }, () => fetch(`${BASE}/api/claim-daily`, {
+    method: 'POST', headers: guest('concurrent-daily'), body: '{}',
+  })));
+  assert.equal(responses.filter((r) => r.status === 200).length, 1);
+  assert.equal(responses.filter((r) => r.status === 409).length, 7);
+  const stale = await save('concurrent-daily', initial.state);
+  assert.equal(stale.body.state.gold, 500);
+  assert.equal(stale.body.state.totalEarned, 500);
+});
+
+test('daily reward survives retries after the caller loses the response', async () => {
+  await me('lost-daily');
+  // Discard the acknowledged body to model response loss after a committed claim.
+  await fetch(`${BASE}/api/claim-daily`, { method: 'POST', headers: guest('lost-daily'), body: '{}' });
+  const retry = await fetch(`${BASE}/api/claim-daily`, { method: 'POST', headers: guest('lost-daily'), body: '{}' });
+  assert.equal(retry.status, 409);
+  assert.equal((await me('lost-daily')).state.gold, 500);
+});
+
+
+test('two server processes share atomic daily/referral updates and persisted claims', async (t) => {
+  const secondPort = PORT + 10;
+  const secondBase = `http://127.0.0.1:${secondPort}`;
+  const second = spawn('node', ['server.js'], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, PORT: String(secondPort), BOT_TOKEN: '',
+      DATABASE_FILE: DB_FILE, DATABASE_URL: process.env.TEST_DATABASE_URL || '' },
+    stdio: 'inherit',
+  });
+  t.after(async () => {
+    if (second.exitCode === null) {
+      const exit = new Promise((resolve) => second.once('exit', resolve));
+      second.kill('SIGTERM');
+      await exit;
+    }
+  });
+  let ready = false;
+  for (let i = 0; i < 50; i++) {
+    try { if ((await fetch(`${secondBase}/health`)).ok) { ready = true; break; } } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  assert.equal(ready, true, 'second server should become ready');
+  const responses = await Promise.all(Array.from({ length: 8 }, (_, i) => fetch(
+    `${i % 2 ? BASE : secondBase}/api/claim-daily`,
+    { method: 'POST', headers: guest('multi-process-daily'), body: '{}' },
+  )));
+  assert.equal(responses.filter((r) => r.status === 200).length, 1);
+  assert.equal(responses.filter((r) => r.status === 409).length, 7);
+  await me('multi-process-inviter');
+  const friends = await Promise.all(Array.from({ length: 8 }, (_, i) => fetch(
+    `${i % 2 ? BASE : secondBase}/api/me?ref=ref_guest_multi-process-inviter`,
+    { headers: guest('multi-process-friend') },
+  ).then((r) => r.json())));
+  assert.equal(friends.filter((r) => r.isNew).length, 1);
+  assert.equal((await me('multi-process-inviter')).referralCount, 1);
+  assert.equal((await me('multi-process-inviter')).state.gold, 1000);
+  await stopServer();
+  startServer();
+  await waitReady();
+  const retry = await fetch(`${BASE}/api/claim-daily`, {
+    method: 'POST', headers: guest('multi-process-daily'), body: '{}',
+  });
+  assert.equal(retry.status, 409);
+  assert.equal((await me('multi-process-daily')).state.gold, 500);
 });

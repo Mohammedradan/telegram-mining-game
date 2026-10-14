@@ -2,6 +2,7 @@
 // ضبط DATABASE_URL (postgres://...) — نفس الواجهة غير المتزامنة للحالتين.
 const fs = require('fs');
 const path = require('path');
+const { AsyncLocalStorage } = require('node:async_hooks');
 
 const USER_COLUMNS = `id, name, state_json, referral_count, referral_earnings,
   referred_by, daily_last_claim, daily_streak, unacked_credits, violations,
@@ -74,6 +75,9 @@ function createSqliteStore(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const conn = new Database(file);
   conn.pragma('journal_mode = WAL');
+  conn.pragma('busy_timeout = 5000');
+  const transactionContext = new AsyncLocalStorage();
+  let transactionTail = Promise.resolve();
   conn.exec(SCHEMA_SQLITE);
   const upsert = conn.prepare(`
     INSERT INTO users (${USER_COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -85,6 +89,26 @@ function createSqliteStore(file) {
       created_at=excluded.created_at, updated_at=excluded.updated_at`);
   return {
     driver: 'sqlite',
+    // Serialize writes on this connection; BEGIN IMMEDIATE also excludes other processes.
+    async withUsers(ids, work) {
+      if (transactionContext.getStore()) throw new Error('Nested user transactions are not supported');
+      const previous = transactionTail;
+      let release;
+      transactionTail = new Promise((resolve) => { release = resolve; });
+      await previous;
+      let begun = false;
+      try {
+        conn.exec('BEGIN IMMEDIATE');
+        begun = true;
+        const result = await transactionContext.run(true, work);
+        conn.exec('COMMIT');
+        begun = false;
+        return result;
+      } catch (error) {
+        if (begun) conn.exec('ROLLBACK');
+        throw error;
+      } finally { release(); }
+    },
     async getUser(id) { return rowToUser(conn.prepare('SELECT * FROM users WHERE id = ?').get(String(id))); },
     async putUser(u) { upsert.run(...userParams(u)); },
     async countUsers() { return conn.prepare('SELECT COUNT(*) AS c FROM users').get().c; },
@@ -129,10 +153,32 @@ function createPgStore(url) {
     ssl: !isLocal && process.env.PGSSL !== 'disable' ? { rejectUnauthorized: false } : undefined,
   });
   const ready = pool.query(SCHEMA_PG);
-  const q = async (sql, params) => { await ready; return pool.query(sql, params); };
+  const transactionContext = new AsyncLocalStorage();
+  const q = async (sql, params) => { await ready; return (transactionContext.getStore() || pool).query(sql, params); };
   const placeholders = USER_COLUMNS.split(',').map((_, i) => `$${i + 1}`).join(',');
   return {
     driver: 'postgres',
+    async withUsers(ids, work) {
+      if (transactionContext.getStore()) throw new Error('Nested user transactions are not supported');
+      await ready;
+      const client = await pool.connect();
+      let begun = false;
+      try {
+        await client.query('BEGIN');
+        begun = true;
+        // Stable order prevents referral/user lock inversion, including for absent rows.
+        for (const id of [...new Set(ids.map(String))].sort()) {
+          await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`mining:user:${id}`]);
+        }
+        const result = await transactionContext.run(client, work);
+        await client.query('COMMIT');
+        begun = false;
+        return result;
+      } catch (error) {
+        if (begun) await client.query('ROLLBACK');
+        throw error;
+      } finally { client.release(); }
+    },
     async getUser(id) { return rowToUser((await q('SELECT * FROM users WHERE id = $1', [String(id)])).rows[0]); },
     async putUser(u) {
       await q(`INSERT INTO users (${USER_COLUMNS}) VALUES (${placeholders})
