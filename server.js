@@ -603,8 +603,10 @@ function setupMultiplayer(httpServer) {
       if (msg.type === 'finish') {
         const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
         if (!room || room.state !== 'racing') return;
+        // لا نقبل إنهاء قبل وقت البداية، ولا نسمح بتغيير نتيجة اللاعب بعد ختمها.
+        if (Date.now() < (room.startAt || 0) || room.results.has(ws.player.id)) return;
         // سقف نتيجة معقول: مدة السباق × أقصى معدل نقاط/ثانية تقريبي
-        const elapsedRace = Math.min(75, Math.max(0, (Date.now() - (room.startedAt || Date.now())) / 1000));
+        const elapsedRace = Math.min(75, Math.max(0, (Date.now() - (room.startAt || Date.now())) / 1000));
         const maxScore = Math.floor(elapsedRace * 45) + 100;
         const score = Math.max(0, Math.min(maxScore, Math.floor(Number(msg.score) || 0)));
         room.results.set(ws.player.id, { id: ws.player.id, name: ws.player.name, score });
