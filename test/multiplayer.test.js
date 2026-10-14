@@ -70,6 +70,8 @@ test('⚔️ سباق سريع: إقراّن وبذرة موحدة وبث تقد
   send(b, { type: 'ready' });
   const [sa, sb] = await Promise.all([a.waitFor('start'), b.waitFor('start')]);
   assert.equal(sa.seed, sb.seed); // نفس تساقط الجواهر للطرفين
+  // ينتظر الاختبار لحظة البداية المجدولة؛ الخادم يرفض finish المبكر عمداً.
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, sa.startAt - Date.now() + 25)));
 
   send(a, { type: 'progress', score: 77, lives: 2, xRatio: 0.3 });
   const prog = await b.waitFor('opponent_progress');
