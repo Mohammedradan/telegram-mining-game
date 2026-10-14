@@ -148,7 +148,7 @@ test('only one batch is in flight; ops queued meanwhile are sent afterwards, not
 test('adopting a server state re-applies unacknowledged ops and unsent clicks optimistically', () => {
   const h = harness();
   h.e.loadSyncQueue();
-  h.e.SYNC.pending = [{ seq: 1, type: 'buy', item: 'click' }, { seq: 2, type: 'buy_adv', key: 'magnet' }, { seq: 3, type: 'reward', game: 'arena', expected: 50 }];
+  h.e.SYNC.pending = [{ seq: 1, type: 'buy', item: 'click' }, { seq: 2, type: 'buy_adv', key: 'magnet' }, { seq: 3, type: 'arena', matchNo: 1, moves: ['ATTACK'], expected: 50 }];
   h.e.SYNC.clicks = 4; h.e.SYNC.boostedClicks = 1;
   h.e.adoptServerState({ revision: 9, state: serverState({ gold: 1000, totalEarned: 1000 }), referralCount: 3, referralEarnings: 3000 });
   const s = h.ctx.state;
@@ -254,7 +254,8 @@ test('mining clicks and purchases are routed through the ops queue in the game c
   assert.match(html, /enqueueOp\(\{ type: 'boost' \}\)/);
   assert.match(html, /enqueueOp\(\{\s*type: 'run', mode: adv\.gameMode, difficulty: adv\.gameDifficulty, score: finalScore, gems: adv\.gemsCaught/);
   assert.doesNotMatch(html, /type: 'reward', game: 'adventure'/, 'adventure rounds are reported as runs, not self-declared rewards');
-  assert.match(html, /enqueueOp\(\{ type: 'reward', game: 'arena'/);
+  assert.doesNotMatch(html, /type: 'reward'/, 'no self-declared rewards remain in the game code');
+  assert.match(html, /enqueueOp\(\{ type: 'arena', matchNo: battle\.ticket\.matchNo, moves: battle\.moves\.slice\(\), expected: won \? ARENA\.winReward : 0 \}\)/, 'arena matches are reported as move lists, the server replays them');
   assert.doesNotMatch(html, /api\('\/api\/save'/, 'the browser must not push full state to the legacy endpoint');
   assert.match(html, /const gain = clickGain\(\);/, 'boost must actually double clicks as the button advertises');
 });
@@ -345,4 +346,38 @@ test('the race client follows the server clock and sealed forfeits instead of de
   const fn = html.slice(html.indexOf('function showForfeitWin('), html.indexOf('// تبديل تبويب بلا إيقاف المغامرة'));
   assert.match(fn, /const sealed = Boolean\(msg\?\.forfeit && msg\.results\);/);
   assert.match(fn, /if \(sealed && String\(msg\.winnerId\) === String\(race\.myId\)\) \{ advStats\.raceWins \+= 1;/, 'the local win counter only moves on a server-sealed forfeit');
+});
+
+test('the arena client only plays the shared engine with the server ticket and never decides the reward itself', () => {
+  const arena = html.slice(html.indexOf('// ================= ⚔️ ساحة القتال'), html.indexOf('// --- التعزيز والمكافأة اليومية ---'));
+  assert.match(html, /<script src="\/arena-rules\.js\?v=\d+"><\/script>/, 'the engine file is the same one the server requires');
+  assert.match(arena, /const ARENA = ArenaRules\.CONFIG;/);
+  assert.doesNotMatch(arena, /function (applyMove|enemyDecide|judgeBattle)\(/, 'no private copy of the rules');
+  assert.match(arena, /battle = ArenaRules\.newBattle\(\{ level: lvl, seed \}\);/);
+  assert.match(arena, /const lvl = ticket \? ticket\.level : playerLevel\(\);/, 'the enemy level comes from the ticket');
+  assert.match(arena, /const seed = ticket \? ticket\.seed : \(Math\.random\(\) \* 4294967296\) >>> 0;/, 'local randomness only without a ticket (offline / practice)');
+  assert.match(arena, /if \(SYNC\.pending\.some\(\(op\) => op\.type === 'arena' && op\.matchNo === t\.matchNo\)\) return null;/, 'a ticket already used by an unacknowledged match cannot start another rewarded match');
+  assert.match(arena, /const practice = serverMode && !ticket;/);
+  assert.match(arena, /if \(sealed \|\| !serverMode\) \{ state\.gold \+= ARENA\.winReward;/, 'optimistic gold only for ticketed (server-verified) or offline matches');
+  assert.match(arena, /if \(battle !== current \|\| !current\.active\) return;/, 'restarting during the enemy turn must not inject a move into the new match');
+  assert.match(arena, /btn\.disabled = !battle\?\.active \|\| battle\.busy \|\| !ArenaRules\.canAct\(battle\.player, action\);/);
+  assert.match(html, /if \(data\.arena && typeof data\.arena === 'object'\) profile\.arena = data\.arena;/);
+});
+
+test('an arena match in the pending queue is replayed optimistically and the server verdict replaces the local record', () => {
+  const h = harness({ responder: (body) => ({ ok: true, revision: 2, sessionSeq: body.ops[body.ops.length - 1].seq, results: body.ops.map((op) => ({ seq: op.seq, type: op.type, status: 'ok', outcome: 'win', gold: 50, xp: 10, matchNo: op.matchNo, record: { wins: 1, losses: 0, draws: 0 }, ticket: { matchNo: 2, seed: 7, level: 1 } })), state: serverState({ gold: 50 }), arena: { ticket: { matchNo: 2, seed: 7, level: 1 }, record: { wins: 1, losses: 0, draws: 0 } } }) });
+  h.e.loadSyncQueue();
+  h.ctx.profile = { arena: { ticket: { matchNo: 1, seed: 1, level: 1 }, record: { wins: 0, losses: 0, draws: 0 } } };
+  h.e.enqueueOp({ type: 'arena', matchNo: 1, moves: ['ATTACK', 'ATTACK'], expected: 50 });
+  h.e.adoptServerState({ revision: 1, state: serverState({ gold: 0 }) });
+  assert.equal(h.ctx.state.gold, 50, 'the expected win is shown until the server replays the match');
+  return h.e.flushOps().then(() => {
+    const sent = h.calls[0].body.ops[0];
+    assert.equal(sent.type, 'arena');
+    assert.equal(sent.matchNo, 1);
+    assert.deepEqual(plain(sent.moves), ['ATTACK', 'ATTACK']);
+    assert.equal(h.ctx.state.gold, 50);
+    assert.deepEqual(plain(h.ctx.profile.arena), { ticket: { matchNo: 2, seed: 7, level: 1 }, record: { wins: 1, losses: 0, draws: 0 } });
+    assert.equal(h.e.SYNC.pending.length, 0);
+  });
 });

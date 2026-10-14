@@ -9,7 +9,13 @@ const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
-const script = [...html.matchAll(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n;\n');
+// كل السكربتات بترتيب الصفحة: المضمّنة كما هي، والمحلية (src يبدأ بـ /) من public/ — الخارجية (تيليجرام/Tailwind) تُتجاهل
+const script = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map((m) => {
+  const src = /\bsrc="([^"]+)"/.exec(m[1]);
+  if (!src) return m[2];
+  if (!src[1].startsWith('/')) return '';
+  return fs.readFileSync(path.join(__dirname, '..', 'public', src[1].replace(/[?#].*$/, '')), 'utf8');
+}).join('\n;\n');
 
 const noop = () => {};
 function makeElement(id = '') {

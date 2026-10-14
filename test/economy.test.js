@@ -60,6 +60,39 @@ async function patchUser(id, mutate) {
   });
 }
 
+// ⚔️ الساحة: نلعب المباراة بالمحرك المشترك نفسه (كما يفعل المتصفح) ثم نرسل الحركات فقط
+const ArenaRules = require('../public/arena-rules');
+function playArena(level, seed, policy) {
+  const b = ArenaRules.newBattle({ level, seed });
+  while (b.active) {
+    if (ArenaRules.playerMove(b, policy(b)).error) throw new Error('سياسة اختبار غير قانونية');
+    if (!b.active) break;
+    ArenaRules.enemyMove(b);
+    if (!b.active) break;
+    ArenaRules.nextRound(b);
+  }
+  return { outcome: b.outcome, moves: b.moves, rounds: b.round, enemyTurns: b.enemyTurns };
+}
+const firstLegal = (b, prefs) => prefs.find((a) => ArenaRules.canAct(b.player, a)) || 'WAIT';
+const ARENA_POLICIES = [
+  (b) => firstLegal(b, b.player.hp <= 40 ? ['HEAL', 'ATTACK', 'WAIT'] : ['ATTACK', 'WAIT']),
+  (b) => firstLegal(b, b.player.hp <= 55 ? ['HEAL', 'ATTACK', 'DEFEND'] : ['ATTACK', 'DEFEND', 'WAIT']),
+  (b) => firstLegal(b, ['ATTACK', 'WAIT']),
+];
+// مباراة فائزة لبذرة معيّنة: سياسات بسيطة ثم بحث عشوائي حتمي — الفوز ممكن دائماً لمن يعرف البذرة (موثّق في PR-10)
+function winningArena(level, seed) {
+  for (const policy of ARENA_POLICIES) { const r = playArena(level, seed, policy); if (r.outcome === 'win') return r; }
+  const rng = ArenaRules.mulberry32(seed ^ 0xABCDEF);
+  for (let i = 0; i < 500; i++) {
+    const r = playArena(level, seed, (b) => { const legal = ArenaRules.ACTIONS.filter((a) => ArenaRules.canAct(b.player, a)); return legal[Math.floor(rng() * legal.length)]; });
+    if (r.outcome === 'win') return r;
+  }
+  throw new Error(`لا مباراة فائزة للبذرة ${seed}`);
+}
+const losingArena = (level, seed) => playArena(level, seed, () => 'WAIT'); // الانتظار الدائم: الروبوت يفوز أو يُحسم بنسبة الصحة
+// تثبيت تذكرة الساحة (بذرة معروفة وزمن إصدار قديم) حتى تكون المباراة حتمية وليست «أسرع من الزمن»
+const fixArenaTicket = (id, patch) => patchUser(`guest_${id}`, (u) => { u.sync.arena.ticket = { ...u.sync.arena.ticket, issuedAt: Date.now() - 60_000, ...patch }; });
+
 before(async () => {
   startServer();
   await waitReady();
@@ -253,23 +286,147 @@ test('legacy /api/save never credits client balances or purchases, before or aft
   assert.equal((await me(id)).state.gold, 1000);
 });
 
-test('rewards: arena payouts are rate-limited; adventure gold is only paid through verified run reports', async () => {
-  const id = uid('rewards');
+test('arena: /api/me issues a match ticket (number, seed, enemy level) and the record starts sealed at zero', async () => {
+  const id = uid('arena_ticket');
+  const first = await me(id);
+  assert.deepEqual(first.arena.record, { wins: 0, losses: 0, draws: 0 });
+  assert.equal(first.arena.winReward, 50);
+  assert.equal(first.arena.minIntervalMs, 10_000);
+  assert.equal(first.arena.ticket.matchNo, 1);
+  assert.equal(first.arena.ticket.level, 1);
+  assert.ok(Number.isInteger(first.arena.ticket.seed) && first.arena.ticket.seed >= 0 && first.arena.ticket.seed < 2 ** 32);
+  // التذكرة ثابتة حتى تُستهلك: إعادة التحميل لا تبدّل البذرة (جهاز ثانٍ يرى المباراة نفسها)
+  const again = await me(id);
+  assert.deepEqual(again.arena.ticket, first.arena.ticket);
+  const stored = await store.getUser(`guest_${id}`);
+  assert.ok(stored.sync.arena.ticket.issuedAt > 0, 'issue time is kept server-side for the minimum-duration rule');
+});
+
+test('arena: the server replays the submitted moves with the ticket seed — a verified win pays 50 gold + 10 XP once per 10 seconds, losses and draws are recorded', async () => {
+  const id = uid('arena_win');
   await me(id);
-  const { body } = await sendOps(id, [
-    { type: 'reward', game: 'arena' },
-    { type: 'reward', game: 'arena' },
-    { type: 'reward', game: 'casino', score: 99999 },
-    { type: 'reward', game: 'adventure', score: 99999, mode: 'boss', boss: true },
-  ]);
-  assert.deepEqual(body.results.map((r) => r.status), ['ok', 'too_soon', 'invalid', 'invalid']);
-  assert.equal(body.results[0].gold, 50);
-  assert.equal(body.results[3].reason, 'use_run');
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const win = winningArena(1, 4242);
+  assert.equal(win.outcome, 'win');
+  const { body } = await sendOps(id, [{ type: 'arena', matchNo: 1, moves: win.moves }]);
+  const r = body.results[0];
+  assert.equal(r.status, 'ok');
+  assert.equal(r.outcome, 'win');
+  assert.equal(r.gold, 50);
+  assert.equal(r.xp, 10);
+  assert.equal(r.rounds, win.rounds);
+  assert.deepEqual(r.record, { wins: 1, losses: 0, draws: 0 });
+  assert.equal(r.ticket.matchNo, 2, 'a new ticket is issued in the same response');
+  assert.notEqual(r.ticket.seed, 4242);
+  assert.deepEqual(body.arena.record, { wins: 1, losses: 0, draws: 0 });
   assert.equal(body.state.gold, 50);
-  await patchUser(`guest_${id}`, (u) => { u.sync.lastRewardAt = { arena: Date.now() - 60_000 }; });
-  const later = await sendOps(id, [{ type: 'reward', game: 'arena' }], { from: 5 });
+  assert.equal(body.state.xp, 10);
+  const ledger = await store.ledgerFor(`guest_${id}`, 10);
+  assert.deepEqual(ledger.map((e) => [e.kind, e.goldDelta, e.detail.outcome, e.detail.matchNo]), [['arena', 50, 'win', 1]]);
+  // نفس التذكرة مرة ثانية (جهاز آخر/إعادة إرسال بتسلسل جديد): مرفوضة ولا تستهلك شيئاً
+  const stale = await sendOps(id, [{ type: 'arena', matchNo: 1, moves: win.moves }], { from: 2 });
+  assert.equal(stale.body.results[0].status, 'rejected');
+  assert.equal(stale.body.results[0].reason, 'stale_match');
+  assert.equal(stale.body.results[0].matchNo, 2);
+  assert.equal(stale.body.arena.ticket.matchNo, 2);
+  assert.equal(stale.body.state.gold, 50);
+  // فوز ثانٍ داخل فاصل الـ10 ثوانٍ: يُسجَّل في السجل لكن بلا ذهب ولا خبرة
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const soon = await sendOps(id, [{ type: 'arena', matchNo: 2, moves: win.moves }], { from: 3 });
+  assert.equal(soon.body.results[0].status, 'too_soon');
+  assert.equal(soon.body.results[0].gold, 0);
+  assert.ok(soon.body.results[0].retryAt > Date.now());
+  assert.deepEqual(soon.body.results[0].record, { wins: 2, losses: 0, draws: 0 });
+  assert.equal(soon.body.state.gold, 50);
+  assert.equal(soon.body.state.xp, 10);
+  // بعد الفاصل: المكافأة تُدفع ثانية
+  await patchUser(`guest_${id}`, (u) => { u.sync.lastRewardAt.arena = Date.now() - 60_000; });
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const later = await sendOps(id, [{ type: 'arena', matchNo: 3, moves: win.moves }], { from: 4 });
+  assert.equal(later.body.results[0].status, 'ok');
   assert.equal(later.body.results[0].gold, 50);
   assert.equal(later.body.state.gold, 100);
+  // خسارة: تُسجَّل بلا ذهب، وتستهلك التذكرة
+  await patchUser(`guest_${id}`, (u) => { u.sync.lastRewardAt.arena = Date.now() - 60_000; });
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const loss = losingArena(1, 4242);
+  assert.equal(loss.outcome, 'loss');
+  const lost = await sendOps(id, [{ type: 'arena', matchNo: 4, moves: loss.moves }], { from: 5 });
+  assert.equal(lost.body.results[0].status, 'ok');
+  assert.equal(lost.body.results[0].outcome, 'loss');
+  assert.equal(lost.body.results[0].gold, 0);
+  assert.equal(lost.body.results[0].xp, 0);
+  assert.deepEqual(lost.body.arena.record, { wins: 3, losses: 1, draws: 0 });
+  assert.equal(lost.body.arena.ticket.matchNo, 5);
+  assert.equal(lost.body.state.gold, 100);
+  assert.equal((await me(id)).state.gold, 100);
+});
+
+test('arena: forged matches are rejected — illegal moves, extra moves after the end, unfinished matches, impossible speed, malformed input and the legacy self-declared reward', async () => {
+  const id = uid('arena_forge');
+  await me(id);
+  const win = winningArena(1, 4242);
+  // حركات أكثر من الطاقة: الرفض يستهلك التذكرة ويُحتسب مخالفة، ولا ذهب
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const spam = await sendOps(id, [{ type: 'arena', matchNo: 1, moves: Array(30).fill('ATTACK') }]);
+  assert.equal(spam.body.results[0].status, 'rejected');
+  assert.equal(spam.body.results[0].reason, 'illegal_move');
+  assert.equal(spam.body.results[0].round, 9, 'attack costs 3 and rounds regenerate 2: the ninth consecutive attack has no energy left');
+  assert.equal(spam.body.results[0].ticket.matchNo, 2);
+  assert.equal(spam.body.violations, 1);
+  assert.deepEqual(spam.body.arena.record, { wins: 0, losses: 0, draws: 0 });
+  assert.equal(spam.body.state.gold, 0);
+  // حركات بعد نهاية المباراة
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const extra = await sendOps(id, [{ type: 'arena', matchNo: 2, moves: [...win.moves, 'WAIT'] }], { from: 2 });
+  assert.equal(extra.body.results[0].status, 'rejected');
+  assert.equal(extra.body.results[0].reason, 'extra_moves');
+  // مباراة لم تنتهِ (حركة واحدة) لا تُحتسب
+  await fixArenaTicket(id, { seed: 4242, level: 1 });
+  const short = await sendOps(id, [{ type: 'arena', matchNo: 3, moves: ['ATTACK'] }], { from: 3 });
+  assert.equal(short.body.results[0].status, 'rejected');
+  assert.equal(short.body.results[0].reason, 'unfinished');
+  // الحركات الصحيحة لكن أسرع من مهلات الواجهة نفسها (التذكرة صدرت الآن): لم تُلعب
+  await patchUser(`guest_${id}`, (u) => { u.sync.arena.ticket = { ...u.sync.arena.ticket, seed: 4242, level: 1, issuedAt: Date.now() }; });
+  const fast = await sendOps(id, [{ type: 'arena', matchNo: 4, moves: win.moves }], { from: 4 });
+  assert.equal(fast.body.results[0].status, 'rejected');
+  assert.equal(fast.body.results[0].reason, 'too_fast');
+  assert.equal(fast.body.state.gold, 0);
+  // بذرة أخرى غير بذرة التذكرة: الخادم يحاكي ببذرته هو، فحكمه على الحركات نفسها هو حكم المحرك لتلك البذرة
+  await fixArenaTicket(id, { seed: 99991, level: 1 });
+  const expected = ArenaRules.replay({ level: 1, seed: 99991, moves: win.moves });
+  const mism = await sendOps(id, [{ type: 'arena', matchNo: 5, moves: win.moves }], { from: 5 });
+  if (expected.ok) assert.equal(`${mism.body.results[0].status}:${mism.body.results[0].outcome}`, `ok:${expected.outcome}`);
+  else assert.equal(`${mism.body.results[0].status}:${mism.body.results[0].reason}`, `rejected:${expected.reason}`);
+  assert.equal(mism.body.arena.ticket.matchNo, 6);
+  assert.equal(mism.body.state.gold, expected.ok && expected.outcome === 'win' ? 50 : 0);
+  // مدخلات مشوّهة لا تستهلك التذكرة
+  const before = (await me(id)).arena.ticket;
+  const bad = await sendOps(id, [
+    { type: 'arena', matchNo: before.matchNo, moves: ['NUKE'] },
+    { type: 'arena', matchNo: before.matchNo, moves: [] },
+    { type: 'arena', matchNo: before.matchNo, moves: Array(31).fill('WAIT') },
+    { type: 'arena', moves: ['WAIT'] },
+    { type: 'reward', game: 'arena' },
+    { type: 'reward', game: 'adventure', score: 99999, mode: 'boss', boss: true },
+  ], { from: 6 });
+  assert.deepEqual(bad.body.results.map((r) => r.status), ['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid']);
+  assert.equal(bad.body.results[4].reason, 'use_arena');
+  assert.equal(bad.body.results[5].reason, 'use_run');
+  assert.deepEqual(bad.body.arena.ticket, before);
+  assert.equal(bad.body.state.gold, mism.body.state.gold);
+  assert.deepEqual(bad.body.arena.record, mism.body.arena.record);
+});
+
+test('arena: an existing player row without arena data gets a ticket on first contact and keeps its balance', async () => {
+  const id = uid('arena_legacy');
+  await fund(id);
+  await patchUser(`guest_${id}`, (u) => { delete u.sync.arena; });
+  const profile = await me(id);
+  assert.equal(profile.state.gold, 1000);
+  assert.equal(profile.arena.ticket.matchNo, 1);
+  assert.equal(profile.arena.ticket.level, 2, 'enemy level follows the server-side level');
+  assert.deepEqual(profile.arena.record, { wins: 0, losses: 0, draws: 0 });
 });
 
 test('run: a finished round updates the server-side adventure stats, pays the capped reward and unlocks zones', async () => {
@@ -422,12 +579,13 @@ test('xp: verified activity grants experience; the level follows the server curv
   const fresh = await me(id);
   assert.deepEqual(fresh.progress, { level: 2, xp: 100, current: 0, needed: 220 });
   await patchUser(`guest_${id}`, (u) => { u.sync.lastRunAt = Date.now() - 600_000; });
+  await fixArenaTicket(id, { seed: 777, level: 2 });
   const { body } = await sendOps(id, [
     { type: 'mine', clicks: 15, boosted: 0 },                                               // 15 طاقة → 1 خبرة (5 مُرحَّلة)
     { type: 'buy', item: 'bot' },                                                          // 200 ذهب → 10 خبرة
     { type: 'boost' },                                                                     // 10 خبرة
     { type: 'run', mode: 'classic', score: 400, gems: 20, combo: 8, duration: 60, ago: 0 }, // 15 + 10 = 25 خبرة
-    { type: 'reward', game: 'arena' },                                                     // 10 خبرة
+    { type: 'arena', matchNo: 1, moves: winningArena(2, 777).moves },                      // فوز موثّق → 10 خبرة
   ]);
   assert.deepEqual(body.results.map((r) => r.xp), [1, 10, 10, 25, 10]);
   assert.equal(body.state.xp, 156);

@@ -9,6 +9,8 @@ const path = require('path');
 require('dotenv').config();
 const { createStore } = require('./db');
 const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, decideWinner } = require('./race-rules');
+// محرك الساحة مشترك مع المتصفح (يُقدَّم ثابتاً من public/) حتى تكون محاكاة الخادم مطابقة لما عرضه العميل
+const ArenaRules = require('./public/arena-rules');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -216,7 +218,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'achievement']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'achievement', 'arena']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -225,10 +227,11 @@ const ADV_RUN_MODES = {
   boss: { maxSec: 75, scale: 1.1, cap: 100 },
 };
 const ADV_DIFFICULTIES = new Set(['easy', 'normal', 'hard']);
-// مكافآت الألعاب المصغّرة الأخرى ما زالت نتائج يبلّغ عنها العميل، لكنها محدودة خادمياً
-// بفاصل زمني أدنى وتُسجَّل في دفتر العمليات. جولات المغامرة لها عملية `run` خاصة بها.
-const REWARD_RULES = {
-  arena: { minIntervalMs: 10_000, compute: () => 50 },
+// الساحة: لم يعد العميل يبلّغ «فزت»؛ يرسل حركاته فقط والخادم يعيد تشغيل المباراة ببذرة التذكرة
+// (public/arena-rules.js) ويختم النتيجة. الفاصل الزمني بين فوزين مكافأين يبقى سقف الاقتصاد.
+const ARENA_RULES = {
+  minIntervalMs: 10_000,   // فوز مكافأ واحد كل 10 ثوانٍ (كما كان)
+  slackMs: 250,            // تسامح في أدنى زمن للمباراة (دور الروبوت 750 مللي ثانية × أدواره)
 };
 
 // تقرير جولة مغامرة: يُقبل فقط إن اتسع له الزمن الحقيقي منذ آخر جولة، وتُقصّ أرقامه إلى ما تسمح به
@@ -411,8 +414,78 @@ function claimAchievement(user, id, ctx, now) {
   return { status: 'ok', id: a.id, gold: a.gold, xp: a.xp ? grantXp(s, a.xp) : 0 };
 }
 
+// ---------------------------------------------------------------------------
+// ⚔️ الساحة: تذكرة مباراة (رقم، بذرة، مستوى الخصم) يصدرها الخادم، والعميل يعيد الحركات فقط
+// ---------------------------------------------------------------------------
+const freshArena = () => ({ record: { wins: 0, losses: 0, draws: 0 }, ticket: null });
+function normalizeArena(raw) {
+  const o = (v) => ((v && typeof v === 'object' && !Array.isArray(v)) ? v : {});
+  const n = (v) => Math.max(0, Math.floor(Number(v) || 0));
+  const a = o(raw); const rec = o(a.record); const t = o(a.ticket);
+  const ticket = (Number.isSafeInteger(t.matchNo) && t.matchNo >= 1 && Number.isFinite(Number(t.seed)))
+    ? { matchNo: t.matchNo, seed: Number(t.seed) >>> 0, level: Math.max(1, Math.floor(Number(t.level) || 1)), issuedAt: Number(t.issuedAt) || 0 }
+    : null;
+  return { record: { wins: n(rec.wins), losses: n(rec.losses), draws: n(rec.draws) }, ticket };
+}
+function issueArenaTicket(user, now) {
+  const arena = user.sync.arena;
+  arena.ticket = { matchNo: (arena.ticket?.matchNo || 0) + 1, seed: crypto.randomInt(0, 0x100000000), level: levelFromXp(user.state.xp), issuedAt: now };
+  return arena.ticket;
+}
+// لاعب قديم (أو جديد) بلا تذكرة: تُصدر مرة واحدة داخل مسار كتابة (me/ops) فتبقى ثابتة حتى تُستهلك
+function ensureArenaTicket(user, now) {
+  if (!user.sync.arena.ticket) issueArenaTicket(user, now);
+  return user.sync.arena.ticket;
+}
+const publicTicket = (t) => (t ? { matchNo: t.matchNo, seed: t.seed, level: t.level } : null);
+function arenaView(user) {
+  const a = user.sync.arena;
+  return { ticket: publicTicket(a.ticket), record: { ...a.record }, winReward: ArenaRules.CONFIG.winReward, minIntervalMs: ARENA_RULES.minIntervalMs };
+}
+// مباراة مُبلَّغة: يجب أن تحمل رقم التذكرة الحالية، وتُعاد محاكاتها من بذرتها بحركات اللاعب فقط.
+// كل تذكرة تُستهلك بمباراة واحدة (مقبولة أو مرفوضة) وتُصدر التالية في الرد نفسه.
+function applyArena(user, op, now) {
+  const s = user.state; const sync = user.sync; const arena = sync.arena;
+  const ticket = arena.ticket;
+  const matchNo = Number(op.matchNo);
+  if (!ticket || !Number.isSafeInteger(matchNo)) return { status: 'invalid' };
+  if (matchNo !== ticket.matchNo) return { status: 'rejected', reason: 'stale_match', matchNo: ticket.matchNo, ticket: publicTicket(ticket) };
+  const moves = Array.isArray(op.moves) ? op.moves : null;
+  if (!moves || !moves.length || moves.length > ArenaRules.CONFIG.maxRounds || moves.some((m) => !ArenaRules.ACTIONS.includes(m))) return { status: 'invalid' };
+  const base = { consumed: true, matchNo, level: ticket.level, seed: ticket.seed };
+  const replayed = ArenaRules.replay({ level: ticket.level, seed: ticket.seed, moves });
+  if (!replayed.ok) {
+    issueArenaTicket(user, now);
+    return { ...base, status: 'rejected', reason: replayed.reason, ...(replayed.round ? { round: replayed.round } : {}), gold: 0, record: { ...arena.record }, ticket: publicTicket(arena.ticket) };
+  }
+  // مباراة أسرع من مهلات الواجهة نفسها لم تُلعب — لا تُحتسب حتى كخسارة
+  if (now - ticket.issuedAt < ArenaRules.minDurationMs(replayed.enemyTurns) - ARENA_RULES.slackMs) {
+    issueArenaTicket(user, now);
+    return { ...base, status: 'rejected', reason: 'too_fast', gold: 0, record: { ...arena.record }, ticket: publicTicket(arena.ticket) };
+  }
+  const outcome = replayed.outcome;
+  arena.record[outcome === 'win' ? 'wins' : outcome === 'loss' ? 'losses' : 'draws'] += 1;
+  const r = { ...base, status: 'ok', outcome, rounds: replayed.rounds, gold: 0, xp: 0 };
+  if (outcome === 'win') {
+    const last = Number(sync.lastRewardAt.arena) || 0;
+    if (now - last < ARENA_RULES.minIntervalMs) {
+      r.status = 'too_soon'; r.retryAt = last + ARENA_RULES.minIntervalMs; // الفوز يُسجَّل، والمكافأة لا تتكرر قبل الفاصل
+    } else {
+      sync.lastRewardAt.arena = now;
+      r.gold = ArenaRules.CONFIG.winReward;
+      s.gold += r.gold; s.totalEarned += r.gold;
+      r.xp = grantXp(s, XP_RULES.arenaWin);
+      trackMission(user, 'arena', 1, now);
+    }
+  }
+  issueArenaTicket(user, now);
+  r.record = { ...arena.record };
+  r.ticket = publicTicket(arena.ticket);
+  return r;
+}
+
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, achievements: {} });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, achievements: {}, arena: freshArena() });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -429,6 +502,7 @@ function ensureSync(user) {
     missions: obj(sync.missions),
     missionsClaimed: Number.isFinite(sync.missionsClaimed) ? sync.missionsClaimed : 0,
     achievements: obj(sync.achievements),
+    arena: normalizeArena(sync.arena),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
@@ -472,6 +546,7 @@ function parseOpsRequest(body) {
       seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), id: str(raw.id), game: str(raw.game),
       score: raw.score, mode: str(raw.mode), boss: raw.boss === true,
       difficulty: str(raw.difficulty), gems: raw.gems, combo: raw.combo, duration: raw.duration, race: raw.race === true, ago: raw.ago,
+      matchNo: raw.matchNo, moves: Array.isArray(raw.moves) ? raw.moves.slice(0, ArenaRules.CONFIG.maxRounds + 1).map((m) => str(m)) : undefined,
     });
   }
   return { session, ops, revision: Number.isSafeInteger(body.revision) ? body.revision : null };
@@ -581,17 +656,20 @@ function applyOps(user, session, ops, now, ctx = {}) {
         break;
       }
       case 'reward': {
-        const rule = REWARD_RULES[op.game];
-        if (!rule) { r.status = 'invalid'; if (op.game === 'adventure') r.reason = 'use_run'; break; }
-        const last = Number(sync.lastRewardAt[op.game]) || 0;
-        if (now - last < rule.minIntervalMs) { r.status = 'too_soon'; r.gold = 0; r.retryAt = last + rule.minIntervalMs; break; }
-        const gold = rule.compute(op);
-        r.gold = gold;
-        if (gold <= 0) break; // جولة بلا جائزة لا تستهلك الفاصل الزمني
-        sync.lastRewardAt[op.game] = now;
-        s.gold += gold; s.totalEarned += gold;
-        if (op.game === 'arena') { r.xp = grantXp(s, XP_RULES.arenaWin); trackMission(user, 'arena', 1, now); }
-        goldDelta = gold; detail = { game: op.game, mode: op.mode || null, score: Math.floor(clampNum(op.score, 0, 100_000, 0)), boss: op.boss === true };
+        // توافق مع صفحات مخبأة: لا مكافأة يعلنها العميل بنفسه — الساحة عبر `arena` والمغامرة عبر `run`
+        r.status = 'invalid';
+        if (op.game === 'adventure') r.reason = 'use_run';
+        else if (op.game === 'arena') r.reason = 'use_arena';
+        break;
+      }
+      case 'arena': {
+        const match = applyArena(user, op, now);
+        Object.assign(r, match);
+        if (match.consumed) {
+          if (match.status === 'rejected') flagged = true; // حركات لا تطابق المحاكاة = ادعاء غير مطابق
+          goldDelta = match.gold || 0;
+          detail = { matchNo: match.matchNo, status: match.status, outcome: match.outcome || null, reason: match.reason || null, rounds: match.rounds || 0, level: match.level, seed: match.seed };
+        }
         break;
       }
       case 'mission': {
@@ -699,6 +777,7 @@ function profileOf(user, isNew = false, extra = {}) {
     progress: progressOf(user.state),
     missions: missionsView(user, now),
     achievements: achievementsView(user, { raceWins: extra.race?.wins || 0 }),
+    arena: arenaView(user),
     revision: user.revision,
     referralCount: user.referralCount,
     referralEarnings: user.referralEarnings,
@@ -822,6 +901,7 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
     let offline = { seconds: 0, gold: 0 };
     if (!user) {
       user = await createUser(req.player.id, req.player.name);
+      ensureArenaTicket(user, now);
       isNew = true;
       if (refId && refId !== user.id) {
         user.referredBy = refId;
@@ -843,6 +923,7 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
       await store.putUser(user);
     } else {
       ensureSync(user);
+      ensureArenaTicket(user, now);
       if (req.player.name && user.name !== req.player.name && req.player.name !== 'ضيف') user.name = req.player.name;
       offline = settlePassive(user, now);
       user.unackedCredits = 0;
@@ -866,6 +947,7 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
     let user = await store.getUser(req.player.id);
     if (!user) user = await createUser(req.player.id, req.player.name);
     ensureSync(user);
+    ensureArenaTicket(user, now);
     settlePassive(user, now);
     const outcome = applyOps(user, parsed.session, parsed.ops, now, ctx);
     if (outcome.flagged) user.violations += 1;
@@ -888,6 +970,7 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
       levelUp: outcome.levelUp,
       missions: missionsView(user, now),
       achievements: achievementsView(user, ctx),
+      arena: arenaView(user),
       referralCount: user.referralCount,
       referralEarnings: user.referralEarnings,
       daily: dailyInfo(user),
@@ -945,7 +1028,7 @@ app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(asy
     user.lastSaveAt = now;
     user.updatedAt = now;
     await store.putUser(user);
-    return { status: 200, body: { ok: true, reward: info.reward, xp, state: projectedState(user, now), progress: progressOf(user.state), levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null, missions: missionsView(user, now), achievements: achievementsView(user, ctx), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
+    return { status: 200, body: { ok: true, reward: info.reward, xp, state: projectedState(user, now), progress: progressOf(user.state), levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null, missions: missionsView(user, now), achievements: achievementsView(user, ctx), arena: arenaView(user), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
   });
   res.status(result.status).json(result.body);
 }));
