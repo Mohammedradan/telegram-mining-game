@@ -448,11 +448,11 @@
       return data;
     }
 
-    async function saveToServer(isMigrate = false) {
-      if (!serverMode || (!syncDirty && !isMigrate)) return;
+    async function saveToServer() {
+      if (!serverMode || !syncDirty) return;
       syncDirty = false;
       try {
-        const data = await api('/api/save', { method: 'POST', body: JSON.stringify({ state, migrate: isMigrate === true }) });
+        const data = await api('/api/save', { method: 'POST', body: JSON.stringify({ state }) });
         if ((data.corrected || data.serverCreditsApplied > 0) && data.state) {
           state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(data.state.adventureUpgrades || {}) } };
           if (data.corrected) document.getElementById('sync-status').innerText = '🛡️ صحّح الخادم حفظاً غير متسق';
@@ -476,10 +476,11 @@
         document.getElementById('ref-link-preview').innerText = referralUrl();
 
         if (data.isNew && state.totalEarned > (data.state?.totalEarned || 0)) {
-          // أول دخول من تيليجرام ولديه تقدم محلي أقدم — نرحّله للخادم بدل فقدانه
-          syncDirty = true;
-          await saveToServer(true);
-        } else if (data.state) {
+          // Keep the offline save recoverable; never import unverified cloud currency.
+          try { localStorage.setItem('mining_offline_backup', JSON.stringify(state)); } catch (e) {}
+          document.getElementById('sync-status').innerText = '☁️ حساب سحابي جديد — حُفظ تقدم الجهاز كنسخة منفصلة';
+        }
+        if (data.state) {
           // أرباح غياب محسوبة من آخر حفظ على الخادم (نطرح ما حُسب محلياً لمنع التكرار)
           const elapsedSec = Math.max(0, (Date.now() - (data.state.lastSeen || Date.now())) / 1000);
           const serverOffline = Math.min(elapsedSec, 8 * 3600) * (data.state.passiveIncome || 0);

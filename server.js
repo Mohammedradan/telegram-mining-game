@@ -136,7 +136,7 @@ function deriveStats(s) {
 // يقارن الحالة المُرسلة بآخر حالة موثوقة على الخادم والزمن المنقضي،
 // ويصحّح (clamp) أي قيم مستحيلة بدلاً من قبولها، مع عدّ المخالفات.
 // ---------------------------------------------------------------------------
-function validateSave(user, input, { isBaseline = false } = {}) {
+function validateSave(user, input) {
   const prev = user.state;
   const now = Date.now();
   const s = sanitizeState(input, prev);
@@ -146,15 +146,6 @@ function validateSave(user, input, { isBaseline = false } = {}) {
   // مكافآت خادمية (دعوة) لم يرها عميل الداعي بعد: تُدمج قبل المقارنة ثم تُعتمد
   const creditApplied = user.unackedCredits || 0;
   if (creditApplied > 0) { s.gold += creditApplied; s.totalEarned += creditApplied; }
-
-  if (isBaseline) {
-    // أول حفظ بعد إنشاء الحساب (ترحيل تقدم محلي مشروع) — نثق مرة واحدة فقط.
-    // نستنتج المشتريات من القدرات إن غابت (حفظ قديم) ثم نشتق كل شيء حتمياً.
-    if (s.owned.click === 0 && s.clickPower > 1) s.owned.click = s.clickPower - 1;
-    if (s.owned.bot === 0 && s.owned.rig === 0 && s.passiveIncome >= 5) s.owned.bot = Math.floor(s.passiveIncome / 5);
-    deriveStats(s);
-    return { state: s, corrected: false, creditApplied };
-  }
 
   const elapsedSec = Math.min(Math.max(0, (now - (user.lastSaveAt || now)) / 1000), OFFLINE_CAP_SEC);
 
@@ -426,11 +417,13 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
 }));
 
 app.post('/api/save', requireAuth, rateLimit('save', 120), asyncRoute(async (req, res) => {
+  if (!req.body?.state || typeof req.body.state !== 'object' || Array.isArray(req.body.state)) {
+    return res.status(400).json({ error: 'حالة حفظ غير صالحة' });
+  }
   let user = await store.getUser(req.player.id);
   if (!user) user = await createUser(req.player.id, req.player.name);
-  // الترحيل الأول المشروع: أول حفظ خلال ثانيتين من إنشاء الحساب مع طلب ترحيل صريح
-  const isBaseline = req.body?.migrate === true && (user.lastSaveAt - user.createdAt) < 2000 && user.violations === 0;
-  const { state, corrected, creditApplied } = validateSave(user, req.body?.state, { isBaseline });
+  // Local/offline state is not evidence of earned cloud currency, even on first login.
+  const { state, corrected, creditApplied } = validateSave(user, req.body.state);
   user.state = state;
   user.unackedCredits = 0;
   if (corrected) user.violations += 1;

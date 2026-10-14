@@ -110,8 +110,9 @@ test('🛡️ تعزيز مزوّر (بدون تهدئة/بمدة أطول) يُ
 
 test('🛠️ ترقية مغامرة مشروعة تُقبل، وقفزة مستويات بلا رصيد تُرفض كلياً', async () => {
   await me('upbuyer');
-  const migrated = await save('upbuyer', baseState({ gold: 1000, totalEarned: 1000 }), { migrate: true });
-  assert.equal(migrated.body.state.gold, 1000);
+  // Fund purchases through verified referral rewards, not browser migration.
+  await me('upbuyer-friend', '?ref=ref_guest_upbuyer');
+  assert.equal((await me('upbuyer')).state.gold, 1000);
   const adv = { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0 };
   const legit = await save('upbuyer', baseState({ gold: 850, totalEarned: 1000, adventureUpgrades: { ...adv, magnet: 1 } }));
   assert.equal(legit.body.corrected, false);
@@ -131,4 +132,36 @@ test('البيانات تبقى بعد إعادة تشغيل الخادم (قا�
   const board = await (await fetch(`${BASE}/api/leaderboard`)).json();
   assert.ok(board.leaderboard.length >= 3);
   assert.equal(board.leaderboard[0].totalEarned, 1000);
+});
+
+
+test('untrusted migrate flag never bypasses validation, including repeated first saves', async () => {
+  await me('migration-attack');
+  for (let i = 0; i < 3; i++) {
+    const { status, body } = await save('migration-attack', baseState({
+      gold: 1e12, totalEarned: 1e12, clickPower: 1e5, passiveIncome: 1e9,
+      owned: { click: 1000, bot: 1000, rig: 1000 },
+    }), { migrate: true });
+    assert.equal(status, 200);
+    assert.equal(body.corrected, true);
+    assert.ok(body.state.gold < 1000);
+    assert.deepEqual(body.state.owned, { click: 0, bot: 0, rig: 0 });
+  }
+});
+
+test('migration flag cannot import offline progress into an existing cloud account', async () => {
+  await me('migration-existing');
+  await me('migration-referral', '?ref=ref_guest_migration-existing');
+  const trusted = await me('migration-existing');
+  const { body } = await save('migration-existing', baseState({ gold: 1e12, totalEarned: 1e12 }), { migrate: true });
+  assert.ok(body.state.gold < trusted.state.gold + 100);
+  assert.ok(body.state.gold >= trusted.state.gold);
+});
+
+test('save rejects missing, primitive and array states without changing balances', async () => {
+  await me('invalid-state');
+  for (const state of [null, 42, 'forged', []]) {
+    assert.equal((await save('invalid-state', state)).status, 400);
+  }
+  assert.equal((await me('invalid-state')).state.gold, 0);
 });
