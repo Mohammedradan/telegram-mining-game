@@ -14,9 +14,9 @@ let child = null;
 const sockets = [];
 
 function startServer() {
-  child = spawn('node', ['server.js'], {
+  child = spawn('node', ['--require', './test/fixtures/race-storage-delay.cjs', 'server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: path.join(tmpDir, 'game.db'), DATABASE_URL: '' },
+    env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: path.join(tmpDir, 'game.db'), DATABASE_URL: process.env.TEST_RACE_DATABASE_URL || '' },
     stdio: 'inherit',
   });
 }
@@ -62,7 +62,10 @@ const send = (ws, obj) => ws.send(JSON.stringify(obj));
 before(async () => { startServer(); await waitReady(); });
 after(async () => {
   for (const ws of sockets) try { ws.close(); } catch {}
-  if (child) { child.kill('SIGTERM'); await new Promise((r) => child.once('exit', r)); }
+  if (child && child.exitCode === null) {
+    const exited = new Promise((r) => child.once('exit', r));
+    child.kill('SIGTERM'); await exited;
+  }
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -158,4 +161,148 @@ test('🧹 مغادرة لاعب تنظف غرفة السباق وتسمح لل�
   ]);
   assert.equal(mb.opponent.id, 'guest_leave_c');
   assert.equal(mc.opponent.id, 'guest_leave_b');
+});
+
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+async function privatePair(prefix) {
+  const a = await connect(`${prefix}_a`);
+  const b = await connect(`${prefix}_b`);
+  await Promise.all([a.waitFor('welcome'), b.waitFor('welcome')]);
+  send(a, { type: 'create' });
+  const created = await a.waitFor('room_created');
+  send(b, { type: 'join', code: created.code });
+  await Promise.all([a.waitFor('matched'), b.waitFor('matched')]);
+  return [a, b];
+}
+
+test('invalid JSON shapes cannot crash the server or prevent the next valid action', async () => {
+  const a = await connect('invalid_shape');
+  await a.waitFor('welcome');
+  for (const raw of ['null', '[]', '42', '"text"', '{', '{}', '{"type":42}']) a.send(raw);
+  send(a, { type: 'create' });
+  assert.match((await a.waitFor('room_created', 1500)).code, /^[A-Z2-9]{4}$/);
+  assert.equal((await fetch(`${BASE}/health`)).status, 200);
+});
+
+test('repeated ready cannot restart a racing or finished room or replace sealed results', async () => {
+  const [a, b] = await privatePair('repeated_ready');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  const start = await a.waitFor('start'); await b.waitFor('start');
+  send(a, { type: 'finish', score: 90 }); // Before scheduled start: must not seal a result.
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  await delay(80);
+  assert.equal(a.messages.filter((m) => m.type === 'start').length, 1);
+  await delay(Math.max(0, start.startAt - Date.now() + 25));
+  send(a, { type: 'finish', score: 50 });
+  await b.waitFor('opponent_finished');
+  send(a, { type: 'ready' }); send(a, { type: 'finish', score: 90 });
+  send(b, { type: 'finish', score: 40 });
+  const result = await b.waitFor('result');
+  assert.deepEqual(result.results.map((r) => r.score), [50, 40]);
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  await delay(80);
+  assert.equal(a.messages.filter((m) => m.type === 'start').length, 1);
+  // One-sided requests cannot start a rematch; both players must consent.
+  send(a, { type: 'rematch' }); send(a, { type: 'rematch' });
+  await b.waitFor('rematch_requested');
+  assert.equal(a.messages.filter((m) => m.type === 'start').length, 1);
+  const mark = a.messages.length;
+  send(b, { type: 'rematch' });
+  await a.waitForAfter('start', mark);
+  const rows = (await (await fetch(`${BASE}/api/race-leaderboard`)).json()).leaderboard;
+  assert.equal(rows.find((r) => r.id === 'guest_repeated_ready_a').races, 1);
+});
+
+test('one account cannot race itself through either private rooms or quick matching', async () => {
+  const a = await connect('same_identity');
+  const duplicate = await connect('same_identity');
+  await Promise.all([a.waitFor('welcome'), duplicate.waitFor('welcome')]);
+  send(a, { type: 'create' });
+  const { code } = await a.waitFor('room_created');
+  send(duplicate, { type: 'join', code });
+  await duplicate.waitFor('error');
+  const markA = a.messages.length;
+  const markD = duplicate.messages.length;
+  send(a, { type: 'quick' }); await a.waitForAfter('waiting', markA);
+  send(duplicate, { type: 'quick' }); await duplicate.waitForAfter('waiting', markD);
+  const other = await connect('different_identity');
+  await other.waitFor('welcome');
+  send(other, { type: 'quick' });
+  const match = await other.waitFor('matched');
+  assert.equal(match.opponent.id, 'guest_same_identity');
+  assert.equal(duplicate.messages.some((m) => m.type === 'matched'), false);
+});
+
+test('joining another room cleans up the old room and notifies its opponent', async () => {
+  const [a, b] = await privatePair('switch_room');
+  const c = await connect('new_room_host');
+  await c.waitFor('welcome');
+  send(c, { type: 'create' });
+  const { code } = await c.waitFor('room_created');
+  const mark = a.messages.length;
+  send(a, { type: 'join', code });
+  await Promise.all([b.waitFor('room_closed'), a.waitForAfter('matched', mark), c.waitFor('matched')]);
+  send(b, { type: 'ready' });
+  send(a, { type: 'ready' }); send(c, { type: 'ready' });
+  const start = await c.waitFor('start');
+  assert.equal(start.opponent.id, 'guest_switch_room_a');
+  assert.equal(b.messages.some((m) => m.type === 'start'), false);
+});
+
+test('invalid scores do not seal a finish and finite progress remains usable', async () => {
+  const [a, b] = await privatePair('finite_score');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  const start = await a.waitFor('start'); await b.waitFor('start');
+  await delay(Math.max(0, start.startAt - Date.now() + 25));
+  for (const score of [null, 'Infinity', '50', -1, {}, []]) send(a, { type: 'finish', score });
+  send(a, { type: 'progress', score: 'Infinity', lives: 3, xRatio: 0.5 });
+  send(a, { type: 'progress', score: 10, lives: 3, xRatio: 0.5 });
+  assert.equal((await b.waitFor('opponent_progress')).score, 10);
+  send(a, { type: 'finish', score: 60 }); send(b, { type: 'finish', score: 40 });
+  assert.deepEqual((await b.waitFor('result')).results.map((r) => r.score), [60, 40]);
+});
+
+test('oversized WebSocket payload closes only its sender, not the game server', async () => {
+  const a = await connect('oversized_payload');
+  await a.waitFor('welcome');
+  const closed = new Promise((resolve) => a.once('close', (code) => resolve(code)));
+  a.send('x'.repeat(5000));
+  assert.equal(await Promise.race([closed, delay(1500).then(() => -1)]), 1009);
+  assert.equal((await fetch(`${BASE}/health`)).status, 200);
+});
+
+
+test('rematch cannot start while the previous result is still being persisted', async () => {
+  const [a, b] = await privatePair('settling');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  const start = await a.waitFor('start'); await b.waitFor('start');
+  await delay(Math.max(0, start.startAt - Date.now() + 25));
+  send(a, { type: 'finish', score: 30 }); await b.waitFor('opponent_finished');
+  send(b, { type: 'finish', score: 20 }); await a.waitFor('opponent_finished');
+  send(a, { type: 'rematch' }); send(b, { type: 'rematch' });
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  await delay(50);
+  assert.equal(a.messages.some((m) => m.type === 'result'), false, 'test store must still be delayed');
+  assert.equal(a.messages.filter((m) => m.type === 'start').length, 1);
+  await a.waitFor('result'); await b.waitFor('result');
+  const mark = a.messages.length;
+  send(a, { type: 'rematch' }); send(b, { type: 'rematch' });
+  await a.waitForAfter('start', mark);
+});
+
+test('leaving during persistence cannot deliver an old result into a new room', async () => {
+  const [a, b] = await privatePair('settling_leave');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  const start = await a.waitFor('start'); await b.waitFor('start');
+  await delay(Math.max(0, start.startAt - Date.now() + 25));
+  send(a, { type: 'finish', score: 30 }); await b.waitFor('opponent_finished');
+  send(b, { type: 'finish', score: 20 }); await a.waitFor('opponent_finished');
+  send(a, { type: 'create' });
+  await Promise.all([a.waitFor('room_created'), b.waitFor('opponent_left')]);
+  await delay(400);
+  assert.equal(a.messages.some((m) => m.type === 'result'), false);
+  assert.equal(b.messages.some((m) => m.type === 'result'), false);
+  send(b, { type: 'create' });
+  assert.match((await b.waitFor('room_created')).code, /^[A-Z2-9]{4}$/);
 });
