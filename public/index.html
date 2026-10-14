@@ -1186,7 +1186,7 @@
       if (adv.phase === 1 && !data.hazard && ['gem', 'crystal', 'golden', 'chest'].includes(data.type)) {
         data = { ...data, points: Math.ceil(data.points * 1.25) };
       }
-      if (adv.phase === 2 && adv.mode !== 'race' && !eventActive && !data.hazard) {
+      if (adv.phase === 2 && adv.mode !== 'race' && !eventActive && ['gem', 'crystal', 'golden', 'chest', 'coin'].includes(data.type)) {
         adv.zoneSpawnCount += 1;
         if (adv.zoneSpawnCount % 5 === 0) data = { type: 'rock', icon: '🌋', points: 0, hazard: true };
       }
