@@ -17,7 +17,7 @@ function startServer() {
   child = spawn('node', ['server.js'], {
     cwd: path.join(__dirname, '..'),
     env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: path.join(tmpDir, 'game.db'), DATABASE_URL: '' },
-    stdio: 'ignore',
+    stdio: 'inherit',
   });
 }
 async function waitReady() {
@@ -34,14 +34,24 @@ function connect(guest) {
     ws.waiters = [];
     ws.on('message', (raw) => {
       const msg = JSON.parse(raw.toString());
-      ws.messages.push(msg);
-      ws.waiters = ws.waiters.filter((w) => !w(msg));
+      const messageIndex = ws.messages.push(msg) - 1;
+      ws.waiters = ws.waiters.filter((w) => !w(msg, messageIndex));
     });
     ws.waitFor = (type, timeout = 5000) => new Promise((res, rej) => {
       const found = ws.messages.find((m) => m.type === type);
       if (found) return res(found);
       const timer = setTimeout(() => rej(new Error(`timeout waiting ${type}; got ${ws.messages.map((m) => m.type)}`)), timeout);
       ws.waiters.push((msg) => { if (msg.type === type) { clearTimeout(timer); res(msg); return true; } return false; });
+    });
+    // Wait for a message received after the caller's snapshot; old messages must not satisfy a new action.
+    ws.waitForAfter = (type, afterCount, timeout = 5000) => new Promise((res, rej) => {
+      const foundIndex = ws.messages.findIndex((m, i) => i >= afterCount && m.type === type);
+      if (foundIndex !== -1) return res(ws.messages[foundIndex]);
+      const timer = setTimeout(() => rej(new Error(`timeout waiting for new ${type}; got ${ws.messages.map((m) => m.type)}`)), timeout);
+      ws.waiters.push((msg, index) => {
+        if (index >= afterCount && msg.type === type) { clearTimeout(timer); res(msg); return true; }
+        return false;
+      });
     });
     ws.on('open', () => { sockets.push(ws); resolve(ws); });
     ws.on('error', reject);
@@ -137,10 +147,15 @@ test('🧹 مغادرة لاعب تنظف غرفة السباق وتسمح لل�
   a.close();
   await b.waitFor('opponent_left');
   const c = await connect('leave_c');
+  const bMessagesBeforeQuick = b.messages.length;
+  const cMessagesBeforeQuick = c.messages.length;
   send(b, { type: 'quick' });
   await b.waitFor('waiting');
   send(c, { type: 'quick' });
-  const [mb, mc] = await Promise.all([b.waitFor('matched'), c.waitFor('matched')]);
+  const [mb, mc] = await Promise.all([
+    b.waitForAfter('matched', bMessagesBeforeQuick),
+    c.waitForAfter('matched', cMessagesBeforeQuick),
+  ]);
   assert.equal(mb.opponent.id, 'guest_leave_c');
   assert.equal(mc.opponent.id, 'guest_leave_b');
 });
