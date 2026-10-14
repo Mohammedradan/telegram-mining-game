@@ -70,6 +70,8 @@ test('⚔️ سباق سريع: إقراّن وبذرة موحدة وبث تقد
   send(b, { type: 'ready' });
   const [sa, sb] = await Promise.all([a.waitFor('start'), b.waitFor('start')]);
   assert.equal(sa.seed, sb.seed); // نفس تساقط الجواهر للطرفين
+  // ينتظر الاختبار لحظة البداية المجدولة؛ الخادم يرفض finish المبكر عمداً.
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, sa.startAt - Date.now() + 25)));
 
   send(a, { type: 'progress', score: 77, lives: 2, xRatio: 0.3 });
   const prog = await b.waitFor('opponent_progress');
@@ -78,6 +80,8 @@ test('⚔️ سباق سريع: إقراّن وبذرة موحدة وبث تقد
 
   send(a, { type: 'finish', score: 90 });
   await b.waitFor('opponent_finished');
+  // إعادة إرسال finish لا يجب أن تستبدل النتيجة المختومة بنتيجة أعلى مزوّرة.
+  send(a, { type: 'finish', score: 99999 });
   send(b, { type: 'finish', score: 80 });
   const [ra, rb] = await Promise.all([a.waitFor('result'), b.waitFor('result')]);
   assert.equal(ra.winnerId, 'guest_racer_a');
@@ -118,4 +122,25 @@ test('🔑 غرفة خاصة برمز: إنشاء وانضمام', async () => {
   assert.equal(mc.opponent.id, 'guest_guest_d');
   assert.equal(md.opponent.id, 'guest_host_c');
   send(d, { type: 'join', code: 'ZZZZ' }); // غرفة وهمية لا تكسر الاتصال
+});
+
+test('🧹 مغادرة لاعب تنظف غرفة السباق وتسمح للخصم بالبحث عن مباراة جديدة', async () => {
+  const a = await connect('leave_a');
+  const b = await connect('leave_b');
+  send(a, { type: 'create' });
+  const created = await a.waitFor('room_created');
+  send(b, { type: 'join', code: created.code });
+  await Promise.all([a.waitFor('matched'), b.waitFor('matched')]);
+  send(a, { type: 'ready' });
+  send(b, { type: 'ready' });
+  await Promise.all([a.waitFor('start'), b.waitFor('start')]);
+  a.close();
+  await b.waitFor('opponent_left');
+  const c = await connect('leave_c');
+  send(b, { type: 'quick' });
+  await b.waitFor('waiting');
+  send(c, { type: 'quick' });
+  const [mb, mc] = await Promise.all([b.waitFor('matched'), c.waitFor('matched')]);
+  assert.equal(mb.opponent.id, 'guest_leave_c');
+  assert.equal(mc.opponent.id, 'guest_leave_b');
 });

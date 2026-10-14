@@ -514,14 +514,20 @@ function setupMultiplayer(httpServer) {
       raceQueue = raceQueue.filter((q) => q !== ws);
       const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
       ws.player.roomId = null;
+      ws.player.ready = false;
       if (!room) return;
-      room.players.delete(ws);
+      // أغلق الغرفة بالكامل عند مغادرة أحد اللاعبين؛ لا تترك خصماً عالقاً في غرفة سباق منتهية.
+      raceRooms.delete(room.id);
       for (const other of room.players) {
+        if (other === ws) continue;
         other.player.roomId = null;
         other.player.ready = false;
-        if (notify) sendWs(other, { type: room.state === 'racing' ? 'opponent_left' : 'room_closed', message: 'غادر الخصم' });
+        if (notify) sendWs(other, {
+          type: room.state === 'racing' ? 'opponent_left' : 'room_closed',
+          message: room.state === 'racing' ? 'غادر الخصم — يمكنك بدء سباق جديد' : 'أُغلقت الغرفة — أنشئ غرفة جديدة',
+        });
       }
-      if (room.players.size === 0) raceRooms.delete(room.id);
+      room.players.clear();
     };
     ws.leaveRaceRoom = leaveRoom;
 
@@ -603,8 +609,10 @@ function setupMultiplayer(httpServer) {
       if (msg.type === 'finish') {
         const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
         if (!room || room.state !== 'racing') return;
+        // لا نقبل إنهاء قبل وقت البداية، ولا نسمح بتغيير نتيجة اللاعب بعد ختمها.
+        if (Date.now() < (room.startAt || 0) || room.results.has(ws.player.id)) return;
         // سقف نتيجة معقول: مدة السباق × أقصى معدل نقاط/ثانية تقريبي
-        const elapsedRace = Math.min(75, Math.max(0, (Date.now() - (room.startedAt || Date.now())) / 1000));
+        const elapsedRace = Math.min(75, Math.max(0, (Date.now() - (room.startAt || Date.now())) / 1000));
         const maxScore = Math.floor(elapsedRace * 45) + 100;
         const score = Math.max(0, Math.min(maxScore, Math.floor(Number(msg.score) || 0)));
         room.results.set(ws.player.id, { id: ws.player.id, name: ws.player.name, score });
