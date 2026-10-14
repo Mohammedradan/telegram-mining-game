@@ -9,14 +9,14 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&family=Tajawal:wght@400;700;900&display=swap');
 
     * {
       user-select: none;
       -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
-      font-family: 'Tajawal', sans-serif;
+      font-family: 'Tajawal', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
     }
 
     /* الخلفية على الجذر لتغطي الشاشة كاملة حتى عندما يكون المحتوى عموداً بعرض هاتف */
@@ -29,10 +29,12 @@
       background: transparent;
       color: #ffffff;
       overflow: hidden;
-      /* الشاشات الكبيرة: عمود بعرض هاتف في المنتصف بدل تمدد العناصر على كامل العرض */
+      /* الشاشات الكبيرة: عمود في المنتصف بدل تمدد العناصر أو التصاقها باليمين بسبب Tailwind Preflight */
       width: 100%;
       max-width: 520px;
       margin: 0 auto;
+      margin-left: auto !important;
+      margin-right: auto !important;
       /* الهاتف: ارتفاع منفذ العرض الفعلي (تيليجرام يضبط --app-height، والمتصفح يستخدم dvh) */
       height: var(--app-height, 100vh);
     }
@@ -41,8 +43,16 @@
     }
     @media (min-width: 640px) {
       body {
+        max-width: 640px;
+        background: rgba(9, 9, 11, 0.45);
         border-left: 1px solid rgba(51, 65, 85, 0.55);
         border-right: 1px solid rgba(51, 65, 85, 0.55);
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.65);
+      }
+    }
+    @media (min-width: 1024px) {
+      body {
+        max-width: 720px;
       }
     }
 
@@ -53,6 +63,20 @@
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
+      scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+    }
+    .tab-content::-webkit-scrollbar {
+      width: 5px;
+    }
+    .tab-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .tab-content::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+      border-radius: 9999px;
+    }
+    .tab-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.7);
     }
 
     /* ارتفاع ملعب المغامرة يتبع الشاشة: أقصر على الهواتف الصغيرة، 330px كحد أقصى */
@@ -86,7 +110,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
 </head>
-<body class="flex flex-col justify-between p-4 select-none">
+<body class="flex flex-col justify-between p-4 select-none mx-auto">
 
   <!-- Header Info -->
   <header class="flex justify-between items-center bg-slate-900/80 border border-slate-800 p-3 rounded-2xl backdrop-blur-md">
@@ -1963,12 +1987,13 @@
       advCtx.fillRect(0, h - 22, w, 2);
 
       // الأجسام المتساقطة
+      const emojiFont = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", serif';
       advCtx.textAlign = 'center'; advCtx.textBaseline = 'middle';
       for (const obj of adv.objects) {
         advCtx.save();
         advCtx.translate(obj.x, obj.y);
         advCtx.rotate(Math.sin(obj.spin) * 0.18);
-        advCtx.font = `${obj.r * 2}px serif`;
+        advCtx.font = `${obj.r * 2}px ${emojiFont}`;
         advCtx.fillText(obj.icon, 0, 0);
         advCtx.restore();
       }
@@ -1976,7 +2001,7 @@
       // 👹 الزعيم وشريط صحته
       if (adv.boss && adv.gameMode === 'boss') {
         advCtx.save();
-        advCtx.font = '46px serif';
+        advCtx.font = `46px ${emojiFont}`;
         advCtx.textAlign = 'center'; advCtx.textBaseline = 'middle';
         if (adv.boss.hitFlash > 0) { advCtx.shadowColor = '#ef4444'; advCtx.shadowBlur = 22; }
         advCtx.fillText('👹', adv.boss.x, adv.boss.y);
@@ -1998,7 +2023,7 @@
         advCtx.beginPath();
         advCtx.roundRect(gx - ADV.playerW / 2, playerY, ADV.playerW, ADV.playerH, 10);
         advCtx.fill();
-        advCtx.font = '24px serif';
+        advCtx.font = `24px ${emojiFont}`;
         advCtx.fillText('🧑‍🚀', gx, playerY + 15);
         advCtx.globalAlpha = 0.9;
         advCtx.font = 'bold 10px Tajawal, sans-serif';
@@ -2020,10 +2045,10 @@
       advCtx.beginPath();
       advCtx.roundRect(-ADV.playerW / 2, -ADV.playerH / 2, ADV.playerW, ADV.playerH, 10);
       advCtx.fill();
-      advCtx.font = '29px serif';
+      advCtx.font = `29px ${emojiFont}`;
       advCtx.fillText(skin.icon, 0, 2);
-      if (adv.fx.shield) { advCtx.font = '17px serif'; advCtx.fillText('🛡️', ADV.playerW / 2 - 8, -ADV.playerH / 2 + 4); }
-      if (advFxActive('magnetUntil')) { advCtx.font = '15px serif'; advCtx.fillText('🧲', -ADV.playerW / 2 + 8, -ADV.playerH / 2 + 4); }
+      if (adv.fx.shield) { advCtx.font = `17px ${emojiFont}`; advCtx.fillText('🛡️', ADV.playerW / 2 - 8, -ADV.playerH / 2 + 4); }
+      if (advFxActive('magnetUntil')) { advCtx.font = `15px ${emojiFont}`; advCtx.fillText('🧲', -ADV.playerW / 2 + 8, -ADV.playerH / 2 + 4); }
       advCtx.fillStyle = '#111827';
       advCtx.beginPath(); advCtx.arc(-ADV.playerW / 2 + 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
       advCtx.beginPath(); advCtx.arc(ADV.playerW / 2 - 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
