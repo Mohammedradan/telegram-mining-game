@@ -22,3 +22,11 @@ test('zone progression does not modify the seeded race reward rules', () => {
   assert.match(html, /adv\.mode !== 'race'/);
   assert.match(html, /const reward = inRace \? 0/);
 });
+
+test('end-of-run summary tells players what zones they unlocked or how to unlock the next one', () => {
+  assert.match(html, /const unlockedZonesBeforeRun = getUnlockedAdventureZones\(\);/);
+  assert.match(html, /const unlockedZonesAfterRun = getUnlockedAdventureZones\(\);/);
+  assert.match(html, /فتحت \$\{ADV_MINE_ZONES\[unlockedZonesAfterRun - 1\]\.name\}/);
+  assert.match(html, /المناطق المفتوحة: \$\{unlockedZonesAfterRun\}\/\$\{ADV_MINE_ZONES\.length\}/);
+  assert.match(html, /zoneProgressText/);
+});
