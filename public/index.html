@@ -882,6 +882,12 @@
       boss: null, bossCharge: 0, bossDefeated: false,
       fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: false },
     };
+    // مناطق متدرجة بصرياً مع تصاعد كثافة التحدي في حلقة اللعب الحالية.
+    const ADV_MINE_ZONES = [
+      { name: 'كهف البداية', icon: '🪨', hint: 'اجمع الموارد وتعلّم الإيقاع', top: '#312e81', glow: '#f59e0b', floor: '#1c1917' },
+      { name: 'كهف الكريستال', icon: '💎', hint: 'تزداد سرعة التساقط — تحرّك بدقة', top: '#164e63', glow: '#22d3ee', floor: '#083344' },
+      { name: 'منجم الحمم', icon: '🌋', hint: 'تزداد كثافة العناصر — ركّز على النجاة', top: '#7f1d1d', glow: '#fb7185', floor: '#450a0a' },
+    ];
     const advKeys = {};
 
     // ⚙️ خيارات اللعب: أوضاع + صعوبة + شكل (محفوظة على الجهاز)
@@ -1334,8 +1340,9 @@
       const newPhase = adv.elapsed >= 40 ? 2 : adv.elapsed >= 20 ? 1 : 0;
       if (newPhase !== adv.phase) {
         adv.phase = newPhase;
-        advBanner(newPhase === 2 ? '🔥 المرحلة الأخيرة — كل شيء أسرع!' : '⚠️ ازداد الخطر!', 1.8);
-        advBeep(220, 0.2, 'sawtooth', 0.05, 110);
+        const zone = ADV_MINE_ZONES[newPhase];
+        advBanner(`${zone.icon} وصلت إلى ${zone.name} — ${zone.hint}`, 2.2);
+        advBeep(newPhase === 2 ? 160 : 440, 0.2, 'sawtooth', 0.05, newPhase === 2 ? 75 : 880);
       }
 
       // 👹 حركة الزعيم وهجومه المستهدف الدوري
@@ -1463,9 +1470,15 @@
       const playerY = h - 48;
       advCtx.clearRect(0, 0, w, h);
       if (adv.shake > 0) { advCtx.save(); advCtx.translate((Math.random() - 0.5) * 10 * adv.shake * 3, (Math.random() - 0.5) * 7 * adv.shake * 3); }
+      const zone = ADV_MINE_ZONES[Math.min(adv.phase, ADV_MINE_ZONES.length - 1)];
+      const sky = advCtx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, zone.top);
+      sky.addColorStop(1, '#020617');
+      advCtx.fillStyle = sky;
+      advCtx.fillRect(0, 0, w, h);
       if (advFxActive('feverUntil')) { advCtx.fillStyle = 'rgba(245,158,11,0.10)'; advCtx.fillRect(0, 0, w, h); }
       // صواعد كهف متحركة (Parallax يعطي إحساس العمق)
-      advCtx.fillStyle = 'rgba(30,27,75,0.85)';
+      advCtx.fillStyle = zone.glow + '22';
       const caveOff = (adv.elapsed * 18) % 46;
       for (let x = -46; x < w + 46; x += 46) {
         advCtx.beginPath();
@@ -1479,9 +1492,9 @@
         advCtx.fillRect(x, y, 2, 2);
       }
       // أرضية المنجم
-      advCtx.fillStyle = '#1c1917';
+      advCtx.fillStyle = zone.floor;
       advCtx.fillRect(0, h - 22, w, 22);
-      advCtx.fillStyle = '#f59e0b';
+      advCtx.fillStyle = zone.glow;
       advCtx.fillRect(0, h - 22, w, 2);
 
       // الأجسام المتساقطة
