@@ -39,6 +39,10 @@ const save = async (id, state, extra = {}) => {
   const res = await fetch(`${BASE}/api/save`, { method: 'POST', headers: guest(id), body: JSON.stringify({ state, ...extra }) });
   return { status: res.status, body: await res.json() };
 };
+const ops = async (id, list, session = 'api-test') => {
+  const res = await fetch(`${BASE}/api/ops`, { method: 'POST', headers: guest(id), body: JSON.stringify({ session, ops: list.map((op, i) => ({ seq: i + 1, ...op })) }) });
+  return { status: res.status, body: await res.json() };
+};
 const baseState = (over = {}) => ({
   gold: 0, totalEarned: 0, clickPower: 1, passiveIncome: 0, energy: 1000, maxEnergy: 1000,
   owned: { click: 0, bot: 0, rig: 0 }, costs: { click: 50, bot: 200, rig: 1000 },
@@ -73,19 +77,22 @@ test('مكافأة يومية مرة واحدة فقط', async () => {
   assert.equal(r2.status, 409);
 });
 
-test('حفظ مشروع صغير يُقبل دون تصحيح', async () => {
+test('نقرات مشروعة تُحتسب عبر عملية تعدين خادمية', async () => {
   await me('honest');
-  const { body } = await save('honest', baseState({ gold: 5, totalEarned: 5 }));
-  assert.equal(body.corrected, false);
+  const { body } = await ops('honest', [{ type: 'mine', clicks: 5, boosted: 0 }]);
+  assert.equal(body.results[0].status, 'ok');
   assert.equal(body.state.gold, 5);
+  assert.equal(body.violations, 0);
 });
 
-test('🛡️ قفزة ذهب مستحيلة تُقتطع وتُسجّل مخالفة', async () => {
+test('🛡️ الحفظ القديم لا يقبل رصيداً من العميل — يعود ملف الخادم الموثوق فقط', async () => {
   await me('cheater');
   const { body } = await save('cheater', baseState({ gold: 1_000_000, totalEarned: 1_000_000 }));
+  assert.equal(body.legacy, true);
   assert.equal(body.corrected, true);
-  assert.ok(body.state.gold < 1000, `توقعنا اقتطاع الذهب، حصلنا ${body.state.gold}`);
-  assert.equal(body.violations, 1);
+  assert.equal(body.state.gold, 0);
+  assert.equal(body.state.totalEarned, 0);
+  assert.equal((await me('cheater')).state.gold, 0);
 });
 
 test('🛡️ القدرات مشتقة من المشتريات — تضخيم passiveIncome وشراء بلا رصيد يُلغيان', async () => {
@@ -99,6 +106,10 @@ test('🛡️ القدرات مشتقة من المشتريات — تضخيم p
   assert.equal(body.state.owned.bot, 0);
   assert.equal(body.state.clickPower, 1);      // لا قدرات من العدم
   assert.equal(body.state.costs.bot, 200);     // السعر الأساسي لأنه لم يشترِ شيئاً
+  // ولا عبر بروتوكول العمليات: شراء بلا رصيد يُرفض
+  const bought = await ops('cheater2', [{ type: 'buy', item: 'bot' }]);
+  assert.equal(bought.body.results[0].status, 'rejected');
+  assert.equal(bought.body.state.owned.bot, 0);
 });
 
 test('🛡️ تعزيز مزوّر (بدون تهدئة/بمدة أطول) يُرفض', async () => {
@@ -108,19 +119,20 @@ test('🛡️ تعزيز مزوّر (بدون تهدئة/بمدة أطول) يُ
   assert.equal(body.state.boostUntil, 0);
 });
 
-test('🛠️ ترقية مغامرة مشروعة تُقبل، وقفزة مستويات بلا رصيد تُرفض كلياً', async () => {
+test('🛠️ ترقية مغامرة مشروعة تُقبل، والمستويات غير المموّلة تُرفض ولا تُقبل من حفظ قديم', async () => {
   await me('upbuyer');
   // Fund purchases through verified referral rewards, not browser migration.
   await me('upbuyer-friend', '?ref=ref_guest_upbuyer');
   assert.equal((await me('upbuyer')).state.gold, 1000);
+  const { body } = await ops('upbuyer', Array.from({ length: 5 }, () => ({ type: 'buy_adv', key: 'magnet' })));
+  assert.deepEqual(body.results.map((r) => r.status), ['ok', 'ok', 'ok', 'rejected', 'rejected']); // 150 + 255 + 433 = 838 ≤ 1000
+  assert.equal(body.state.adventureUpgrades.magnet, 3);
+  assert.equal(body.state.gold, 1000 - 150 - 255 - 433);
   const adv = { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0 };
-  const legit = await save('upbuyer', baseState({ gold: 850, totalEarned: 1000, adventureUpgrades: { ...adv, magnet: 1 } }));
-  assert.equal(legit.body.corrected, false);
-  assert.equal(legit.body.state.adventureUpgrades.magnet, 1);
-  assert.equal(legit.body.state.gold, 850);
   const cheat = await save('upbuyer', baseState({ gold: 850, totalEarned: 1000, adventureUpgrades: { ...adv, magnet: 5 } }));
   assert.equal(cheat.body.corrected, true);
-  assert.equal(cheat.body.state.adventureUpgrades.magnet, 1); // رُفض الشراء غير المموّل وبقي المستوى الحقيقي
+  assert.equal(cheat.body.state.adventureUpgrades.magnet, 3); // الحفظ القديم لا يرفع مستوى ولا يغيّر الرصيد
+  assert.equal(cheat.body.state.gold, 1000 - 150 - 255 - 433);
 });
 
 test('البيانات تبقى بعد إعادة تشغيل الخادم (قاعدة حقيقية)', async () => {
@@ -131,7 +143,7 @@ test('البيانات تبقى بعد إعادة تشغيل الخادم (قا�
   assert.equal(inviter.state.gold, 1000);
   const board = await (await fetch(`${BASE}/api/leaderboard`)).json();
   assert.ok(board.leaderboard.length >= 3);
-  assert.equal(board.leaderboard[0].totalEarned, 1000);
+  assert.ok(board.leaderboard.some((u) => u.id === 'guest_inviter' && u.totalEarned === 1000));
 });
 
 

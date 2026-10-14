@@ -16,7 +16,8 @@ const sockets = [];
 function startServer() {
   child = spawn('node', ['--require', './test/fixtures/race-storage-delay.cjs', 'server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: path.join(tmpDir, 'game.db'), DATABASE_URL: process.env.TEST_RACE_DATABASE_URL || '' },
+    // سباقات قصيرة (ثانيتان + ثانية سماح) حتى تُختبر مهلة الخادم والانسحاب دون انتظار دقيقة كاملة
+    env: { ...process.env, PORT: String(PORT), BOT_TOKEN: '', DATABASE_FILE: path.join(tmpDir, 'game.db'), DATABASE_URL: process.env.TEST_RACE_DATABASE_URL || '', RACE_DURATION_SEC: '2', RACE_GRACE_SEC: '1' },
     stdio: 'inherit',
   });
 }
@@ -309,4 +310,76 @@ test('leaving during persistence cannot deliver an old result into a new room', 
   assert.equal(b.messages.some((m) => m.type === 'result'), false);
   send(b, { type: 'create' });
   assert.match((await b.waitFor('room_created')).code, /^[A-Z2-9]{4}$/);
+});
+
+test('the server announces the race duration and settles the race itself when a player never finishes (last progress counts)', async () => {
+  const [a, b] = await privatePair('timeout');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  const start = await a.waitFor('start'); await b.waitFor('start');
+  assert.equal(start.duration, 2, 'duration comes from the server, not the client');
+  await delay(Math.max(0, start.startAt - Date.now() + 25));
+  send(a, { type: 'finish', score: 50 });
+  await b.waitFor('opponent_finished');
+  send(b, { type: 'progress', score: 30, lives: 3, xRatio: 0.5 }); // b يتوقف هنا ولا يرسل finish أبداً
+  await a.waitFor('opponent_progress');
+  const t0 = Date.now();
+  const [ra, rb] = await Promise.all([a.waitFor('result', 6000), b.waitFor('result', 6000)]);
+  assert.ok(Date.now() - t0 >= 1500, 'the server waits for the duration + grace before settling');
+  assert.equal(ra.reason, 'timeout');
+  assert.equal(ra.winnerId, 'guest_timeout_a');
+  assert.deepEqual(rb.results.map((r) => [r.id, r.score, r.timedOut]), [['guest_timeout_a', 50, false], ['guest_timeout_b', 30, true]]);
+  const rows = (await (await fetch(`${BASE}/api/race-leaderboard`)).json()).leaderboard;
+  assert.deepEqual([rows.find((r) => r.id === 'guest_timeout_a').wins, rows.find((r) => r.id === 'guest_timeout_b').races], [1, 1]);
+});
+
+test('leaving after the race really started is a recorded forfeit: the opponent wins whatever the scores', async () => {
+  const [a, b] = await privatePair('forfeit');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  const start = await a.waitFor('start'); await b.waitFor('start');
+  await delay(Math.max(0, start.startAt - Date.now() + 1100)); // بعد نافذة الانسحاب (نصف مدة السباق = ثانية)
+  send(a, { type: 'progress', score: 120, lives: 3, xRatio: 0.5 });
+  await b.waitFor('opponent_progress');
+  send(b, { type: 'progress', score: 10, lives: 3, xRatio: 0.5 });
+  await a.waitFor('opponent_progress');
+  a.close(); // المتصدر ينسحب
+  const left = await b.waitFor('opponent_left');
+  assert.equal(left.forfeit, true);
+  assert.equal(left.winnerId, 'guest_forfeit_b');
+  assert.deepEqual(left.results.map((r) => [r.id, r.score, r.forfeited]).sort(), [['guest_forfeit_a', 120, true], ['guest_forfeit_b', 10, false]]);
+  await delay(400); // التخزين يجري خلفياً
+  const rows = (await (await fetch(`${BASE}/api/race-leaderboard`)).json()).leaderboard;
+  const winner = rows.find((r) => r.id === 'guest_forfeit_b'); const leaver = rows.find((r) => r.id === 'guest_forfeit_a');
+  assert.deepEqual([winner.wins, winner.races, leaver.wins, leaver.races], [1, 1, 0, 1]);
+  // الخصم الباقي حرّ للبحث عن مباراة جديدة
+  send(b, { type: 'create' });
+  assert.match((await b.waitFor('room_created')).code, /^[A-Z2-9]{4}$/);
+});
+
+test('leaving before the race clock allows a forfeit is just a closed room (no result recorded)', async () => {
+  const [a, b] = await privatePair('early_leave');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  await Promise.all([a.waitFor('start'), b.waitFor('start')]); // قبل startAt بثانيتين ونصف
+  a.close();
+  const left = await b.waitFor('opponent_left');
+  assert.equal(left.forfeit, undefined);
+  await delay(300);
+  const rows = (await (await fetch(`${BASE}/api/race-leaderboard`)).json()).leaderboard;
+  assert.equal(rows.some((r) => r.id === 'guest_early_leave_b'), false);
+});
+
+test('scores are clamped by the race clock on the wire too: the opponent never sees an impossible number and the result is flagged', async () => {
+  const [a, b] = await privatePair('clamp');
+  send(a, { type: 'ready' }); send(b, { type: 'ready' });
+  const start = await a.waitFor('start'); await b.waitFor('start');
+  await delay(Math.max(0, start.startAt - Date.now() + 25));
+  send(a, { type: 'progress', score: 5000, lives: 3, xRatio: 0.5 });
+  const seen = await b.waitFor('opponent_progress');
+  assert.ok(seen.score <= 100 + 45, `relayed progress ${seen.score} must respect the time cap`);
+  send(a, { type: 'finish', score: 9999 });
+  await b.waitFor('opponent_finished');
+  send(b, { type: 'finish', score: 20 });
+  const result = await b.waitFor('result');
+  const cheater = result.results.find((r) => r.id === 'guest_clamp_a');
+  assert.ok(cheater.score <= 100 + 45 && cheater.flagged === true, JSON.stringify(cheater));
+  assert.equal(result.results.find((r) => r.id === 'guest_clamp_b').flagged, false);
 });

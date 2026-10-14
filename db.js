@@ -6,7 +6,13 @@ const { AsyncLocalStorage } = require('node:async_hooks');
 
 const USER_COLUMNS = `id, name, state_json, referral_count, referral_earnings,
   referred_by, daily_last_claim, daily_streak, unacked_credits, violations,
-  last_save_at, created_at, updated_at`;
+  last_save_at, created_at, updated_at, revision, sync_json`;
+
+const parseJson = (value, fallback) => {
+  if (value && typeof value === 'object') return value;
+  if (typeof value !== 'string' || !value) return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+};
 
 function rowToUser(row) {
   if (!row) return null;
@@ -24,6 +30,9 @@ function rowToUser(row) {
     lastSaveAt: Number(row.last_save_at) || Date.now(),
     createdAt: Number(row.created_at) || Date.now(),
     updatedAt: Number(row.updated_at) || Date.now(),
+    // رقم إصدار شامل لحالة اللاعب + دفتر مزامنة خادمي (تسوية الدخل/الطاقة وتسلسل عمليات كل جلسة)
+    revision: Number(row.revision) || 0,
+    sync: parseJson(row.sync_json, {}),
   };
 }
 
@@ -32,8 +41,15 @@ function userParams(u) {
     u.id, u.name, JSON.stringify(u.state), u.referralCount || 0, u.referralEarnings || 0,
     u.referredBy || null, u.dailyLastClaim || null, u.dailyStreak || 0, u.unackedCredits || 0,
     u.violations || 0, u.lastSaveAt || Date.now(), u.createdAt || Date.now(), u.updatedAt || Date.now(),
+    u.revision || 0, JSON.stringify(u.sync || {}),
   ];
 }
+
+// ترقية مخطط موجود دون لمس بيانات اللاعبين: أعمدة جديدة بقيم افتراضية فقط
+const USER_SCHEMA_UPGRADES = [
+  { column: 'revision', sqlite: 'INTEGER NOT NULL DEFAULT 0', pg: 'INTEGER NOT NULL DEFAULT 0' },
+  { column: 'sync_json', sqlite: "TEXT NOT NULL DEFAULT '{}'", pg: "JSONB NOT NULL DEFAULT '{}'::jsonb" },
+];
 
 const SCHEMA_SQLITE = `
 CREATE TABLE IF NOT EXISTS users (
@@ -41,7 +57,8 @@ CREATE TABLE IF NOT EXISTS users (
   referral_count INTEGER NOT NULL DEFAULT 0, referral_earnings REAL NOT NULL DEFAULT 0,
   referred_by TEXT, daily_last_claim TEXT, daily_streak INTEGER NOT NULL DEFAULT 0,
   unacked_credits REAL NOT NULL DEFAULT 0, violations INTEGER NOT NULL DEFAULT 0,
-  last_save_at INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  last_save_at INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 0, sync_json TEXT NOT NULL DEFAULT '{}'
 );
 CREATE TABLE IF NOT EXISTS pending_referrals (id TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS race_stats (
@@ -50,7 +67,13 @@ CREATE TABLE IF NOT EXISTS race_stats (
   best_score INTEGER NOT NULL DEFAULT 0, total_score INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER NOT NULL, PRIMARY KEY (week, user_id)
 );
+CREATE TABLE IF NOT EXISTS op_ledger (
+  user_id TEXT NOT NULL, session TEXT NOT NULL, seq INTEGER NOT NULL,
+  kind TEXT NOT NULL, detail_json TEXT NOT NULL, gold_delta REAL NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL, PRIMARY KEY (user_id, session, seq)
+);
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
+CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 `;
 
 const SCHEMA_PG = `
@@ -59,8 +82,11 @@ CREATE TABLE IF NOT EXISTS users (
   referral_count INTEGER NOT NULL DEFAULT 0, referral_earnings DOUBLE PRECISION NOT NULL DEFAULT 0,
   referred_by TEXT, daily_last_claim TEXT, daily_streak INTEGER NOT NULL DEFAULT 0,
   unacked_credits DOUBLE PRECISION NOT NULL DEFAULT 0, violations INTEGER NOT NULL DEFAULT 0,
-  last_save_at BIGINT NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL
+  last_save_at BIGINT NOT NULL, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 0, sync_json JSONB NOT NULL DEFAULT '{}'::jsonb
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sync_json JSONB NOT NULL DEFAULT '{}'::jsonb;
 CREATE TABLE IF NOT EXISTS pending_referrals (id TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS race_stats (
   week TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL,
@@ -68,6 +94,12 @@ CREATE TABLE IF NOT EXISTS race_stats (
   best_score INTEGER NOT NULL DEFAULT 0, total_score INTEGER NOT NULL DEFAULT 0,
   updated_at BIGINT NOT NULL, PRIMARY KEY (week, user_id)
 );
+CREATE TABLE IF NOT EXISTS op_ledger (
+  user_id TEXT NOT NULL, session TEXT NOT NULL, seq BIGINT NOT NULL,
+  kind TEXT NOT NULL, detail_json JSONB NOT NULL, gold_delta DOUBLE PRECISION NOT NULL DEFAULT 0,
+  created_at BIGINT NOT NULL, PRIMARY KEY (user_id, session, seq)
+);
+CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 `;
 
 function createSqliteStore(file) {
@@ -79,14 +111,22 @@ function createSqliteStore(file) {
   const transactionContext = new AsyncLocalStorage();
   let transactionTail = Promise.resolve();
   conn.exec(SCHEMA_SQLITE);
+  // قاعدة قديمة أُنشئت قبل أعمدة الإصدار/المزامنة: أضفها بقيمها الافتراضية (SQLite لا يدعم IF NOT EXISTS للأعمدة)
+  const existing = new Set(conn.prepare('PRAGMA table_info(users)').all().map((c) => c.name));
+  for (const { column, sqlite } of USER_SCHEMA_UPGRADES) {
+    if (!existing.has(column)) conn.exec(`ALTER TABLE users ADD COLUMN ${column} ${sqlite}`);
+  }
   const upsert = conn.prepare(`
-    INSERT INTO users (${USER_COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO users (${USER_COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET name=excluded.name, state_json=excluded.state_json,
       referral_count=excluded.referral_count, referral_earnings=excluded.referral_earnings,
       referred_by=excluded.referred_by, daily_last_claim=excluded.daily_last_claim,
       daily_streak=excluded.daily_streak, unacked_credits=excluded.unacked_credits,
       violations=excluded.violations, last_save_at=excluded.last_save_at,
-      created_at=excluded.created_at, updated_at=excluded.updated_at`);
+      created_at=excluded.created_at, updated_at=excluded.updated_at,
+      revision=excluded.revision, sync_json=excluded.sync_json`);
+  const insertLedger = conn.prepare(`INSERT OR IGNORE INTO op_ledger (user_id, session, seq, kind, detail_json, gold_delta, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`);
   return {
     driver: 'sqlite',
     // Serialize writes on this connection; BEGIN IMMEDIATE also excludes other processes.
@@ -111,6 +151,17 @@ function createSqliteStore(file) {
     },
     async getUser(id) { return rowToUser(conn.prepare('SELECT * FROM users WHERE id = ?').get(String(id))); },
     async putUser(u) { upsert.run(...userParams(u)); },
+    // سجل دائم للعمليات المنفصلة (شراء/تعزيز/مكافأة) — يُكتب داخل معاملة اللاعب نفسها
+    async appendLedger(userId, entries) {
+      for (const e of entries) {
+        insertLedger.run(String(userId), String(e.session), e.seq, e.kind, JSON.stringify(e.detail || {}), Number(e.goldDelta) || 0, e.at || Date.now());
+      }
+    },
+    async ledgerFor(userId, limit = 50) {
+      return conn.prepare('SELECT session, seq, kind, detail_json, gold_delta, created_at FROM op_ledger WHERE user_id = ? ORDER BY created_at DESC, seq DESC LIMIT ?')
+        .all(String(userId), limit)
+        .map((r) => ({ session: r.session, seq: r.seq, kind: r.kind, detail: parseJson(r.detail_json, {}), goldDelta: r.gold_delta, at: r.created_at }));
+    },
     async countUsers() { return conn.prepare('SELECT COUNT(*) AS c FROM users').get().c; },
     async topUsers(limit) {
       return conn.prepare('SELECT * FROM users ORDER BY CAST(json_extract(state_json, \'$.totalEarned\') AS REAL) DESC LIMIT ?')
@@ -126,10 +177,19 @@ function createSqliteStore(file) {
           updated_at = excluded.updated_at`)
         .run(week, String(id), name || 'لاعب', won ? 1 : 0, Math.floor(score) || 0, Math.floor(score) || 0, Date.now());
     },
+    // نتيجة سباق كاملة (الطرفان) في معاملة واحدة: إما يُسجَّل الفوز والخسارة معاً أو لا شيء
+    async recordRaceResults(week, results) {
+      return this.withUsers(results.map((r) => r.id), async () => { for (const r of results) await this.recordRaceResult(week, r); });
+    },
     async raceLeaderboard(week, limit) {
       return conn.prepare(`SELECT user_id, name, races, wins, best_score, total_score FROM race_stats
         WHERE week = ? ORDER BY wins DESC, best_score DESC, total_score DESC LIMIT ?`).all(week, limit)
         .map((r) => ({ id: r.user_id, name: r.name, races: r.races, wins: r.wins, bestScore: r.best_score, totalScore: r.total_score }));
+    },
+    // إجمالي سباقات اللاعب عبر كل الأسابيع (نتائج ختمها الخادم — تُستخدم كإحصاء موثوق)
+    async raceTotals(userId) {
+      const r = conn.prepare('SELECT COALESCE(SUM(races), 0) AS races, COALESCE(SUM(wins), 0) AS wins, COALESCE(MAX(best_score), 0) AS best FROM race_stats WHERE user_id = ?').get(String(userId));
+      return { races: Number(r?.races) || 0, wins: Number(r?.wins) || 0, bestScore: Number(r?.best) || 0 };
     },
     async getPending(id) { return conn.prepare('SELECT count FROM pending_referrals WHERE id = ?').get(String(id))?.count || 0; },
     async addPending(id) {
@@ -187,7 +247,19 @@ function createPgStore(url) {
           referred_by=EXCLUDED.referred_by, daily_last_claim=EXCLUDED.daily_last_claim,
           daily_streak=EXCLUDED.daily_streak, unacked_credits=EXCLUDED.unacked_credits,
           violations=EXCLUDED.violations, last_save_at=EXCLUDED.last_save_at,
-          created_at=EXCLUDED.created_at, updated_at=EXCLUDED.updated_at`, userParams(u));
+          created_at=EXCLUDED.created_at, updated_at=EXCLUDED.updated_at,
+          revision=EXCLUDED.revision, sync_json=EXCLUDED.sync_json`, userParams(u));
+    },
+    async appendLedger(userId, entries) {
+      for (const e of entries) {
+        await q(`INSERT INTO op_ledger (user_id, session, seq, kind, detail_json, gold_delta, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (user_id, session, seq) DO NOTHING`,
+        [String(userId), String(e.session), e.seq, e.kind, JSON.stringify(e.detail || {}), Number(e.goldDelta) || 0, e.at || Date.now()]);
+      }
+    },
+    async ledgerFor(userId, limit = 50) {
+      return (await q('SELECT session, seq, kind, detail_json, gold_delta, created_at FROM op_ledger WHERE user_id = $1 ORDER BY created_at DESC, seq DESC LIMIT $2', [String(userId), limit])).rows
+        .map((r) => ({ session: r.session, seq: Number(r.seq), kind: r.kind, detail: parseJson(r.detail_json, {}), goldDelta: Number(r.gold_delta), at: Number(r.created_at) }));
     },
     async countUsers() { return Number((await q('SELECT COUNT(*) AS c FROM users')).rows[0].c); },
     async topUsers(limit) {
@@ -212,10 +284,17 @@ function createPgStore(url) {
           updated_at = EXCLUDED.updated_at`,
       [week, String(id), name || 'لاعب', won ? 1 : 0, Math.floor(score) || 0, Date.now()]);
     },
+    async recordRaceResults(week, results) {
+      return this.withUsers(results.map((r) => r.id), async () => { for (const r of results) await this.recordRaceResult(week, r); });
+    },
     async raceLeaderboard(week, limit) {
       return (await q(`SELECT user_id, name, races, wins, best_score, total_score FROM race_stats
         WHERE week = $1 ORDER BY wins DESC, best_score DESC, total_score DESC LIMIT $2`, [week, limit])).rows
         .map((r) => ({ id: r.user_id, name: r.name, races: Number(r.races), wins: Number(r.wins), bestScore: Number(r.best_score), totalScore: Number(r.total_score) }));
+    },
+    async raceTotals(userId) {
+      const r = (await q('SELECT COALESCE(SUM(races), 0) AS races, COALESCE(SUM(wins), 0) AS wins, COALESCE(MAX(best_score), 0) AS best FROM race_stats WHERE user_id = $1', [String(userId)])).rows[0];
+      return { races: Number(r?.races) || 0, wins: Number(r?.wins) || 0, bestScore: Number(r?.best) || 0 };
     },
     async close() { await pool.end(); },
   };

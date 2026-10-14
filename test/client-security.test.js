@@ -6,21 +6,25 @@ const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 
-test('server-mode achievement claims are disabled in the UI', () => {
-  assert.match(html, /btn\.disabled = claimed \|\| !met \|\| serverMode;/);
-  assert.match(html, /serverMode && met\) \? '🔒 يتطلب تحققًا'/);
+test('in cloud mode the achievements UI is driven by the server list, never by local stats', () => {
+  // الصفوف تُبنى من profile.achievements (الخادم) عند الاتصال، ومن القائمة المحلية فقط دون خادم
+  assert.match(html, /const rows = cloud\s*\? cloud\.items\.map\(/);
+  assert.match(html, /: ADV_ACHIEVEMENTS\.map\(\(a\) => \(\{ id: a\.id/);
+  assert.match(html, /btn\.disabled = a\.claimed \|\| !a\.met;/);
 });
 
-test('claimAchievement rejects server-mode claims before granting gold', () => {
+test('claimAchievement never grants cloud gold from local stats: the server path claims through the ops queue and returns before the local branch', () => {
   const start = html.indexOf('function claimAchievement(id)');
   const end = html.indexOf('// 🛠️ ترقيات المغامرة الدائمة', start);
   assert.ok(start >= 0 && end > start, 'achievement claim function should exist');
   const fn = html.slice(start, end);
-  const guard = fn.indexOf('if (serverMode)');
-  const award = fn.indexOf('state.gold += a.reward');
-  assert.ok(guard >= 0, 'server-mode guard should exist');
-  assert.ok(award > guard, 'server-mode guard must run before reward mutation');
-  assert.match(fn.slice(guard, award), /return;/, 'server-mode guard must exit without granting reward');
+  const cloud = fn.indexOf('const cloud = serverAchievements();');
+  const queue = fn.indexOf("enqueueOp({ type: 'achievement', id, expected: a.gold })");
+  const localAward = fn.indexOf('state.gold += a.reward');
+  assert.ok(cloud >= 0 && queue > cloud, 'cloud claims go through the sequenced ops queue');
+  assert.ok(localAward > queue, 'the local (offline) award comes after the cloud branch');
+  assert.match(fn.slice(queue, localAward), /return;/, 'the cloud branch must exit before the local award');
+  assert.match(fn.slice(cloud, queue), /if \(!a \|\| a\.claimed \|\| !a\.done\) \{ haptic\('error'\); return; \}/, 'only what the server marked done can be claimed');
 });
 
 
