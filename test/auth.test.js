@@ -23,7 +23,7 @@ function startServer() {
       DATABASE_FILE: path.join(tmpDir, 'game.db'),
       DATABASE_URL: '',
     },
-    stdio: 'ignore',
+    stdio: 'inherit',
   });
 }
 
