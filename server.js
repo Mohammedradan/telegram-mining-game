@@ -514,14 +514,20 @@ function setupMultiplayer(httpServer) {
       raceQueue = raceQueue.filter((q) => q !== ws);
       const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
       ws.player.roomId = null;
+      ws.player.ready = false;
       if (!room) return;
-      room.players.delete(ws);
+      // أغلق الغرفة بالكامل عند مغادرة أحد اللاعبين؛ لا تترك خصماً عالقاً في غرفة سباق منتهية.
+      raceRooms.delete(room.id);
       for (const other of room.players) {
+        if (other === ws) continue;
         other.player.roomId = null;
         other.player.ready = false;
-        if (notify) sendWs(other, { type: room.state === 'racing' ? 'opponent_left' : 'room_closed', message: 'غادر الخصم' });
+        if (notify) sendWs(other, {
+          type: room.state === 'racing' ? 'opponent_left' : 'room_closed',
+          message: room.state === 'racing' ? 'غادر الخصم — يمكنك بدء سباق جديد' : 'أُغلقت الغرفة — أنشئ غرفة جديدة',
+        });
       }
-      if (room.players.size === 0) raceRooms.delete(room.id);
+      room.players.clear();
     };
     ws.leaveRaceRoom = leaveRoom;
 
