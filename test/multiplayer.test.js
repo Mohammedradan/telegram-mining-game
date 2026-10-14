@@ -78,6 +78,8 @@ test('⚔️ سباق سريع: إقراّن وبذرة موحدة وبث تقد
 
   send(a, { type: 'finish', score: 90 });
   await b.waitFor('opponent_finished');
+  // إعادة إرسال finish لا يجب أن تستبدل النتيجة المختومة بنتيجة أعلى مزوّرة.
+  send(a, { type: 'finish', score: 99999 });
   send(b, { type: 'finish', score: 80 });
   const [ra, rb] = await Promise.all([a.waitFor('result'), b.waitFor('result')]);
   assert.equal(ra.winnerId, 'guest_racer_a');
