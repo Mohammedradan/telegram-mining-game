@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "build": "node --check server.js && node --check db.js",
-    "test": "node --test test/api.test.js test/multiplayer.test.js test/auth.test.js"
+    "test": "node --test test/api.test.js test/multiplayer.test.js test/auth.test.js test/client-security.test.js"
   },
   "engines": {
     "node": ">=20"
