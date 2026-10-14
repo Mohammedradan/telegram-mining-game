@@ -416,7 +416,7 @@
         if (offlineGain >= 1) {
           state.gold += offlineGain;
           state.totalEarned += offlineGain;
-          setTimeout(() => alert(`💤 أثناء غيابك عدّن عمالك ${Math.floor(offlineGain).toLocaleString()} 🪙`), 400);
+          localOfflineGain = offlineGain; // يُعرض فقط إن لم يتولَّ الخادم تسوية الغياب
         }
         // تجديد الطاقة أثناء الغياب (3/ثانية)
         state.energy = Math.min(state.maxEnergy, state.energy + elapsedSec * 3);
@@ -466,9 +466,13 @@
       state.lastSeen = Date.now();
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
     });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) saveToServer(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flushOps({ keepalive: true }); });
+    window.addEventListener('pagehide', () => flushOps({ keepalive: true }));
 
-    // --- المزامنة مع الخادم (حفظ سحابي + دعوات + صدارة) ---
+    // --- المزامنة مع الخادم: عمليات خادمية موثوقة (نقرات مجمّعة/شراء/تعزيز/مكافآت) ---
+    // الخادم مصدر الحقيقة للذهب والطاقة والمشتريات. العميل يعرض حالة تفاؤلية:
+    // آخر حالة أكدها الخادم + العمليات التي لم يؤكدها بعد. كل عملية لها رقم تسلسلي
+    // داخل جلسة محفوظة على الجهاز، فإعادة الإرسال بعد انقطاع لا تكرر الكسب أو الشراء.
     let serverMode = false;
     let syncDirty = false;
     let profile = null;
@@ -493,21 +497,171 @@
       return data;
     }
 
-    async function saveToServer() {
-      if (!serverMode || !syncDirty) return;
-      syncDirty = false;
-      try {
-        const data = await api('/api/save', { method: 'POST', body: JSON.stringify({ state }) });
-        if ((data.corrected || data.serverCreditsApplied > 0) && data.state) {
-          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(data.state.adventureUpgrades || {}) } };
-          if (data.corrected) document.getElementById('sync-status').innerText = '🛡️ صحّح الخادم حفظاً غير متسق';
-          updateUI();
-          if (typeof updateAdvUpgradesUI === 'function') updateAdvUpgradesUI();
-          save();
-        }
-      } catch (e) { syncDirty = true; }
+    // ==== SYNC ENGINE START (يُختبر مستقلاً في test/client-sync.test.js) ====
+    const SYNC = { session: null, seq: 0, pending: [], clicks: 0, boostedClicks: 0, inflight: null, again: false, revision: 0, timer: 0, failures: 0 };
+    const SYNC_MAX_BATCH = 64;
+    const syncQueueKey = () => `mining_sync_queue:${myId || (tg?.initDataUnsafe?.user?.id ?? `guest_${guestId}`)}`;
+    const newSyncSession = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    const setSyncStatus = (text) => { const el = document.getElementById('sync-status'); if (el) el.innerText = text; };
+
+    function loadSyncQueue() {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(syncQueueKey()) || 'null'); } catch (e) {}
+      if (saved && typeof saved.session === 'string' && Array.isArray(saved.pending)) {
+        SYNC.session = saved.session;
+        SYNC.seq = Math.max(0, Number(saved.seq) || 0);
+        SYNC.pending = saved.pending.filter((op) => op && Number.isInteger(op.seq) && typeof op.type === 'string');
+        // نقرات لم تُرسل قبل إغلاق الصفحة تُستأنف (الخادم يقيّدها بميزانية الطاقة والزمن)
+        SYNC.clicks += Math.max(0, Math.floor(Number(saved.clicks) || 0));
+        SYNC.boostedClicks += Math.max(0, Math.floor(Number(saved.boostedClicks) || 0));
+      }
+      if (!SYNC.session) { SYNC.session = newSyncSession(); SYNC.seq = 0; }
     }
-    setInterval(saveToServer, 5000);
+    function persistSyncQueue() {
+      try {
+        localStorage.setItem(syncQueueKey(), JSON.stringify({ session: SYNC.session, seq: SYNC.seq, pending: SYNC.pending, clicks: SYNC.clicks, boostedClicks: SYNC.boostedClicks }));
+      } catch (e) {}
+    }
+    function rotateSyncSession() {
+      // الخادم يعرف تسلسلاً أعلى من تسلسلنا لهذه الجلسة (ذاكرة محلية أُعيدت): جلسة جديدة بترقيم جديد
+      SYNC.session = newSyncSession();
+      SYNC.seq = 0;
+      SYNC.pending = SYNC.pending.map((op) => ({ ...op, seq: ++SYNC.seq }));
+      persistSyncQueue();
+    }
+
+    const mergeServerState = (srv) => ({
+      ...DEFAULT_STATE, ...srv,
+      costs: { ...DEFAULT_STATE.costs, ...(srv.costs || {}) },
+      owned: { ...DEFAULT_STATE.owned, ...(srv.owned || {}) },
+      adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(srv.adventureUpgrades || {}) },
+    });
+
+    // إعادة تطبيق عملية غير مؤكدة محلياً فوق حالة الخادم (نفس قواعد الواجهة)
+    function applyOpLocally(s, op) {
+      if (!op) return;
+      if (op.type === 'mine') {
+        const n = Math.max(0, Math.floor(op.clicks || 0));
+        const b = Math.min(n, Math.max(0, Math.floor(op.boosted || 0)));
+        const gain = n * s.clickPower + b * s.clickPower;
+        s.gold += gain; s.totalEarned += gain;
+        s.energy = Math.max(0, s.energy - n * s.clickPower);
+      } else if (op.type === 'buy') {
+        const cost = s.costs[op.item];
+        const growth = { click: 1.5, bot: 1.4, rig: 1.3 }[op.item];
+        if (!growth || !(s.gold >= cost)) return;
+        s.gold -= cost;
+        s.owned[op.item] += 1;
+        s.costs[op.item] = Math.floor(cost * growth);
+        s.clickPower = 1 + s.owned.click;
+        s.passiveIncome = s.owned.bot * 5 + s.owned.rig * 25;
+      } else if (op.type === 'buy_adv') {
+        const def = ADV_UPGRADE_DEFS[op.key];
+        const lvl = s.adventureUpgrades[op.key] || 0;
+        if (!def || lvl >= def.max) return;
+        let cost = def.base;
+        for (let i = 0; i < lvl; i++) cost = Math.floor(cost * def.growth);
+        if (s.gold < cost) return;
+        s.gold -= cost;
+        s.adventureUpgrades[op.key] = lvl + 1;
+      } else if (op.type === 'boost') {
+        const now = Date.now();
+        if (now < (s.boostUntil || 0) || now < (s.boostCooldownUntil || 0)) return;
+        s.boostUntil = now + 30_000;
+        s.boostCooldownUntil = now + 5 * 60_000;
+      } else if (op.type === 'reward') {
+        const g = Math.max(0, Math.floor(op.expected || 0));
+        s.gold += g; s.totalEarned += g;
+      }
+    }
+
+    // اعتماد حالة موثوقة من الخادم ثم إعادة تطبيق ما لم يؤكده بعد
+    function adoptServerState(data) {
+      if (!data || !data.state) return;
+      if (Number.isFinite(data.revision)) SYNC.revision = data.revision;
+      const next = mergeServerState(data.state);
+      for (const op of SYNC.pending) applyOpLocally(next, op);
+      applyOpLocally(next, { type: 'mine', clicks: SYNC.clicks, boosted: SYNC.boostedClicks });
+      state = next;
+      if (profile) {
+        if (Number.isFinite(data.referralCount)) profile.referralCount = data.referralCount;
+        if (Number.isFinite(data.referralEarnings)) profile.referralEarnings = data.referralEarnings;
+        if (data.daily) profile.daily = data.daily;
+      }
+      if (typeof ADV !== 'undefined') ADV.playerW = 78 + (state.adventureUpgrades?.cart || 0) * 8;
+      updateUI();
+      if (typeof updateAdvUpgradesUI === 'function') updateAdvUpgradesUI();
+      save();
+    }
+
+    function enqueueOp(op) {
+      if (!serverMode) return;
+      // النقرات المتراكمة تسبق أي عملية منفصلة حتى يبقى ترتيب الأحداث كما وقع
+      takeMineOp();
+      SYNC.pending.push({ ...op, seq: ++SYNC.seq });
+      persistSyncQueue();
+      scheduleFlush(0);
+    }
+    function takeMineOp() {
+      if (SYNC.clicks <= 0) return;
+      SYNC.pending.push({ type: 'mine', clicks: SYNC.clicks, boosted: Math.min(SYNC.clicks, SYNC.boostedClicks), seq: ++SYNC.seq });
+      SYNC.clicks = 0; SYNC.boostedClicks = 0;
+    }
+    function scheduleFlush(delay) {
+      clearTimeout(SYNC.timer);
+      SYNC.timer = setTimeout(() => flushOps(), delay);
+    }
+
+    async function flushOps(options = {}) {
+      if (!serverMode) return;
+      if (SYNC.inflight) { SYNC.again = true; return; }
+      if (!options.keepalive && Date.now() < (SYNC.retryAt || 0)) return; // تراجع بعد فشل متكرر
+      takeMineOp();
+      if (!SYNC.pending.length) return;
+      const batch = SYNC.pending.slice(0, SYNC_MAX_BATCH);
+      const body = JSON.stringify({ session: SYNC.session, revision: SYNC.revision, ops: batch });
+      SYNC.inflight = api('/api/ops', { method: 'POST', body, keepalive: Boolean(options.keepalive) });
+      try {
+        const data = await SYNC.inflight;
+        SYNC.failures = 0; SYNC.retryAt = 0;
+        const serverSeq = Number.isFinite(data.sessionSeq) ? data.sessionSeq : batch[batch.length - 1].seq;
+        if (serverSeq > SYNC.seq) {
+          // الخادم يعرف لهذه الجلسة تسلسلاً أعلى مما أصدرناه (تبويب آخر/ذاكرة أُعيدت): عملياتنا عُدّت مكررة ولم تُطبَّق
+          rotateSyncSession();
+        } else {
+          SYNC.pending = SYNC.pending.filter((op) => op.seq > serverSeq);
+        }
+        adoptServerState(data);
+        const refused = (data.results || []).filter((r) => r.status === 'rejected' || r.status === 'clamped');
+        setSyncStatus(refused.length ? '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك' : '☁️ محفوظ على الخادم');
+        if (refused.length) haptic('error');
+      } catch (e) {
+        SYNC.failures += 1;
+        if (e.status === 400) {
+          // دفعة يرفضها الخادم شكلياً لن تنجح بالإعادة — افصلها ولا تُعطّل ما بعدها
+          SYNC.pending = SYNC.pending.filter((op) => !batch.includes(op));
+          setSyncStatus('⚠️ تعذّر قبول عمليات محلية — أُسقطت');
+        } else if (e.status === 401) {
+          setSyncStatus('🔒 انتهت الجلسة — أعد فتح اللعبة من تيليجرام');
+        } else {
+          setSyncStatus('⚠️ تعذّر الاتصال — سيُعاد الإرسال تلقائياً');
+        }
+      } finally {
+        SYNC.inflight = null;
+        persistSyncQueue();
+        if (SYNC.again || SYNC.pending.length) {
+          SYNC.again = false;
+          const delay = SYNC.failures ? Math.min(30_000, 2_000 * 2 ** (SYNC.failures - 1)) : 250;
+          SYNC.retryAt = SYNC.failures ? Date.now() + delay : 0;
+          scheduleFlush(delay);
+        }
+      }
+    }
+    // ==== SYNC ENGINE END ====
+
+    // توافق: استدعاءات قديمة للحفظ الكامل تتحول إلى مزامنة عمليات
+    const saveToServer = () => flushOps();
+    setInterval(() => flushOps(), 3000);
 
     async function bootstrap() {
       try {
@@ -516,31 +670,26 @@
         profile = data;
         serverMode = true;
         myId = String(data.user.id);
+        loadSyncQueue();
         if (data.user.name && data.user.name !== 'ضيف') document.getElementById('username').innerText = data.user.name;
-        document.getElementById('sync-status').innerText = '☁️ محفوظ على الخادم';
+        setSyncStatus('☁️ محفوظ على الخادم');
         document.getElementById('ref-link-preview').innerText = referralUrl();
 
         if (data.isNew && state.totalEarned > (data.state?.totalEarned || 0)) {
           // Keep the offline save recoverable; never import unverified cloud currency.
           try { localStorage.setItem('mining_offline_backup', JSON.stringify(state)); } catch (e) {}
-          document.getElementById('sync-status').innerText = '☁️ حساب سحابي جديد — حُفظ تقدم الجهاز كنسخة منفصلة';
+          setSyncStatus('☁️ حساب سحابي جديد — حُفظ تقدم الجهاز كنسخة منفصلة');
         }
-        if (data.state) {
-          // أرباح غياب محسوبة من آخر حفظ على الخادم (نطرح ما حُسب محلياً لمنع التكرار)
-          const elapsedSec = Math.max(0, (Date.now() - (data.state.lastSeen || Date.now())) / 1000);
-          const serverOffline = Math.min(elapsedSec, 8 * 3600) * (data.state.passiveIncome || 0);
-          state = { ...DEFAULT_STATE, ...data.state, costs: { ...DEFAULT_STATE.costs, ...(data.state.costs || {}) }, owned: { ...DEFAULT_STATE.owned, ...(data.state.owned || {}) }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(data.state.adventureUpgrades || {}) } };
-          if (serverOffline > localOfflineGain + 1) {
-            const diff = serverOffline - localOfflineGain;
-            state.gold += diff;
-            state.totalEarned += diff;
-          }
-          save();
+        // الخادم سوّى أرباح الغياب بنفسه (حتى 8 ساعات) — نعرضها كما كانت تُعرض محلياً
+        adoptServerState(data);
+        if (data.offline && data.offline.gold >= 1 && data.offline.seconds >= 60) {
+          setTimeout(() => alert(`💤 أثناء غيابك عدّن عمالك ${Math.floor(data.offline.gold).toLocaleString()} 🪙`), 400);
         }
-        updateUI();
-        updateAdvUpgradesUI();
+        flushOps();
       } catch (e) {
         serverMode = false; // نكمل بالحفظ المحلي (متصفح بدون خادم/توكن)
+        SYNC.clicks = 0; SYNC.boostedClicks = 0;
+        if (localOfflineGain >= 1) setTimeout(() => alert(`💤 أثناء غيابك عدّن عمالك ${Math.floor(localOfflineGain).toLocaleString()} 🪙`), 400);
       }
     }
 
@@ -685,6 +834,7 @@
           arenaRecord.wins += 1;
           state.gold += ARENA.winReward;
           state.totalEarned += ARENA.winReward;
+          enqueueOp({ type: 'reward', game: 'arena', expected: ARENA.winReward });
           arenaLog(`🏆 انتصرت! حصلت على +${ARENA.winReward} 🪙`);
           haptic('success');
         } else {
@@ -720,6 +870,7 @@
       if (boostActive() || now < (state.boostCooldownUntil || 0)) { haptic('error'); return; }
       state.boostUntil = now + 30_000;              // ×2 لمدة 30 ثانية
       state.boostCooldownUntil = now + 5 * 60_000;  // تهدئة 5 دقائق
+      enqueueOp({ type: 'boost' });                 // الخادم يعتمد النافذة ويضاعف النقرات والدخل خلالها
       haptic('success');
       updateUI();
       save();
@@ -729,8 +880,7 @@
       if (serverMode) {
         try {
           const data = await api('/api/claim-daily', { method: 'POST', body: '{}' });
-          state = { ...state, ...data.state };
-          if (profile) profile.daily = data.daily;
+          adoptServerState(data);
           haptic('success');
           alert(`🎁 حصلت على مكافأة يومية ${fmt(data.reward)} 🪙 (سلسلة ${data.daily.streak} يوم)`);
         } catch (e) {
@@ -882,16 +1032,20 @@
     function handleMine(e) {
       if (state.energy < state.clickPower) { haptic('error'); return; }
 
+      const gain = clickGain(); // ×2 أثناء التعزيز كما يعرض الزر
       state.energy -= state.clickPower;
-      state.gold += state.clickPower;
-      state.totalEarned += state.clickPower;
+      state.gold += gain;
+      state.totalEarned += gain;
+      // تُجمَّع النقرات وتُرسل كعملية واحدة؛ الخادم يحاسبها على الطاقة ومعدل النقر ونافذة التعزيز
+      SYNC.clicks += 1;
+      if (boostActive()) SYNC.boostedClicks += 1;
 
       haptic('light');
 
       const rect = clickArea.getBoundingClientRect();
       const x = (e.clientX ?? (rect.left + rect.width / 2)) - rect.left;
       const y = (e.clientY ?? (rect.top + rect.height / 2)) - rect.top;
-      createFloatingText(`+${state.clickPower}`, x, y);
+      createFloatingText(`+${gain}`, x, y);
       updateUI();
       save();
     }
@@ -1106,6 +1260,7 @@
       if (cost === null || state.gold < cost) { haptic('error'); return; }
       state.gold -= cost;
       state.adventureUpgrades[key] = advUpLevel(key) + 1;
+      enqueueOp({ type: 'buy_adv', key });
       if (key === 'cart') ADV.playerW = 78 + advUpLevel('cart') * 8;
       haptic('success');
       advBeep(880, 0.12, 'triangle', 0.06, 1320);
@@ -1702,6 +1857,7 @@
       if (reward > 0) {
         state.gold += reward;
         state.totalEarned += reward;
+        enqueueOp({ type: 'reward', game: 'adventure', score: finalScore, mode: adv.gameMode, boss: adv.bossDefeated, expected: reward });
       }
       const overlay = document.getElementById('game-overlay');
       document.getElementById('game-overlay-title').innerText = adv.bossDefeated ? '🏆 قتلت الزعيم!' : adv.lives <= 0 ? '💀 انتهت المغامرة!' : adv.gameMode === 'boss' ? '👹 هرب الزعيم هذه المرة!' : '⏰ انتهى الوقت!';
@@ -1919,6 +2075,7 @@
       state.owned[type] += 1;
       up.apply();
       state.costs[type] = Math.floor(cost * up.growth);
+      enqueueOp({ type: 'buy', item: type });
       haptic('success');
       updateUI();
       save();
@@ -1927,6 +2084,7 @@
     function resetGame() {
       if (!confirm('⚠️ سيتم حذف كل تقدمك نهائياً. متأكد؟')) return;
       localStorage.removeItem(STORAGE_KEY);
+      try { localStorage.removeItem(syncQueueKey()); } catch (e) {}
       location.reload();
     }
 

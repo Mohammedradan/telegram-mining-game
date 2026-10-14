@@ -25,7 +25,12 @@ const REFERRAL_REWARD = 1000;
 const MAX_CLICKS_PER_SEC = Number(process.env.MAX_CLICKS_PER_SEC || 20); // نقرات بشرية/لمس متعدد كحد أقصى معقول
 const ENERGY_REGEN_PER_SEC = 3;
 const OFFLINE_CAP_SEC = 8 * 3600;
-const GAIN_SLACK = 10; // هامش تقريب بسيط لكل حفظ
+const BOOST_DURATION_MS = 30_000;
+const BOOST_COOLDOWN_MS = 5 * 60_000;
+// نقرات لم تُزامَن بعد تُحتسب لها طاقة متجددة لعشر دقائق كحد أقصى (انقطاع شبكة معقول، لا جلسة غير متصلة كاملة)
+const MINE_WINDOW_CAP_SEC = 10 * 60;
+const MAX_OPS_PER_BATCH = 64;
+const MAX_SESSIONS_TRACKED = 6;
 
 const store = createStore();
 
@@ -132,88 +137,184 @@ function deriveStats(s) {
 }
 
 // ---------------------------------------------------------------------------
-// التحقق الخادمي من الحفظ (مكافحة الغش)
-// يقارن الحالة المُرسلة بآخر حالة موثوقة على الخادم والزمن المنقضي،
-// ويصحّح (clamp) أي قيم مستحيلة بدلاً من قبولها، مع عدّ المخالفات.
+// الاقتصاد الخادمي — الخادم مصدر الحقيقة للذهب والطاقة والمشتريات والتعزيز.
+// لا يُقبل من العميل رصيد ولا قدرات؛ يرسل العميل «عمليات» (نقرات مجمّعة، شراء،
+// تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
+// (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-function validateSave(user, input) {
-  const prev = user.state;
-  const now = Date.now();
-  const s = sanitizeState(input, prev);
-  let corrected = false;
-  const fix = (cond) => { if (cond) corrected = true; return cond; };
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward']);
+const ADV_MODE_REWARD = { classic: { scale: 1, cap: 100 }, blitz: { scale: 1.15, cap: 100 }, survival: { scale: 1.4, cap: 150 }, boss: { scale: 1.1, cap: 100 } };
+// مكافآت الألعاب المصغّرة ما زالت نتائج يبلّغ عنها العميل، لكنها الآن محدودة خادمياً
+// بسقف لكل وضع وفاصل زمني أدنى بين جولتين، وتُسجَّل في دفتر العمليات (لا تختبئ داخل سقف التعدين).
+const REWARD_RULES = {
+  adventure: {
+    minIntervalMs: 20_000,
+    compute(op) {
+      const cfg = ADV_MODE_REWARD[op.mode] || ADV_MODE_REWARD.classic;
+      const score = Math.floor(clampNum(op.score, 0, 100_000, 0));
+      const base = Math.min(cfg.cap, Math.floor(score / 5 * cfg.scale));
+      return base + (op.mode === 'boss' && op.boss === true ? 150 : 0);
+    },
+  },
+  arena: { minIntervalMs: 10_000, compute: () => 50 },
+};
 
-  // مكافآت خادمية (دعوة) لم يرها عميل الداعي بعد: تُدمج قبل المقارنة ثم تُعتمد
-  const creditApplied = user.unackedCredits || 0;
-  if (creditApplied > 0) { s.gold += creditApplied; s.totalEarned += creditApplied; }
+const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {} });
 
-  const elapsedSec = Math.min(Math.max(0, (now - (user.lastSaveAt || now)) / 1000), OFFLINE_CAP_SEC);
+// تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
+function ensureSync(user) {
+  const base = Number(user.lastSaveAt) || Number(user.updatedAt) || Date.now();
+  const sync = (user.sync && typeof user.sync === 'object' && !Array.isArray(user.sync)) ? user.sync : {};
+  const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  user.sync = {
+    settledAt: Number.isFinite(sync.settledAt) ? sync.settledAt : base,
+    energyAt: Number.isFinite(sync.energyAt) ? sync.energyAt : base,
+    sessions: obj(sync.sessions),
+    lastRewardAt: obj(sync.lastRewardAt),
+  };
+  user.revision = Number.isFinite(user.revision) ? user.revision : 0;
+  user.state = deriveStats(sanitizeState(user.state, defaultState()));
+  return user;
+}
 
-  // 1) المشتريات (تعدين + مغامرة) لا تتناقص، وزيادتها محدودة لكل حفظ
-  let expectedSpend = 0;
-  for (const t of Object.keys(UPGRADES_DEF)) {
-    if (fix(s.owned[t] < prev.owned[t])) s.owned[t] = prev.owned[t];
-    if (fix(s.owned[t] > prev.owned[t] + 200)) s.owned[t] = prev.owned[t] + 200;
-    expectedSpend += spendBetween(t, prev.owned[t], s.owned[t]);
+// الدخل السلبي يُحتسب من زمن الخادم فقط (حتى 8 ساعات غياب)، مضاعفاً خلال نافذة التعزيز الفعلية
+function settlePassive(user, now) {
+  const s = user.state; const sync = user.sync;
+  const elapsedSec = Math.max(0, (now - sync.settledAt) / 1000);
+  const effectiveSec = Math.min(elapsedSec, OFFLINE_CAP_SEC);
+  const boostedSec = overlapSec(now - effectiveSec * 1000, now, s.boostUntil - BOOST_DURATION_MS, s.boostUntil);
+  const gain = s.passiveIncome * (effectiveSec + boostedSec);
+  if (gain > 0) { s.gold += gain; s.totalEarned += gain; }
+  sync.settledAt = now;
+  return { seconds: Math.floor(elapsedSec), gold: gain };
+}
+
+// الطاقة تُخزَّن كما كانت عند آخر تسوية تعدين؛ للعرض نُسقطها إلى الآن دون كتابة
+function projectedState(user, now = Date.now()) {
+  const s = user.state;
+  const energy = Math.min(s.maxEnergy, s.energy + Math.max(0, (now - user.sync.energyAt) / 1000) * ENERGY_REGEN_PER_SEC);
+  return { ...s, energy, lastSeen: now };
+}
+
+function parseOpsRequest(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { error: 'طلب مزامنة غير صالح' };
+  const session = String(body.session || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  if (!session) return { error: 'معرّف جلسة مزامنة مفقود' };
+  if (!Array.isArray(body.ops) || body.ops.length > MAX_OPS_PER_BATCH) return { error: 'قائمة عمليات غير صالحة' };
+  const ops = [];
+  let prev = 0;
+  for (const raw of body.ops) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'عملية غير صالحة' };
+    const seq = Number(raw.seq);
+    if (!Number.isSafeInteger(seq) || seq <= prev) return { error: 'تسلسل عمليات غير صالح' };
+    if (typeof raw.type !== 'string' || !OP_TYPES.has(raw.type)) return { error: 'نوع عملية غير معروف' };
+    prev = seq;
+    const str = (v) => (typeof v === 'string' ? v.slice(0, 32) : '');
+    ops.push({ seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), game: str(raw.game), score: raw.score, mode: str(raw.mode), boss: raw.boss === true });
   }
-  for (const k of Object.keys(ADV_UPGRADES_DEF)) {
-    const prevLvl = prev.adventureUpgrades?.[k] || 0;
-    if (fix(s.adventureUpgrades[k] < prevLvl)) s.adventureUpgrades[k] = prevLvl;
-    if (fix(s.adventureUpgrades[k] > prevLvl + 5)) s.adventureUpgrades[k] = prevLvl + 5;
-    expectedSpend += advSpendBetween(k, prevLvl, s.adventureUpgrades[k]);
-  }
+  return { session, ops, revision: Number.isSafeInteger(body.revision) ? body.revision : null };
+}
 
-  // 2) القدرات والأسعار مشتقة من المشتريات حصراً
-  const beforeDerive = JSON.stringify([s.clickPower, s.passiveIncome, s.costs]);
-  deriveStats(s);
-  if (JSON.stringify([s.clickPower, s.passiveIncome, s.costs]) !== beforeDerive) corrected = true;
-
-  // 2.5) شراء لا يغطيه الرصيد + أقصى كسب ممكن خلال الفترة يُرفض كلياً (لا شراء بالدين)
-  {
-    const maxClickPower0 = Math.max(prev.clickPower, s.clickPower);
-    const maxPassive0 = Math.max(prev.passiveIncome, s.passiveIncome);
-    const boostGuess = (s.boostUntil > now || prev.boostUntil > user.lastSaveAt) ? 2 : 1;
-    const allowedEarly = elapsedSec * (MAX_CLICKS_PER_SEC * maxClickPower0 * boostGuess + maxPassive0 * boostGuess) + GAIN_SLACK + 120; // 120: هامش جائزة مغامرة/سباق قصيرة
-    if (expectedSpend > prev.gold + allowedEarly) {
-      s.owned = { ...prev.owned };
-      s.adventureUpgrades = { ...(prev.adventureUpgrades || defaultState().adventureUpgrades) };
-      expectedSpend = 0;
-      deriveStats(s);
-      corrected = true;
+// تطبيق دفعة عمليات على حالة موثوقة. يجب استدعاؤها داخل معاملة اللاعب وبعد settlePassive.
+function applyOps(user, session, ops, now) {
+  const s = user.state; const sync = user.sync;
+  const prevSeq = Number(sync.sessions[session]?.seq) || 0;
+  let lastSeq = prevSeq;
+  // ميزانية النقر منذ آخر تسوية طاقة: طاقة مخزّنة + تجدد (حتى 10 دقائق) ومعدل نقر أقصى، مع تسامح ثانية واحدة
+  const windowSec = Math.max(0, (now - sync.energyAt) / 1000);
+  const budgetSec = Math.min(windowSec, MINE_WINDOW_CAP_SEC);
+  let clickBudget = Math.floor(budgetSec * MAX_CLICKS_PER_SEC) + MAX_CLICKS_PER_SEC;
+  let energyBudget = s.energy + budgetSec * ENERGY_REGEN_PER_SEC;
+  let boostedBudget = null;
+  const computeBoostedBudget = () => {
+    const overlap = overlapSec(now - budgetSec * 1000, now, s.boostUntil - BOOST_DURATION_MS, s.boostUntil);
+    return Math.floor(overlap * MAX_CLICKS_PER_SEC) + ((overlap > 0 || s.boostUntil > now) ? MAX_CLICKS_PER_SEC : 0);
+  };
+  let energySpent = 0; let mined = false; let flagged = false;
+  const results = []; const ledger = [];
+  for (const op of ops) {
+    if (op.seq <= lastSeq) { results.push({ seq: op.seq, type: op.type, status: 'duplicate' }); continue; }
+    lastSeq = op.seq;
+    const r = { seq: op.seq, type: op.type, status: 'ok' };
+    let goldDelta = 0; let detail = null;
+    switch (op.type) {
+      case 'mine': {
+        const clicks = Math.floor(clampNum(op.clicks, 0, 1e6, 0));
+        const claimedBoosted = Math.floor(clampNum(op.boosted, 0, clicks, 0));
+        if (boostedBudget === null) boostedBudget = computeBoostedBudget();
+        const cp = s.clickPower;
+        const accepted = Math.max(0, Math.min(clicks, clickBudget, Math.floor(energyBudget / cp)));
+        const boosted = Math.max(0, Math.min(claimedBoosted, accepted, boostedBudget));
+        const cost = accepted * cp;
+        const gold = cost + boosted * cp; // النقرة المعزّزة تمنح الضعف بنفس تكلفة الطاقة
+        clickBudget -= accepted; energyBudget -= cost; boostedBudget -= boosted; energySpent += cost; mined = true;
+        s.gold += gold; s.totalEarned += gold;
+        Object.assign(r, { clicks: accepted, boosted, gold });
+        if (accepted < clicks || boosted < claimedBoosted) { r.status = 'clamped'; flagged = true; }
+        break;
+      }
+      case 'buy': {
+        if (!UPGRADES_DEF[op.item]) { r.status = 'invalid'; break; }
+        if (s.owned[op.item] >= 1e6) { r.status = 'rejected'; r.reason = 'max'; break; }
+        const cost = costFor(op.item, s.owned[op.item]);
+        r.cost = cost;
+        if (s.gold < cost) { r.status = 'rejected'; r.reason = 'insufficient'; flagged = true; break; }
+        s.gold -= cost; s.owned[op.item] += 1; deriveStats(s);
+        goldDelta = -cost; detail = { item: op.item, level: s.owned[op.item] };
+        break;
+      }
+      case 'buy_adv': {
+        const def = ADV_UPGRADES_DEF[op.key];
+        if (!def) { r.status = 'invalid'; break; }
+        const lvl = s.adventureUpgrades[op.key] || 0;
+        if (lvl >= def.max) { r.status = 'rejected'; r.reason = 'max'; break; }
+        const cost = advCostFor(op.key, lvl);
+        r.cost = cost;
+        if (s.gold < cost) { r.status = 'rejected'; r.reason = 'insufficient'; flagged = true; break; }
+        s.gold -= cost; s.adventureUpgrades[op.key] = lvl + 1;
+        goldDelta = -cost; detail = { key: op.key, level: lvl + 1 };
+        break;
+      }
+      case 'boost': {
+        if (s.boostUntil > now) { r.status = 'active'; r.until = s.boostUntil; break; }
+        if ((s.boostCooldownUntil || 0) > now) { r.status = 'cooldown'; r.retryAt = s.boostCooldownUntil; break; }
+        s.boostUntil = now + BOOST_DURATION_MS;
+        s.boostCooldownUntil = now + BOOST_COOLDOWN_MS;
+        boostedBudget = null; // نقرات لاحقة في الدفعة نفسها تُقاس على النافذة الجديدة
+        r.until = s.boostUntil; detail = { until: s.boostUntil };
+        break;
+      }
+      case 'reward': {
+        const rule = REWARD_RULES[op.game];
+        if (!rule) { r.status = 'invalid'; break; }
+        const last = Number(sync.lastRewardAt[op.game]) || 0;
+        if (now - last < rule.minIntervalMs) { r.status = 'too_soon'; r.gold = 0; r.retryAt = last + rule.minIntervalMs; break; }
+        const gold = rule.compute(op);
+        r.gold = gold;
+        if (gold <= 0) break; // جولة بلا جائزة لا تستهلك الفاصل الزمني
+        sync.lastRewardAt[op.game] = now;
+        s.gold += gold; s.totalEarned += gold;
+        goldDelta = gold; detail = { game: op.game, mode: op.mode || null, score: Math.floor(clampNum(op.score, 0, 100_000, 0)), boss: op.boss === true };
+        break;
+      }
+      default: r.status = 'invalid';
     }
+    results.push(r);
+    if (detail) ledger.push({ session, seq: op.seq, kind: op.type, detail, goldDelta, at: now });
   }
-
-  // 3) التعزيز: بداية جديدة فقط بعد انتهاء التهدئة، ولمدة ≤30 ثانية وتهدئة 5 دقائق
-  if (s.boostUntil !== prev.boostUntil || s.boostCooldownUntil !== prev.boostCooldownUntil) {
-    const startingBoost = s.boostUntil > now && s.boostUntil !== prev.boostUntil;
-    const valid = startingBoost
-      && s.boostUntil - now <= 30_000 + 2_000
-      && (prev.boostCooldownUntil || 0) <= now
-      && Math.abs((s.boostCooldownUntil - s.boostUntil) - 270_000) <= 15_000
-      && s.boostCooldownUntil >= prev.boostCooldownUntil;
-    if (fix(!valid)) { s.boostUntil = prev.boostUntil; s.boostCooldownUntil = prev.boostCooldownUntil; }
+  if (mined) {
+    // ما تبقى من الطاقة: المخزون + التجدد الكامل للنافذة − ما أُنفق، ولا يتجاوز الحد (الإنفاق لا يُنشئ طاقة)
+    s.energy = Math.max(0, Math.min(s.maxEnergy, s.energy + windowSec * ENERGY_REGEN_PER_SEC - energySpent));
+    sync.energyAt = now;
   }
-  const boosted = s.boostUntil > user.lastSaveAt || prev.boostUntil > user.lastSaveAt || s.boostUntil > now - 30_000 && prev.boostUntil > 0;
-  const boostFactor = boosted ? 2 : 1;
-
-  // 4) سقف الكسب الممكن خلال الزمن المنقضي (نقر + دخل سلبي + هامش)
-  const maxClickPower = Math.max(prev.clickPower, s.clickPower);
-  const maxPassive = Math.max(prev.passiveIncome, s.passiveIncome);
-  const allowedGain = elapsedSec * (MAX_CLICKS_PER_SEC * maxClickPower * boostFactor + maxPassive * boostFactor) + GAIN_SLACK;
-
-  const maxGold = prev.gold - expectedSpend + allowedGain;
-  if (fix(s.gold > maxGold)) s.gold = Math.max(0, maxGold);
-  if (fix(s.gold < prev.gold - expectedSpend)) s.gold = Math.max(0, prev.gold - expectedSpend); // ذهب لا يختفي بلا شراء (يحمي مكافآت الخادم من عميل قديم)
-
-  if (fix(s.totalEarned < prev.totalEarned)) s.totalEarned = prev.totalEarned;
-  if (fix(s.totalEarned > prev.totalEarned + allowedGain)) s.totalEarned = prev.totalEarned + allowedGain;
-
-  // 5) الطاقة لا تتجدد أسرع من المعدل، ولا تتجاوز الحد
-  const maxEnergyNow = Math.min(s.maxEnergy, prev.energy + elapsedSec * ENERGY_REGEN_PER_SEC);
-  if (fix(s.energy > maxEnergyNow)) s.energy = maxEnergyNow;
-
-  if (corrected) console.warn(`🛡️  تصحيح حفظ للاعب ${user.id} (مخالفات متراكمة: ${user.violations + 1})`);
-  return { state: s, corrected, creditApplied };
+  sync.sessions[session] = { seq: lastSeq, at: now };
+  const ids = Object.keys(sync.sessions);
+  if (ids.length > MAX_SESSIONS_TRACKED) {
+    ids.sort((a, b) => (sync.sessions[b].at || 0) - (sync.sessions[a].at || 0));
+    for (const id of ids.slice(MAX_SESSIONS_TRACKED)) delete sync.sessions[id];
+  }
+  return { results, ledger, flagged, lastSeq, applied: results.filter((r) => r.status !== 'duplicate').length };
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +357,8 @@ async function createUser(id, name) {
     lastSaveAt: now,
     createdAt: now,
     updatedAt: now,
+    revision: 0,
+    sync: freshSync(now),
   };
   // مكافآت دعوات وصلت قبل أن يفتح الداعي اللعبة أول مرة
   const pending = await store.getPending(user.id);
@@ -270,16 +373,19 @@ async function createUser(id, name) {
   return user;
 }
 
-function profileOf(user, isNew = false) {
+function profileOf(user, isNew = false, extra = {}) {
+  const now = Date.now();
   return {
     user: { id: user.id, name: user.name },
-    state: user.state,
+    state: projectedState(user, now),
+    revision: user.revision,
     referralCount: user.referralCount,
     referralEarnings: user.referralEarnings,
     referredBy: user.referredBy,
     daily: dailyInfo(user),
     isNew,
-    serverTime: Date.now(),
+    serverTime: now,
+    ...extra,
   };
 }
 
@@ -298,6 +404,7 @@ async function migrateLegacyJson() {
         dailyLastClaim: u.dailyLastClaim || null, dailyStreak: u.dailyStreak || 0,
         unackedCredits: 0, violations: 0,
         lastSaveAt: u.updatedAt || Date.now(), createdAt: u.createdAt || Date.now(), updatedAt: u.updatedAt || Date.now(),
+        revision: 0, sync: freshSync(u.updatedAt || Date.now()),
       });
     }
     for (const [id, count] of Object.entries(legacy.pendingReferrals || {})) await store.setPending(id, count);
@@ -382,12 +489,14 @@ app.get('/health', asyncRoute(async (req, res) => {
   res.json({ ok: true, bot: Boolean(BOT_TOKEN), db: store.driver, users: await store.countUsers() });
 }));
 
-// جلب/إنشاء ملف اللاعب — يعالج الدعوات عند أول دخول (?ref=ref_<id>)
+// جلب/إنشاء ملف اللاعب — يعالج الدعوات عند أول دخول (?ref=ref_<id>) ويسوّي الدخل السلبي خادمياً
 app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res) => {
   const refId = String(req.query.ref || '').replace(/^ref_/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
   const result = await store.withUsers([req.player.id, ...(refId ? [refId] : [])], async () => {
+    const now = Date.now();
     let user = await store.getUser(req.player.id);
     let isNew = false;
+    let offline = { seconds: 0, gold: 0 };
     if (!user) {
       user = await createUser(req.player.id, req.player.name);
       isNew = true;
@@ -395,12 +504,13 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
         user.referredBy = refId;
         const inviter = await store.getUser(refId);
         if (inviter) {
+          ensureSync(inviter);
           inviter.state.gold += REFERRAL_REWARD;
           inviter.state.totalEarned += REFERRAL_REWARD;
           inviter.referralCount += 1;
           inviter.referralEarnings += REFERRAL_REWARD;
-          inviter.unackedCredits = (inviter.unackedCredits || 0) + REFERRAL_REWARD; // سيُدمج في حفظه القادم أو يُعتمد الآن إن كان يقرأ ملفه
-          inviter.updatedAt = Date.now();
+          inviter.revision += 1; // يصل الداعي عبر حالته الموثوقة في مزامنته التالية
+          inviter.updatedAt = now;
           await store.putUser(inviter);
         } else {
           await store.addPending(refId);
@@ -408,52 +518,101 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
       }
       await store.putUser(user);
     } else {
+      ensureSync(user);
       if (req.player.name && user.name !== req.player.name && req.player.name !== 'ضيف') user.name = req.player.name;
-      // إيصال الحالة الحالية للعميل يعني اعتماد أي مكافآت خادمية معلّقة
-      if (user.unackedCredits) { user.unackedCredits = 0; }
-      user.updatedAt = Date.now();
+      offline = settlePassive(user, now);
+      user.unackedCredits = 0;
+      user.revision += 1;
+      user.updatedAt = now;
       await store.putUser(user);
     }
-    return profileOf(user, isNew);
+    return profileOf(user, isNew, { offline: { seconds: offline.seconds, gold: Math.floor(offline.gold) } });
   });
   // Do not acknowledge a reward or save until the database commit succeeded.
   res.json(result);
 }));
 
+// 🔁 المزامنة الموثوقة: دفعة عمليات مرقّمة لكل جلسة؛ إعادة الإرسال آمنة (التكرار يُتجاهل)
+app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, res) => {
+  const parsed = parseOpsRequest(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const result = await store.withUsers([req.player.id], async () => {
+    const now = Date.now();
+    let user = await store.getUser(req.player.id);
+    if (!user) user = await createUser(req.player.id, req.player.name);
+    ensureSync(user);
+    settlePassive(user, now);
+    const outcome = applyOps(user, parsed.session, parsed.ops, now);
+    if (outcome.flagged) user.violations += 1;
+    if (outcome.ledger.length) await store.appendLedger(user.id, outcome.ledger);
+    user.unackedCredits = 0;
+    user.revision += 1;
+    user.lastSaveAt = now;
+    user.updatedAt = now;
+    await store.putUser(user);
+    return {
+      ok: true,
+      revision: user.revision,
+      staleClient: parsed.revision !== null && parsed.revision < user.revision - 1,
+      sessionSeq: outcome.lastSeq,
+      applied: outcome.applied,
+      results: outcome.results,
+      violations: user.violations,
+      state: projectedState(user, now),
+      referralCount: user.referralCount,
+      referralEarnings: user.referralEarnings,
+      daily: dailyInfo(user),
+      serverTime: now,
+    };
+  });
+  res.json(result);
+}));
+
+// توافق مع عملاء قدامى (صفحة مخبأة قبل بروتوكول العمليات): لا يُقبل أي رصيد أو ترقية من الحالة المرسلة؛
+// يُعاد لهم ملف الخادم الموثوق فقط، وبعد إعادة التحميل يستخدم العميل /api/ops.
 app.post('/api/save', requireAuth, rateLimit('save', 120), asyncRoute(async (req, res) => {
   if (!req.body?.state || typeof req.body.state !== 'object' || Array.isArray(req.body.state)) {
     return res.status(400).json({ error: 'حالة حفظ غير صالحة' });
   }
   const result = await store.withUsers([req.player.id], async () => {
+    const now = Date.now();
     let user = await store.getUser(req.player.id);
     if (!user) user = await createUser(req.player.id, req.player.name);
-    // Local/offline state is not evidence of earned cloud currency, even on first login.
-    const { state, corrected, creditApplied } = validateSave(user, req.body.state);
-    user.state = state;
+    ensureSync(user);
+    settlePassive(user, now);
     user.unackedCredits = 0;
-    if (corrected) user.violations += 1;
-    user.lastSaveAt = Date.now();
-    user.updatedAt = Date.now();
+    user.revision += 1;
+    user.lastSaveAt = now;
+    user.updatedAt = now;
     await store.putUser(user);
-    return { ok: true, corrected, violations: user.violations, serverCreditsApplied: creditApplied, state: user.state, serverTime: Date.now() };
+    const state = projectedState(user, now);
+    const claimed = sanitizeState(req.body.state, user.state);
+    const corrected = Math.floor(claimed.gold) !== Math.floor(state.gold)
+      || JSON.stringify(claimed.owned) !== JSON.stringify(state.owned)
+      || JSON.stringify(claimed.adventureUpgrades) !== JSON.stringify(state.adventureUpgrades);
+    return { ok: true, legacy: true, corrected, violations: user.violations, serverCreditsApplied: 0, state, revision: user.revision, serverTime: now };
   });
   res.json(result);
 }));
 
 app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(async (req, res) => {
   const result = await store.withUsers([req.player.id], async () => {
+    const now = Date.now();
     let user = await store.getUser(req.player.id);
     if (!user) user = await createUser(req.player.id, req.player.name);
+    ensureSync(user);
     const info = dailyInfo(user);
     if (!info.canClaim) return { status: 409, body: { error: 'استلمت مكافأة اليوم — عُد غداً!', daily: info } };
+    settlePassive(user, now);
     user.dailyStreak = info.streak;
     user.dailyLastClaim = info.today;
     user.state.gold += info.reward;
     user.state.totalEarned += info.reward;
-    user.lastSaveAt = Date.now();
-    user.updatedAt = Date.now();
+    user.revision += 1;
+    user.lastSaveAt = now;
+    user.updatedAt = now;
     await store.putUser(user);
-    return { status: 200, body: { ok: true, reward: info.reward, state: user.state, daily: dailyInfo(user) } };
+    return { status: 200, body: { ok: true, reward: info.reward, state: projectedState(user, now), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
   });
   res.status(result.status).json(result.body);
 }));
