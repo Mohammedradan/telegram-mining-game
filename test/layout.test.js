@@ -10,8 +10,14 @@ const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('large screens: the app is a centered phone-width column, background covers the root', () => {
   assert.match(style, /body\s*\{[^}]*max-width:\s*520px;[^}]*margin:\s*0 auto;/s);
+  // Tailwind CDN يحقن body { margin: 0 } بعد <style> فيدفع العمود لأقصى اليمين في RTL لولا !important و mx-auto
+  assert.match(style, /margin-left:\s*auto\s*!important;\s*margin-right:\s*auto\s*!important;/);
+  assert.match(html, /<body class="[^"]*\bmx-auto\b/);
   assert.match(style, /html\s*\{[^}]*background:\s*radial-gradient/s);
   assert.doesNotMatch(html, /<body class="[^"]*h-screen/);
+  // شريط التمرير داكن والخط الاحتياطي يدعم رموز Unicode 13+ مثل 🪙 و🪨 على ويندوز 10
+  assert.match(style, /\.tab-content::-webkit-scrollbar-thumb/);
+  assert.match(style, /Noto Color Emoji/);
 });
 
 test('small screens: body height follows the real viewport and tabs scroll internally', () => {

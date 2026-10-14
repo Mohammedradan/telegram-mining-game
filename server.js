@@ -218,7 +218,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'achievement', 'arena']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -321,14 +321,19 @@ function ensureMissions(user, now) {
   if (!valid) user.sync.missions = { day, items: pickMissions(user.id, day), bonusClaimed: false };
   return user.sync.missions;
 }
-function trackMission(user, key, amount, now) {
-  const def = MISSION_BY_KEY[key];
-  const value = Math.max(0, Number(amount) || 0);
+function trackMissionList(items, byKey, key, value) {
+  const def = byKey[key];
   if (!def || value <= 0) return;
-  for (const item of ensureMissions(user, now).items) {
+  for (const item of items) {
     if (item.key !== key || item.claimed) continue;
     item.progress = def.mode === 'max' ? Math.max(item.progress || 0, value) : Math.min(def.target, (item.progress || 0) + value);
   }
+}
+function trackMission(user, key, amount, now) {
+  const value = Math.max(0, Number(amount) || 0);
+  if (value <= 0) return;
+  trackMissionList(ensureMissions(user, now).items, MISSION_BY_KEY, key, value);
+  trackMissionList(ensureWeeklyMissions(user, now).items, WEEKLY_MISSION_BY_KEY, key, value);
 }
 function missionsView(user, now) {
   const m = ensureMissions(user, now);
@@ -360,6 +365,74 @@ function claimMission(user, key, now) {
   user.sync.missionsClaimed = (Number(user.sync.missionsClaimed) || 0) + 1; // يغذّي إنجاز «مثابر»
   s.gold += def.gold; s.totalEarned += def.gold;
   return { status: 'ok', key, gold: def.gold, xp: grantXp(s, def.xp), day: m.day };
+}
+
+// ---------------------------------------------------------------------------
+// المهام الأسبوعية — يولّدها الخادم لكل لاعب/أسبوع ISO (UTC) من مجموعة ثابتة بنفس نمط
+// المهام اليومية، ويتقدّم عدّادها من العمليات الموثوقة نفسها، والاستلام عبر weekly_mission في الدفتر.
+// ---------------------------------------------------------------------------
+const WEEKLY_MISSION_POOL = [
+  { key: 'mine_energy', icon: '⚡', title: 'أنفق {n} طاقة في التعدين هذا الأسبوع', target: 3000, gold: 500, xp: 120, mode: 'sum' },
+  { key: 'mine_gold', icon: '⛏️', title: 'عدّن {n} ذهب بالنقر هذا الأسبوع', target: 4000, gold: 500, xp: 120, mode: 'sum' },
+  { key: 'runs', icon: '🎮', title: 'أكمل {n} جولات مغامرة هذا الأسبوع', target: 15, gold: 600, xp: 150, mode: 'sum' },
+  { key: 'gems', icon: '💎', title: 'التقط {n} جوهرة في المغامرة هذا الأسبوع', target: 300, gold: 600, xp: 150, mode: 'sum' },
+  { key: 'score', icon: '🏅', title: 'حقق {n} نقطة في جولة واحدة هذا الأسبوع', target: 650, gold: 700, xp: 180, mode: 'max' },
+  { key: 'boss', icon: '👹', title: 'اهزم زعيم المنجم {n} مرات هذا الأسبوع', target: 3, gold: 900, xp: 220, mode: 'sum' },
+  { key: 'boost', icon: '🚀', title: 'فعّل التعزيز {n} مرات هذا الأسبوع', target: 8, gold: 400, xp: 100, mode: 'sum' },
+  { key: 'buy', icon: '🛒', title: 'اشترِ {n} ترقيات هذا الأسبوع', target: 6, gold: 500, xp: 120, mode: 'sum' },
+  { key: 'play_time', icon: '⏱️', title: 'العب {n} ثانية في المغامرة هذا الأسبوع', target: 900, gold: 600, xp: 150, mode: 'sum' },
+  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء هذا الأسبوع', target: 400, gold: 700, xp: 180, mode: 'max' },
+  { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة هذا الأسبوع', target: 8, gold: 500, xp: 120, mode: 'sum' },
+];
+const WEEKLY_MISSION_BY_KEY = Object.fromEntries(WEEKLY_MISSION_POOL.map((m) => [m.key, m]));
+const WEEKLY_MISSIONS_PER_WEEK = 3;
+const WEEKLY_MISSION_BONUS = { gold: 1000, xp: 300 };
+
+function pickWeeklyMissions(userId, week) {
+  let seed = hash32(`weekly:${userId}:${week}`) || 1;
+  const next = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
+  const pool = WEEKLY_MISSION_POOL.map((_, i) => i);
+  const chosen = [];
+  while (chosen.length < WEEKLY_MISSIONS_PER_WEEK && pool.length) chosen.push(pool.splice(Math.floor(next() * pool.length), 1)[0]);
+  return chosen.map((i) => ({ key: WEEKLY_MISSION_POOL[i].key, progress: 0, claimed: false }));
+}
+function ensureWeeklyMissions(user, now) {
+  const week = currentWeekKey(new Date(now));
+  const w = user.sync.weeklyMissions;
+  const valid = w && w.week === week && Array.isArray(w.items) && w.items.length > 0 && w.items.every((it) => it && WEEKLY_MISSION_BY_KEY[it.key]);
+  if (!valid) user.sync.weeklyMissions = { week, items: pickWeeklyMissions(user.id, week), bonusClaimed: false };
+  return user.sync.weeklyMissions;
+}
+function weeklyMissionsView(user, now) {
+  const w = ensureWeeklyMissions(user, now);
+  const items = w.items.map((item) => {
+    const def = WEEKLY_MISSION_BY_KEY[item.key];
+    const progress = Math.min(def.target, Math.floor(item.progress || 0));
+    return { key: def.key, icon: def.icon, title: def.title.replace('{n}', String(def.target)), target: def.target, progress, done: progress >= def.target, claimed: Boolean(item.claimed), gold: def.gold, xp: def.xp };
+  });
+  const d = new Date(now);
+  const daysUntilMonday = 8 - (d.getUTCDay() || 7);
+  const resetsIn = Math.max(0, Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + daysUntilMonday) - now) / 1000));
+  const allClaimed = items.length > 0 && items.every((i) => i.claimed);
+  return { week: w.week, resetsIn, items, bonus: { ...WEEKLY_MISSION_BONUS, ready: allClaimed && !w.bonusClaimed, claimed: Boolean(w.bonusClaimed) } };
+}
+function claimWeeklyMission(user, key, now) {
+  const s = user.state; const w = ensureWeeklyMissions(user, now);
+  if (key === 'bonus') {
+    if (w.bonusClaimed) return { status: 'rejected', reason: 'claimed' };
+    if (!w.items.every((i) => i.claimed)) return { status: 'rejected', reason: 'incomplete' };
+    w.bonusClaimed = true;
+    s.gold += WEEKLY_MISSION_BONUS.gold; s.totalEarned += WEEKLY_MISSION_BONUS.gold;
+    return { status: 'ok', key, gold: WEEKLY_MISSION_BONUS.gold, xp: grantXp(s, WEEKLY_MISSION_BONUS.xp), week: w.week };
+  }
+  const def = WEEKLY_MISSION_BY_KEY[key]; const item = w.items.find((i) => i.key === key);
+  if (!def || !item) return { status: 'invalid' };
+  if (item.claimed) return { status: 'rejected', reason: 'claimed' };
+  if ((item.progress || 0) < def.target) return { status: 'rejected', reason: 'incomplete', progress: Math.floor(item.progress || 0), target: def.target };
+  item.claimed = true;
+  user.sync.weeklyClaimed = (Number(user.sync.weeklyClaimed) || 0) + 1;
+  s.gold += def.gold; s.totalEarned += def.gold;
+  return { status: 'ok', key, gold: def.gold, xp: grantXp(s, def.xp), week: w.week };
 }
 
 // ---------------------------------------------------------------------------
@@ -485,7 +558,7 @@ function applyArena(user, op, now) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, achievements: {}, arena: freshArena() });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena() });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -501,6 +574,8 @@ function ensureSync(user) {
     xpCarry: Number.isFinite(sync.xpCarry) ? sync.xpCarry : 0,
     missions: obj(sync.missions),
     missionsClaimed: Number.isFinite(sync.missionsClaimed) ? sync.missionsClaimed : 0,
+    weeklyMissions: obj(sync.weeklyMissions),
+    weeklyClaimed: Number.isFinite(sync.weeklyClaimed) ? sync.weeklyClaimed : 0,
     achievements: obj(sync.achievements),
     arena: normalizeArena(sync.arena),
   };
@@ -678,6 +753,12 @@ function applyOps(user, session, ops, now, ctx = {}) {
         if (claim.status === 'ok') { goldDelta = claim.gold; detail = { key: claim.key, day: claim.day, xp: claim.xp }; }
         break;
       }
+      case 'weekly_mission': {
+        const claim = claimWeeklyMission(user, op.key, now);
+        Object.assign(r, claim);
+        if (claim.status === 'ok') { goldDelta = claim.gold; detail = { key: claim.key, week: claim.week, xp: claim.xp }; }
+        break;
+      }
       case 'achievement': {
         const claim = claimAchievement(user, op.id, ctx, now);
         Object.assign(r, claim);
@@ -776,6 +857,7 @@ function profileOf(user, isNew = false, extra = {}) {
     state: projectedState(user, now),
     progress: progressOf(user.state),
     missions: missionsView(user, now),
+    weeklyMissions: weeklyMissionsView(user, now),
     achievements: achievementsView(user, { raceWins: extra.race?.wins || 0 }),
     arena: arenaView(user),
     revision: user.revision,
@@ -969,6 +1051,7 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
       progress: progressOf(user.state),
       levelUp: outcome.levelUp,
       missions: missionsView(user, now),
+      weeklyMissions: weeklyMissionsView(user, now),
       achievements: achievementsView(user, ctx),
       arena: arenaView(user),
       referralCount: user.referralCount,
@@ -1028,7 +1111,7 @@ app.post('/api/claim-daily', requireAuth, rateLimit('daily', 10), asyncRoute(asy
     user.lastSaveAt = now;
     user.updatedAt = now;
     await store.putUser(user);
-    return { status: 200, body: { ok: true, reward: info.reward, xp, state: projectedState(user, now), progress: progressOf(user.state), levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null, missions: missionsView(user, now), achievements: achievementsView(user, ctx), arena: arenaView(user), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
+    return { status: 200, body: { ok: true, reward: info.reward, xp, state: projectedState(user, now), progress: progressOf(user.state), levelUp: levelAfter > levelBefore ? { from: levelBefore, to: levelAfter } : null, missions: missionsView(user, now), weeklyMissions: weeklyMissionsView(user, now), achievements: achievementsView(user, ctx), arena: arenaView(user), revision: user.revision, daily: dailyInfo(user), serverTime: now } };
   });
   res.status(result.status).json(result.body);
 }));
