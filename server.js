@@ -15,8 +15,10 @@ const HOST = process.env.HOST || '0.0.0.0';
 const RAW_TOKEN = (process.env.BOT_TOKEN || '').trim();
 const PLACEHOLDER = 'ضع_هنا_التوكن_الخاص_بك_من_BotFather';
 const BOT_TOKEN = RAW_TOKEN && RAW_TOKEN !== PLACEHOLDER ? RAW_TOKEN : '';
-// وضع الضيف (حفظ بدون تيليجرام) يعمل تلقائياً عند غياب التوكن، ويمكن تفعيله صراحةً
-const ALLOW_GUEST = !BOT_TOKEN || process.env.ALLOW_GUEST_AUTH === 'true';
+// وضع الضيف للتطوير فقط عند غياب التوكن؛ في الإنتاج لا يُسمح به إلا بتفعيل صريح.
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const ALLOW_GUEST = process.env.ALLOW_GUEST_AUTH === 'true'
+  || (!BOT_TOKEN && !IS_PRODUCTION && process.env.ALLOW_GUEST_AUTH !== 'false');
 const REFERRAL_REWARD = 1000;
 
 // إعدادات مكافحة الغش الخادمية (قابلة للضبط من البيئة)
@@ -328,8 +330,12 @@ function validateInitData(initData) {
   const computed = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
   const a = Buffer.from(computed); const b = Buffer.from(hash);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  const authDate = Number(params.get('auth_date') || 0);
-  if (!authDate || Date.now() / 1000 - authDate > 86400) return null; // أقدم من 24 ساعة
+  const authDateRaw = params.get('auth_date');
+  const authDate = Number(authDateRaw);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  // ارفض التاريخ المفقود/غير الرقمي/المستقبلي بشكل غير معقول/الأقدم من 24 ساعة.
+  if (!authDateRaw || !Number.isFinite(authDate) || authDate <= 0
+      || authDate > nowSeconds + 30 || nowSeconds - authDate > 86400) return null;
   try { return JSON.parse(params.get('user') || 'null'); } catch { return null; }
 }
 
@@ -340,7 +346,9 @@ function parseInitDataUser(initData) { // بدون توكن لا يمكن الت
 function requireAuth(req, res, next) {
   const initData = req.get('x-telegram-init-data') || (req.get('authorization') || '').replace(/^tma\s+/i, '');
   if (initData) {
-    const tgUser = BOT_TOKEN ? validateInitData(initData) : parseInitDataUser(initData);
+    const tgUser = BOT_TOKEN
+      ? validateInitData(initData)
+      : (!IS_PRODUCTION && ALLOW_GUEST ? parseInitDataUser(initData) : null);
     if (!tgUser?.id) return res.status(401).json({ error: 'بيانات تيليجرام غير صالحة أو منتهية — أعد فتح اللعبة من البوت' });
     req.player = { id: String(tgUser.id), name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || 'معدّن أسطوري' };
     return next();
@@ -489,7 +497,9 @@ function setupMultiplayer(httpServer) {
     const initData = url.searchParams.get('initData') || '';
     const guest = (url.searchParams.get('guest') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
     if (initData) {
-      const tgUser = BOT_TOKEN ? validateInitData(initData) : parseInitDataUser(initData);
+      const tgUser = BOT_TOKEN
+      ? validateInitData(initData)
+      : (!IS_PRODUCTION && ALLOW_GUEST ? parseInitDataUser(initData) : null);
       if (tgUser?.id) player = { id: String(tgUser.id), name: tgUser.first_name || 'لاعب' };
     } else if (guest && ALLOW_GUEST) {
       player = { id: `guest_${guest}`, name: 'ضيف' };
