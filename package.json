@@ -10,16 +10,14 @@
     "test": "node --test test/api.test.js test/multiplayer.test.js test/auth.test.js test/client-security.test.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "pg": "^8.23.1",
     "telegraf": "^4.16.3",
-    "ws": "^8.22.0"
-  },
-  "optionalDependencies": {
+    "ws": "^8.22.0",
     "better-sqlite3": "^13.0.3"
   }
 }
