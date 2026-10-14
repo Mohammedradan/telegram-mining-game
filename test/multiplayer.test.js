@@ -53,7 +53,11 @@ function connect(guest) {
         return false;
       });
     });
-    ws.on('open', () => { sockets.push(ws); resolve(ws); });
+    ws.on('open', () => {
+      sockets.push(ws);
+      // open is only the transport handshake; welcome confirms server readiness.
+      ws.waitFor('welcome').then(() => resolve(ws), reject);
+    });
     ws.on('error', reject);
   });
 }
