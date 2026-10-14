@@ -30,3 +30,15 @@ test('end-of-run summary tells players what zones they unlocked or how to unlock
   assert.match(html, /المناطق المفتوحة: \$\{unlockedZonesAfterRun\}\/\$\{ADV_MINE_ZONES\.length\}/);
   assert.match(html, /zoneProgressText/);
 });
+
+test('zone progression is computed on the server and only lifted (never lowered) by the device history', () => {
+  assert.match(html, /const advServer = \{ zones: 0, runs: 0 \};/);
+  assert.match(html, /return Math\.max\(unlocked, Math\.min\(ADV_MINE_ZONES\.length, Math\.floor\(advServer\.zones\) \|\| 1\)\);/);
+  assert.match(html, /function adoptServerAdventure\(a, raceTotals\)/);
+  assert.match(html, /advServer\.zones = Math\.max\(1, Math\.floor\(Number\(a\.zones\) \|\| 1\)\);/);
+  assert.match(html, /adoptServerAdventure\(data\.state\.adventure, data\.race\)/);
+});
+
+test('every finished round is reported to the server with the facts it needs to verify it', () => {
+  assert.match(html, /type: 'run', mode: adv\.gameMode, difficulty: adv\.gameDifficulty, score: finalScore, gems: adv\.gemsCaught,\s+combo: adv\.maxCombo, duration: Math\.floor\(adv\.elapsed\), boss: adv\.bossDefeated, race: inRace, expected: reward/);
+});

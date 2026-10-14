@@ -30,6 +30,15 @@ const BOOST_COOLDOWN_MS = 5 * 60_000;
 // نقرات لم تُزامَن بعد تُحتسب لها طاقة متجددة لعشر دقائق كحد أقصى (انقطاع شبكة معقول، لا جلسة غير متصلة كاملة)
 const MINE_WINDOW_CAP_SEC = 10 * 60;
 const MAX_OPS_PER_BATCH = 64;
+// جولات المغامرة: زمن اللعب المبلَّغ عنه لا يتجاوز الزمن الحقيقي منذ آخر جولة (بسقف 30 دقيقة بعد غياب)
+const RUN_WINDOW_CAP_SEC = 30 * 60;
+const RUN_SLACK_SEC = 3;                  // تسامح لزمن الشبكة/الطابور بين نهاية الجولة ووصول تقريرها
+const RUN_REWARD_GAP_SEC = 20;            // فاصل أدنى بين جولتين مكافأتين (على الخط الزمني للجولات)
+const RUN_MAX_SCORE_PER_SEC = 40;         // النقاط المعتمدة للمكافأة لا تتجاوز هذا المعدل
+const RUN_HARD_SCORE_PER_SEC = 300;       // سقف فيزيائي للنقاط المسجّلة في الإحصاءات
+const RUN_MAX_OBJECTS_PER_SEC = 5;        // أقصى توليد عناصر في اللعبة (كل 0.2 ثانية)
+const RUN_MIN_BOSS_SEC = 8;               // لا يُحتسب قتل زعيم في جولة أقصر من ذلك
+const RUN_MIN_SEC = 5;                    // جولة أقصر من ذلك ليست جولة حقيقية (لا تُحتسب)
 const MAX_SESSIONS_TRACKED = 6;
 
 const store = createStore();
@@ -49,8 +58,12 @@ const defaultState = () => ({
   adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
   boostUntil: 0,
   boostCooldownUntil: 0,
+  adventure: defaultAdventure(),
   lastSeen: Date.now(),
 });
+// إحصاءات المغامرة الموثوقة (تُحدَّث من جولات يتحقق منها الخادم فقط) — المناطق مشتقة منها
+const ADV_STAT_KEYS = ['runs', 'gems', 'maxCombo', 'bestScore', 'bestSurvival', 'bossWins', 'rewardEarned', 'playSec'];
+function defaultAdventure() { return { runs: 0, gems: 0, maxCombo: 0, bestScore: 0, bestSurvival: 0, bossWins: 0, rewardEarned: 0, playSec: 0, zones: 1 }; }
 
 const clampNum = (v, min, max, fallback) => {
   const n = Number(v);
@@ -85,8 +98,16 @@ function sanitizeState(input, base = defaultState()) {
     ),
     boostUntil: clampNum(s.boostUntil, 0, Date.now() + 24 * 3600e3, 0),
     boostCooldownUntil: clampNum(s.boostCooldownUntil, 0, Date.now() + 24 * 3600e3, 0),
+    adventure: sanitizeAdventure(s.adventure, base.adventure),
     lastSeen: Date.now(),
   };
+}
+function sanitizeAdventure(input, base = defaultAdventure()) {
+  const a = (input && typeof input === 'object' && !Array.isArray(input)) ? input : {};
+  const out = {};
+  for (const k of ADV_STAT_KEYS) out[k] = Math.floor(clampNum(a[k], 0, 1e12, base?.[k] || 0));
+  out.zones = zonesFor(out);
+  return out;
 }
 
 // الأسعار والقدرات مشتقة حتمياً من عدد المشتريات — لا نثق بقيم العميل
@@ -129,10 +150,25 @@ function advSpendBetween(key, from, to) {
   return total;
 }
 
+// فتح مناطق المغامرة (نفس عتبات الواجهة) — يُشتق خادمياً من إحصاءات موثوقة
+const ADV_ZONE_RULES = [
+  { gems: 0, runs: 0, bosses: 0 },
+  { gems: 25, runs: 3, bosses: 0 },
+  { gems: 75, runs: 0, bosses: 1 },
+];
+function zonesFor(a) {
+  let unlocked = 1;
+  if (a.gems >= ADV_ZONE_RULES[1].gems || a.runs >= ADV_ZONE_RULES[1].runs) unlocked = 2;
+  if (a.gems >= ADV_ZONE_RULES[2].gems || a.bossWins >= ADV_ZONE_RULES[2].bosses) unlocked = 3;
+  return unlocked;
+}
+
 function deriveStats(s) {
   s.clickPower = 1 + s.owned.click;
   s.passiveIncome = s.owned.bot * 5 + s.owned.rig * 25;
   for (const t of Object.keys(UPGRADES_DEF)) s.costs[t] = costFor(t, s.owned[t]);
+  if (!s.adventure) s.adventure = defaultAdventure();
+  s.adventure.zones = zonesFor(s.adventure);
   return s;
 }
 
@@ -142,25 +178,68 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward']);
-const ADV_MODE_REWARD = { classic: { scale: 1, cap: 100 }, blitz: { scale: 1.15, cap: 100 }, survival: { scale: 1.4, cap: 150 }, boss: { scale: 1.1, cap: 100 } };
-// مكافآت الألعاب المصغّرة ما زالت نتائج يبلّغ عنها العميل، لكنها الآن محدودة خادمياً
-// بسقف لكل وضع وفاصل زمني أدنى بين جولتين، وتُسجَّل في دفتر العمليات (لا تختبئ داخل سقف التعدين).
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run']);
+// جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
+const ADV_RUN_MODES = {
+  classic: { maxSec: 60, scale: 1, cap: 100 },
+  blitz: { maxSec: 30, scale: 1.15, cap: 100 },
+  survival: { maxSec: 3600, scale: 1.4, cap: 150 },
+  boss: { maxSec: 75, scale: 1.1, cap: 100 },
+};
+const ADV_DIFFICULTIES = new Set(['easy', 'normal', 'hard']);
+// مكافآت الألعاب المصغّرة الأخرى ما زالت نتائج يبلّغ عنها العميل، لكنها محدودة خادمياً
+// بفاصل زمني أدنى وتُسجَّل في دفتر العمليات. جولات المغامرة لها عملية `run` خاصة بها.
 const REWARD_RULES = {
-  adventure: {
-    minIntervalMs: 20_000,
-    compute(op) {
-      const cfg = ADV_MODE_REWARD[op.mode] || ADV_MODE_REWARD.classic;
-      const score = Math.floor(clampNum(op.score, 0, 100_000, 0));
-      const base = Math.min(cfg.cap, Math.floor(score / 5 * cfg.scale));
-      return base + (op.mode === 'boss' && op.boss === true ? 150 : 0);
-    },
-  },
   arena: { minIntervalMs: 10_000, compute: () => 50 },
 };
 
+// تقرير جولة مغامرة: يُقبل فقط إن اتسع له الزمن الحقيقي منذ آخر جولة، وتُقصّ أرقامه إلى ما تسمح به
+// فيزياء اللعبة (توليد ≤ 5 عناصر/ثانية). يُحدّث الإحصاءات الموثوقة ويحسب المكافأة من زمن اللعب الفعلي.
+function applyRun(user, op, now, timeline) {
+  const s = user.state; const a = s.adventure;
+  const modeCfg = ADV_RUN_MODES[op.mode];
+  if (!modeCfg) return { status: 'invalid' };
+  const difficulty = ADV_DIFFICULTIES.has(op.difficulty) ? op.difficulty : 'normal';
+  const duration = Math.floor(clampNum(op.duration, 0, modeCfg.maxSec + 1, 0));
+  if (duration < RUN_MIN_SEC) return { status: 'rejected', reason: 'short', duration };
+  // نهاية الجولة كما يدّعيها العميل (ago = منذ كم مللي ثانية انتهت) محصورة بين آخر جولة والآن،
+  // ويجب أن يتسع ما بينهما لزمن الجولة (مع تسامح الشبكة) — زمن لعب أكثر من الزمن الحقيقي مرفوض
+  const claimedEnd = now - clampNum(op.ago, 0, RUN_WINDOW_CAP_SEC * 1000, 0);
+  const endAt = Math.min(now, Math.max(timeline.cursor, claimedEnd));
+  const needMs = Math.max(duration - RUN_SLACK_SEC, 2) * 1000;
+  if (endAt - timeline.cursor < needMs) return { status: 'rejected', reason: 'time', duration, flagged: true };
+  timeline.cursor = endAt;
+  const maxObjects = duration * RUN_MAX_OBJECTS_PER_SEC + RUN_MAX_OBJECTS_PER_SEC;
+  const gems = Math.floor(clampNum(op.gems, 0, 1e6, 0));
+  const combo = Math.floor(clampNum(op.combo, 0, 1e6, 0));
+  const rawScore = Math.floor(clampNum(op.score, 0, 1e9, 0));
+  const score = Math.min(rawScore, duration * RUN_HARD_SCORE_PER_SEC + RUN_HARD_SCORE_PER_SEC);
+  const bossKill = op.mode === 'boss' && op.boss === true && duration >= RUN_MIN_BOSS_SEC;
+  const clamped = gems > maxObjects || combo > maxObjects || rawScore > score || (op.boss === true && !bossKill);
+  const r = { status: clamped ? 'clamped' : 'ok', mode: op.mode, difficulty, duration, score, gems: Math.min(gems, maxObjects), combo: Math.min(combo, maxObjects), boss: bossKill, race: op.race === true, gold: 0, flagged: clamped };
+  // المكافأة: من النقاط التي يسمح بها زمن اللعب، بسقف الوضع، وبفاصل 20 ثانية بين جولتين مكافأتين
+  if (!r.race) {
+    const basis = Math.min(score, duration * RUN_MAX_SCORE_PER_SEC);
+    const gold = Math.min(modeCfg.cap, Math.floor(basis / 5 * modeCfg.scale)) + (bossKill ? 150 : 0);
+    if (gold > 0) {
+      if (endAt - timeline.lastRewardEnd < RUN_REWARD_GAP_SEC * 1000) r.reason = 'too_soon';
+      else { r.gold = gold; timeline.lastRewardEnd = endAt; s.gold += gold; s.totalEarned += gold; }
+    }
+  }
+  const zonesBefore = a.zones;
+  a.runs += 1; a.gems += r.gems; a.playSec += duration;
+  a.maxCombo = Math.max(a.maxCombo, r.combo);
+  a.bestScore = Math.max(a.bestScore, score);
+  if (op.mode === 'survival') a.bestSurvival = Math.max(a.bestSurvival, score);
+  if (bossKill) a.bossWins += 1;
+  a.rewardEarned += r.gold;
+  a.zones = zonesFor(a);
+  r.zones = a.zones; r.unlocked = a.zones > zonesBefore;
+  return r;
+}
+
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {} });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0 });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -172,6 +251,7 @@ function ensureSync(user) {
     energyAt: Number.isFinite(sync.energyAt) ? sync.energyAt : base,
     sessions: obj(sync.sessions),
     lastRewardAt: obj(sync.lastRewardAt),
+    lastRunAt: Number.isFinite(sync.lastRunAt) ? sync.lastRunAt : 0,
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
@@ -211,7 +291,11 @@ function parseOpsRequest(body) {
     if (typeof raw.type !== 'string' || !OP_TYPES.has(raw.type)) return { error: 'نوع عملية غير معروف' };
     prev = seq;
     const str = (v) => (typeof v === 'string' ? v.slice(0, 32) : '');
-    ops.push({ seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), game: str(raw.game), score: raw.score, mode: str(raw.mode), boss: raw.boss === true });
+    ops.push({
+      seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), game: str(raw.game),
+      score: raw.score, mode: str(raw.mode), boss: raw.boss === true,
+      difficulty: str(raw.difficulty), gems: raw.gems, combo: raw.combo, duration: raw.duration, race: raw.race === true, ago: raw.ago,
+    });
   }
   return { session, ops, revision: Number.isSafeInteger(body.revision) ? body.revision : null };
 }
@@ -232,6 +316,12 @@ function applyOps(user, session, ops, now) {
     return Math.floor(overlap * MAX_CLICKS_PER_SEC) + ((overlap > 0 || s.boostUntil > now) ? MAX_CLICKS_PER_SEC : 0);
   };
   let energySpent = 0; let mined = false; let flagged = false;
+  // خط زمني لجولات المغامرة داخل الدفعة: يبدأ من آخر جولة مقبولة (أو قبل 30 دقيقة على الأكثر)
+  const timeline = {
+    cursor: Math.max(Number(sync.lastRunAt) || 0, now - RUN_WINDOW_CAP_SEC * 1000),
+    lastRewardEnd: Number(sync.lastRewardAt.adventure) || 0,
+    ran: false,
+  };
   const results = []; const ledger = [];
   for (const op of ops) {
     if (op.seq <= lastSeq) { results.push({ seq: op.seq, type: op.type, status: 'duplicate' }); continue; }
@@ -285,9 +375,21 @@ function applyOps(user, session, ops, now) {
         r.until = s.boostUntil; detail = { until: s.boostUntil };
         break;
       }
+      case 'run': {
+        const run = applyRun(user, op, now, timeline);
+        if (run.flagged) flagged = true;
+        delete run.flagged;
+        Object.assign(r, run);
+        if (r.status === 'ok' || r.status === 'clamped') {
+          timeline.ran = true;
+          goldDelta = r.gold;
+          detail = { mode: r.mode, difficulty: r.difficulty, score: r.score, gems: r.gems, combo: r.combo, duration: r.duration, boss: r.boss, race: r.race, zones: r.zones };
+        }
+        break;
+      }
       case 'reward': {
         const rule = REWARD_RULES[op.game];
-        if (!rule) { r.status = 'invalid'; break; }
+        if (!rule) { r.status = 'invalid'; if (op.game === 'adventure') r.reason = 'use_run'; break; }
         const last = Number(sync.lastRewardAt[op.game]) || 0;
         if (now - last < rule.minIntervalMs) { r.status = 'too_soon'; r.gold = 0; r.retryAt = last + rule.minIntervalMs; break; }
         const gold = rule.compute(op);
@@ -307,6 +409,10 @@ function applyOps(user, session, ops, now) {
     // ما تبقى من الطاقة: المخزون + التجدد الكامل للنافذة − ما أُنفق، ولا يتجاوز الحد (الإنفاق لا يُنشئ طاقة)
     s.energy = Math.max(0, Math.min(s.maxEnergy, s.energy + windowSec * ENERGY_REGEN_PER_SEC - energySpent));
     sync.energyAt = now;
+  }
+  if (timeline.ran) {
+    sync.lastRunAt = timeline.cursor;
+    if (timeline.lastRewardEnd) sync.lastRewardAt.adventure = timeline.lastRewardEnd;
   }
   sync.sessions[session] = { seq: lastSeq, at: now };
   const ids = Object.keys(sync.sessions);
@@ -528,6 +634,8 @@ app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res)
     }
     return profileOf(user, isNew, { offline: { seconds: offline.seconds, gold: Math.floor(offline.gold) } });
   });
+  // سباقات WebSocket يختمها الخادم بنفسه — إجماليها إحصاء موثوق للمغامرة (خارج معاملة اللاعب: قراءة فقط)
+  result.race = await store.raceTotals(req.player.id);
   // Do not acknowledge a reward or save until the database commit succeeded.
   res.json(result);
 }));

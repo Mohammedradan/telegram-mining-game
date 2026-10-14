@@ -569,7 +569,7 @@
         if (now < (s.boostUntil || 0) || now < (s.boostCooldownUntil || 0)) return;
         s.boostUntil = now + 30_000;
         s.boostCooldownUntil = now + 5 * 60_000;
-      } else if (op.type === 'reward') {
+      } else if (op.type === 'reward' || op.type === 'run') {
         const g = Math.max(0, Math.floor(op.expected || 0));
         s.gold += g; s.totalEarned += g;
       }
@@ -588,6 +588,8 @@
         if (Number.isFinite(data.referralEarnings)) profile.referralEarnings = data.referralEarnings;
         if (data.daily) profile.daily = data.daily;
       }
+      // إحصاءات المغامرة والمناطق المفتوحة كما يحتسبها الخادم من جولات تحقق منها
+      if (typeof adoptServerAdventure === 'function') adoptServerAdventure(data.state.adventure, data.race);
       if (typeof ADV !== 'undefined') ADV.playerW = 78 + (state.adventureUpgrades?.cart || 0) * 8;
       updateUI();
       if (typeof updateAdvUpgradesUI === 'function') updateAdvUpgradesUI();
@@ -598,7 +600,8 @@
       if (!serverMode) return;
       // النقرات المتراكمة تسبق أي عملية منفصلة حتى يبقى ترتيب الأحداث كما وقع
       takeMineOp();
-      SYNC.pending.push({ ...op, seq: ++SYNC.seq });
+      // وقت الحدث محلياً: عند الإرسال يتحول إلى «منذ كم مللي ثانية» حتى يعرف الخادم متى انتهت الجولة فعلاً
+      SYNC.pending.push({ ...op, at: Date.now(), seq: ++SYNC.seq });
       persistSyncQueue();
       scheduleFlush(0);
     }
@@ -619,7 +622,9 @@
       takeMineOp();
       if (!SYNC.pending.length) return;
       const batch = SYNC.pending.slice(0, SYNC_MAX_BATCH);
-      const body = JSON.stringify({ session: SYNC.session, revision: SYNC.revision, ops: batch });
+      const sentAt = Date.now();
+      const wire = batch.map((op) => (Number.isFinite(op.at) ? { ...op, ago: Math.max(0, sentAt - op.at) } : op));
+      const body = JSON.stringify({ session: SYNC.session, revision: SYNC.revision, ops: wire });
       SYNC.inflight = api('/api/ops', { method: 'POST', body, keepalive: Boolean(options.keepalive) });
       try {
         const data = await SYNC.inflight;
@@ -632,8 +637,13 @@
           SYNC.pending = SYNC.pending.filter((op) => op.seq > serverSeq);
         }
         adoptServerState(data);
-        const refused = (data.results || []).filter((r) => r.status === 'rejected' || r.status === 'clamped');
-        setSyncStatus(refused.length ? '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك' : '☁️ محفوظ على الخادم');
+        const results = data.results || [];
+        const refused = results.filter((r) => r.status === 'rejected' || r.status === 'clamped');
+        const runs = results.filter((r) => r.type === 'run');
+        if (refused.length) setSyncStatus(refused.some((r) => r.type === 'run') ? '🛡️ لم يُحتسب تقرير جولة لا يطابق زمن اللعب الحقيقي' : '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك');
+        else if (runs.some((r) => r.unlocked)) setSyncStatus(`🗺️ فُتحت منطقة جديدة — تقدّمك محفوظ في حسابك (${runs[runs.length - 1].zones}/3)`);
+        else if (runs.some((r) => r.reason === 'too_soon')) setSyncStatus('⏱️ جولة متسارعة: حُفظت إحصاؤها دون جائزة ذهب');
+        else setSyncStatus(runs.length ? '☁️ محفوظ على الخادم — جولتك أُضيفت إلى سجلك' : '☁️ محفوظ على الخادم');
         if (refused.length) haptic('error');
       } catch (e) {
         SYNC.failures += 1;
@@ -1095,6 +1105,9 @@
       { gems: 25, runs: 3, bosses: 0 },
       { gems: 75, runs: 0, bosses: 1 },
     ];
+    // الخادم يحتسب المناطق من جولات تحقق منها (state.adventure.zones)؛ ما فُتح محلياً قبل ذلك
+    // يبقى متاحاً للّعب (تقدّم تجميلي/صعوبة لا ذهب فيه) حتى لا يفقد اللاعبون القدامى مناطقهم.
+    const advServer = { zones: 0, runs: 0 };
     function getUnlockedAdventureZones() {
       const gems = Math.max(0, Number(advStats.totalGems) || 0);
       const runs = Math.max(0, Number(advStats.runs) || 0);
@@ -1102,7 +1115,26 @@
       let unlocked = 1;
       if (gems >= ADV_ZONE_REQUIREMENTS[1].gems || runs >= ADV_ZONE_REQUIREMENTS[1].runs) unlocked = 2;
       if (gems >= ADV_ZONE_REQUIREMENTS[2].gems || bosses >= ADV_ZONE_REQUIREMENTS[2].bosses) unlocked = 3;
-      return unlocked;
+      return Math.max(unlocked, Math.min(ADV_MINE_ZONES.length, Math.floor(advServer.zones) || 1));
+    }
+    // اعتماد إحصاءات المغامرة الخادمية: السجل المحلي لا ينقص (قد يسبق الخادم بجولات قديمة أو مرفوضة)
+    function adoptServerAdventure(a, raceTotals) {
+      if (a && typeof a === 'object') {
+        advServer.zones = Math.max(1, Math.floor(Number(a.zones) || 1));
+        advServer.runs = Math.max(0, Math.floor(Number(a.runs) || 0));
+        const lift = (key, value) => { const v = Math.max(0, Number(value) || 0); if (v > (Number(advStats[key]) || 0)) advStats[key] = v; };
+        lift('runs', a.runs); lift('totalGems', a.gems); lift('maxCombo', a.maxCombo); lift('bestSurvival', a.bestSurvival);
+        lift('bossWins', a.bossWins); lift('rewardEarned', a.rewardEarned);
+        if (Number(a.bestScore) > adv.best) {
+          adv.best = Math.floor(Number(a.bestScore));
+          try { localStorage.setItem('mining_adventure_best', String(adv.best)); } catch (e) {}
+        }
+      }
+      if (raceTotals && Number(raceTotals.wins) > (Number(advStats.raceWins) || 0)) advStats.raceWins = Math.floor(Number(raceTotals.wins));
+      saveAdvStats();
+      if (typeof renderAchievements === 'function') renderAchievements();
+      if (typeof updateAdvSettingsUI === 'function') updateAdvSettingsUI();
+      if (typeof updateAdventureUI === 'function' && !adv.running) updateAdventureUI();
     }
     function getAdventureZoneUnlockHint(zoneIndex) {
       if (zoneIndex === 1) return 'التقط 25 جوهرة أو أكمل 3 جولات لفتح كهف الكريستال';
@@ -1857,8 +1889,12 @@
       if (reward > 0) {
         state.gold += reward;
         state.totalEarned += reward;
-        enqueueOp({ type: 'reward', game: 'adventure', score: finalScore, mode: adv.gameMode, boss: adv.bossDefeated, expected: reward });
       }
+      // كل جولة تُبلَّغ للخادم (حتى السباقات وجولات بلا جائزة): هو من يحتسب الإحصاءات والمناطق والجائزة
+      enqueueOp({
+        type: 'run', mode: adv.gameMode, difficulty: adv.gameDifficulty, score: finalScore, gems: adv.gemsCaught,
+        combo: adv.maxCombo, duration: Math.floor(adv.elapsed), boss: adv.bossDefeated, race: inRace, expected: reward,
+      });
       const overlay = document.getElementById('game-overlay');
       document.getElementById('game-overlay-title').innerText = adv.bossDefeated ? '🏆 قتلت الزعيم!' : adv.lives <= 0 ? '💀 انتهت المغامرة!' : adv.gameMode === 'boss' ? '👹 هرب الزعيم هذه المرة!' : '⏰ انتهى الوقت!';
       const accuracy = adv.caught + adv.missed ? Math.round(adv.caught / (adv.caught + adv.missed) * 100) : 0;

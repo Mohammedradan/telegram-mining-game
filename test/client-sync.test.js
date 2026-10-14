@@ -111,14 +111,17 @@ test('failed flushes keep ops queued and resend them unchanged with the same seq
   assert.equal(h.e.SYNC.pending.length, 1);
   assert.equal(h.e.SYNC.failures, 1);
   assert.ok(h.e.SYNC.retryAt > Date.now());
-  const firstOps = JSON.stringify(h.calls[0].body.ops);
+  // «منذ كم مللي ثانية» يُحسب عند كل إرسال؛ ما عداه يُعاد كما هو
+  const stripAgo = (ops) => JSON.stringify(plain(ops).map(({ ago, ...op }) => op));
+  const firstOps = stripAgo(h.calls[0].body.ops);
   fail = false;
   await h.e.flushOps(); // قبل موعد الإعادة: لا طلب جديد
   assert.equal(h.calls.length, 1);
   h.e.SYNC.retryAt = 0;
   await h.e.flushOps();
   assert.equal(h.calls.length, 2);
-  assert.equal(JSON.stringify(h.calls[1].body.ops), firstOps);
+  assert.equal(stripAgo(h.calls[1].body.ops), firstOps);
+  assert.ok(h.calls[1].body.ops[0].ago >= h.calls[0].body.ops[0].ago);
   assert.equal(h.e.SYNC.pending.length, 0);
   assert.equal(h.ctx.state.gold, 950);
   assert.equal(h.ctx.state.clickPower, 2);
@@ -194,12 +197,40 @@ test('batches the server rejects as malformed are dropped instead of blocking th
   assert.equal(h.e.SYNC.pending.length, 0);
 });
 
+test('run reports carry how long ago the round ended, measured at send time, and are applied optimistically', async () => {
+  const h = harness({ responder: (body) => ({ ok: true, revision: 1, sessionSeq: body.ops[body.ops.length - 1].seq, results: body.ops.map((op) => ({ seq: op.seq, type: op.type, status: 'ok', gold: 100, zones: 2, unlocked: true })), state: serverState({ gold: 100, adventure: { runs: 1, gems: 30, zones: 2 } }) }) });
+  h.e.loadSyncQueue();
+  h.e.enqueueOp({ type: 'run', mode: 'classic', difficulty: 'normal', score: 700, gems: 30, combo: 12, duration: 60, boss: false, race: false, expected: 100 });
+  assert.ok(Number.isFinite(h.e.SYNC.pending[0].at), 'every discrete op is stamped with its local time');
+  h.e.SYNC.pending[0].at = Date.now() - 5_000; // الجولة انتهت قبل 5 ثوانٍ من الإرسال (طابور/انقطاع)
+  h.e.adoptServerState({ revision: 0, state: serverState({ gold: 0 }) });
+  assert.equal(h.ctx.state.gold, 100, 'the expected reward is shown until the server confirms');
+  await h.e.flushOps();
+  const sent = h.calls[0].body.ops[0];
+  assert.equal(sent.type, 'run');
+  assert.equal(sent.duration, 60);
+  assert.ok(sent.ago >= 5_000 && sent.ago < 7_000, `ago=${sent.ago}`);
+  assert.equal(h.e.SYNC.pending.length, 0);
+  assert.equal(h.ctx.state.gold, 100);
+  assert.deepEqual(plain(h.ctx.state.adventure), { runs: 1, gems: 30, zones: 2 });
+});
+
+test('adopting a server state hands the authoritative adventure stats and race totals to the game', () => {
+  const h = harness();
+  const seen = [];
+  h.ctx.adoptServerAdventure = (a, race) => seen.push([plain(a), plain(race ?? null)]);
+  h.e.loadSyncQueue();
+  h.e.adoptServerState({ revision: 3, state: serverState({ adventure: { runs: 4, gems: 80, zones: 3 } }), race: { races: 2, wins: 1, bestScore: 300 } });
+  assert.deepEqual(seen, [[{ runs: 4, gems: 80, zones: 3 }, { races: 2, wins: 1, bestScore: 300 }]]);
+});
+
 test('mining clicks and purchases are routed through the ops queue in the game code', () => {
   assert.match(html, /SYNC\.clicks \+= 1;\s+if \(boostActive\(\)\) SYNC\.boostedClicks \+= 1;/);
   assert.match(html, /enqueueOp\(\{ type: 'buy', item: type \}\)/);
   assert.match(html, /enqueueOp\(\{ type: 'buy_adv', key \}\)/);
   assert.match(html, /enqueueOp\(\{ type: 'boost' \}\)/);
-  assert.match(html, /enqueueOp\(\{ type: 'reward', game: 'adventure'/);
+  assert.match(html, /enqueueOp\(\{\s*type: 'run', mode: adv\.gameMode, difficulty: adv\.gameDifficulty, score: finalScore, gems: adv\.gemsCaught/);
+  assert.doesNotMatch(html, /type: 'reward', game: 'adventure'/, 'adventure rounds are reported as runs, not self-declared rewards');
   assert.match(html, /enqueueOp\(\{ type: 'reward', game: 'arena'/);
   assert.doesNotMatch(html, /api\('\/api\/save'/, 'the browser must not push full state to the legacy endpoint');
   assert.match(html, /const gain = clickGain\(\);/, 'boost must actually double clicks as the button advertises');

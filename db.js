@@ -180,6 +180,11 @@ function createSqliteStore(file) {
         WHERE week = ? ORDER BY wins DESC, best_score DESC, total_score DESC LIMIT ?`).all(week, limit)
         .map((r) => ({ id: r.user_id, name: r.name, races: r.races, wins: r.wins, bestScore: r.best_score, totalScore: r.total_score }));
     },
+    // إجمالي سباقات اللاعب عبر كل الأسابيع (نتائج ختمها الخادم — تُستخدم كإحصاء موثوق)
+    async raceTotals(userId) {
+      const r = conn.prepare('SELECT COALESCE(SUM(races), 0) AS races, COALESCE(SUM(wins), 0) AS wins, COALESCE(MAX(best_score), 0) AS best FROM race_stats WHERE user_id = ?').get(String(userId));
+      return { races: Number(r?.races) || 0, wins: Number(r?.wins) || 0, bestScore: Number(r?.best) || 0 };
+    },
     async getPending(id) { return conn.prepare('SELECT count FROM pending_referrals WHERE id = ?').get(String(id))?.count || 0; },
     async addPending(id) {
       conn.prepare(`INSERT INTO pending_referrals (id, count) VALUES (?, 1)
@@ -277,6 +282,10 @@ function createPgStore(url) {
       return (await q(`SELECT user_id, name, races, wins, best_score, total_score FROM race_stats
         WHERE week = $1 ORDER BY wins DESC, best_score DESC, total_score DESC LIMIT $2`, [week, limit])).rows
         .map((r) => ({ id: r.user_id, name: r.name, races: Number(r.races), wins: Number(r.wins), bestScore: Number(r.best_score), totalScore: Number(r.total_score) }));
+    },
+    async raceTotals(userId) {
+      const r = (await q('SELECT COALESCE(SUM(races), 0) AS races, COALESCE(SUM(wins), 0) AS wins, COALESCE(MAX(best_score), 0) AS best FROM race_stats WHERE user_id = $1', [String(userId)])).rows[0];
+      return { races: Number(r?.races) || 0, wins: Number(r?.wins) || 0, bestScore: Number(r?.best) || 0 };
     },
     async close() { await pool.end(); },
   };
