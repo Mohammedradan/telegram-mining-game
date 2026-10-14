@@ -876,7 +876,7 @@
       objects: [], particles: [], playerX: 180, targetX: 180, prevX: 180, elapsed: 0, spawnIn: 0,
       lastTs: 0, raf: 0, best: Number(localStorage.getItem('mining_adventure_best') || 0),
       caught: 0, missed: 0, gemsCaught: 0, missionIndex: 0, shake: 0, flash: 0,
-      banner: '', bannerUntil: 0, phase: 0, zoneSpawnCount: 0, muted: false, audio: null, shieldCharges: 0,
+      banner: '', bannerUntil: 0, phase: 0, lockNoticePhase: -1, zoneSpawnCount: 0, muted: false, audio: null, shieldCharges: 0,
       mode: 'solo', rng: null, raceLastSend: 0, gameMode: 'classic', gameDifficulty: 'normal',
       skillCharges: 1, nextEventAt: 18, eventUntil: -1, eventType: null,
       boss: null, bossCharge: 0, bossDefeated: false,
@@ -888,6 +888,28 @@
       { name: 'كهف الكريستال', icon: '💎', hint: 'الجواهر أثمن بـ25% — تحرّك بدقة', top: '#164e63', glow: '#22d3ee', floor: '#083344' },
       { name: 'منجم الحمم', icon: '🌋', hint: 'في المغامرة الفردية، كل خامس كنز يصبح صخرة خطرة', top: '#7f1d1d', glow: '#fb7185', floor: '#450a0a' },
     ];
+    // فتح المناطق تدريجياً بناءً على إحصاءات المغامرة المحفوظة محلياً.
+    // هذا تقدم للعب الفردي فقط؛ لا يمنح مكافآت سحابية ولا يغيّر عدالة السباقات.
+    const ADV_ZONE_REQUIREMENTS = [
+      { gems: 0, runs: 0, bosses: 0 },
+      { gems: 25, runs: 3, bosses: 0 },
+      { gems: 75, runs: 0, bosses: 1 },
+    ];
+    function getUnlockedAdventureZones() {
+      const gems = Math.max(0, Number(advStats.totalGems) || 0);
+      const runs = Math.max(0, Number(advStats.runs) || 0);
+      const bosses = Math.max(0, Number(advStats.bossWins) || 0);
+      let unlocked = 1;
+      if (gems >= ADV_ZONE_REQUIREMENTS[1].gems || runs >= ADV_ZONE_REQUIREMENTS[1].runs) unlocked = 2;
+      if (gems >= ADV_ZONE_REQUIREMENTS[2].gems || bosses >= ADV_ZONE_REQUIREMENTS[2].bosses) unlocked = 3;
+      return unlocked;
+    }
+    function getAdventureZoneUnlockHint(zoneIndex) {
+      if (zoneIndex === 1) return 'التقط 25 جوهرة أو أكمل 3 جولات لفتح كهف الكريستال';
+      if (zoneIndex === 2) return 'اجمع 75 جوهرة أو اهزم الزعيم مرة لفتح منجم الحمم';
+      return '';
+    }
+
     const advKeys = {};
 
     // ⚙️ خيارات اللعب: أوضاع + صعوبة + شكل (محفوظة على الجهاز)
@@ -1267,7 +1289,7 @@
         lives: Math.max(1, 3 + advUpLevel('heart') + advDiffCfg().lives),
         timeLeft: advModeCfg().duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2, prevX: w / 2,
         elapsed: 0, spawnIn: 0, zoneSpawnCount: 0, lastTs: performance.now(), caught: 0, missed: 0, gemsCaught: 0,
-        missionIndex: 0, shake: 0, flash: 0, banner: '', bannerUntil: 0, phase: 0,
+        missionIndex: 0, shake: 0, flash: 0, banner: '', bannerUntil: 0, phase: 0, lockNoticePhase: -1,
         skillCharges: 1 + advUpLevel('skill'), nextEventAt: 18, eventUntil: -1, eventType: null,
         boss: adv.gameMode === 'boss'
           ? { hp: adv.gameDifficulty === 'easy' ? 90 : adv.gameDifficulty === 'hard' ? 170 : 120,
@@ -1345,7 +1367,14 @@
       adv.flash = Math.max(0, adv.flash - dt);
 
       // مراحل صعوبة معلنة
-      const newPhase = adv.elapsed >= 40 ? 2 : adv.elapsed >= 20 ? 1 : 0;
+      const targetPhase = adv.elapsed >= 40 ? 2 : adv.elapsed >= 20 ? 1 : 0;
+      const unlockedZones = getUnlockedAdventureZones();
+      const newPhase = Math.min(targetPhase, unlockedZones - 1);
+      if (targetPhase > newPhase && adv.lockNoticePhase !== targetPhase) {
+        adv.lockNoticePhase = targetPhase;
+        advBanner(`🔒 ${ADV_MINE_ZONES[targetPhase].name}: ${getAdventureZoneUnlockHint(targetPhase)}`, 3.2);
+        advBeep(180, 0.18, 'square', 0.035, 120);
+      }
       if (newPhase !== adv.phase) {
         adv.phase = newPhase;
         const zone = ADV_MINE_ZONES[newPhase];
