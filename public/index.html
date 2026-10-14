@@ -1716,20 +1716,50 @@
     }
 
     function ensureRaceSocket() {
-      if (race.ws?.readyState === WebSocket.OPEN) return Promise.resolve();
       if (race.connecting) return race.connecting;
+      if (race.ws?.readyState === WebSocket.OPEN && race.socketReady) return Promise.resolve();
+      race.socketReady = false;
       race.connecting = new Promise((resolve, reject) => {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
         const auth = tg?.initData ? `initData=${encodeURIComponent(tg.initData)}` : `guest=${encodeURIComponent(guestId)}`;
         const ws = new WebSocket(`${proto}//${location.host}/ws?${auth}`);
         race.ws = ws;
-        ws.onopen = () => { race.connecting = null; resolve(); };
-        ws.onerror = () => { race.connecting = null; reject(new Error('ws')); };
+        let welcomed = false;
+        let failed = false;
+        const fail = (message) => {
+          failed = true;
+          clearTimeout(timer);
+          if (race.ws === ws) { race.connecting = null; race.socketReady = false; }
+          reject(new Error(message));
+        };
+        const timer = setTimeout(() => {
+          fail('انتهت مهلة تجهيز اتصال السباق');
+          try { ws.close(); } catch (e) {}
+        }, 8000);
+        // Do not resolve on open: server identity loading may still be in flight.
+        ws.onerror = () => fail('تعذّر الاتصال بخادم السباقات');
         ws.onclose = () => {
+          clearTimeout(timer);
+          if (race.ws !== ws) return;
           race.connecting = null;
+          race.socketReady = false;
+          if (!welcomed) reject(new Error('أُغلق الاتصال قبل تجهيز السباق'));
           if (race.inRace) { race.inRace = false; raceStatus('انقطع اتصال السباق'); }
         };
-        ws.onmessage = (ev) => handleRaceMessage(JSON.parse(ev.data));
+        ws.onmessage = (ev) => {
+          if (race.ws !== ws || failed) return;
+          let msg;
+          try { msg = JSON.parse(ev.data); } catch (e) { return; }
+          if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return;
+          handleRaceMessage(msg);
+          if (msg.type === 'welcome' && !welcomed) {
+            welcomed = true;
+            clearTimeout(timer);
+            race.socketReady = true;
+            race.connecting = null;
+            resolve();
+          }
+        };
       });
       return race.connecting;
     }

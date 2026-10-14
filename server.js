@@ -492,7 +492,7 @@ const raceCode = () => {
 
 function setupMultiplayer(httpServer) {
   if (!WebSocketServer) return; // السباقات معطّلة فقط — بقية اللعبة تعمل
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 4096 });
 
   wss.on('connection', async (ws, req) => {
     const url = new URL(req.url, 'http://localhost');
@@ -510,6 +510,7 @@ function setupMultiplayer(httpServer) {
     if (!player) { ws.close(4001, 'auth required'); return; }
     try { const dbUser = await store.getUser(player.id); if (dbUser?.name && dbUser.name !== 'ضيف') player.name = dbUser.name; } catch (_) {}
 
+    if (ws.readyState !== ws.OPEN) return;
     ws.player = { ...player, roomId: null, ready: false, lastProgress: 0 };
     sendWs(ws, { type: 'welcome', id: player.id, name: player.name });
 
@@ -526,8 +527,8 @@ function setupMultiplayer(httpServer) {
         other.player.roomId = null;
         other.player.ready = false;
         if (notify) sendWs(other, {
-          type: room.state === 'racing' ? 'opponent_left' : 'room_closed',
-          message: room.state === 'racing' ? 'غادر الخصم — يمكنك بدء سباق جديد' : 'أُغلقت الغرفة — أنشئ غرفة جديدة',
+          type: ['racing', 'settling'].includes(room.state) ? 'opponent_left' : 'room_closed',
+          message: ['racing', 'settling'].includes(room.state) ? 'غادر الخصم — يمكنك بدء سباق جديد' : 'أُغلقت الغرفة — أنشئ غرفة جديدة',
         });
       }
       room.players.clear();
@@ -545,117 +546,137 @@ function setupMultiplayer(httpServer) {
       if (raw.length > 4096) return;
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
+      if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
 
-      if (msg.type === 'quick') {
-        leaveRoom(false);
-        raceQueue = raceQueue.filter((q) => q.readyState === q.OPEN && q !== ws);
-        const other = raceQueue.shift();
-        if (other) {
-          const room = { id: raceCode(), code: 'سريع', players: new Set(), state: 'lobby', results: new Map(), rematchRequests: new Set() };
-          raceRooms.set(room.id, room);
-          pairInto(room, other);
+      try {
+        if (msg.type === 'quick') {
+          leaveRoom(true);
+          raceQueue = raceQueue.filter((q) => q.readyState === q.OPEN && q !== ws);
+          const otherIndex = raceQueue.findIndex((q) => q.player.id !== ws.player.id);
+          const other = otherIndex >= 0 ? raceQueue.splice(otherIndex, 1)[0] : null;
+          if (other) {
+            const room = { id: raceCode(), code: 'سريع', players: new Set(), state: 'lobby', results: new Map(), rematchRequests: new Set() };
+            raceRooms.set(room.id, room);
+            pairInto(room, other);
+          }
+          else { raceQueue.push(ws); sendWs(ws, { type: 'waiting', message: 'بانتظار خصم…' }); }
         }
-        else { raceQueue.push(ws); sendWs(ws, { type: 'waiting', message: 'بانتظار خصم…' }); }
-      }
 
-      if (msg.type === 'create') {
-        leaveRoom(false);
-        const code = raceCode();
-        const room = { id: code, code, players: new Set([ws]), state: 'lobby', results: new Map(), rematchRequests: new Set() };
-        raceRooms.set(code, room);
-        ws.player.roomId = code;
-        sendWs(ws, { type: 'room_created', code, message: `شارك الرمز ${code} مع صديقك` });
-      }
+        if (msg.type === 'create') {
+          leaveRoom(true);
+          const code = raceCode();
+          const room = { id: code, code, players: new Set([ws]), state: 'lobby', results: new Map(), rematchRequests: new Set() };
+          raceRooms.set(code, room);
+          ws.player.roomId = code;
+          sendWs(ws, { type: 'room_created', code, message: `شارك الرمز ${code} مع صديقك` });
+        }
 
-      if (msg.type === 'join') {
-        const room = raceRooms.get(String(msg.code || '').toUpperCase().trim());
-        if (!room || room.state !== 'lobby' || room.players.size >= 2) { sendWs(ws, { type: 'error', message: 'الغرفة غير موجودة أو ممتلئة' }); return; }
-        const [host] = [...room.players];
-        if (host === ws) return;
-        pairInto(room, host);
-      }
+        if (msg.type === 'join') {
+          const room = raceRooms.get(String(msg.code || '').toUpperCase().trim());
+          if (!room || room.state !== 'lobby' || room.players.size >= 2) { sendWs(ws, { type: 'error', message: 'الغرفة غير موجودة أو ممتلئة' }); return; }
+          const [host] = [...room.players];
+          if (host === ws) return;
+          if (host.player.id === ws.player.id) {
+            sendWs(ws, { type: 'error', message: 'لا يمكنك التسابق مع حسابك نفسه' });
+            return;
+          }
+          // Validate the destination first, then detach from any previous room.
+          leaveRoom(true);
+          pairInto(room, host);
+        }
 
-      if (msg.type === 'ready') {
-        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-        if (!room || room.players.size !== 2) return;
-        ws.player.ready = true;
-        const players = [...room.players];
-        if (players.every((p) => p.player.ready)) {
-          room.state = 'racing';
-          room.seed = Math.floor(Math.random() * 2 ** 31);
-          room.startAt = Date.now() + 2500;
-          room.startedAt = Date.now();
-          room.results = new Map();
-          for (const p of players) {
-            const opp = players.find((q) => q !== p);
-            sendWs(p, { type: 'start', seed: room.seed, startAt: room.startAt, opponent: { id: opp.player.id, name: opp.player.name } });
+        if (msg.type === 'ready') {
+          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+          if (!room || room.state !== 'lobby' || room.players.size !== 2 || !room.players.has(ws)) return;
+          ws.player.ready = true;
+          const players = [...room.players];
+          if (players.every((p) => p.player.ready)) {
+            room.state = 'racing';
+            room.seed = Math.floor(Math.random() * 2 ** 31);
+            room.startAt = Date.now() + 2500;
+            room.startedAt = Date.now();
+            room.results = new Map();
+            for (const p of players) {
+              const opp = players.find((q) => q !== p);
+              sendWs(p, { type: 'start', seed: room.seed, startAt: room.startAt, opponent: { id: opp.player.id, name: opp.player.name } });
+            }
           }
         }
-      }
 
-      if (msg.type === 'progress') {
-        const now = Date.now();
-        if (now - ws.player.lastProgress < 100) return;
-        ws.player.lastProgress = now;
-        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-        if (!room || room.state !== 'racing') return;
-        const payload = {
-          type: 'opponent_progress',
-          score: Math.max(0, Math.min(100000, Number(msg.score) || 0)),
-          lives: Math.max(0, Math.min(5, Number(msg.lives) || 0)),
-          xRatio: Math.max(0, Math.min(1, Number(msg.xRatio) || 0.5)),
-          finished: Boolean(msg.finished),
-        };
-        for (const other of room.players) if (other !== ws) sendWs(other, payload);
-      }
-
-      if (msg.type === 'finish') {
-        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-        if (!room || room.state !== 'racing') return;
-        // لا نقبل إنهاء قبل وقت البداية، ولا نسمح بتغيير نتيجة اللاعب بعد ختمها.
-        if (Date.now() < (room.startAt || 0) || room.results.has(ws.player.id)) return;
-        // سقف نتيجة معقول: مدة السباق × أقصى معدل نقاط/ثانية تقريبي
-        const elapsedRace = Math.min(75, Math.max(0, (Date.now() - (room.startAt || Date.now())) / 1000));
-        const maxScore = Math.floor(elapsedRace * 45) + 100;
-        const score = Math.max(0, Math.min(maxScore, Math.floor(Number(msg.score) || 0)));
-        room.results.set(ws.player.id, { id: ws.player.id, name: ws.player.name, score });
-        for (const other of room.players) if (other !== ws) sendWs(other, { type: 'opponent_finished', score });
-        if (room.results.size >= 2) {
-          room.state = 'finished';
-          const results = [...room.results.values()].sort((a, b) => b.score - a.score);
-          const winnerId = results[0].score === results[1].score ? null : results[0].id;
-          // 🏆 تسجيل البطولة الأسبوعية قبل إعلان النتيجة (فشل التخزين لا يعطّل السباق)
-          try {
-            const week = currentWeekKey();
-            for (const r of results) await store.recordRaceResult(week, { ...r, won: winnerId === r.id });
-          } catch (e) { console.error('تعذّر تسجيل نتيجة سباق:', e.message); }
-          for (const p of room.players) sendWs(p, { type: 'result', winnerId, results });
+        if (msg.type === 'progress') {
+          if (![msg.score, msg.lives, msg.xRatio].every(Number.isFinite)) return;
+          const now = Date.now();
+          if (now - ws.player.lastProgress < 100) return;
+          ws.player.lastProgress = now;
+          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+          if (!room || room.state !== 'racing' || !room.players.has(ws)) return;
+          const payload = {
+            type: 'opponent_progress',
+            score: Math.max(0, Math.min(100000, Number(msg.score) || 0)),
+            lives: Math.max(0, Math.min(5, Number(msg.lives) || 0)),
+            xRatio: Math.max(0, Math.min(1, Number(msg.xRatio) || 0.5)),
+            finished: Boolean(msg.finished),
+          };
+          for (const other of room.players) if (other !== ws) sendWs(other, payload);
         }
-      }
 
-      if (msg.type === 'rematch') {
-        const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-        if (!room || room.state !== 'finished' || room.players.size !== 2) return;
-        room.rematchRequests = room.rematchRequests || new Set();
-        room.rematchRequests.add(ws.player.id);
-        const players = [...room.players];
-        for (const other of players) if (other !== ws) sendWs(other, { type: 'rematch_requested' });
-        if (room.rematchRequests.size >= 2) {
-          room.rematchRequests.clear();
-          room.state = 'racing';
-          room.seed = Math.floor(Math.random() * 2 ** 31);
-          room.startAt = Date.now() + 2500;
-          room.startedAt = Date.now();
-          room.results = new Map();
-          for (const p of players) {
-            p.player.ready = false;
-            const opp = players.find((q) => q !== p);
-            sendWs(p, { type: 'start', seed: room.seed, startAt: room.startAt, opponent: { id: opp.player.id, name: opp.player.name } });
+        if (msg.type === 'finish') {
+          if (!Number.isFinite(msg.score) || msg.score < 0) return;
+          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+          if (!room || room.state !== 'racing' || !room.players.has(ws)) return;
+          // لا نقبل إنهاء قبل وقت البداية، ولا نسمح بتغيير نتيجة اللاعب بعد ختمها.
+          if (Date.now() < (room.startAt || 0) || room.results.has(ws.player.id)) return;
+          // سقف نتيجة معقول: مدة السباق × أقصى معدل نقاط/ثانية تقريبي
+          const elapsedRace = Math.min(75, Math.max(0, (Date.now() - (room.startAt || Date.now())) / 1000));
+          const maxScore = Math.floor(elapsedRace * 45) + 100;
+          const score = Math.max(0, Math.min(maxScore, Math.floor(Number(msg.score) || 0)));
+          room.results.set(ws.player.id, { id: ws.player.id, name: ws.player.name, score });
+          for (const other of room.players) if (other !== ws) sendWs(other, { type: 'opponent_finished', score });
+          if (room.results.size >= 2) {
+            // Keep rematch/ready blocked until asynchronous persistence completes.
+            room.state = 'settling';
+            const results = [...room.results.values()].sort((a, b) => b.score - a.score);
+            const winnerId = results[0].score === results[1].score ? null : results[0].id;
+            // 🏆 تسجيل البطولة الأسبوعية قبل إعلان النتيجة (فشل التخزين لا يعطّل السباق)
+            try {
+              const week = currentWeekKey();
+              for (const r of results) await store.recordRaceResult(week, { ...r, won: winnerId === r.id });
+            } catch (e) { console.error('تعذّر تسجيل نتيجة سباق:', e.message); }
+            // A disconnect/switch can delete this room while storage is in flight.
+            if (raceRooms.get(room.id) !== room || room.players.size !== 2) return;
+            room.state = 'finished';
+            for (const p of room.players) sendWs(p, { type: 'result', winnerId, results });
           }
         }
-      }
 
-      if (msg.type === 'leave') leaveRoom(true);
+        if (msg.type === 'rematch') {
+          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
+          if (!room || room.state !== 'finished' || room.players.size !== 2) return;
+          room.rematchRequests = room.rematchRequests || new Set();
+          room.rematchRequests.add(ws.player.id);
+          const players = [...room.players];
+          for (const other of players) if (other !== ws) sendWs(other, { type: 'rematch_requested' });
+          if (room.rematchRequests.size >= 2) {
+            room.rematchRequests.clear();
+            room.state = 'racing';
+            room.seed = Math.floor(Math.random() * 2 ** 31);
+            room.startAt = Date.now() + 2500;
+            room.startedAt = Date.now();
+            room.results = new Map();
+            for (const p of players) {
+              p.player.ready = false;
+              const opp = players.find((q) => q !== p);
+              sendWs(p, { type: 'start', seed: room.seed, startAt: room.startAt, opponent: { id: opp.player.id, name: opp.player.name } });
+            }
+          }
+        }
+
+        if (msg.type === 'leave') leaveRoom(true);
+      } catch (error) {
+        // Avoid unhandled rejections and never log player messages or auth data.
+        console.error('خطأ معالجة رسالة سباق:', error.code || 'internal');
+        sendWs(ws, { type: 'error', message: 'تعذّر تنفيذ طلب السباق — حاول مجددًا' });
+      }
     });
 
     ws.on('close', leaveRoom);

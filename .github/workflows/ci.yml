@@ -50,3 +50,7 @@ jobs:
         run: npm test
         env:
           TEST_DATABASE_URL: postgres://mining_test:local_test_only@localhost:5432/mining_test
+      - name: Verify WebSocket race protocol against PostgreSQL
+        run: node --test test/multiplayer.test.js
+        env:
+          TEST_RACE_DATABASE_URL: postgres://mining_test:local_test_only@localhost:5432/mining_test
