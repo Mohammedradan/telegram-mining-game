@@ -177,6 +177,10 @@ function createSqliteStore(file) {
           updated_at = excluded.updated_at`)
         .run(week, String(id), name || 'لاعب', won ? 1 : 0, Math.floor(score) || 0, Math.floor(score) || 0, Date.now());
     },
+    // نتيجة سباق كاملة (الطرفان) في معاملة واحدة: إما يُسجَّل الفوز والخسارة معاً أو لا شيء
+    async recordRaceResults(week, results) {
+      return this.withUsers(results.map((r) => r.id), async () => { for (const r of results) await this.recordRaceResult(week, r); });
+    },
     async raceLeaderboard(week, limit) {
       return conn.prepare(`SELECT user_id, name, races, wins, best_score, total_score FROM race_stats
         WHERE week = ? ORDER BY wins DESC, best_score DESC, total_score DESC LIMIT ?`).all(week, limit)
@@ -279,6 +283,9 @@ function createPgStore(url) {
           total_score = race_stats.total_score + EXCLUDED.total_score,
           updated_at = EXCLUDED.updated_at`,
       [week, String(id), name || 'لاعب', won ? 1 : 0, Math.floor(score) || 0, Date.now()]);
+    },
+    async recordRaceResults(week, results) {
+      return this.withUsers(results.map((r) => r.id), async () => { for (const r of results) await this.recordRaceResult(week, r); });
     },
     async raceLeaderboard(week, limit) {
       return (await q(`SELECT user_id, name, races, wins, best_score, total_score FROM race_stats

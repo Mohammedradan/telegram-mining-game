@@ -336,3 +336,13 @@ test('achievement rewards are no longer blocked in cloud mode: the claim goes th
   const claimFn = html.slice(html.indexOf('function claimAchievement(id)'), html.indexOf('// 🛠️ ترقيات المغامرة الدائمة'));
   assert.ok(claimFn.indexOf('const cloud = serverAchievements();') < claimFn.indexOf('advClaimed[id] = true;'));
 });
+
+test('the race client follows the server clock and sealed forfeits instead of deciding outcomes itself', () => {
+  assert.match(html, /startAdventure\('race', msg\.seed, msg\.duration\)/, 'race duration comes from the start message');
+  assert.match(html, /timeLeft: raceDuration \|\| advModeCfg\(\)\.duration/);
+  assert.match(html, /if \(adv\.running && adv\.mode === 'race'\) endAdventure\(\); \/\/ ختم الخادم السباق/, 'a server-settled result closes a still-running round as a race round first');
+  assert.match(html, /if \(adv\.running && adv\.mode === 'race'\) endAdventureByForfeit\(msg\);\s+else if \(msg\.forfeit\) showForfeitWin\(msg\);/);
+  const fn = html.slice(html.indexOf('function showForfeitWin('), html.indexOf('// تبديل تبويب بلا إيقاف المغامرة'));
+  assert.match(fn, /const sealed = Boolean\(msg\?\.forfeit && msg\.results\);/);
+  assert.match(fn, /if \(sealed && String\(msg\.winnerId\) === String\(race\.myId\)\) \{ advStats\.raceWins \+= 1;/, 'the local win counter only moves on a server-sealed forfeit');
+});
