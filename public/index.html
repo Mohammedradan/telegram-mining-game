@@ -1634,6 +1634,7 @@
       const rewardCap = adv.gameMode === 'survival' ? 150 : 100;
       const victoryBonus = adv.bossDefeated ? 150 : 0;
       const reward = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)
+      const unlockedZonesBeforeRun = getUnlockedAdventureZones();
       if (adv.bossDefeated) advStats.bossWins += 1;
       if (inRace) raceSendFinish(finalScore);
       advStats.runs += 1;
@@ -1642,6 +1643,12 @@
       if (adv.gameMode === 'survival') advStats.bestSurvival = Math.max(advStats.bestSurvival, finalScore);
       advStats.rewardEarned += reward;
       saveAdvStats();
+      const unlockedZonesAfterRun = getUnlockedAdventureZones();
+      const zoneProgressText = unlockedZonesAfterRun > unlockedZonesBeforeRun
+        ? `🎉 فتحت ${ADV_MINE_ZONES[unlockedZonesAfterRun - 1].name}! ستلعب فيها من الجولة القادمة.`
+        : unlockedZonesAfterRun < ADV_MINE_ZONES.length
+          ? `🗺️ المناطق المفتوحة: ${unlockedZonesAfterRun}/${ADV_MINE_ZONES.length}. التالي: ${getAdventureZoneUnlockHint(unlockedZonesAfterRun)}.`
+          : `🗺️ جميع مناطق المغامرة مفتوحة!`;
       if (finalScore > adv.best) {
         adv.best = finalScore;
         try { localStorage.setItem('mining_adventure_best', String(adv.best)); } catch (e) {}
@@ -1660,7 +1667,8 @@
         `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>` +
         `🎯 التقطت ${adv.caught} · دقة ${accuracy}٪ · أعلى سلسلة ×${adv.maxCombo}<br>` +
         `الوضع: ${advModeCfg().label} · الصعوبة: ${advDiffCfg().label}<br>` +
-        `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}`;
+        `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}<br>` +
+        `<span class="text-cyan-300">${zoneProgressText}</span>`;
       if (inRace) {
         document.getElementById('game-overlay-title').innerText = '🏁 انتهى سباقك!';
         document.getElementById('game-overlay-text').innerHTML =
