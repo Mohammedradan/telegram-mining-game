@@ -31,8 +31,21 @@ test('small screens: body height follows the real viewport and tabs scroll inter
   }
 });
 
-test('adventure canvas height scales with the screen and the backing store never exceeds it', () => {
-  assert.match(style, /#game-canvas \{ height: clamp\(230px, 40vh, 330px\); \}/);
+test('play is a fixed app screen with focused sub-tabs instead of one long page', () => {
+  assert.match(style, /#tab-play\s*\{\s*overflow:\s*hidden;/);
+  assert.match(style, /\.play-panel\s*\{[^}]*display:\s*none;[^}]*min-height:\s*0;/s);
+  assert.match(style, /\.play-panel\.active\s*\{\s*display:\s*flex;/);
+  for (const panel of ['adventure', 'missions', 'customize', 'social']) {
+    assert.match(html, new RegExp(`id="play-nav-${panel}"`));
+    assert.match(html, new RegExp(`id="play-panel-${panel}"`));
+  }
+  assert.match(html, /function switchPlayPanel\(panelId\)/);
+  assert.match(html, /panel\.hidden = !selected/);
+});
+
+test('adventure canvas fills the remaining game panel and the backing store follows it', () => {
+  assert.match(style, /\.adventure-stage #game-canvas \{[^}]*height:\s*100%;/s);
+  assert.match(style, /\.adventure-stage\s*\{\s*min-height:\s*150px;/);
   assert.doesNotMatch(html, /id="game-canvas"[^>]*h-\[330px\]/);
   assert.match(html, /advCanvas\.height = Math\.max\(200, rect\.height\) \* dpr;/);
 });
