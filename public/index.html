@@ -622,7 +622,7 @@
       <button id="arena-btn-wait" onclick="arenaAction('WAIT')" disabled class="arena-btn bg-slate-700 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⏳ انتظار<br><span class="text-[9px] font-normal">‎+3⚡</span></button>
     </div>
 
-    <button id="arena-start-btn" onclick="startBattle()" class="w-full bg-gradient-to-r from-fuchsia-500 to-purple-600 font-bold py-3 rounded-xl text-sm shadow-lg active:scale-95">🚀 بدء مباراة</button>
+    <button id="arena-start-btn" onclick="startBattle()" class="w-full bg-gradient-to-r from-fuchsia-500 to-purple-600 disabled:opacity-55 disabled:grayscale font-bold py-3 rounded-xl text-sm shadow-lg active:scale-95">🚀 بدء مباراة</button>
 
     <div id="arena-log" class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-[11px] leading-6 text-slate-300 min-h-[96px]">سجل المباراة سيظهر هنا…</div>
   </main>
@@ -1110,6 +1110,8 @@
     function arenaRecordView() { return (serverMode && profile?.arena?.record) || arenaRecord; }
 
     function startBattle() {
+      // زر البدء لا يعيد المباراة وهي جارية؛ يجب إكمال القتال الحالي أولاً.
+      if (battle?.active) return;
       const ticket = arenaTicket();
       const practice = serverMode && !ticket; // لا تذكرة بعد: مباراة تدريبية بلا مكافأة بدل تعطيل الزر
       const lvl = ticket ? ticket.level : playerLevel();
@@ -1150,7 +1152,9 @@
       txt('arena-record', `${rec.wins || 0} فوز · ${rec.losses || 0} خسارة${rec.draws ? ` · ${rec.draws} تعادل` : ''}`);
       txt('arena-turn', !battle?.active ? (battle ? 'انتهت المباراة — ابدأ واحدة جديدة' : 'اضغط «بدء مباراة» للقتال')
         : battle.busy ? '⏳ دور الخصم…' : `🎯 الجولة ${battle.round} — دورك! اختر حركة`);
-      document.getElementById('arena-start-btn').innerText = battle?.active ? '🔄 إعادة بدء المباراة' : '🚀 بدء مباراة';
+      const startBtn = document.getElementById('arena-start-btn');
+      startBtn.disabled = Boolean(battle?.active);
+      startBtn.innerText = battle?.active ? '⚔️ المعركة جارية — أكمل القتال' : battle ? '🔄 مباراة جديدة' : '🚀 بدء مباراة';
       for (const [key, action] of [['attack', 'ATTACK'], ['defend', 'DEFEND'], ['heal', 'HEAL'], ['wait', 'WAIT']]) {
         const btn = document.getElementById(`arena-btn-${key}`);
         btn.disabled = !battle?.active || battle.busy || !ArenaRules.canAct(battle.player, action);

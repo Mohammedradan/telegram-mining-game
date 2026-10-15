@@ -64,6 +64,9 @@ test('arena shows illustrated sword fighters and action animations, not clipped 
   assert.match(html, /id="arena-stage-banner"/);
   assert.match(html, /id="arena-damage-enemy"/);
   assert.match(html, /function animateArenaFighter\(actor, action, event = \{\}\)/);
+  assert.match(html, /if \(battle\?\.active\) return;/);
+  assert.match(html, /startBtn\.disabled = Boolean\(battle\?\.active\)/);
+  assert.match(html, /⚔️ المعركة جارية — أكمل القتال/);
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-player.png')));
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-enemy.png')));
 });
