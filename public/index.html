@@ -87,6 +87,206 @@
       #game-canvas { height: clamp(230px, 40dvh, 330px); }
     }
 
+    /* هيكل تطبيق ثابت: تبويب اللعب لا يمرّر الصفحة، بل يبدّل لوحات مستقلة داخل المساحة المتاحة. */
+    #tab-play { overflow: hidden; }
+    .play-subnav { flex: 0 0 auto; }
+    .play-subnav-btn {
+      min-width: 0;
+      padding: .5rem .25rem;
+      border: 1px solid rgba(51, 65, 85, .8);
+      border-radius: .75rem;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, .78);
+      font-size: .68rem;
+      font-weight: 800;
+      transition: background .18s ease, color .18s ease, border-color .18s ease, transform .08s ease;
+    }
+    .play-subnav-btn:active { transform: scale(.96); }
+    .play-subnav-btn.active {
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, .65);
+      background: rgba(120, 53, 15, .35);
+      box-shadow: inset 0 -2px 0 rgba(251, 191, 36, .75);
+    }
+    .play-panel { display: none; flex: 1 1 auto; min-height: 0; }
+    .play-panel.active { display: flex; }
+    .panel-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(100, 116, 139, .45) transparent;
+      padding-inline-end: 2px;
+    }
+    .adventure-stage { min-height: 150px; }
+    .adventure-stage #game-canvas { display: block; height: 100%; }
+
+    @media (max-height: 700px) {
+      body { gap: .3rem; padding-top: .35rem !important; padding-bottom: .35rem !important; }
+      .app-header { padding-top: .3rem !important; padding-bottom: .3rem !important; }
+      .balance-strip { padding-top: .2rem !important; padding-bottom: .2rem !important; }
+      .play-subnav { margin-bottom: .3rem !important; }
+      .play-subnav-btn { padding-top: .3rem; padding-bottom: .3rem; }
+      [data-adv-mode] span { display: none; }
+      [data-adv-mode] { padding-top: .3rem !important; padding-bottom: .3rem !important; }
+      #game-overlay-text { display: none; }
+      #game-overlay .text-5xl { font-size: 2rem; }
+      #game-overlay { gap: .35rem; }
+    }
+
+    /* مسرح قتال حي: الشخصيتان داخل ساحة واحدة وتتحركان فعلياً نحو بعضهما. */
+    .arena-battle-stage {
+      position: relative;
+      flex: 0 0 clamp(270px, 42vh, 360px);
+      overflow: hidden;
+      border: 1px solid rgba(139, 92, 246, .35);
+      border-radius: 1.1rem;
+      background:
+        radial-gradient(circle at 50% 32%, rgba(139, 92, 246, .28), transparent 32%),
+        linear-gradient(to bottom, #17153d 0 66%, #29233d 66% 72%, #100e1b 72% 100%);
+      box-shadow: inset 0 -25px 45px rgba(0, 0, 0, .48), 0 0 25px rgba(76, 29, 149, .14);
+      direction: ltr;
+      isolation: isolate;
+    }
+    .arena-battle-stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: .28;
+      background: repeating-linear-gradient(115deg, transparent 0 55px, rgba(255,255,255,.035) 56px 58px, transparent 59px 110px);
+      pointer-events: none;
+    }
+    .arena-ground {
+      position: absolute;
+      left: 8%; right: 8%; bottom: 11px;
+      height: 25px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(71, 85, 105, .7), rgba(2, 6, 23, .15) 68%, transparent 72%);
+      filter: blur(1px);
+    }
+    .arena-hud {
+      position: absolute;
+      top: 10px;
+      width: 43%;
+      z-index: 5;
+      border: 1px solid rgba(71, 85, 105, .75);
+      border-radius: .75rem;
+      background: rgba(2, 6, 23, .8);
+      padding: .45rem .55rem;
+      backdrop-filter: blur(5px);
+      direction: rtl;
+    }
+    .arena-hud.enemy { left: 10px; border-color: rgba(190, 24, 93, .55); }
+    .arena-hud.player { right: 10px; border-color: rgba(16, 185, 129, .5); }
+    .arena-fighter {
+      position: absolute;
+      bottom: 18px;
+      left: calc(var(--fighter-x, 50) * 1% - 18%);
+      width: 36%;
+      height: calc(100% - 72px);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      filter: drop-shadow(0 11px 11px rgba(0, 0, 0, .65));
+      transform-origin: center bottom;
+      transition: left .12s linear, filter .2s ease, opacity .2s ease;
+      z-index: 2;
+      will-change: left, transform, filter;
+    }
+    .arena-fighter-body {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center bottom;
+      pointer-events: none;
+      animation: arenaIdle 2.2s ease-in-out infinite;
+    }
+    .arena-fighter-shadow {
+      position: absolute;
+      width: 62%;
+      height: 14px;
+      bottom: 1px;
+      border-radius: 50%;
+      background: rgba(2, 6, 23, .78);
+      filter: blur(3px);
+      z-index: -1;
+    }
+    .arena-fighter-fx {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 3.6rem;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 7;
+    }
+    .arena-attack.player { z-index: 6; animation: arenaLungePlayer .7s cubic-bezier(.25,.8,.3,1); }
+    .arena-attack.enemy { z-index: 6; animation: arenaLungeEnemy .7s cubic-bezier(.25,.8,.3,1); }
+    .arena-attack .arena-fighter-body { animation: none; }
+    .arena-hit { animation: arenaHit .55s ease; }
+    .arena-hit .arena-fighter-fx { animation: arenaFx .65s ease; }
+    .arena-hit .arena-fighter-fx::before { content: '💥'; }
+    .arena-defend .arena-fighter-fx { animation: arenaFx .8s ease; }
+    .arena-defend .arena-fighter-fx::before { content: '🛡️'; }
+    .arena-heal .arena-fighter-fx { animation: arenaFx .9s ease; }
+    .arena-heal .arena-fighter-fx::before { content: '💚'; }
+    .arena-wait .arena-fighter-fx { animation: arenaFx .75s ease; }
+    .arena-wait .arena-fighter-fx::before { content: '⚡'; }
+    .arena-defeated { filter: grayscale(1) brightness(.48); transform: rotate(11deg) translateY(18px); opacity: .65; }
+    .arena-stage-shake { animation: arenaStageShake .34s ease; }
+    .arena-damage-popup {
+      position: absolute;
+      bottom: 48%;
+      z-index: 12;
+      opacity: 0;
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: #fecaca;
+      text-shadow: 0 2px 2px #000, 0 0 13px #ef4444;
+      pointer-events: none;
+    }
+    .arena-damage-popup.enemy { left: 23%; }
+    .arena-damage-popup.player { right: 23%; }
+    .arena-damage-popup.heal { color: #86efac; text-shadow: 0 2px 2px #000, 0 0 13px #22c55e; }
+    .arena-damage-popup.show { animation: arenaDamageFloat .85s ease-out; }
+    .arena-stage-banner {
+      position: absolute;
+      left: 50%; top: 48%;
+      z-index: 15;
+      min-width: 170px;
+      padding: .55rem 1rem;
+      border: 1px solid rgba(251, 191, 36, .65);
+      border-radius: 999px;
+      background: rgba(2, 6, 23, .88);
+      color: #fde68a;
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 900;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(.65);
+      pointer-events: none;
+    }
+    .arena-stage-banner.show { animation: arenaBanner 1.5s ease both; }
+    .arena-stage-banner.loss { color: #fecaca; border-color: rgba(239, 68, 68, .65); }
+    @keyframes arenaIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    @keyframes arenaLungePlayer { 0%,100% { transform: translateX(0); } 35%,62% { transform: translateX(-82%) scale(1.1) rotate(-4deg); } }
+    @keyframes arenaLungeEnemy { 0%,100% { transform: translateX(0); } 35%,62% { transform: translateX(82%) scale(1.1) rotate(4deg); } }
+    @keyframes arenaHit { 20%, 60% { transform: translateX(-9px); filter: brightness(2.3) drop-shadow(0 0 16px #ef4444); } 40%, 80% { transform: translateX(9px); } }
+    @keyframes arenaFx { 0% { opacity: 0; transform: scale(.35); } 35% { opacity: 1; transform: scale(1.35); } 100% { opacity: 0; transform: translateY(-35px) scale(.9); } }
+    @keyframes arenaStageShake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+    @keyframes arenaDamageFloat { 0% { opacity: 0; transform: translateY(12px) scale(.6); } 25% { opacity: 1; transform: translateY(0) scale(1.2); } 100% { opacity: 0; transform: translateY(-48px) scale(.9); } }
+    @keyframes arenaBanner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.65); } 18%, 78% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -70%) scale(.9); } }
+    @media (max-width: 430px) {
+      .arena-battle-stage { flex-basis: 270px; }
+      .arena-hud { width: 46%; padding: .35rem .4rem; }
+      .arena-hud.enemy { left: 5px; }
+      .arena-hud.player { right: 5px; }
+      .arena-fighter { left: calc(var(--fighter-x, 50) * 1% - 21%); width: 42%; height: calc(100% - 78px); }
+    }
+
     .mining-btn { transition: transform 0.05s ease-out; }
     .mining-btn:active { transform: scale(0.92); }
 
@@ -112,12 +312,12 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
 </head>
-<body class="flex flex-col justify-between p-4 select-none mx-auto">
+<body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
   <!-- Header Info -->
-  <header class="flex justify-between items-center bg-slate-900/80 border border-slate-800 p-3 rounded-2xl backdrop-blur-md">
+  <header class="app-header flex justify-between items-center bg-slate-900/80 border border-slate-800 px-3 py-2 rounded-2xl backdrop-blur-md">
     <div class="flex items-center gap-2">
-      <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-xl shadow-lg shadow-amber-500/30">
+      <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-xl shadow-lg shadow-amber-500/30">
         ⛏️
       </div>
       <div>
@@ -139,17 +339,25 @@
   </header>
 
   <!-- Total Balance Display -->
-  <div class="text-center mt-3">
-    <div class="text-slate-400 text-xs font-semibold mb-1">إجمالي الذهب المستخرج</div>
-    <div class="flex items-center justify-center gap-2">
-      <span class="text-4xl text-amber-400">🪙</span>
-      <span id="gold-counter" class="text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-md">0</span>
+  <div class="balance-strip flex items-center justify-center gap-2 rounded-xl bg-slate-950/30 px-3 py-1.5">
+    <span class="text-2xl text-amber-400">🪙</span>
+    <div class="leading-none">
+      <div class="text-slate-400 text-[9px] font-semibold mb-1">إجمالي الذهب</div>
+      <span id="gold-counter" class="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">0</span>
     </div>
-    <div id="sync-status" class="text-[10px] text-slate-500 mt-1 min-h-[14px]" aria-live="polite">💾 حفظ محلي — جارٍ الاتصال بالخادم…</div>
+    <div id="sync-status" class="sr-only" aria-live="polite">💾 حفظ محلي — جارٍ الاتصال بالخادم…</div>
   </div>
 
   <!-- TAB 0: INTERACTIVE ADVENTURE GAME (الشاشة الرئيسية) -->
-  <main id="tab-play" class="tab-content active flex-col gap-2 flex-1 py-1 px-0.5">
+  <main id="tab-play" class="tab-content active flex-col flex-1 min-h-0 py-0 px-0.5">
+    <div class="play-subnav grid grid-cols-4 gap-1 mb-2" role="tablist" aria-label="أقسام اللعب">
+      <button id="play-nav-adventure" onclick="switchPlayPanel('adventure')" class="play-subnav-btn active" role="tab" aria-selected="true">🎮 <span>المغامرة</span></button>
+      <button id="play-nav-missions" onclick="switchPlayPanel('missions')" class="play-subnav-btn" role="tab" aria-selected="false">✅ <span>المهام</span></button>
+      <button id="play-nav-customize" onclick="switchPlayPanel('customize')" class="play-subnav-btn" role="tab" aria-selected="false">✨ <span>تطوير</span></button>
+      <button id="play-nav-social" onclick="switchPlayPanel('social')" class="play-subnav-btn" role="tab" aria-selected="false">⚔️ <span>سباق</span></button>
+    </div>
+
+    <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
     <div class="grid grid-cols-4 gap-1.5 text-center">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الوقت</div><div id="adv-time" class="font-black text-sky-300 text-sm">60</div></div>
@@ -171,7 +379,7 @@
 
     <div id="adv-mission" class="text-center text-[11px] font-bold text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-xl py-1.5">🎯 مهمة: التقط 15 جوهرة — مكافأة +25 نقطة</div>
 
-    <div class="relative">
+    <div class="adventure-stage relative flex-1 min-h-0">
       <canvas id="game-canvas" width="360" height="330" class="w-full rounded-2xl border border-amber-500/25 bg-[radial-gradient(circle_at_top,#312e81,#020617_70%)] touch-none select-none shadow-[0_0_35px_rgba(245,158,11,0.12)]"></canvas>
       <div id="game-overlay" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center bg-slate-950/55 rounded-2xl backdrop-blur-[1px] p-4">
         <div class="text-5xl">⛏️💎</div>
@@ -190,8 +398,11 @@
       <div class="text-[10px] text-slate-500">الجائزة حتى 100 🪙</div>
     </div>
 
+    </section>
+
     <!-- ⚔️ سباق مباشر ضد لاعب آخر -->
-    <div class="bg-slate-900/90 border border-indigo-800/50 rounded-xl p-2.5">
+    <section id="play-panel-social" class="play-panel flex-col justify-center" role="tabpanel" hidden>
+    <div class="bg-slate-900/90 border border-indigo-800/50 rounded-xl p-3">
       <div class="flex justify-between items-center mb-1.5">
         <span class="font-black text-xs">⚔️ سباق مباشر ضد لاعب</span>
         <span id="race-opponent" class="text-[10px] text-indigo-300"></span>
@@ -205,7 +416,10 @@
       </div>
       <button id="race-ready-btn" onclick="raceReady()" disabled class="hidden w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 font-black py-2 rounded-lg text-xs active:scale-95">✅ أنا جاهز — ابدأ السباق</button>
     </div>
+    </section>
 
+    <section id="play-panel-missions" class="play-panel flex-col gap-2 overflow-hidden" role="tabpanel" hidden>
+    <div class="panel-scroll flex flex-col gap-2">
     <!-- 📅 مهام اليوم + المكافأة اليومية (يولّدها الخادم ويتحقق من تقدّمها) -->
     <details id="missions-box" class="bg-slate-900/90 border border-emerald-800/40 rounded-xl p-2.5" open>
       <summary class="font-black text-xs cursor-pointer flex justify-between items-center">
@@ -229,8 +443,13 @@
       </div>
     </details>
 
+    </div>
+    </section>
+
+    <section id="play-panel-customize" class="play-panel flex-col overflow-hidden" role="tabpanel" hidden>
+    <div class="panel-scroll flex flex-col gap-2">
     <!-- 🛠️ ترقيات المغامرة الدائمة -->
-    <details class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-2.5">
+    <details class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-2.5" open>
       <summary class="font-black text-xs cursor-pointer">🛠️ ترقيات المغامرة الدائمة — قوِّ قدراتك بالذهب</summary>
       <div id="adv-upgrades-list" class="flex flex-col gap-1.5 mt-2"></div>
     </details>
@@ -246,6 +465,8 @@
       <summary class="font-black text-xs cursor-pointer flex justify-between items-center"><span>🏅 الإنجازات والمكافآت</span><span id="ach-count" class="text-[10px] text-slate-400 font-normal"></span></summary>
       <div id="adv-achievements" class="flex flex-col gap-1.5 mt-2"></div>
     </details>
+    </div>
+    </section>
   </main>
 
   <!-- TAB 1: MINING (QUICK CLICK) -->
@@ -350,39 +571,63 @@
       <p class="text-[11px] text-slate-400">قاتل الخصم الآلي دوراً بدور — الفائز يحصل على <b class="text-amber-400">+50 🪙</b> · سجلّك: <span id="arena-record">0 فوز · 0 خسارة</span></p>
     </div>
 
-    <!-- الخصم -->
-    <div class="bg-slate-900/90 border border-red-900/50 p-3 rounded-xl">
-      <div class="flex justify-between items-center mb-1">
-        <span id="arena-enemy-name" class="font-bold text-sm">🤖 روبوت المنقب</span>
-        <span id="arena-enemy-status" class="text-[10px] text-slate-400"></span>
+    <!-- مسرح المعركة: الشخصيتان متقابلتان وتتحركان داخل ساحة واحدة -->
+    <div id="arena-battle-stage" class="arena-battle-stage" aria-label="مسرح ساحة القتال">
+      <div class="arena-ground" aria-hidden="true"></div>
+      <div id="arena-stage-banner" class="arena-stage-banner" aria-live="polite"></div>
+      <div id="arena-damage-enemy" class="arena-damage-popup enemy" aria-hidden="true"></div>
+      <div id="arena-damage-player" class="arena-damage-popup player" aria-hidden="true"></div>
+
+      <div class="arena-hud enemy">
+        <div class="flex justify-between items-center gap-1 mb-1">
+          <span id="arena-enemy-name" class="font-bold text-[11px] truncate">مبارز الظلال · مستوى 1</span>
+          <span id="arena-enemy-status" class="text-[9px] text-slate-400 shrink-0"></span>
+        </div>
+        <div class="flex justify-between text-[9px] text-slate-300 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
+        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
       </div>
-      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
-      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
-      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+
+      <div class="arena-hud player">
+        <div class="flex justify-between items-center gap-1 mb-1">
+          <span class="font-bold text-[11px] truncate">محارب المنجم · أنت</span>
+          <span id="arena-player-status" class="text-[9px] text-slate-400 shrink-0"></span>
+        </div>
+        <div class="flex justify-between text-[9px] text-slate-300 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
+        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      </div>
+
+      <div id="arena-enemy-fighter" class="arena-fighter enemy" aria-label="شخصية الخصم">
+        <span class="arena-fighter-shadow"></span>
+        <img id="arena-enemy-character" class="arena-fighter-body" src="/assets/arena-enemy.png?v=3" alt="مبارز يحمل سيفاً" draggable="false">
+        <span class="arena-fighter-fx" aria-hidden="true"></span>
+      </div>
+      <div id="arena-player-fighter" class="arena-fighter player" aria-label="شخصية اللاعب">
+        <span class="arena-fighter-shadow"></span>
+        <img class="arena-fighter-body" src="/assets/arena-player.png?v=3" alt="محارب المنجم يحمل سيفاً" draggable="false">
+        <span class="arena-fighter-fx" aria-hidden="true"></span>
+      </div>
     </div>
 
     <div id="arena-turn" class="text-center text-xs font-black text-amber-400">اضغط «بدء مباراة» للقتال</div>
 
-    <!-- أنت -->
-    <div class="bg-slate-900/90 border border-emerald-900/50 p-3 rounded-xl">
-      <div class="flex justify-between items-center mb-1">
-        <span class="font-bold text-sm">⛏️ أنت</span>
-        <span id="arena-player-status" class="text-[10px] text-slate-400"></span>
-      </div>
-      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
-      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
-      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+    <!-- تحكم مباشر بالحركة: الضغط المطوّل يحرك المحارب باستمرار -->
+    <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center" dir="ltr" aria-label="تحريك المقاتل">
+      <button id="arena-move-left" onpointerdown="startArenaMove(-1)" onpointerup="stopArenaMove()" onpointercancel="stopArenaMove()" onpointerleave="stopArenaMove()" disabled class="arena-move-btn bg-slate-800 border border-slate-700 disabled:opacity-35 font-black py-2.5 rounded-xl text-xs active:scale-95">◀️ اقترب</button>
+      <div id="arena-distance" class="text-[10px] text-slate-400 font-bold min-w-20 text-center" dir="rtl">المسافة: بعيدة</div>
+      <button id="arena-move-right" onpointerdown="startArenaMove(1)" onpointerup="stopArenaMove()" onpointercancel="stopArenaMove()" onpointerleave="stopArenaMove()" disabled class="arena-move-btn bg-slate-800 border border-slate-700 disabled:opacity-35 font-black py-2.5 rounded-xl text-xs active:scale-95">ابتعد ▶️</button>
     </div>
 
     <!-- الحركات -->
     <div class="grid grid-cols-4 gap-2">
-      <button id="arena-btn-attack" onclick="arenaAction('ATTACK')" disabled class="arena-btn bg-red-500/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⚔️ هجوم<br><span class="text-[9px] font-normal">3⚡ · ضرر 10-15</span></button>
+      <button id="arena-btn-attack" onclick="arenaAction('ATTACK')" disabled class="arena-btn bg-red-500/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⚔️ اضرب بالسيف<br><span class="text-[9px] font-normal">اقترب أولاً · 3⚡</span></button>
       <button id="arena-btn-defend" onclick="arenaAction('DEFEND')" disabled class="arena-btn bg-sky-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">🛡️ دفاع<br><span class="text-[9px] font-normal">1⚡ · ضرر وارد −50%</span></button>
       <button id="arena-btn-heal" onclick="arenaAction('HEAL')" disabled class="arena-btn bg-emerald-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">💚 علاج<br><span class="text-[9px] font-normal">4⚡ · ‎+20❤️</span></button>
       <button id="arena-btn-wait" onclick="arenaAction('WAIT')" disabled class="arena-btn bg-slate-700 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⏳ انتظار<br><span class="text-[9px] font-normal">‎+3⚡</span></button>
     </div>
 
-    <button id="arena-start-btn" onclick="startBattle()" class="w-full bg-gradient-to-r from-fuchsia-500 to-purple-600 font-bold py-3 rounded-xl text-sm shadow-lg active:scale-95">🚀 بدء مباراة</button>
+    <button id="arena-start-btn" onclick="startBattle()" class="w-full bg-gradient-to-r from-fuchsia-500 to-purple-600 disabled:opacity-55 disabled:grayscale font-bold py-3 rounded-xl text-sm shadow-lg active:scale-95">🚀 بدء مباراة</button>
 
     <div id="arena-log" class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-[11px] leading-6 text-slate-300 min-h-[96px]">سجل المباراة سيظهر هنا…</div>
   </main>
@@ -399,7 +644,7 @@
   </div>
 
   <!-- Bottom Navigation Bar -->
-  <nav class="grid grid-cols-6 gap-1 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
+  <nav class="bottom-nav grid grid-cols-6 gap-1 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
     <button onclick="switchTab('play')" id="nav-play" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
       <span class="text-lg">🎮</span>
       <span class="text-[9px] font-bold mt-0.5">اللعب</span>
@@ -789,6 +1034,106 @@
     let arenaRecord = { wins: 0, losses: 0 };
     try { arenaRecord = { ...arenaRecord, ...JSON.parse(localStorage.getItem('mining_arena_record') || '{}') }; } catch (e) {}
     const saveArenaRecord = () => { try { localStorage.setItem('mining_arena_record', JSON.stringify(arenaRecord)); } catch (e) {} };
+    const ARENA_FIGHTERS = [
+      { min: 1, icon: '🥷', name: 'مبارز الظلال' },
+      { min: 4, icon: '🧔‍♂️', name: 'قاطع الطريق' },
+      { min: 8, icon: '🧝‍♂️', name: 'حارس الكهف' },
+      { min: 13, icon: '👹', name: 'سيد الساحة' },
+    ];
+    function arenaEnemyFighter(level = 1) {
+      return ARENA_FIGHTERS.reduce((chosen, fighter) => level >= fighter.min ? fighter : chosen, ARENA_FIGHTERS[0]);
+    }
+
+    const arenaPosition = { player: 76, enemy: 24 };
+    let arenaMoveTimer = 0;
+    const arenaDistance = () => Math.abs(arenaPosition.player - arenaPosition.enemy);
+    const arenaInSwordRange = () => arenaDistance() <= 38;
+    function renderArenaPositions() {
+      for (const actor of ['player', 'enemy']) {
+        const fighter = document.getElementById(`arena-${actor}-fighter`);
+        if (fighter?.style?.setProperty) fighter.style.setProperty('--fighter-x', arenaPosition[actor]);
+        else if (fighter?.style) fighter.style['--fighter-x'] = arenaPosition[actor];
+      }
+      const distance = document.getElementById('arena-distance');
+      if (distance) {
+        distance.textContent = arenaInSwordRange() ? '⚔️ ضمن مدى السيف' : '↔️ اقترب للهجوم';
+        distance.className = `text-[10px] font-bold min-w-20 text-center ${arenaInSwordRange() ? 'text-emerald-400' : 'text-amber-400'}`;
+      }
+    }
+    function moveArenaPlayer(direction) {
+      if (!battle?.active || battle.busy) return;
+      const min = arenaPosition.enemy + 24;
+      arenaPosition.player = Math.max(min, Math.min(88, arenaPosition.player + direction * 3));
+      renderArenaPositions();
+      updateArenaUI();
+    }
+    function startArenaMove(direction) {
+      stopArenaMove();
+      moveArenaPlayer(direction);
+      arenaMoveTimer = setInterval(() => moveArenaPlayer(direction), 85);
+    }
+    function stopArenaMove() {
+      if (arenaMoveTimer) clearInterval(arenaMoveTimer);
+      arenaMoveTimer = 0;
+    }
+    window.addEventListener('pointerup', stopArenaMove);
+    window.addEventListener('blur', stopArenaMove);
+    window.addEventListener('keydown', (event) => {
+      if (!document.getElementById('tab-arena')?.classList.contains('active') || event.repeat) return;
+      if (event.key === 'ArrowLeft') moveArenaPlayer(-1);
+      if (event.key === 'ArrowRight') moveArenaPlayer(1);
+    });
+
+    function showArenaBanner(text, kind = '') {
+      const banner = document.getElementById('arena-stage-banner');
+      if (!banner) return;
+      banner.textContent = text;
+      banner.className = `arena-stage-banner${kind ? ` ${kind}` : ''}`;
+      void banner.offsetWidth;
+      banner.classList.add('show');
+    }
+
+    function animateArenaFighter(actor, action, event = {}) {
+      const fighter = document.getElementById(`arena-${actor}-fighter`);
+      const targetActor = actor === 'player' ? 'enemy' : 'player';
+      const target = document.getElementById(`arena-${targetActor}-fighter`);
+      const stage = document.getElementById('arena-battle-stage');
+      if (!fighter) return;
+      const motionClasses = ['arena-attack', 'arena-defend', 'arena-heal', 'arena-wait', 'arena-hit'];
+      motionClasses.forEach((name) => fighter.classList.remove(name));
+      void fighter.offsetWidth; // يعيد تشغيل الحركة إذا كرر اللاعب الفعل نفسه
+      const motion = action === 'ATTACK' ? 'arena-attack' : `arena-${action.toLowerCase()}`;
+      fighter.classList.add(motion);
+
+      const popupActor = action === 'ATTACK' ? targetActor : actor;
+      const popup = document.getElementById(`arena-damage-${popupActor}`);
+      if (popup) {
+        popup.classList.remove('show', 'heal');
+        popup.textContent = action === 'ATTACK' ? `−${event.dmg || 0}`
+          : action === 'HEAL' ? `+${event.healed || 0} ❤️`
+          : action === 'DEFEND' ? '🛡️ دفاع' : '+3 ⚡';
+        popup.classList.toggle('heal', action !== 'ATTACK');
+        void popup.offsetWidth;
+        popup.classList.add('show');
+      }
+
+      if (action === 'ATTACK' && target) {
+        setTimeout(() => {
+          target.classList.remove('arena-hit');
+          void target.offsetWidth;
+          target.classList.add('arena-hit');
+          stage?.classList.remove('arena-stage-shake');
+          void stage?.offsetWidth;
+          stage?.classList.add('arena-stage-shake');
+        }, 230);
+      }
+      setTimeout(() => {
+        fighter.classList.remove(motion);
+        target?.classList.remove('arena-hit');
+        stage?.classList.remove('arena-stage-shake');
+        popup?.classList.remove('show');
+      }, 900);
+    }
 
     function arenaLog(msg) {
       const el = document.getElementById('arena-log');
@@ -811,16 +1156,25 @@
     function arenaRecordView() { return (serverMode && profile?.arena?.record) || arenaRecord; }
 
     function startBattle() {
+      // زر البدء لا يعيد المباراة وهي جارية؛ يجب إكمال القتال الحالي أولاً.
+      if (battle?.active) return;
       const ticket = arenaTicket();
       const practice = serverMode && !ticket; // لا تذكرة بعد: مباراة تدريبية بلا مكافأة بدل تعطيل الزر
       const lvl = ticket ? ticket.level : playerLevel();
       const seed = ticket ? ticket.seed : (Math.random() * 4294967296) >>> 0;
       battle = ArenaRules.newBattle({ level: lvl, seed });
       battle.busy = false; battle.ticket = ticket; battle.practice = practice;
+      stopArenaMove();
+      arenaPosition.player = 76;
+      arenaPosition.enemy = 24;
+      renderArenaPositions();
       document.getElementById('arena-log').innerHTML = '';
-      arenaLog(`⚔️ بدأت مباراة ضد روبوت المنقب (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
+      document.querySelectorAll('.arena-fighter').forEach((fighter) => fighter.classList.remove('arena-defeated'));
+      const rival = arenaEnemyFighter(lvl);
+      arenaLog(`⚔️ بدأت مباراة ضد ${rival.name} (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
       if (practice) { arenaLog('🧪 مباراة تدريبية بلا مكافأة — بانتظار ختم الخادم للمباراة السابقة'); flushOps(); }
       arenaLog('اختر حركتك الأولى!');
+      showArenaBanner('⚔️ استعد للقتال!');
       haptic('success');
       updateArenaUI();
     }
@@ -839,17 +1193,26 @@
       txt('arena-player-energy-text', `${p.energy}/${ARENA.maxEnergy}`);
       txt('arena-enemy-hp-text', `${Math.max(0, Math.ceil(e.hp))}/${e.maxHp}`);
       txt('arena-enemy-energy-text', `${e.energy}/${ARENA.maxEnergy}`);
-      txt('arena-enemy-name', `🤖 روبوت المنقب · مستوى ${e.level}`);
+      const rival = arenaEnemyFighter(e.level);
+      txt('arena-enemy-name', `${rival.name} · مستوى ${e.level}`);
+      document.getElementById('arena-player-fighter')?.classList.toggle('arena-defeated', p.hp <= 0);
+      document.getElementById('arena-enemy-fighter')?.classList.toggle('arena-defeated', e.hp <= 0);
       txt('arena-player-status', p.defending ? '🛡️ دفاع مفعّل' : '');
       txt('arena-enemy-status', e.defending ? '🛡️ دفاع مفعّل' : '');
       txt('arena-record', `${rec.wins || 0} فوز · ${rec.losses || 0} خسارة${rec.draws ? ` · ${rec.draws} تعادل` : ''}`);
       txt('arena-turn', !battle?.active ? (battle ? 'انتهت المباراة — ابدأ واحدة جديدة' : 'اضغط «بدء مباراة» للقتال')
-        : battle.busy ? '⏳ دور الخصم…' : `🎯 الجولة ${battle.round} — دورك! اختر حركة`);
-      document.getElementById('arena-start-btn').innerText = battle?.active ? '🔄 إعادة بدء المباراة' : '🚀 بدء مباراة';
+        : battle.busy ? '⏳ دور الخصم…' : arenaInSwordRange() ? `🎯 الجولة ${battle.round} — اضرب الآن!` : `🎮 الجولة ${battle.round} — حرّك المحارب واقترب`);
+      const startBtn = document.getElementById('arena-start-btn');
+      startBtn.disabled = Boolean(battle?.active);
+      startBtn.innerText = battle?.active ? '⚔️ المعركة جارية — أكمل القتال' : battle ? '🔄 مباراة جديدة' : '🚀 بدء مباراة';
+      const canControl = Boolean(battle?.active && !battle.busy);
+      document.getElementById('arena-move-left').disabled = !canControl || arenaPosition.player <= arenaPosition.enemy + 24;
+      document.getElementById('arena-move-right').disabled = !canControl || arenaPosition.player >= 88;
       for (const [key, action] of [['attack', 'ATTACK'], ['defend', 'DEFEND'], ['heal', 'HEAL'], ['wait', 'WAIT']]) {
         const btn = document.getElementById(`arena-btn-${key}`);
-        btn.disabled = !battle?.active || battle.busy || !ArenaRules.canAct(battle.player, action);
+        btn.disabled = !canControl || (action === 'ATTACK' && !arenaInSwordRange()) || !ArenaRules.canAct(battle.player, action);
       }
+      renderArenaPositions();
     }
 
     // وصف نصي لحدث من المحرك
@@ -864,8 +1227,21 @@
 
     function arenaAction(action) {
       if (!battle?.active || battle.busy) return;
+      if (action === 'ATTACK' && !arenaInSwordRange()) {
+        showArenaBanner('◀️ اقترب من الخصم أولاً');
+        haptic('error');
+        return;
+      }
+      stopArenaMove();
       const ev = ArenaRules.playerMove(battle, action);
       if (ev.error) { haptic('error'); return; }
+      animateArenaFighter('player', action, ev);
+      const positionBattle = battle;
+      if (action === 'ATTACK') setTimeout(() => {
+        if (battle !== positionBattle) return;
+        arenaPosition.enemy = Math.max(12, arenaPosition.enemy - 3);
+        renderArenaPositions();
+      }, 520);
       arenaLog(describeMove(ev, 'أنت'));
       haptic(action === 'ATTACK' ? 'light' : 'success');
       if (checkBattleEnd()) return;
@@ -874,7 +1250,14 @@
       const current = battle; // إعادة البدء أثناء دور الروبوت لا يجب أن تُدخل حركة في المباراة الجديدة
       setTimeout(() => {
         if (battle !== current || !current.active) return;
-        arenaLog(describeMove(ArenaRules.enemyMove(current), 'الروبوت'));
+        const enemyEvent = ArenaRules.enemyMove(current);
+        animateArenaFighter('enemy', enemyEvent.action, enemyEvent);
+        if (enemyEvent.action === 'ATTACK') setTimeout(() => {
+          if (battle !== current) return;
+          arenaPosition.player = Math.min(88, arenaPosition.player + 4);
+          renderArenaPositions();
+        }, 520);
+        arenaLog(describeMove(enemyEvent, arenaEnemyFighter(current.enemy.level).name));
         haptic('light');
         if (checkBattleEnd()) return;
         // بداية جولة جديدة: تجدد طاقة +2 للطرفين، أو حسم بنسبة الصحة بعد آخر جولة
@@ -897,13 +1280,17 @@
       battle.busy = false;
       const won = battle.outcome === 'win';
       const sealed = Boolean(serverMode && battle.ticket); // مباراة بتذكرة: الخادم هو من يعتمد النتيجة
-      if (battle.outcome === 'draw') haptic('error');
-      else if (won) {
+      if (battle.outcome === 'draw') {
+        showArenaBanner('🤝 تعادل!');
+        haptic('error');
+      } else if (won) {
         if (sealed || !serverMode) { state.gold += ARENA.winReward; state.totalEarned += ARENA.winReward; }
         arenaLog(battle.practice ? '🏆 انتصرت في مباراة تدريبية — بلا مكافأة' : sealed ? `🏆 انتصرت! +${ARENA.winReward} 🪙 بعد اعتماد الخادم` : `🏆 انتصرت! حصلت على +${ARENA.winReward} 🪙`);
+        showArenaBanner('🏆 انتصار!');
         haptic('success');
       } else {
         arenaLog('💀 هُزمت… جرّب خطة مختلفة: عالِج مبكراً ولا تهاجم بلا طاقة احتياطية');
+        showArenaBanner('💀 هزيمة', 'loss');
         haptic('error');
       }
       if (sealed) {
@@ -2371,6 +2758,28 @@
       updateUI();
     }, 100);
     setInterval(save, 2000); // حفظ دوري خفيف بدلاً من الحفظ كل 100ms
+
+    // --- Play sub-navigation: one focused panel instead of one long web page ---
+    function switchPlayPanel(panelId) {
+      const target = document.getElementById(`play-panel-${panelId}`);
+      if (!target) return;
+
+      document.querySelectorAll('.play-panel').forEach((panel) => {
+        const selected = panel === target;
+        panel.classList.toggle('active', selected);
+        panel.hidden = !selected;
+      });
+      document.querySelectorAll('.play-subnav-btn').forEach((button) => {
+        const selected = button.id === `play-nav-${panelId}`;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-selected', String(selected));
+      });
+
+      if (panelId !== 'adventure' && adv.running && !adv.paused) setAdventurePaused(true);
+      if (panelId === 'adventure') setTimeout(resizeAdventureCanvas, 30);
+      if (panelId === 'customize') updateAdvUpgradesUI();
+      haptic('light');
+    }
 
     // --- Navigation Tabs ---
     function switchTab(tabId) {

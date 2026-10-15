@@ -31,10 +31,48 @@ test('small screens: body height follows the real viewport and tabs scroll inter
   }
 });
 
-test('adventure canvas height scales with the screen and the backing store never exceeds it', () => {
-  assert.match(style, /#game-canvas \{ height: clamp\(230px, 40vh, 330px\); \}/);
+test('play is a fixed app screen with focused sub-tabs instead of one long page', () => {
+  assert.match(style, /#tab-play\s*\{\s*overflow:\s*hidden;/);
+  assert.match(style, /\.play-panel\s*\{[^}]*display:\s*none;[^}]*min-height:\s*0;/s);
+  assert.match(style, /\.play-panel\.active\s*\{\s*display:\s*flex;/);
+  for (const panel of ['adventure', 'missions', 'customize', 'social']) {
+    assert.match(html, new RegExp(`id="play-nav-${panel}"`));
+    assert.match(html, new RegExp(`id="play-panel-${panel}"`));
+  }
+  assert.match(html, /function switchPlayPanel\(panelId\)/);
+  assert.match(html, /panel\.hidden = !selected/);
+});
+
+test('adventure canvas fills the remaining game panel and the backing store follows it', () => {
+  assert.match(style, /\.adventure-stage #game-canvas \{[^}]*height:\s*100%;/s);
+  assert.match(style, /\.adventure-stage\s*\{\s*min-height:\s*150px;/);
   assert.doesNotMatch(html, /id="game-canvas"[^>]*h-\[330px\]/);
   assert.match(html, /advCanvas\.height = Math\.max\(200, rect\.height\) \* dpr;/);
+});
+
+test('arena shows illustrated sword fighters and action animations, not clipped emoji cards', () => {
+  assert.match(html, /id="arena-player-fighter"[^>]*arena-fighter player/);
+  assert.match(html, /id="arena-enemy-fighter"[^>]*arena-fighter enemy/);
+  assert.match(html, /src="\/assets\/arena-player\.png\?v=3"[^>]*alt="محارب المنجم يحمل سيفاً"/);
+  assert.match(html, /src="\/assets\/arena-enemy\.png\?v=3"[^>]*alt="مبارز يحمل سيفاً"/);
+  assert.match(html, /class="arena-battle-stage"/);
+  assert.match(style, /\.arena-battle-stage\s*\{[^}]*overflow:\s*hidden;/s);
+  assert.match(style, /\.arena-fighter-body\s*\{[^}]*object-fit:\s*contain;/s);
+  assert.match(style, /@keyframes arenaLungePlayer/);
+  assert.match(style, /@keyframes arenaHit/);
+  assert.match(style, /@keyframes arenaDamageFloat/);
+  assert.match(html, /id="arena-stage-banner"/);
+  assert.match(html, /id="arena-damage-enemy"/);
+  assert.match(html, /function animateArenaFighter\(actor, action, event = \{\}\)/);
+  assert.match(html, /id="arena-move-left"[^>]*startArenaMove\(-1\)/);
+  assert.match(html, /id="arena-move-right"[^>]*startArenaMove\(1\)/);
+  assert.match(html, /const arenaInSwordRange = \(\) => arenaDistance\(\) <= 38/);
+  assert.match(html, /action === 'ATTACK' && !arenaInSwordRange\(\)/);
+  assert.match(html, /if \(battle\?\.active\) return;/);
+  assert.match(html, /startBtn\.disabled = Boolean\(battle\?\.active\)/);
+  assert.match(html, /⚔️ المعركة جارية — أكمل القتال/);
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-player.png')));
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-enemy.png')));
 });
 
 test('telegram viewport height and vertical-swipe guard are applied when running inside Telegram', () => {
