@@ -135,28 +135,65 @@
       #game-overlay { gap: .35rem; }
     }
 
-    /* شخصيات ساحة القتال: المقاتلان متقابلان مع حركات مرئية لكل فعل. */
-    .arena-fighter-card { position: relative; isolation: isolate; overflow: hidden; }
-    .arena-fighter-card::before {
+    /* مسرح قتال حي: الشخصيتان داخل ساحة واحدة وتتحركان فعلياً نحو بعضهما. */
+    .arena-battle-stage {
+      position: relative;
+      flex: 0 0 clamp(270px, 42vh, 360px);
+      overflow: hidden;
+      border: 1px solid rgba(139, 92, 246, .35);
+      border-radius: 1.1rem;
+      background:
+        radial-gradient(circle at 50% 32%, rgba(139, 92, 246, .28), transparent 32%),
+        linear-gradient(to bottom, #17153d 0 66%, #29233d 66% 72%, #100e1b 72% 100%);
+      box-shadow: inset 0 -25px 45px rgba(0, 0, 0, .48), 0 0 25px rgba(76, 29, 149, .14);
+      direction: ltr;
+      isolation: isolate;
+    }
+    .arena-battle-stage::before {
       content: '';
       position: absolute;
-      inset: auto 0 0;
-      height: 45%;
-      background: radial-gradient(ellipse at center, rgba(148, 163, 184, .12), transparent 70%);
+      inset: 0;
+      opacity: .28;
+      background: repeating-linear-gradient(115deg, transparent 0 55px, rgba(255,255,255,.035) 56px 58px, transparent 59px 110px);
       pointer-events: none;
-      z-index: -1;
     }
+    .arena-ground {
+      position: absolute;
+      left: 8%; right: 8%; bottom: 11px;
+      height: 25px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(71, 85, 105, .7), rgba(2, 6, 23, .15) 68%, transparent 72%);
+      filter: blur(1px);
+    }
+    .arena-hud {
+      position: absolute;
+      top: 10px;
+      width: 43%;
+      z-index: 5;
+      border: 1px solid rgba(71, 85, 105, .75);
+      border-radius: .75rem;
+      background: rgba(2, 6, 23, .8);
+      padding: .45rem .55rem;
+      backdrop-filter: blur(5px);
+      direction: rtl;
+    }
+    .arena-hud.enemy { left: 10px; border-color: rgba(190, 24, 93, .55); }
+    .arena-hud.player { right: 10px; border-color: rgba(16, 185, 129, .5); }
     .arena-fighter {
-      position: relative;
-      flex: 0 0 clamp(130px, 24vw, 210px);
-      height: 102px;
+      position: absolute;
+      bottom: 18px;
+      width: 43%;
+      height: calc(100% - 72px);
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: center;
-      filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .55));
+      filter: drop-shadow(0 11px 11px rgba(0, 0, 0, .65));
       transform-origin: center bottom;
-      z-index: 1;
+      z-index: 2;
+      will-change: transform, filter;
     }
+    .arena-fighter.enemy { left: 1%; }
+    .arena-fighter.player { right: 1%; }
     .arena-fighter-body {
       display: block;
       width: 100%;
@@ -164,15 +201,16 @@
       object-fit: contain;
       object-position: center bottom;
       pointer-events: none;
+      animation: arenaIdle 2.2s ease-in-out infinite;
     }
     .arena-fighter-shadow {
       position: absolute;
-      width: 65px;
-      height: 12px;
-      bottom: 2px;
+      width: 62%;
+      height: 14px;
+      bottom: 1px;
       border-radius: 50%;
-      background: rgba(2, 6, 23, .72);
-      filter: blur(2px);
+      background: rgba(2, 6, 23, .78);
+      filter: blur(3px);
       z-index: -1;
     }
     .arena-fighter-fx {
@@ -180,28 +218,37 @@
       inset: 0;
       display: grid;
       place-items: center;
-      font-size: 2.4rem;
+      font-size: 3.6rem;
       opacity: 0;
       pointer-events: none;
+      z-index: 7;
     }
-    .arena-attack.player { animation: arenaLungePlayer .48s ease; }
-    .arena-attack.enemy { animation: arenaLungeEnemy .48s ease; }
-    .arena-hit { animation: arenaHit .46s ease; }
-    .arena-hit .arena-fighter-fx { animation: arenaFx .6s ease; }
+    .arena-attack.player { z-index: 6; animation: arenaLungePlayer .7s cubic-bezier(.25,.8,.3,1); }
+    .arena-attack.enemy { z-index: 6; animation: arenaLungeEnemy .7s cubic-bezier(.25,.8,.3,1); }
+    .arena-attack .arena-fighter-body { animation: none; }
+    .arena-hit { animation: arenaHit .55s ease; }
+    .arena-hit .arena-fighter-fx { animation: arenaFx .65s ease; }
     .arena-hit .arena-fighter-fx::before { content: '💥'; }
-    .arena-defend .arena-fighter-fx { animation: arenaFx .75s ease; }
+    .arena-defend .arena-fighter-fx { animation: arenaFx .8s ease; }
     .arena-defend .arena-fighter-fx::before { content: '🛡️'; }
-    .arena-heal .arena-fighter-fx { animation: arenaFx .85s ease; }
+    .arena-heal .arena-fighter-fx { animation: arenaFx .9s ease; }
     .arena-heal .arena-fighter-fx::before { content: '💚'; }
-    .arena-wait .arena-fighter-fx { animation: arenaFx .7s ease; }
+    .arena-wait .arena-fighter-fx { animation: arenaFx .75s ease; }
     .arena-wait .arena-fighter-fx::before { content: '⚡'; }
-    .arena-defeated { filter: grayscale(1) brightness(.55); transform: rotate(8deg) translateY(8px); opacity: .72; }
-    @keyframes arenaLungePlayer { 50% { transform: translate(-24px, -22px) scale(1.16) rotate(-5deg); } }
-    @keyframes arenaLungeEnemy { 50% { transform: translate(24px, 22px) scale(1.16) rotate(5deg); } }
-    @keyframes arenaHit { 20%, 60% { transform: translateX(-7px); filter: brightness(2) drop-shadow(0 0 12px #ef4444); } 40%, 80% { transform: translateX(7px); } }
-    @keyframes arenaFx { 0% { opacity: 0; transform: scale(.4); } 35% { opacity: 1; transform: scale(1.25); } 100% { opacity: 0; transform: translateY(-25px) scale(.9); } }
+    .arena-defeated { filter: grayscale(1) brightness(.48); transform: rotate(11deg) translateY(18px); opacity: .65; }
+    @keyframes arenaIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    @keyframes arenaLungePlayer { 0%,100% { transform: translateX(0); } 35%,62% { transform: translateX(-82%) scale(1.1) rotate(-4deg); } }
+    @keyframes arenaLungeEnemy { 0%,100% { transform: translateX(0); } 35%,62% { transform: translateX(82%) scale(1.1) rotate(4deg); } }
+    @keyframes arenaHit { 20%, 60% { transform: translateX(-9px); filter: brightness(2.3) drop-shadow(0 0 16px #ef4444); } 40%, 80% { transform: translateX(9px); } }
+    @keyframes arenaFx { 0% { opacity: 0; transform: scale(.35); } 35% { opacity: 1; transform: scale(1.35); } 100% { opacity: 0; transform: translateY(-35px) scale(.9); } }
     @media (max-width: 430px) {
-      .arena-fighter { flex-basis: 112px; height: 88px; }
+      .arena-battle-stage { flex-basis: 270px; }
+      .arena-hud { width: 46%; padding: .35rem .4rem; }
+      .arena-hud.enemy { left: 5px; }
+      .arena-hud.player { right: 5px; }
+      .arena-fighter { width: 48%; height: calc(100% - 78px); }
+      .arena-fighter.enemy { left: -3%; }
+      .arena-fighter.player { right: -3%; }
     }
 
     .mining-btn { transition: transform 0.05s ease-out; }
@@ -488,43 +535,43 @@
       <p class="text-[11px] text-slate-400">قاتل الخصم الآلي دوراً بدور — الفائز يحصل على <b class="text-amber-400">+50 🪙</b> · سجلّك: <span id="arena-record">0 فوز · 0 خسارة</span></p>
     </div>
 
-    <!-- الخصم: شخصية مقاتل مرئية بدل بطاقة أرقام فقط -->
-    <div class="arena-fighter-card flex flex-row-reverse items-center gap-3 bg-slate-900/90 border border-red-900/50 p-2.5 rounded-xl">
+    <!-- مسرح المعركة: الشخصيتان متقابلتان وتتحركان داخل ساحة واحدة -->
+    <div class="arena-battle-stage" aria-label="مسرح ساحة القتال">
+      <div class="arena-ground" aria-hidden="true"></div>
+
+      <div class="arena-hud enemy">
+        <div class="flex justify-between items-center gap-1 mb-1">
+          <span id="arena-enemy-name" class="font-bold text-[11px] truncate">مبارز الظلال · مستوى 1</span>
+          <span id="arena-enemy-status" class="text-[9px] text-slate-400 shrink-0"></span>
+        </div>
+        <div class="flex justify-between text-[9px] text-slate-300 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
+        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      </div>
+
+      <div class="arena-hud player">
+        <div class="flex justify-between items-center gap-1 mb-1">
+          <span class="font-bold text-[11px] truncate">محارب المنجم · أنت</span>
+          <span id="arena-player-status" class="text-[9px] text-slate-400 shrink-0"></span>
+        </div>
+        <div class="flex justify-between text-[9px] text-slate-300 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
+        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      </div>
+
       <div id="arena-enemy-fighter" class="arena-fighter enemy" aria-label="شخصية الخصم">
         <span class="arena-fighter-shadow"></span>
-        <img id="arena-enemy-character" class="arena-fighter-body" src="/assets/arena-enemy.png?v=2" alt="مبارز يحمل سيفاً" draggable="false">
+        <img id="arena-enemy-character" class="arena-fighter-body" src="/assets/arena-enemy.png?v=3" alt="مبارز يحمل سيفاً" draggable="false">
         <span class="arena-fighter-fx" aria-hidden="true"></span>
       </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex justify-between items-center mb-1">
-          <span id="arena-enemy-name" class="font-bold text-sm">مبارز الظلال · مستوى 1</span>
-          <span id="arena-enemy-status" class="text-[10px] text-slate-400"></span>
-        </div>
-        <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
-        <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
-        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      <div id="arena-player-fighter" class="arena-fighter player" aria-label="شخصية اللاعب">
+        <span class="arena-fighter-shadow"></span>
+        <img class="arena-fighter-body" src="/assets/arena-player.png?v=3" alt="محارب المنجم يحمل سيفاً" draggable="false">
+        <span class="arena-fighter-fx" aria-hidden="true"></span>
       </div>
     </div>
 
     <div id="arena-turn" class="text-center text-xs font-black text-amber-400">اضغط «بدء مباراة» للقتال</div>
-
-    <!-- أنت: محارب يحمل سيفه -->
-    <div class="arena-fighter-card flex items-center gap-3 bg-slate-900/90 border border-emerald-900/50 p-2.5 rounded-xl">
-      <div id="arena-player-fighter" class="arena-fighter player" aria-label="شخصية اللاعب">
-        <span class="arena-fighter-shadow"></span>
-        <img class="arena-fighter-body" src="/assets/arena-player.png?v=2" alt="محارب المنجم يحمل سيفاً" draggable="false">
-        <span class="arena-fighter-fx" aria-hidden="true"></span>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex justify-between items-center mb-1">
-          <span class="font-bold text-sm">محارب المنجم · أنت</span>
-          <span id="arena-player-status" class="text-[10px] text-slate-400"></span>
-        </div>
-        <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
-        <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
-        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
-      </div>
-    </div>
 
     <!-- الحركات -->
     <div class="grid grid-cols-4 gap-2">

@@ -53,8 +53,10 @@ test('adventure canvas fills the remaining game panel and the backing store foll
 test('arena shows illustrated sword fighters and action animations, not clipped emoji cards', () => {
   assert.match(html, /id="arena-player-fighter"[^>]*arena-fighter player/);
   assert.match(html, /id="arena-enemy-fighter"[^>]*arena-fighter enemy/);
-  assert.match(html, /src="\/assets\/arena-player\.png\?v=2"[^>]*alt="محارب المنجم يحمل سيفاً"/);
-  assert.match(html, /src="\/assets\/arena-enemy\.png\?v=2"[^>]*alt="مبارز يحمل سيفاً"/);
+  assert.match(html, /src="\/assets\/arena-player\.png\?v=3"[^>]*alt="محارب المنجم يحمل سيفاً"/);
+  assert.match(html, /src="\/assets\/arena-enemy\.png\?v=3"[^>]*alt="مبارز يحمل سيفاً"/);
+  assert.match(html, /class="arena-battle-stage"/);
+  assert.match(style, /\.arena-battle-stage\s*\{[^}]*overflow:\s*hidden;/s);
   assert.match(style, /\.arena-fighter-body\s*\{[^}]*object-fit:\s*contain;/s);
   assert.match(style, /@keyframes arenaLungePlayer/);
   assert.match(style, /@keyframes arenaHit/);
