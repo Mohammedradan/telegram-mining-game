@@ -236,11 +236,49 @@
     .arena-wait .arena-fighter-fx { animation: arenaFx .75s ease; }
     .arena-wait .arena-fighter-fx::before { content: '⚡'; }
     .arena-defeated { filter: grayscale(1) brightness(.48); transform: rotate(11deg) translateY(18px); opacity: .65; }
+    .arena-stage-shake { animation: arenaStageShake .34s ease; }
+    .arena-damage-popup {
+      position: absolute;
+      bottom: 48%;
+      z-index: 12;
+      opacity: 0;
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: #fecaca;
+      text-shadow: 0 2px 2px #000, 0 0 13px #ef4444;
+      pointer-events: none;
+    }
+    .arena-damage-popup.enemy { left: 23%; }
+    .arena-damage-popup.player { right: 23%; }
+    .arena-damage-popup.heal { color: #86efac; text-shadow: 0 2px 2px #000, 0 0 13px #22c55e; }
+    .arena-damage-popup.show { animation: arenaDamageFloat .85s ease-out; }
+    .arena-stage-banner {
+      position: absolute;
+      left: 50%; top: 48%;
+      z-index: 15;
+      min-width: 170px;
+      padding: .55rem 1rem;
+      border: 1px solid rgba(251, 191, 36, .65);
+      border-radius: 999px;
+      background: rgba(2, 6, 23, .88);
+      color: #fde68a;
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 900;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(.65);
+      pointer-events: none;
+    }
+    .arena-stage-banner.show { animation: arenaBanner 1.5s ease both; }
+    .arena-stage-banner.loss { color: #fecaca; border-color: rgba(239, 68, 68, .65); }
     @keyframes arenaIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
     @keyframes arenaLungePlayer { 0%,100% { transform: translateX(0); } 35%,62% { transform: translateX(-82%) scale(1.1) rotate(-4deg); } }
     @keyframes arenaLungeEnemy { 0%,100% { transform: translateX(0); } 35%,62% { transform: translateX(82%) scale(1.1) rotate(4deg); } }
     @keyframes arenaHit { 20%, 60% { transform: translateX(-9px); filter: brightness(2.3) drop-shadow(0 0 16px #ef4444); } 40%, 80% { transform: translateX(9px); } }
     @keyframes arenaFx { 0% { opacity: 0; transform: scale(.35); } 35% { opacity: 1; transform: scale(1.35); } 100% { opacity: 0; transform: translateY(-35px) scale(.9); } }
+    @keyframes arenaStageShake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+    @keyframes arenaDamageFloat { 0% { opacity: 0; transform: translateY(12px) scale(.6); } 25% { opacity: 1; transform: translateY(0) scale(1.2); } 100% { opacity: 0; transform: translateY(-48px) scale(.9); } }
+    @keyframes arenaBanner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.65); } 18%, 78% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -70%) scale(.9); } }
     @media (max-width: 430px) {
       .arena-battle-stage { flex-basis: 270px; }
       .arena-hud { width: 46%; padding: .35rem .4rem; }
@@ -536,8 +574,11 @@
     </div>
 
     <!-- مسرح المعركة: الشخصيتان متقابلتان وتتحركان داخل ساحة واحدة -->
-    <div class="arena-battle-stage" aria-label="مسرح ساحة القتال">
+    <div id="arena-battle-stage" class="arena-battle-stage" aria-label="مسرح ساحة القتال">
       <div class="arena-ground" aria-hidden="true"></div>
+      <div id="arena-stage-banner" class="arena-stage-banner" aria-live="polite"></div>
+      <div id="arena-damage-enemy" class="arena-damage-popup enemy" aria-hidden="true"></div>
+      <div id="arena-damage-player" class="arena-damage-popup player" aria-hidden="true"></div>
 
       <div class="arena-hud enemy">
         <div class="flex justify-between items-center gap-1 mb-1">
@@ -997,26 +1038,55 @@
     function arenaEnemyFighter(level = 1) {
       return ARENA_FIGHTERS.reduce((chosen, fighter) => level >= fighter.min ? fighter : chosen, ARENA_FIGHTERS[0]);
     }
-    function animateArenaFighter(actor, action) {
+    function showArenaBanner(text, kind = '') {
+      const banner = document.getElementById('arena-stage-banner');
+      if (!banner) return;
+      banner.textContent = text;
+      banner.className = `arena-stage-banner${kind ? ` ${kind}` : ''}`;
+      void banner.offsetWidth;
+      banner.classList.add('show');
+    }
+
+    function animateArenaFighter(actor, action, event = {}) {
       const fighter = document.getElementById(`arena-${actor}-fighter`);
-      const target = document.getElementById(`arena-${actor === 'player' ? 'enemy' : 'player'}-fighter`);
+      const targetActor = actor === 'player' ? 'enemy' : 'player';
+      const target = document.getElementById(`arena-${targetActor}-fighter`);
+      const stage = document.getElementById('arena-battle-stage');
       if (!fighter) return;
       const motionClasses = ['arena-attack', 'arena-defend', 'arena-heal', 'arena-wait', 'arena-hit'];
       motionClasses.forEach((name) => fighter.classList.remove(name));
       void fighter.offsetWidth; // يعيد تشغيل الحركة إذا كرر اللاعب الفعل نفسه
       const motion = action === 'ATTACK' ? 'arena-attack' : `arena-${action.toLowerCase()}`;
       fighter.classList.add(motion);
+
+      const popupActor = action === 'ATTACK' ? targetActor : actor;
+      const popup = document.getElementById(`arena-damage-${popupActor}`);
+      if (popup) {
+        popup.classList.remove('show', 'heal');
+        popup.textContent = action === 'ATTACK' ? `−${event.dmg || 0}`
+          : action === 'HEAL' ? `+${event.healed || 0} ❤️`
+          : action === 'DEFEND' ? '🛡️ دفاع' : '+3 ⚡';
+        popup.classList.toggle('heal', action !== 'ATTACK');
+        void popup.offsetWidth;
+        popup.classList.add('show');
+      }
+
       if (action === 'ATTACK' && target) {
         setTimeout(() => {
           target.classList.remove('arena-hit');
           void target.offsetWidth;
           target.classList.add('arena-hit');
-        }, 170);
+          stage?.classList.remove('arena-stage-shake');
+          void stage?.offsetWidth;
+          stage?.classList.add('arena-stage-shake');
+        }, 230);
       }
       setTimeout(() => {
         fighter.classList.remove(motion);
         target?.classList.remove('arena-hit');
-      }, 850);
+        stage?.classList.remove('arena-stage-shake');
+        popup?.classList.remove('show');
+      }, 900);
     }
 
     function arenaLog(msg) {
@@ -1052,6 +1122,7 @@
       arenaLog(`⚔️ بدأت مباراة ضد ${rival.name} (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
       if (practice) { arenaLog('🧪 مباراة تدريبية بلا مكافأة — بانتظار ختم الخادم للمباراة السابقة'); flushOps(); }
       arenaLog('اختر حركتك الأولى!');
+      showArenaBanner('⚔️ استعد للقتال!');
       haptic('success');
       updateArenaUI();
     }
@@ -1100,7 +1171,7 @@
       if (!battle?.active || battle.busy) return;
       const ev = ArenaRules.playerMove(battle, action);
       if (ev.error) { haptic('error'); return; }
-      animateArenaFighter('player', action);
+      animateArenaFighter('player', action, ev);
       arenaLog(describeMove(ev, 'أنت'));
       haptic(action === 'ATTACK' ? 'light' : 'success');
       if (checkBattleEnd()) return;
@@ -1110,7 +1181,7 @@
       setTimeout(() => {
         if (battle !== current || !current.active) return;
         const enemyEvent = ArenaRules.enemyMove(current);
-        animateArenaFighter('enemy', enemyEvent.action);
+        animateArenaFighter('enemy', enemyEvent.action, enemyEvent);
         arenaLog(describeMove(enemyEvent, arenaEnemyFighter(current.enemy.level).name));
         haptic('light');
         if (checkBattleEnd()) return;
@@ -1134,13 +1205,17 @@
       battle.busy = false;
       const won = battle.outcome === 'win';
       const sealed = Boolean(serverMode && battle.ticket); // مباراة بتذكرة: الخادم هو من يعتمد النتيجة
-      if (battle.outcome === 'draw') haptic('error');
-      else if (won) {
+      if (battle.outcome === 'draw') {
+        showArenaBanner('🤝 تعادل!');
+        haptic('error');
+      } else if (won) {
         if (sealed || !serverMode) { state.gold += ARENA.winReward; state.totalEarned += ARENA.winReward; }
         arenaLog(battle.practice ? '🏆 انتصرت في مباراة تدريبية — بلا مكافأة' : sealed ? `🏆 انتصرت! +${ARENA.winReward} 🪙 بعد اعتماد الخادم` : `🏆 انتصرت! حصلت على +${ARENA.winReward} 🪙`);
+        showArenaBanner('🏆 انتصار!');
         haptic('success');
       } else {
         arenaLog('💀 هُزمت… جرّب خطة مختلفة: عالِج مبكراً ولا تهاجم بلا طاقة احتياطية');
+        showArenaBanner('💀 هزيمة', 'loss');
         haptic('error');
       }
       if (sealed) {

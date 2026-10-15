@@ -60,7 +60,10 @@ test('arena shows illustrated sword fighters and action animations, not clipped 
   assert.match(style, /\.arena-fighter-body\s*\{[^}]*object-fit:\s*contain;/s);
   assert.match(style, /@keyframes arenaLungePlayer/);
   assert.match(style, /@keyframes arenaHit/);
-  assert.match(html, /function animateArenaFighter\(actor, action\)/);
+  assert.match(style, /@keyframes arenaDamageFloat/);
+  assert.match(html, /id="arena-stage-banner"/);
+  assert.match(html, /id="arena-damage-enemy"/);
+  assert.match(html, /function animateArenaFighter\(actor, action, event = \{\}\)/);
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-player.png')));
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-enemy.png')));
 });
