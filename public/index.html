@@ -182,18 +182,18 @@
     .arena-fighter {
       position: absolute;
       bottom: 18px;
-      width: 43%;
+      left: calc(var(--fighter-x, 50) * 1% - 18%);
+      width: 36%;
       height: calc(100% - 72px);
       display: flex;
       align-items: flex-end;
       justify-content: center;
       filter: drop-shadow(0 11px 11px rgba(0, 0, 0, .65));
       transform-origin: center bottom;
+      transition: left .12s linear, filter .2s ease, opacity .2s ease;
       z-index: 2;
-      will-change: transform, filter;
+      will-change: left, transform, filter;
     }
-    .arena-fighter.enemy { left: 1%; }
-    .arena-fighter.player { right: 1%; }
     .arena-fighter-body {
       display: block;
       width: 100%;
@@ -284,9 +284,7 @@
       .arena-hud { width: 46%; padding: .35rem .4rem; }
       .arena-hud.enemy { left: 5px; }
       .arena-hud.player { right: 5px; }
-      .arena-fighter { width: 48%; height: calc(100% - 78px); }
-      .arena-fighter.enemy { left: -3%; }
-      .arena-fighter.player { right: -3%; }
+      .arena-fighter { left: calc(var(--fighter-x, 50) * 1% - 21%); width: 42%; height: calc(100% - 78px); }
     }
 
     .mining-btn { transition: transform 0.05s ease-out; }
@@ -614,9 +612,16 @@
 
     <div id="arena-turn" class="text-center text-xs font-black text-amber-400">اضغط «بدء مباراة» للقتال</div>
 
+    <!-- تحكم مباشر بالحركة: الضغط المطوّل يحرك المحارب باستمرار -->
+    <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-center" dir="ltr" aria-label="تحريك المقاتل">
+      <button id="arena-move-left" onpointerdown="startArenaMove(-1)" onpointerup="stopArenaMove()" onpointercancel="stopArenaMove()" onpointerleave="stopArenaMove()" disabled class="arena-move-btn bg-slate-800 border border-slate-700 disabled:opacity-35 font-black py-2.5 rounded-xl text-xs active:scale-95">◀️ اقترب</button>
+      <div id="arena-distance" class="text-[10px] text-slate-400 font-bold min-w-20 text-center" dir="rtl">المسافة: بعيدة</div>
+      <button id="arena-move-right" onpointerdown="startArenaMove(1)" onpointerup="stopArenaMove()" onpointercancel="stopArenaMove()" onpointerleave="stopArenaMove()" disabled class="arena-move-btn bg-slate-800 border border-slate-700 disabled:opacity-35 font-black py-2.5 rounded-xl text-xs active:scale-95">ابتعد ▶️</button>
+    </div>
+
     <!-- الحركات -->
     <div class="grid grid-cols-4 gap-2">
-      <button id="arena-btn-attack" onclick="arenaAction('ATTACK')" disabled class="arena-btn bg-red-500/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⚔️ هجوم<br><span class="text-[9px] font-normal">3⚡ · ضرر 10-15</span></button>
+      <button id="arena-btn-attack" onclick="arenaAction('ATTACK')" disabled class="arena-btn bg-red-500/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⚔️ اضرب بالسيف<br><span class="text-[9px] font-normal">اقترب أولاً · 3⚡</span></button>
       <button id="arena-btn-defend" onclick="arenaAction('DEFEND')" disabled class="arena-btn bg-sky-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">🛡️ دفاع<br><span class="text-[9px] font-normal">1⚡ · ضرر وارد −50%</span></button>
       <button id="arena-btn-heal" onclick="arenaAction('HEAL')" disabled class="arena-btn bg-emerald-600/90 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">💚 علاج<br><span class="text-[9px] font-normal">4⚡ · ‎+20❤️</span></button>
       <button id="arena-btn-wait" onclick="arenaAction('WAIT')" disabled class="arena-btn bg-slate-700 font-bold py-2.5 rounded-xl text-xs active:scale-95 disabled:opacity-40">⏳ انتظار<br><span class="text-[9px] font-normal">‎+3⚡</span></button>
@@ -1038,6 +1043,47 @@
     function arenaEnemyFighter(level = 1) {
       return ARENA_FIGHTERS.reduce((chosen, fighter) => level >= fighter.min ? fighter : chosen, ARENA_FIGHTERS[0]);
     }
+
+    const arenaPosition = { player: 76, enemy: 24 };
+    let arenaMoveTimer = 0;
+    const arenaDistance = () => Math.abs(arenaPosition.player - arenaPosition.enemy);
+    const arenaInSwordRange = () => arenaDistance() <= 38;
+    function renderArenaPositions() {
+      for (const actor of ['player', 'enemy']) {
+        const fighter = document.getElementById(`arena-${actor}-fighter`);
+        if (fighter?.style?.setProperty) fighter.style.setProperty('--fighter-x', arenaPosition[actor]);
+        else if (fighter?.style) fighter.style['--fighter-x'] = arenaPosition[actor];
+      }
+      const distance = document.getElementById('arena-distance');
+      if (distance) {
+        distance.textContent = arenaInSwordRange() ? '⚔️ ضمن مدى السيف' : '↔️ اقترب للهجوم';
+        distance.className = `text-[10px] font-bold min-w-20 text-center ${arenaInSwordRange() ? 'text-emerald-400' : 'text-amber-400'}`;
+      }
+    }
+    function moveArenaPlayer(direction) {
+      if (!battle?.active || battle.busy) return;
+      const min = arenaPosition.enemy + 24;
+      arenaPosition.player = Math.max(min, Math.min(88, arenaPosition.player + direction * 3));
+      renderArenaPositions();
+      updateArenaUI();
+    }
+    function startArenaMove(direction) {
+      stopArenaMove();
+      moveArenaPlayer(direction);
+      arenaMoveTimer = setInterval(() => moveArenaPlayer(direction), 85);
+    }
+    function stopArenaMove() {
+      if (arenaMoveTimer) clearInterval(arenaMoveTimer);
+      arenaMoveTimer = 0;
+    }
+    window.addEventListener('pointerup', stopArenaMove);
+    window.addEventListener('blur', stopArenaMove);
+    window.addEventListener('keydown', (event) => {
+      if (!document.getElementById('tab-arena')?.classList.contains('active') || event.repeat) return;
+      if (event.key === 'ArrowLeft') moveArenaPlayer(-1);
+      if (event.key === 'ArrowRight') moveArenaPlayer(1);
+    });
+
     function showArenaBanner(text, kind = '') {
       const banner = document.getElementById('arena-stage-banner');
       if (!banner) return;
@@ -1118,6 +1164,10 @@
       const seed = ticket ? ticket.seed : (Math.random() * 4294967296) >>> 0;
       battle = ArenaRules.newBattle({ level: lvl, seed });
       battle.busy = false; battle.ticket = ticket; battle.practice = practice;
+      stopArenaMove();
+      arenaPosition.player = 76;
+      arenaPosition.enemy = 24;
+      renderArenaPositions();
       document.getElementById('arena-log').innerHTML = '';
       document.querySelectorAll('.arena-fighter').forEach((fighter) => fighter.classList.remove('arena-defeated'));
       const rival = arenaEnemyFighter(lvl);
@@ -1151,14 +1201,18 @@
       txt('arena-enemy-status', e.defending ? '🛡️ دفاع مفعّل' : '');
       txt('arena-record', `${rec.wins || 0} فوز · ${rec.losses || 0} خسارة${rec.draws ? ` · ${rec.draws} تعادل` : ''}`);
       txt('arena-turn', !battle?.active ? (battle ? 'انتهت المباراة — ابدأ واحدة جديدة' : 'اضغط «بدء مباراة» للقتال')
-        : battle.busy ? '⏳ دور الخصم…' : `🎯 الجولة ${battle.round} — دورك! اختر حركة`);
+        : battle.busy ? '⏳ دور الخصم…' : arenaInSwordRange() ? `🎯 الجولة ${battle.round} — اضرب الآن!` : `🎮 الجولة ${battle.round} — حرّك المحارب واقترب`);
       const startBtn = document.getElementById('arena-start-btn');
       startBtn.disabled = Boolean(battle?.active);
       startBtn.innerText = battle?.active ? '⚔️ المعركة جارية — أكمل القتال' : battle ? '🔄 مباراة جديدة' : '🚀 بدء مباراة';
+      const canControl = Boolean(battle?.active && !battle.busy);
+      document.getElementById('arena-move-left').disabled = !canControl || arenaPosition.player <= arenaPosition.enemy + 24;
+      document.getElementById('arena-move-right').disabled = !canControl || arenaPosition.player >= 88;
       for (const [key, action] of [['attack', 'ATTACK'], ['defend', 'DEFEND'], ['heal', 'HEAL'], ['wait', 'WAIT']]) {
         const btn = document.getElementById(`arena-btn-${key}`);
-        btn.disabled = !battle?.active || battle.busy || !ArenaRules.canAct(battle.player, action);
+        btn.disabled = !canControl || (action === 'ATTACK' && !arenaInSwordRange()) || !ArenaRules.canAct(battle.player, action);
       }
+      renderArenaPositions();
     }
 
     // وصف نصي لحدث من المحرك
@@ -1173,9 +1227,21 @@
 
     function arenaAction(action) {
       if (!battle?.active || battle.busy) return;
+      if (action === 'ATTACK' && !arenaInSwordRange()) {
+        showArenaBanner('◀️ اقترب من الخصم أولاً');
+        haptic('error');
+        return;
+      }
+      stopArenaMove();
       const ev = ArenaRules.playerMove(battle, action);
       if (ev.error) { haptic('error'); return; }
       animateArenaFighter('player', action, ev);
+      const positionBattle = battle;
+      if (action === 'ATTACK') setTimeout(() => {
+        if (battle !== positionBattle) return;
+        arenaPosition.enemy = Math.max(12, arenaPosition.enemy - 3);
+        renderArenaPositions();
+      }, 520);
       arenaLog(describeMove(ev, 'أنت'));
       haptic(action === 'ATTACK' ? 'light' : 'success');
       if (checkBattleEnd()) return;
@@ -1186,6 +1252,11 @@
         if (battle !== current || !current.active) return;
         const enemyEvent = ArenaRules.enemyMove(current);
         animateArenaFighter('enemy', enemyEvent.action, enemyEvent);
+        if (enemyEvent.action === 'ATTACK') setTimeout(() => {
+          if (battle !== current) return;
+          arenaPosition.player = Math.min(88, arenaPosition.player + 4);
+          renderArenaPositions();
+        }, 520);
         arenaLog(describeMove(enemyEvent, arenaEnemyFighter(current.enemy.level).name));
         haptic('light');
         if (checkBattleEnd()) return;

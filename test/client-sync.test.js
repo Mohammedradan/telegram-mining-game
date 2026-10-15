@@ -386,7 +386,8 @@ test('the arena client only plays the shared engine with the server ticket and n
   assert.match(arena, /const practice = serverMode && !ticket;/);
   assert.match(arena, /if \(sealed \|\| !serverMode\) \{ state\.gold \+= ARENA\.winReward;/, 'optimistic gold only for ticketed (server-verified) or offline matches');
   assert.match(arena, /if \(battle !== current \|\| !current\.active\) return;/, 'restarting during the enemy turn must not inject a move into the new match');
-  assert.match(arena, /btn\.disabled = !battle\?\.active \|\| battle\.busy \|\| !ArenaRules\.canAct\(battle\.player, action\);/);
+  assert.match(arena, /const canControl = Boolean\(battle\?\.active && !battle\.busy\);/);
+  assert.match(arena, /btn\.disabled = !canControl \|\| \(action === 'ATTACK' && !arenaInSwordRange\(\)\) \|\| !ArenaRules\.canAct\(battle\.player, action\);/);
   assert.match(html, /if \(data\.arena && typeof data\.arena === 'object'\) profile\.arena = data\.arena;/);
 });
 
