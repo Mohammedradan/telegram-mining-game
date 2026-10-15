@@ -148,27 +148,22 @@
     }
     .arena-fighter {
       position: relative;
-      flex: 0 0 92px;
-      height: 86px;
+      flex: 0 0 clamp(130px, 24vw, 210px);
+      height: 102px;
       display: flex;
       align-items: center;
       justify-content: center;
-      filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .45));
+      filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .55));
       transform-origin: center bottom;
+      z-index: 1;
     }
-    .arena-fighter-body { font-size: 3.65rem; line-height: 1; }
-    .arena-fighter-weapon {
-      position: absolute;
-      inset-inline-end: 1px;
-      top: 3px;
-      font-size: 2rem;
-      transform: rotate(-28deg);
-      filter: drop-shadow(0 0 7px rgba(251, 191, 36, .55));
-    }
-    .arena-fighter.enemy .arena-fighter-weapon {
-      inset-inline-end: auto;
-      inset-inline-start: 1px;
-      transform: scaleX(-1) rotate(-28deg);
+    .arena-fighter-body {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center bottom;
+      pointer-events: none;
     }
     .arena-fighter-shadow {
       position: absolute;
@@ -192,6 +187,8 @@
     .arena-attack.player { animation: arenaLungePlayer .48s ease; }
     .arena-attack.enemy { animation: arenaLungeEnemy .48s ease; }
     .arena-hit { animation: arenaHit .46s ease; }
+    .arena-hit .arena-fighter-fx { animation: arenaFx .6s ease; }
+    .arena-hit .arena-fighter-fx::before { content: '💥'; }
     .arena-defend .arena-fighter-fx { animation: arenaFx .75s ease; }
     .arena-defend .arena-fighter-fx::before { content: '🛡️'; }
     .arena-heal .arena-fighter-fx { animation: arenaFx .85s ease; }
@@ -199,14 +196,12 @@
     .arena-wait .arena-fighter-fx { animation: arenaFx .7s ease; }
     .arena-wait .arena-fighter-fx::before { content: '⚡'; }
     .arena-defeated { filter: grayscale(1) brightness(.55); transform: rotate(8deg) translateY(8px); opacity: .72; }
-    @keyframes arenaLungePlayer { 50% { transform: translateX(-30px) scale(1.12) rotate(-5deg); } }
-    @keyframes arenaLungeEnemy { 50% { transform: translateX(30px) scale(1.12) rotate(5deg); } }
+    @keyframes arenaLungePlayer { 50% { transform: translate(-24px, -22px) scale(1.16) rotate(-5deg); } }
+    @keyframes arenaLungeEnemy { 50% { transform: translate(24px, 22px) scale(1.16) rotate(5deg); } }
     @keyframes arenaHit { 20%, 60% { transform: translateX(-7px); filter: brightness(2) drop-shadow(0 0 12px #ef4444); } 40%, 80% { transform: translateX(7px); } }
     @keyframes arenaFx { 0% { opacity: 0; transform: scale(.4); } 35% { opacity: 1; transform: scale(1.25); } 100% { opacity: 0; transform: translateY(-25px) scale(.9); } }
     @media (max-width: 430px) {
-      .arena-fighter { flex-basis: 72px; height: 76px; }
-      .arena-fighter-body { font-size: 3rem; }
-      .arena-fighter-weapon { font-size: 1.65rem; }
+      .arena-fighter { flex-basis: 112px; height: 88px; }
     }
 
     .mining-btn { transition: transform 0.05s ease-out; }
@@ -497,8 +492,7 @@
     <div class="arena-fighter-card flex flex-row-reverse items-center gap-3 bg-slate-900/90 border border-red-900/50 p-2.5 rounded-xl">
       <div id="arena-enemy-fighter" class="arena-fighter enemy" aria-label="شخصية الخصم">
         <span class="arena-fighter-shadow"></span>
-        <span id="arena-enemy-character" class="arena-fighter-body" aria-hidden="true">🥷</span>
-        <span class="arena-fighter-weapon" aria-hidden="true">🗡️</span>
+        <img id="arena-enemy-character" class="arena-fighter-body" src="/assets/arena-enemy.png?v=2" alt="مبارز يحمل سيفاً" draggable="false">
         <span class="arena-fighter-fx" aria-hidden="true"></span>
       </div>
       <div class="flex-1 min-w-0">
@@ -518,8 +512,7 @@
     <div class="arena-fighter-card flex items-center gap-3 bg-slate-900/90 border border-emerald-900/50 p-2.5 rounded-xl">
       <div id="arena-player-fighter" class="arena-fighter player" aria-label="شخصية اللاعب">
         <span class="arena-fighter-shadow"></span>
-        <span class="arena-fighter-body" aria-hidden="true">🧔‍♂️</span>
-        <span class="arena-fighter-weapon" aria-hidden="true">⚔️</span>
+        <img class="arena-fighter-body" src="/assets/arena-player.png?v=2" alt="محارب المنجم يحمل سيفاً" draggable="false">
         <span class="arena-fighter-fx" aria-hidden="true"></span>
       </div>
       <div class="flex-1 min-w-0">
@@ -1032,7 +1025,6 @@
       txt('arena-enemy-energy-text', `${e.energy}/${ARENA.maxEnergy}`);
       const rival = arenaEnemyFighter(e.level);
       txt('arena-enemy-name', `${rival.name} · مستوى ${e.level}`);
-      txt('arena-enemy-character', rival.icon);
       document.getElementById('arena-player-fighter')?.classList.toggle('arena-defeated', p.hp <= 0);
       document.getElementById('arena-enemy-fighter')?.classList.toggle('arena-defeated', e.hp <= 0);
       txt('arena-player-status', p.defending ? '🛡️ دفاع مفعّل' : '');
