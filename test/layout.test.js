@@ -50,6 +50,16 @@ test('adventure canvas fills the remaining game panel and the backing store foll
   assert.match(html, /advCanvas\.height = Math\.max\(200, rect\.height\) \* dpr;/);
 });
 
+test('arena shows visible sword fighters and action animations, not stat cards alone', () => {
+  assert.match(html, /id="arena-player-fighter"[^>]*arena-fighter player/);
+  assert.match(html, /id="arena-enemy-fighter"[^>]*arena-fighter enemy/);
+  assert.match(html, /class="arena-fighter-weapon"[^>]*>⚔️</);
+  assert.match(html, /id="arena-enemy-character"/);
+  assert.match(style, /@keyframes arenaLungePlayer/);
+  assert.match(style, /@keyframes arenaHit/);
+  assert.match(html, /function animateArenaFighter\(actor, action\)/);
+});
+
 test('telegram viewport height and vertical-swipe guard are applied when running inside Telegram', () => {
   assert.match(html, /tg\.viewportStableHeight/);
   assert.match(html, /setProperty\('--app-height'/);

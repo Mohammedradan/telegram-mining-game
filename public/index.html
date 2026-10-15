@@ -135,6 +135,80 @@
       #game-overlay { gap: .35rem; }
     }
 
+    /* شخصيات ساحة القتال: المقاتلان متقابلان مع حركات مرئية لكل فعل. */
+    .arena-fighter-card { position: relative; isolation: isolate; overflow: hidden; }
+    .arena-fighter-card::before {
+      content: '';
+      position: absolute;
+      inset: auto 0 0;
+      height: 45%;
+      background: radial-gradient(ellipse at center, rgba(148, 163, 184, .12), transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .arena-fighter {
+      position: relative;
+      flex: 0 0 92px;
+      height: 86px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .45));
+      transform-origin: center bottom;
+    }
+    .arena-fighter-body { font-size: 3.65rem; line-height: 1; }
+    .arena-fighter-weapon {
+      position: absolute;
+      inset-inline-end: 1px;
+      top: 3px;
+      font-size: 2rem;
+      transform: rotate(-28deg);
+      filter: drop-shadow(0 0 7px rgba(251, 191, 36, .55));
+    }
+    .arena-fighter.enemy .arena-fighter-weapon {
+      inset-inline-end: auto;
+      inset-inline-start: 1px;
+      transform: scaleX(-1) rotate(-28deg);
+    }
+    .arena-fighter-shadow {
+      position: absolute;
+      width: 65px;
+      height: 12px;
+      bottom: 2px;
+      border-radius: 50%;
+      background: rgba(2, 6, 23, .72);
+      filter: blur(2px);
+      z-index: -1;
+    }
+    .arena-fighter-fx {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 2.4rem;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .arena-attack.player { animation: arenaLungePlayer .48s ease; }
+    .arena-attack.enemy { animation: arenaLungeEnemy .48s ease; }
+    .arena-hit { animation: arenaHit .46s ease; }
+    .arena-defend .arena-fighter-fx { animation: arenaFx .75s ease; }
+    .arena-defend .arena-fighter-fx::before { content: '🛡️'; }
+    .arena-heal .arena-fighter-fx { animation: arenaFx .85s ease; }
+    .arena-heal .arena-fighter-fx::before { content: '💚'; }
+    .arena-wait .arena-fighter-fx { animation: arenaFx .7s ease; }
+    .arena-wait .arena-fighter-fx::before { content: '⚡'; }
+    .arena-defeated { filter: grayscale(1) brightness(.55); transform: rotate(8deg) translateY(8px); opacity: .72; }
+    @keyframes arenaLungePlayer { 50% { transform: translateX(-30px) scale(1.12) rotate(-5deg); } }
+    @keyframes arenaLungeEnemy { 50% { transform: translateX(30px) scale(1.12) rotate(5deg); } }
+    @keyframes arenaHit { 20%, 60% { transform: translateX(-7px); filter: brightness(2) drop-shadow(0 0 12px #ef4444); } 40%, 80% { transform: translateX(7px); } }
+    @keyframes arenaFx { 0% { opacity: 0; transform: scale(.4); } 35% { opacity: 1; transform: scale(1.25); } 100% { opacity: 0; transform: translateY(-25px) scale(.9); } }
+    @media (max-width: 430px) {
+      .arena-fighter { flex-basis: 72px; height: 76px; }
+      .arena-fighter-body { font-size: 3rem; }
+      .arena-fighter-weapon { font-size: 1.65rem; }
+    }
+
     .mining-btn { transition: transform 0.05s ease-out; }
     .mining-btn:active { transform: scale(0.92); }
 
@@ -419,28 +493,44 @@
       <p class="text-[11px] text-slate-400">قاتل الخصم الآلي دوراً بدور — الفائز يحصل على <b class="text-amber-400">+50 🪙</b> · سجلّك: <span id="arena-record">0 فوز · 0 خسارة</span></p>
     </div>
 
-    <!-- الخصم -->
-    <div class="bg-slate-900/90 border border-red-900/50 p-3 rounded-xl">
-      <div class="flex justify-between items-center mb-1">
-        <span id="arena-enemy-name" class="font-bold text-sm">🤖 روبوت المنقب</span>
-        <span id="arena-enemy-status" class="text-[10px] text-slate-400"></span>
+    <!-- الخصم: شخصية مقاتل مرئية بدل بطاقة أرقام فقط -->
+    <div class="arena-fighter-card flex flex-row-reverse items-center gap-3 bg-slate-900/90 border border-red-900/50 p-2.5 rounded-xl">
+      <div id="arena-enemy-fighter" class="arena-fighter enemy" aria-label="شخصية الخصم">
+        <span class="arena-fighter-shadow"></span>
+        <span id="arena-enemy-character" class="arena-fighter-body" aria-hidden="true">🥷</span>
+        <span class="arena-fighter-weapon" aria-hidden="true">🗡️</span>
+        <span class="arena-fighter-fx" aria-hidden="true"></span>
       </div>
-      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
-      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
-      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-center mb-1">
+          <span id="arena-enemy-name" class="font-bold text-sm">مبارز الظلال · مستوى 1</span>
+          <span id="arena-enemy-status" class="text-[10px] text-slate-400"></span>
+        </div>
+        <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-enemy-hp-text">100/100</span></span><span>⚡ <span id="arena-enemy-energy-text">10/10</span></span></div>
+        <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-enemy-hp" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-500" style="width:100%"></div></div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-enemy-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      </div>
     </div>
 
     <div id="arena-turn" class="text-center text-xs font-black text-amber-400">اضغط «بدء مباراة» للقتال</div>
 
-    <!-- أنت -->
-    <div class="bg-slate-900/90 border border-emerald-900/50 p-3 rounded-xl">
-      <div class="flex justify-between items-center mb-1">
-        <span class="font-bold text-sm">⛏️ أنت</span>
-        <span id="arena-player-status" class="text-[10px] text-slate-400"></span>
+    <!-- أنت: محارب يحمل سيفه -->
+    <div class="arena-fighter-card flex items-center gap-3 bg-slate-900/90 border border-emerald-900/50 p-2.5 rounded-xl">
+      <div id="arena-player-fighter" class="arena-fighter player" aria-label="شخصية اللاعب">
+        <span class="arena-fighter-shadow"></span>
+        <span class="arena-fighter-body" aria-hidden="true">🧔‍♂️</span>
+        <span class="arena-fighter-weapon" aria-hidden="true">⚔️</span>
+        <span class="arena-fighter-fx" aria-hidden="true"></span>
       </div>
-      <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
-      <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
-      <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-bold text-sm">محارب المنجم · أنت</span>
+          <span id="arena-player-status" class="text-[10px] text-slate-400"></span>
+        </div>
+        <div class="flex justify-between text-[10px] text-slate-400 mb-1"><span>❤️ <span id="arena-player-hp-text">100/100</span></span><span>⚡ <span id="arena-player-energy-text">10/10</span></span></div>
+        <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-1"><div id="arena-player-hp" class="h-full bg-gradient-to-r from-emerald-500 to-lime-300 transition-all duration-500" style="width:100%"></div></div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden"><div id="arena-player-energy" class="h-full bg-gradient-to-r from-sky-500 to-cyan-300 transition-all duration-500" style="width:100%"></div></div>
+      </div>
     </div>
 
     <!-- الحركات -->
@@ -858,6 +948,36 @@
     let arenaRecord = { wins: 0, losses: 0 };
     try { arenaRecord = { ...arenaRecord, ...JSON.parse(localStorage.getItem('mining_arena_record') || '{}') }; } catch (e) {}
     const saveArenaRecord = () => { try { localStorage.setItem('mining_arena_record', JSON.stringify(arenaRecord)); } catch (e) {} };
+    const ARENA_FIGHTERS = [
+      { min: 1, icon: '🥷', name: 'مبارز الظلال' },
+      { min: 4, icon: '🧔‍♂️', name: 'قاطع الطريق' },
+      { min: 8, icon: '🧝‍♂️', name: 'حارس الكهف' },
+      { min: 13, icon: '👹', name: 'سيد الساحة' },
+    ];
+    function arenaEnemyFighter(level = 1) {
+      return ARENA_FIGHTERS.reduce((chosen, fighter) => level >= fighter.min ? fighter : chosen, ARENA_FIGHTERS[0]);
+    }
+    function animateArenaFighter(actor, action) {
+      const fighter = document.getElementById(`arena-${actor}-fighter`);
+      const target = document.getElementById(`arena-${actor === 'player' ? 'enemy' : 'player'}-fighter`);
+      if (!fighter) return;
+      const motionClasses = ['arena-attack', 'arena-defend', 'arena-heal', 'arena-wait', 'arena-hit'];
+      motionClasses.forEach((name) => fighter.classList.remove(name));
+      void fighter.offsetWidth; // يعيد تشغيل الحركة إذا كرر اللاعب الفعل نفسه
+      const motion = action === 'ATTACK' ? 'arena-attack' : `arena-${action.toLowerCase()}`;
+      fighter.classList.add(motion);
+      if (action === 'ATTACK' && target) {
+        setTimeout(() => {
+          target.classList.remove('arena-hit');
+          void target.offsetWidth;
+          target.classList.add('arena-hit');
+        }, 170);
+      }
+      setTimeout(() => {
+        fighter.classList.remove(motion);
+        target?.classList.remove('arena-hit');
+      }, 850);
+    }
 
     function arenaLog(msg) {
       const el = document.getElementById('arena-log');
@@ -887,7 +1007,9 @@
       battle = ArenaRules.newBattle({ level: lvl, seed });
       battle.busy = false; battle.ticket = ticket; battle.practice = practice;
       document.getElementById('arena-log').innerHTML = '';
-      arenaLog(`⚔️ بدأت مباراة ضد روبوت المنقب (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
+      document.querySelectorAll('.arena-fighter').forEach((fighter) => fighter.classList.remove('arena-defeated'));
+      const rival = arenaEnemyFighter(lvl);
+      arenaLog(`⚔️ بدأت مباراة ضد ${rival.name} (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
       if (practice) { arenaLog('🧪 مباراة تدريبية بلا مكافأة — بانتظار ختم الخادم للمباراة السابقة'); flushOps(); }
       arenaLog('اختر حركتك الأولى!');
       haptic('success');
@@ -908,7 +1030,11 @@
       txt('arena-player-energy-text', `${p.energy}/${ARENA.maxEnergy}`);
       txt('arena-enemy-hp-text', `${Math.max(0, Math.ceil(e.hp))}/${e.maxHp}`);
       txt('arena-enemy-energy-text', `${e.energy}/${ARENA.maxEnergy}`);
-      txt('arena-enemy-name', `🤖 روبوت المنقب · مستوى ${e.level}`);
+      const rival = arenaEnemyFighter(e.level);
+      txt('arena-enemy-name', `${rival.name} · مستوى ${e.level}`);
+      txt('arena-enemy-character', rival.icon);
+      document.getElementById('arena-player-fighter')?.classList.toggle('arena-defeated', p.hp <= 0);
+      document.getElementById('arena-enemy-fighter')?.classList.toggle('arena-defeated', e.hp <= 0);
       txt('arena-player-status', p.defending ? '🛡️ دفاع مفعّل' : '');
       txt('arena-enemy-status', e.defending ? '🛡️ دفاع مفعّل' : '');
       txt('arena-record', `${rec.wins || 0} فوز · ${rec.losses || 0} خسارة${rec.draws ? ` · ${rec.draws} تعادل` : ''}`);
@@ -935,6 +1061,7 @@
       if (!battle?.active || battle.busy) return;
       const ev = ArenaRules.playerMove(battle, action);
       if (ev.error) { haptic('error'); return; }
+      animateArenaFighter('player', action);
       arenaLog(describeMove(ev, 'أنت'));
       haptic(action === 'ATTACK' ? 'light' : 'success');
       if (checkBattleEnd()) return;
@@ -943,7 +1070,9 @@
       const current = battle; // إعادة البدء أثناء دور الروبوت لا يجب أن تُدخل حركة في المباراة الجديدة
       setTimeout(() => {
         if (battle !== current || !current.active) return;
-        arenaLog(describeMove(ArenaRules.enemyMove(current), 'الروبوت'));
+        const enemyEvent = ArenaRules.enemyMove(current);
+        animateArenaFighter('enemy', enemyEvent.action);
+        arenaLog(describeMove(enemyEvent, arenaEnemyFighter(current.enemy.level).name));
         haptic('light');
         if (checkBattleEnd()) return;
         // بداية جولة جديدة: تجدد طاقة +2 للطرفين، أو حسم بنسبة الصحة بعد آخر جولة
