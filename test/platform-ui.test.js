@@ -66,11 +66,13 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   const byId = (id) => {
     if (!ids.has(id)) return null;
     if (!elements.has(id)) {
-      const seeds = { 'platform-scene': { hidden: true }, 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] } };
-      elements.set(id, makeElement(id, seeds[id] || {}));
+      const seeds = { 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] } };
+      const tag = html.match(new RegExp(`<[^>]+id="${id}"[^>]*>`))?.[0] || '';
+      elements.set(id, makeElement(id, { hidden: /\shidden(?:[\s>])/.test(tag), ...seeds[id] }));
     }
     return elements.get(id);
   };
+  const controls = [1, 2, 4, 8].map(mask => { const b = makeElement(); b.dataset.platformInput = String(mask); return b; });
   const clock = { now: 0 };
   const tick = () => (clock.now += 16.7);
   const timers = [];
@@ -114,7 +116,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   const ctx = {
     console: { log: noop, info: noop, debug: noop, warn: noop, error: (...a) => log.errors.push(a.map(String).join(' ')) },
     document: {
-      getElementById: byId, querySelector: () => null, querySelectorAll: () => [], createElement: () => makeElement(), createTextNode: (t) => ({ textContent: t }),
+      getElementById: byId, querySelector: () => null, querySelectorAll: selector => selector === '[data-platform-input]' ? controls : [], createElement: () => makeElement(), createTextNode: (t) => ({ textContent: t }),
       addEventListener: noop, removeEventListener: noop, body: makeElement('body'), documentElement: makeElement('html'), hidden: false, visibilityState: 'visible',
     },
     localStorage: { getItem: (k) => (localStore.has(k) ? localStore.get(k) : null), setItem: (k, v) => localStore.set(k, String(v)), removeItem: (k) => localStore.delete(k), clear: () => localStore.clear() },
@@ -139,8 +141,8 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   try { vm.runInContext(`${script}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' }); }
   catch (e) { topLevelError = e; }
 
-  const fire = (el, type, event = {}) => { for (const fn of el?._listeners?.[type] || []) fn({ preventDefault: noop, ...event }); };
-  const fireWindow = (type, event = {}) => { for (const [t, fn] of windowListeners) if (t === type) fn({ preventDefault: noop, target: { tagName: 'BODY' }, ...event }); };
+  const fire = (el, type, event = {}) => { for (const fn of el?._listeners?.[type] || []) fn({ type, preventDefault: noop, ...event }); };
+  const fireWindow = (type, event = {}) => { for (const [t, fn] of windowListeners) if (t === type) fn({ type, preventDefault: noop, target: { tagName: 'BODY' }, ...event }); };
   const key = (type, code) => fireWindow(type, { code, key: code });
   const settle = async () => {
     for (let i = 0; i < 12; i++) {
@@ -150,15 +152,15 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   };
   // كل إطار بطابع زمني متزايد كما في المتصفح — وإلا تبقى الحركات المتراكمة صفراً
   const flushFrames = (n) => { for (let i = 0; i < n; i++) { clock.now += 16.7; const batch = [...rafQueue.values()]; rafQueue.clear(); for (const fn of batch) fn(clock.now); } };
-  return { ctx, log, byId, settle, flushFrames, fire, fireWindow, key, topLevelError, dbg: () => (ctx.__dbg ? ctx.__dbg() : {}), PlatformGame: () => ctx.PlatformGame, localStore };
+  return { ctx, log, byId, controls, settle, flushFrames, fire, fireWindow, key, topLevelError, dbg: () => (ctx.__dbg ? ctx.__dbg() : {}), PlatformGame: () => ctx.PlatformGame, localStore };
 }
 
 test('platform UI: the page wires the scene — assets, mode switch and every element the controller needs', () => {
-  for (const asset of ['/platform.css', '/platform-rules.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-game.js']) {
+  for (const asset of ['/game.css', '/platform-level.js', '/platform-rules-v1.js', '/platform.css', '/platform-rules.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-game.js']) {
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-mode', 'legacy-mode', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
-    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
+    'platform-guide', 'platform-motion', 'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   for (const mask of [1, 2, 4, 8]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
@@ -166,13 +168,13 @@ test('platform UI: the page wires the scene — assets, mode switch and every el
   for (const id of ['game-canvas', 'game-overlay', 'game-overlay-btn', 'adv-pause-btn', 'adv-skill-btn', 'adv-mute-btn', 'adv-combo']) assert.ok(ids.has(id));
 });
 
-test('platform UI: the legacy adventure stays the default view and the switch reveals the platform scene', async () => {
+test('platform UI: platform is the default, with the original cart preserved behind the switch', async () => {
   const page = bootPage();
   assert.equal(page.topLevelError, null, page.topLevelError && `${page.topLevelError.message}\n${page.topLevelError.stack}`);
   await page.settle();
   assert.equal(page.dbg().serverMode, true);
-  assert.equal(page.byId('platform-scene').hidden, true, 'the platform scene starts hidden');
-  assert.equal(page.byId('legacy-adventure').hidden, false, 'the legacy adventure stays the default');
+  assert.equal(page.byId('platform-scene').hidden, false, 'the platform scene is the new default');
+  assert.equal(page.byId('legacy-adventure').hidden, true, 'the original cart is kept behind the mode switch');
   assert.deepEqual(page.log.errors, []);
   // التبديل إلى مشهد المنصّة
   page.fire(page.byId('platform-mode'), 'click');
@@ -274,4 +276,97 @@ test('platform UI: without a server identity the round is offline training — p
   page.key('keyup', 'ArrowRight');
   assert.equal(page.log.fetches.some((u) => u.startsWith('/api/platform')), false, 'offline play never touches the platform API');
   assert.deepEqual(page.log.errors, []);
+});
+
+test('platform UI: multi-touch releases and cancel clear only the corresponding finger, never latch movement', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  const right = page.controls.find(b => b.dataset.platformInput === '2');
+  const jump = page.controls.find(b => b.dataset.platformInput === '4');
+  page.fire(right, 'pointerdown', { pointerId: 11 });
+  page.fire(jump, 'pointerdown', { pointerId: 12 });
+  page.flushFrames(5);
+  assert.ok(page.PlatformGame().inspect().x > 64); assert.ok(page.PlatformGame().inspect().y < 262);
+  page.fire(jump, 'pointercancel', { pointerId: 12 });
+  assert.equal(right.dataset.down, 'true');
+  page.fire(right, 'pointerdown', { pointerId: 13 });
+  page.fire(right, 'pointerup', { pointerId: 11 });
+  assert.equal(right.dataset.down, 'true', 'second finger still holds this button');
+  page.fireWindow('pointercancel', { pointerId: 13 });
+  const before = page.PlatformGame().inspect().x; page.flushFrames(8);
+  assert.equal(page.PlatformGame().inspect().x, before);
+  assert.equal(right.dataset.down, 'false');
+  assert.deepEqual(page.log.errors, []);
+});
+test('platform UI: tutorial responds to play, reduced motion persists, and pause freezes the fixed-step clock', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  assert.match(page.byId('platform-guide').textContent, /١/);
+  page.key('keydown', 'ArrowRight'); page.flushFrames(45); page.key('keyup', 'ArrowRight');
+  assert.match(page.byId('platform-guide').textContent, /القفز/);
+  page.fire(page.byId('platform-motion'), 'click');
+  assert.equal(page.PlatformGame().inspect().reduced, true);
+  assert.equal(page.localStore.get('platform-reduced'), 'true');
+  page.fireWindow('blur'); const paused = page.PlatformGame().inspect(); page.flushFrames(30);
+  assert.equal(page.PlatformGame().inspect().tick, paused.tick); assert.equal(paused.scheduled, false);
+});
+test('platform UI: an old v1 checkpoint resumes under v1 rather than silently changing physics', async () => {
+  const page = bootPage({ storedRun: { version: 1, ticket: { id: 'ticket-ui-1', version: 1 }, inputs: [{mask: 2, frames: 10}] } });
+  await page.settle();
+  assert.equal(page.PlatformGame().inspect().version, 1);
+  assert.equal(page.PlatformGame().inspect().paused, true);
+  assert.equal(page.PlatformGame().inspect().x, 99);
+});
+
+test('platform UI: a complete keyboard or touch jump tap between frames is consumed once', async () => {
+  for (const source of ['keyboard', 'touch']) {
+    const page = bootPage(); await page.settle();
+    page.fire(page.byId('platform-start'), 'click'); await page.settle();
+    const jump = page.controls.find(b => b.dataset.platformInput === '4');
+    if (source === 'keyboard') { page.key('keydown', 'Space'); page.key('keyup', 'Space'); }
+    else {
+      page.fire(jump, 'pointerdown', {pointerId: 31}); page.fire(jump, 'pointerup', {pointerId: 31});
+      // Implicit capture loss after a normal release must not discard the tap.
+      page.fire(jump, 'lostpointercapture', {pointerId: 31});
+    }
+    page.flushFrames(3);
+    assert.ok(page.PlatformGame().inspect().y < 262, `${source} tap must reach the physics step`);
+    page.flushFrames(100);
+    assert.equal(page.PlatformGame().inspect().y, 262, `${source} tap must not cause repeat jumping`);
+    assert.equal(page.PlatformGame().inspect().pose, 'idle');
+  }
+});
+test('platform UI: cancelled taps and pre-pause actions do not execute on the next frame or resume', async () => {
+  for (const cancel of ['pointercancel', 'lostpointercapture', 'pause']) {
+    const page = bootPage(); await page.settle();
+    page.fire(page.byId('platform-start'), 'click'); await page.settle();
+    const jump = page.controls.find(b => b.dataset.platformInput === '4');
+    page.fire(jump, 'pointerdown', {pointerId: 41});
+    if (cancel === 'pause') { page.fireWindow('blur'); page.fire(page.byId('platform-resume'), 'click'); }
+    else page.fire(jump, cancel, {pointerId: 41});
+    page.flushFrames(8);
+    assert.equal(page.PlatformGame().inspect().y, 262, `${cancel} must clear the queued action`);
+    assert.equal(jump.dataset.down, 'false');
+  }
+});
+test('platform UI: cancelling a finger does not delete a queued keyboard jump', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  const jump = page.controls.find(b => b.dataset.platformInput === '4');
+  page.key('keydown', 'Space'); page.key('keyup', 'Space');
+  page.fire(jump, 'pointerdown', {pointerId: 42}); page.fire(jump, 'pointercancel', {pointerId: 42});
+  page.flushFrames(3); assert.ok(page.PlatformGame().inspect().y < 262);
+});
+test('platform UI: a short mining tap swings once rather than continuing to mine after release', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  page.key('keydown', 'ArrowRight'); page.flushFrames(115); page.key('keyup', 'ArrowRight');
+  assert.equal(page.PlatformGame().inspect().x, 416, 'standing against the first ore vein');
+  const mine = page.controls.find(b => b.dataset.platformInput === '8');
+  const tap = id => { page.fire(mine, 'pointerdown', {pointerId: id}); page.fire(mine, 'pointerup', {pointerId: id}); };
+  tap(51); page.flushFrames(40);
+  assert.equal(page.PlatformGame().inspect().mined, 0, 'one tap must not repeat until the rock breaks');
+  tap(52); page.flushFrames(15); tap(53); page.flushFrames(15);
+  assert.equal(page.PlatformGame().inspect().mined, 1, 'three deliberate taps break the rock');
+  assert.equal(mine.dataset.down, 'false');
 });

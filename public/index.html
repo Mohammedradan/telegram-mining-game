@@ -6,10 +6,9 @@
   <title>Mining Clicker Empire</title>
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Compiled local utilities: the Mini App must not depend on a CSS CDN. -->
+  <link rel="stylesheet" href="/game.css?v=2">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&family=Tajawal:wght@400;700;900&display=swap');
 
     * {
       user-select: none;
@@ -312,7 +311,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=1">
+  <link rel="stylesheet" href="/platform.css?v=2">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -362,11 +361,11 @@
     <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
     <!-- 🎛️ مبدّل نمط المغامرة: العربة السريعة (الأصلية) أو منجم المنصّة (جولة حتمية يختمها الخادم) -->
     <div class="mine-mode-switch" role="group" aria-label="اختيار نمط المغامرة">
-      <button id="legacy-mode" type="button" aria-pressed="true">⛏️ عربة المنجم <span>· الأصلية</span></button>
-      <button id="platform-mode" type="button" aria-pressed="false">🧭 منجم المنصّة <span>· موثّق</span></button>
+      <button id="legacy-mode" type="button" aria-pressed="false">⛏️ عربة المنجم <span>· الأصلية</span></button>
+      <button id="platform-mode" type="button" aria-pressed="true">🧭 منجم المنصّة <span>· موثّق</span></button>
     </div>
 
-    <div id="legacy-adventure" class="flex flex-col gap-1.5 flex-1 min-h-0">
+    <div id="legacy-adventure" hidden class="flex flex-col gap-1.5 flex-1 min-h-0">
     <div class="grid grid-cols-4 gap-1.5 text-center">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الوقت</div><div id="adv-time" class="font-black text-sky-300 text-sm">60</div></div>
@@ -410,37 +409,38 @@
     </div><!-- /#legacy-adventure: اللعبة الأصلية كما هي بلا أي تغيير في وظائفها -->
 
     <!-- 🧭 منجم المنصّة: جولة حتمية 60Hz يسجّل الخادم حركاتها ويعيد تشغيلها ويختم مكافأتها -->
-    <div id="platform-scene" hidden>
+    <div id="platform-scene">
       <div class="mine-heading">
         <div>
-          <div class="mine-kicker">جولة حتمية — يعيد الخادم تشغيل حركاتك ويختم النتيجة</div>
-          <h2>منجم المنصّة · عمق المعدن</h2>
+          <div class="mine-kicker">المستوى ١ / كهف الفوانيس · استكشف، عدّن، ثم اعبر</div>
+          <h2>كهف الفوانيس</h2>
         </div>
-        <button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button>
+        <div class="mine-settings"><button id="platform-motion" type="button" aria-pressed="false" aria-label="تقليل الحركة">حركة كاملة</button><button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button></div>
       </div>
-      <div class="mine-hud" aria-live="polite">
+      <div class="mine-hud" aria-label="حالة الجولة">
         <span id="platform-hearts">♥ ♥ ♥</span>
         <span id="platform-resources">بلورات 0 · صخور 0</span>
         <span id="platform-progress">0% · 150ث</span>
       </div>
+      <div id="platform-guide" class="mine-guide" role="status" aria-live="polite">١ / تحرك باتجاه البلورة المضيئة باستخدام ◀ ▶ أو الأسهم.</div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم واقفز بالمسافة وعدّن بحرف E"></canvas>
         <div id="platform-overlay" class="mine-overlay">
-          <h3 id="platform-title">منجم المنصّة</h3>
-          <p id="platform-message">عدّن صخرة بلّورات واجمع 3 بلورات على الأقل، ثم اعبر بوابة الخروج. راقب نفاثات البخار ولا تسقط في النهر الحار!</p>
-          <button id="platform-start" type="button">جولة جديدة</button>
+          <h3 id="platform-title">رحلة إلى كهف الفوانيس</h3>
+          <p id="platform-message">تحرّك بالأسهم، واقفز بزر «قفز» أو المسافة، واضرب بزر «تعدين» أو E. عدّن صخرة واجمع 3 بلورات ثم اعبر بوابة الخروج. يمكنك الحركة والقفز معًا؛ انتبه للبخار والحفر!</p>
+          <button id="platform-start" type="button">ابدأ المغامرة</button>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
       </div>
-      <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
-        <div>
+      <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة" dir="ltr">
+        <div class="mine-directions" role="group" aria-label="حركة بالإبهام الأيسر">
           <button type="button" data-platform-input="1" aria-label="يسار">◀</button>
-          <button type="button" data-platform-input="4" aria-label="قفز">⤒</button>
           <button type="button" data-platform-input="2" aria-label="يمين">▶</button>
         </div>
-        <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">⏸</button>
-        <div>
-          <button type="button" data-platform-input="8" aria-label="تعدين">⛏</button>
+        <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">II</button>
+        <div class="mine-actions" role="group" aria-label="قفز وتعدين بالإبهام الأيمن">
+          <button type="button" data-platform-input="4" aria-label="قفز">قفز</button>
+          <button type="button" data-platform-input="8" aria-label="تعدين أو هجوم">تعدين</button>
         </div>
       </div>
       <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز بالمسافة وتعدين بحرف E.</div>
@@ -726,8 +726,10 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=1"></script>
-  <script src="/platform-renderer.js?v=1"></script>
+  <script src="/platform-level.js"></script>
+  <script src="/platform-rules-v1.js"></script>
+  <script src="/platform-rules.js?v=2"></script>
+  <script src="/platform-renderer.js?v=2"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -2830,6 +2832,7 @@
         button.setAttribute('aria-selected', String(selected));
       });
 
+      if (panelId !== 'adventure') window.PlatformGame?.pause();
       if (panelId !== 'adventure' && adv.running && !adv.paused) setAdventurePaused(true);
       if (panelId === 'adventure') setTimeout(resizeAdventureCanvas, 30);
       if (panelId === 'customize') updateAdvUpgradesUI();
@@ -2850,6 +2853,7 @@
       activeBtn.classList.remove('text-slate-400');
 
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
+      if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
       if (tabId === 'leaderboard') loadLeaderboard();
@@ -2904,6 +2908,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=1"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=1"></script>
+  <script src="/platform-game.js?v=2"></script>
 </body>
 </html>

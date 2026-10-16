@@ -19,7 +19,7 @@ function startServer() {
       NODE_ENV: 'production',
       PORT: String(PORT),
       BOT_TOKEN: '',
-      ALLOW_GUEST_AUTH: 'false',
+      ALLOW_GUEST_AUTH: 'true',
       DATABASE_FILE: path.join(tmpDir, 'game.db'),
       DATABASE_URL: '',
     },
@@ -44,7 +44,7 @@ after(async () => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-test('الإنتاج يرفض هوية الضيف عند تعطيل وضع الضيف', async () => {
+test('الإنتاج يرفض هوية الضيف حتى عند ضبط ALLOW_GUEST_AUTH=true', async () => {
   const res = await fetch(`${BASE}/api/me`, { headers: { 'X-Guest-Id': 'spoofed-user' } });
   assert.equal(res.status, 401);
 });
@@ -53,4 +53,12 @@ test('الإنتاج لا يقبل Telegram initData غير موثّق عند غ
   const fakeInitData = 'user=%7B%22id%22%3A123456%2C%22first_name%22%3A%22Fake%22%7D';
   const res = await fetch(`${BASE}/api/me`, { headers: { 'X-Telegram-Init-Data': fakeInitData } });
   assert.equal(res.status, 401);
+});
+
+
+test('production rejects guest platform tickets and result submission, not only the profile API', async () => {
+  for (const route of ['start', 'finish']) {
+    const res = await fetch(`${BASE}/api/platform/${route}`, { method: 'POST', headers: { 'X-Guest-Id': 'spoofed-user', 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(res.status, 401);
+  }
 });
