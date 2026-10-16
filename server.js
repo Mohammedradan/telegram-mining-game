@@ -11,6 +11,8 @@ const { createStore } = require('./db');
 const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, decideWinner } = require('./race-rules');
 // محرك الساحة مشترك مع المتصفح (يُقدَّم ثابتاً من public/) حتى تكون محاكاة الخادم مطابقة لما عرضه العميل
 const ArenaRules = require('./public/arena-rules');
+// منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
+const { mountPlatform } = require('./platform-api');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -871,6 +873,23 @@ function profileOf(user, isNew = false, extra = {}) {
   };
 }
 
+// جلب/تحضير ملف اللاعب داخل معاملته (يستدعيه تكامل منجم المنصّة): إنشاء عند الحاجة
+// وضمان دفتر المزامنة وتذكرة الساحة — دون تعديل الأرصدة أو منح مكافآت من هنا.
+async function prepare(player) {
+  const now = Date.now();
+  let user = await store.getUser(player.id);
+  if (!user) {
+    user = await createUser(player.id, player.name);
+    ensureArenaTicket(user, now);
+    await store.putUser(user);
+  } else {
+    ensureSync(user);
+    ensureArenaTicket(user, now);
+    if (player.name && user.name !== player.name && player.name !== 'ضيف') user.name = player.name;
+  }
+  return user;
+}
+
 // ترحيل لمرة واحدة من مخزن JSON القديم (data/db.json) إن وُجد وقاعدة البيانات فارغة
 async function migrateLegacyJson() {
   const legacyFile = path.join(__dirname, 'data', 'db.json');
@@ -1132,6 +1151,13 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
     })),
   });
 }));
+
+// ---------------------------------------------------------------------------
+// 🧭 منجم المنصّة (اللعبة الجانبية الحتمية): بداية الجولة وإنهاؤها بإعادة تشغيل
+// الخادم للحركات المسجّلة مع مكافأة افتراضية واحدة مضمونة المعاملة — نفس المصادقة
+// وتحديد المعدل ومعالجة الأخطاء المعتمدة أعلاه (platform-api.js).
+// ---------------------------------------------------------------------------
+mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, now: Date.now });
 
 // ---------------------------------------------------------------------------
 // ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص

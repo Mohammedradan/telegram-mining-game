@@ -14,6 +14,20 @@ const parseJson = (value, fallback) => {
   try { return JSON.parse(value); } catch { return fallback; }
 };
 
+// جولات منجم المنصّة: نفس الشكل من السائقَين — result_json نصّ دائماً حتى يقرأه الخادم بـ JSON.parse
+const runFromRow = (row) => {
+  if (!row) return null;
+  const raw = row.result_json;
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    version: Number(row.version),
+    status: String(row.status),
+    result_json: raw == null || typeof raw === 'string' ? raw : JSON.stringify(raw),
+    started_at: Number(row.started_at),
+  };
+};
+
 function rowToUser(row) {
   if (!row) return null;
   return {
@@ -72,8 +86,14 @@ CREATE TABLE IF NOT EXISTS op_ledger (
   kind TEXT NOT NULL, detail_json TEXT NOT NULL, gold_delta REAL NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL, PRIMARY KEY (user_id, session, seq)
 );
+CREATE TABLE IF NOT EXISTS platform_runs (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
+  status TEXT NOT NULL, result_json TEXT, started_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
+CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
 `;
 
 const SCHEMA_PG = `
@@ -99,7 +119,13 @@ CREATE TABLE IF NOT EXISTS op_ledger (
   kind TEXT NOT NULL, detail_json JSONB NOT NULL, gold_delta DOUBLE PRECISION NOT NULL DEFAULT 0,
   created_at BIGINT NOT NULL, PRIMARY KEY (user_id, session, seq)
 );
+CREATE TABLE IF NOT EXISTS platform_runs (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
+  status TEXT NOT NULL, result_json TEXT, started_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
+CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
 `;
 
 function createSqliteStore(file) {
@@ -190,6 +216,19 @@ function createSqliteStore(file) {
     async raceTotals(userId) {
       const r = conn.prepare('SELECT COALESCE(SUM(races), 0) AS races, COALESCE(SUM(wins), 0) AS wins, COALESCE(MAX(best_score), 0) AS best FROM race_stats WHERE user_id = ?').get(String(userId));
       return { races: Number(r?.races) || 0, wins: Number(r?.wins) || 0, bestScore: Number(r?.best) || 0 };
+    },
+    // جولة منجم المنصّة النشطة للاعب (حالة playing واحدة كحد أقصى يضمنها مسار البدء)
+    async activePlatformRun(userId) {
+      return runFromRow(conn.prepare(`SELECT * FROM platform_runs WHERE user_id = ? AND status = 'playing' ORDER BY started_at DESC LIMIT 1`).get(String(userId)));
+    },
+    async getPlatformRun(id) { return runFromRow(conn.prepare('SELECT * FROM platform_runs WHERE id = ?').get(String(id))); },
+    // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) لا يُلمس — إعادة الحفظ لا تُعيد شباب الجولة
+    async savePlatformRun(run) {
+      conn.prepare(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET status = excluded.status, result_json = excluded.result_json, updated_at = excluded.updated_at`)
+        .run(String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
+          run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now());
     },
     async getPending(id) { return conn.prepare('SELECT count FROM pending_referrals WHERE id = ?').get(String(id))?.count || 0; },
     async addPending(id) {
@@ -295,6 +334,19 @@ function createPgStore(url) {
     async raceTotals(userId) {
       const r = (await q('SELECT COALESCE(SUM(races), 0) AS races, COALESCE(SUM(wins), 0) AS wins, COALESCE(MAX(best_score), 0) AS best FROM race_stats WHERE user_id = $1', [String(userId)])).rows[0];
       return { races: Number(r?.races) || 0, wins: Number(r?.wins) || 0, bestScore: Number(r?.best) || 0 };
+    },
+    // جولة منجم المنصّة النشطة للاعب — الاستعلام داخل معاملة اللاعب عبر q() كما في بقية العمليات
+    async activePlatformRun(userId) {
+      return runFromRow((await q(`SELECT * FROM platform_runs WHERE user_id = $1 AND status = 'playing' ORDER BY started_at DESC LIMIT 1`, [String(userId)])).rows[0]);
+    },
+    async getPlatformRun(id) { return runFromRow((await q('SELECT * FROM platform_runs WHERE id = $1', [String(id)])).rows[0]); },
+    // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) لا يُلمس — إعادة الحفظ لا تُعيد شباب الجولة
+    async savePlatformRun(run) {
+      await q(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT(id) DO UPDATE SET status = EXCLUDED.status, result_json = EXCLUDED.result_json, updated_at = EXCLUDED.updated_at`,
+      [String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
+        run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now()]);
     },
     async close() { await pool.end(); },
   };
