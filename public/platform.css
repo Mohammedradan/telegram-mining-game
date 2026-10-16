@@ -19,3 +19,8 @@
 }
 
 .mine-recovery{display:flex;gap:6px;flex-shrink:0}.mine-recovery:has(>button[hidden]):not(:has(>button:not([hidden]))){display:none}#platform-discard{font-size:10px;border:1px solid #9b7253;border-radius:8px;padding:6px;color:#ebc5a0;background:#3d3030}
+
+/* Spatial arrows keep their physical order even inside the Arabic RTL shell. */
+.mine-controls{direction:ltr}
+#platform-mute{border:1px solid #52707b;border-radius:6px;background:#243742;color:#ffe0a1;padding:2px 5px;font-size:10px;flex-shrink:0}
+.mine-hud{align-items:center;gap:4px}

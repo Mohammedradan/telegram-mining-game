@@ -1,5 +1,5 @@
 // Real Chromium E2E; run against a LOCAL development server, never production.
-// CHROMIUM_PATH=/path/to/chromium npm run test:browser
+// CHROMIUM_PATH=/path/to/chromium npm run test:browser (install dev dependencies first)
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -24,10 +24,12 @@ async function main() {
     await page.route('**/*', r => new URL(r.request().url()).origin === new URL(base).origin ? r.continue() : r.abort());
     await page.goto(base);
     await page.waitForFunction(() => window.PlatformGame && !document.getElementById('platform-start').disabled);
+    await page.locator('#platform-mode').click();
     return { ctx, page };
   }
   try {
     for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 568 }, { width: 844, height: 390 }, { width: 1280, height: 800 }]) {
+      console.log('Viewport', viewport);
       const { ctx, page } = await context(viewport, { reducedMotion: 'reduce' });
       let starts = 0; page.on('request', req => { if (req.url().endsWith('/api/platform/start')) starts++; });
       await page.evaluate(() => { const b = document.getElementById('platform-start'); b.click(); b.click(); b.click(); });
@@ -41,6 +43,8 @@ async function main() {
         await page.keyboard.up('d');
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width, 'touch controls fit horizontally');
+      assert.equal(await page.locator('#platform-mute').isVisible(), true, 'mute remains accessible on short screens');
       assert.ok(bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}`);
       const right = await page.locator('[data-platform-input="2"]').boundingBox();
       const jump = await page.locator('[data-platform-input="4"]').boundingBox();
@@ -56,6 +60,7 @@ async function main() {
       await page.locator('#nav-play').click();
       await page.reload();
       await page.waitForFunction(() => window.PlatformGame?.inspect().paused);
+      await page.locator('#platform-mode').click();
       const restored = await read(page); assert.ok(restored.tick >= left.tick - 2); assert.equal(restored.scheduled, false);
       if (viewport.width === 390) assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
       await page.locator('#platform-resume').click(); await wait(50);
@@ -63,6 +68,20 @@ async function main() {
       if (viewport.width === 844) await page.screenshot({ path: path.join(screenshots, 'platform-landscape.png') });
       report.viewports.push({ ...viewport, multiTouch: true, pause: true, reloadResume: true, controlsVisible: true });
       await ctx.close();
+    }
+    {
+      const { ctx, page } = await context({ width: 390, height: 844 });
+      let release, entered;
+      const gate = new Promise(r => { release = r; });
+      const requested = new Promise(r => { entered = r; });
+      await page.route('**/api/platform/start', async route => { entered(); await gate; await route.continue(); });
+      await page.locator('#platform-start').click(); await requested;
+      await page.locator('#nav-mining').click(); release();
+      await page.waitForFunction(() => window.PlatformGame.inspect().running);
+      const late = await read(page); assert.equal(late.paused, true); assert.equal(late.scheduled, false);
+      await page.locator('#nav-play').click(); await page.locator('#platform-resume').click();
+      await wait(100); assert.ok((await read(page)).tick > late.tick);
+      await ctx.close(); report.lateStartPause = true;
     }
     const { ctx, page } = await context({ width: 390, height: 844 });
     const cdp = await ctx.newCDPSession(page);
@@ -98,6 +117,7 @@ async function main() {
     await page.reload();
     await page.waitForFunction(() => window.PlatformGame?.inspect().pending && !document.getElementById('platform-retry').hidden);
     blocked = false;
+    await page.locator('#platform-mode').click();
     await page.locator('#platform-retry').click();
     await page.waitForFunction(() => !window.PlatformGame.inspect().pending);
     const confirmed = await page.locator('#platform-status').textContent();
@@ -106,9 +126,14 @@ async function main() {
     assert.equal(savedGold, committed.gold, 'reload/lost response never doubles gold');
     await page.screenshot({ path: path.join(screenshots, 'platform-victory.png') });
     await page.locator('#play-nav-missions').click(); assert.equal(await page.locator('#daily-btn').isVisible(), true);
-    await page.locator('#play-nav-customize').click(); assert.equal(await page.locator('#stars-shop').isVisible(), true);
-    assert.equal(await page.evaluate(async () => (await window.PlatformBridge.request('/api/config')).shopEnabled), false);
-    await page.locator('#play-nav-adventure').click(); await page.locator('#legacy-mode').click();
+    await page.locator('#play-nav-customize').click(); assert.equal(await page.locator('#adv-upgrades-list').isVisible(), true);
+    await page.locator('#nav-shop').click(); assert.equal(await page.locator('#btn-upgrade-click').isVisible(), true);
+    await page.locator('#btn-upgrade-click').click();
+    await page.evaluate(() => window.PlatformBridge.flush());
+    const bought = await page.evaluate(async () => await window.PlatformBridge.request('/api/me'));
+    assert.equal(bought.state.owned.click, 1, 'existing gold shop still persists purchases');
+    assert.equal(bought.state.gold, savedGold - 50);
+    await page.locator('#nav-play').click(); await page.locator('#play-nav-adventure').click(); await page.locator('#legacy-mode').click();
     await page.locator('#game-overlay-btn').click(); await wait(250);
     assert.equal(await page.evaluate(() => adv.running), true);
     await page.locator('#nav-arena').click(); assert.equal(await page.locator('#arena-start-btn').isVisible(), true);
@@ -121,6 +146,7 @@ async function main() {
     });
     await page.reload();
     await page.waitForFunction(() => !document.getElementById('platform-discard').hidden);
+    await page.locator('#platform-mode').click();
     page.once('dialog', dialog => dialog.accept());
     await page.locator('#platform-discard').click();
     assert.equal(await page.locator('#platform-start').isDisabled(), false);
@@ -128,6 +154,7 @@ async function main() {
     report.networkRecovery = true; report.keyboardWin = true; report.regressionSmoke = true;
     assert.deepEqual(errors, []);
     await ctx.close();
+    fs.writeFileSync(path.join(screenshots, 'browser-report.json'), JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify(report, null, 2));
   } finally {
     await Promise.race([browser.close(), wait(3000)]);

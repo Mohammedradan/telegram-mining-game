@@ -150,7 +150,7 @@
         say('جولة محفوظة الهوية. عدّن صخرة واجمع 3 بلورات، ثم اعبر بوابة الخروج.');
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
       sim = R.create(); inputs = []; particles = []; running = true; paused = false; save();
-      resume();
+      if (visible()) resume(); else pause();
     } catch (e) { say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`); }
     finally { starting = false; el('platform-start').disabled = Boolean(pending); }
   }
@@ -170,7 +170,7 @@
     } else if (sim.status === 'playing') {
       try {
         const current = await request('/api/platform/start');
-        if (current.id !== ticket.id) { ticket = null; say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.'); return; }
+        if (current.id !== ticket.id || current.version !== R.VERSION) { ticket = null; say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.'); return; }
         running = true; paused = false; pause();
       } catch (_) { say('حفظ سابق موجود؛ أعد فتح الصفحة بعد عودة الاتصال لاستئنافه.'); }
     }

@@ -108,6 +108,11 @@
     return { ok: true, state: s };
   }
   const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
+  // Render-only easing: does not affect the deterministic replay or saved inputs.
+  function followCamera(current, target, seconds, snap = false) {
+    if (snap || !Number.isFinite(current)) return target;
+    return current + (target - current) * (1 - Math.exp(-10 * Math.max(0, Math.min(.1, seconds))));
+  }
   const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, LEVEL, create, step, replay, overlap, activeHazard, cameraFor, rewardFor };
+  return { VERSION, FPS, DT, MAX_TICKS, INPUT, LEVEL, create, step, replay, overlap, activeHazard, cameraFor, followCamera, rewardFor };
 });
