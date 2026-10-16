@@ -28,3 +28,11 @@
 @media(max-height:480px) and (min-width:600px){.mine-heading h2{font-size:10px}.mine-heading button{min-height:24px}.mine-guide{min-height:18px}}
 
 .mine-controls .mine-actions button[data-platform-input="4"]{background:#275b62;border-color:#71b6b4;color:#effff6}
+
+/* Small, non-blocking game feedback; no timer/animation loop of its own. */
+.mine-feedback{position:absolute;z-index:1;top:8px;inset-inline:8px;pointer-events:none;text-align:center;padding:6px 9px;border:1px solid #77bda5;border-radius:8px;background:#12352ff2;color:#e1ffdf;font-size:11px;line-height:1.5}
+.mine-overlay{z-index:2}
+.mine-heading>div:first-child{min-width:0}
+#platform-volume{width:54px;min-width:54px;height:36px;align-self:center;margin:0;accent-color:#7ed8c1;cursor:pointer}
+#platform-volume:focus-visible{outline:2px solid #a3e6d4;outline-offset:2px}
+@media(max-height:650px){#platform-volume{width:45px;min-width:45px;height:30px}.mine-feedback{font-size:10px;top:5px;padding:4px}}

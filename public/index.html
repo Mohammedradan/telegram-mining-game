@@ -311,7 +311,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=2">
+  <link rel="stylesheet" href="/platform.css?v=3">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -415,7 +415,7 @@
           <div class="mine-kicker">المستوى ١ / كهف الفوانيس · استكشف، عدّن، ثم اعبر</div>
           <h2>كهف الفوانيس</h2>
         </div>
-        <div class="mine-settings"><button id="platform-motion" type="button" aria-pressed="false" aria-label="تقليل الحركة">حركة كاملة</button><button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button></div>
+        <div class="mine-settings"><input id="platform-volume" type="range" dir="ltr" min="0" max="100" step="5" value="75" aria-label="مستوى صوت اللعبة" title="مستوى صوت اللعبة"><button id="platform-motion" type="button" aria-pressed="false" aria-label="تقليل الحركة">حركة كاملة</button><button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button></div>
       </div>
       <div class="mine-hud" aria-label="حالة الجولة">
         <span id="platform-hearts">♥ ♥ ♥</span>
@@ -424,6 +424,7 @@
       </div>
       <div id="platform-guide" class="mine-guide" role="status" aria-live="polite">١ / تحرك باتجاه البلورة المضيئة باستخدام ◀ ▶ أو الأسهم.</div>
       <div class="mine-stage">
+        <div id="platform-feedback" class="mine-feedback" role="status" aria-live="polite" hidden></div>
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم واقفز بالمسافة وعدّن بحرف E"></canvas>
         <div id="platform-overlay" class="mine-overlay">
           <h3 id="platform-title">رحلة إلى كهف الفوانيس</h3>
@@ -2172,6 +2173,10 @@
     }
 
     function startAdventure(mode = 'solo', seed = null, duration = null) {
+      // A server-started race must reveal the cart, and suspend the platform RAF.
+      window.PlatformGame?.showLegacy();
+      if (mode === 'race') switchPlayPanel('adventure');
+      for (const key of Object.keys(advKeys)) delete advKeys[key];
       resizeAdventureCanvas();
       adv.mode = mode;
       adv.rng = mode === 'race' && seed !== null ? mulberry32(seed) : null;
@@ -2214,6 +2219,8 @@
     function setAdventurePaused(paused) {
       if (!adv.running) return;
       adv.paused = paused;
+      for (const key of Object.keys(advKeys)) delete advKeys[key];
+      if (paused) cancelAnimationFrame(adv.raf);
       const overlay = document.getElementById('game-overlay');
       document.getElementById('game-overlay-title').innerText = paused ? '⏸ توقف مؤقت' : 'مغامرة المنجم';
       document.getElementById('game-overlay-text').innerHTML = paused ? 'خذ نفساً… المغامرة بانتظارك.' : '';
@@ -2597,8 +2604,13 @@
     advCanvas.addEventListener('pointerdown', (e) => { advCanvas.setPointerCapture?.(e.pointerId); moveAdventureTo(e.clientX); });
     advCanvas.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') moveAdventureTo(e.clientX); });
     window.addEventListener('keydown', (e) => {
-      if (!document.getElementById('tab-play').classList.contains('active')) return;
-      if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+      if (!document.getElementById('tab-play').classList.contains('active')
+          || !document.getElementById('play-panel-adventure').classList.contains('active')
+          || document.getElementById('legacy-adventure').hidden
+          || /INPUT|TEXTAREA|SELECT/.test(e.target?.tagName || '') || e.target?.isContentEditable) return;
+      if (!['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) return;
+      e.preventDefault();
+      if (e.key === ' ' && e.repeat) return;
       advKeys[e.key] = true;
       if (e.key === ' ' && adv.running) useAdventureSkill();
       else if (e.key === ' ' && !adv.running) startAdventure();
@@ -2908,6 +2920,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=1"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=2"></script>
+  <script src="/platform-game.js?v=3"></script>
 </body>
 </html>

@@ -11,7 +11,8 @@
   let sim = R.create(), inputs = [], ticket = null, owner = null;
   let running = false, paused = false, starting = false, restoring = true, submitting = false, pending = null;
   let raf = 0, last = 0, accumulator = 0;
-  let audio = null, muted = false, particles = [];
+  let audio = null, muted = false, volume = .75, particles = [];
+  let feedbackUntil = 0, observedCheckpoint = sim.checkpoint, observedMined = sim.mined;
   const keys = new Set(), pointers = new Map();
   // Preserve a quick jump/mine tap until one simulation step consumes it. Sources
   // are separate so cancelling a finger cannot erase a keyboard or another finger.
@@ -28,7 +29,11 @@
   let reduced = Boolean(motionQuery?.matches), motionOverride = false;
   try { const preference = localStorage.getItem('platform-reduced'); if (preference !== null) { reduced = preference === 'true'; motionOverride = true; } } catch (_) {}
   let learnedJump = false;
-  try { muted = localStorage.getItem('platform-muted') === 'true'; } catch (_) {}
+  try {
+    muted = localStorage.getItem('platform-muted') === 'true';
+    const savedVolume = localStorage.getItem('platform-volume');
+    if (savedVolume !== null && Number.isFinite(Number(savedVolume))) volume = Math.max(0, Math.min(1, Number(savedVolume)));
+  } catch (_) {}
   const keyMap = { ArrowLeft: 1, KeyA: 1, ArrowRight: 2, KeyD: 2, Space: 4, ArrowUp: 4, KeyW: 4, KeyE: 8, KeyX: 8 };
   const storageKey = () => `platform-run:v1:${owner}`;
   const say = text => { el('platform-status').textContent = text; };
@@ -39,18 +44,18 @@
     document.querySelectorAll('[data-platform-input]').forEach(b => { b.dataset.down = 'false'; });
   }
   function audioUnlock() {
-    if (muted) return;
+    if (muted || volume === 0) return;
     try { const AC = window.AudioContext || window.webkitAudioContext; if (!audio && AC) audio = new AC(); audio?.resume()?.catch(() => {}); } catch (_) {}
   }
   function beep(type) {
-    if (muted || !audio || audio.state !== 'running') return;
+    if (muted || volume === 0 || !audio || audio.state !== 'running') return;
     try {
       const frequencies = { jump: 420, collect: 840, mine: 150, hurt: 90, win: 1040, land: 70, warning: 240, defeat: 600 };
       const o = audio.createOscillator(), g = audio.createGain();
       o.type = type === 'mine' || type === 'hurt' ? 'triangle' : 'sine';
       o.frequency.setValueAtTime(frequencies[type] || 300, audio.currentTime);
       o.frequency.exponentialRampToValueAtTime((frequencies[type] || 300) * 1.4, audio.currentTime + .1);
-      g.gain.setValueAtTime(.045, audio.currentTime); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .13);
+      g.gain.setValueAtTime(.045 * volume, audio.currentTime); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .13);
       o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + .14);
     } catch (_) {}
   }
@@ -103,14 +108,29 @@
     if (previous && previous.mask === mask) previous.frames++;
     else inputs.push({ mask, frames: 1 });
   }
+  function feedback(text) {
+    setText('platform-feedback', text);
+    el('platform-feedback').hidden = false;
+    feedbackUntil = sim.tick + 150; // Simulation time: pause freezes the message too.
+  }
+  function resetFeedback() {
+    feedbackUntil = 0; observedCheckpoint = sim.checkpoint; observedMined = sim.mined;
+    el('platform-feedback').hidden = true;
+  }
   function consumeEvents() {
+    if (sim.mined > observedMined) feedback('تكسّر العِرق! جمعت بلورتين من المعدن.');
+    if (sim.checkpoint !== observedCheckpoint) feedback('راية مفعّلة — ستعود إلى هنا إن أصابك خطر.');
+    observedMined = sim.mined; observedCheckpoint = sim.checkpoint;
     for (const event of sim.events) {
       if (event.type === 'jump') learnedJump = true;
+      if (event.type === 'hurt') feedback(sim.player.hearts > 0 ? (sim.checkpoint === 64 ? 'احذر الخطر! عدت إلى نقطة البداية.' : 'احذر الخطر! عدت إلى آخر راية، ومواردك باقية.') : 'نفدت القلوب — يمكنك المحاولة من جديد.');
+      if (event.type === 'defeat') feedback('هزمت حارسًا — الطريق أكثر أمانًا.');
       beep(event.type);
       if (!reduced && ['mine', 'collect', 'hurt', 'win'].includes(event.type)) {
         for (let i = 0; i < 8; i++) particles.push({ x: event.x, y: event.y, vx: (i - 4) * .65, vy: -1 - (i % 3), life: 30, color: event.type === 'hurt' ? '#ff9b7e' : '#8ce6cc' });
       }
     }
+    if (feedbackUntil && sim.tick >= feedbackUntil) { el('platform-feedback').hidden = true; feedbackUntil = 0; }
     particles = particles.slice(-96);
     for (const p of particles) { p.x += p.vx; p.y += p.vy; p.vy += .12; p.life--; }
     particles = particles.filter(p => p.life > 0);
@@ -188,7 +208,7 @@
         say('جولة محفوظة الهوية. عدّن صخرة واجمع 3 بلورات، ثم اعبر بوابة الخروج.');
       } else { R = currentRules; ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
       sim = R.create(); inputs = []; particles = []; learnedJump = false; running = true; paused = false; save();
-      hud();
+      resetFeedback(); hud();
       if (visible()) resume(); else pause();
     } catch (e) { say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`); }
     finally { starting = false; el('platform-start').disabled = Boolean(pending); }
@@ -204,7 +224,7 @@
     const replay = stored.inputs?.length ? R.replay(stored.inputs) : { ok: true, state: R.create() };
     if (!replay.ok) { say('ملف جولة غير صالح؛ يمكنك البدء مجددًا.'); return; }
     ticket = stored.ticket; inputs = stored.inputs || []; sim = replay.state;
-    hud(); draw();
+    resetFeedback(); hud(); draw();
     if (sim.status !== 'playing') {
       pending = { id: ticket.id, inputs }; el('platform-start').disabled = true;
       overlay(sim.status === 'won' ? 'استرجاع نتيجة جولتك' : 'جولة سابقة انتهت', 'جارٍ استرجاع تأكيد الخادم. إعادة الطلب لا تضاعف الجائزة.');
@@ -266,12 +286,34 @@
     say('أُلغي الحفظ المحلي المعلق فقط. يمكنك بدء جولة جديدة؛ أرصدة الخادم لم تُحذف.');
   });
   el('platform-mode').addEventListener('click', showPlatform); el('legacy-mode').addEventListener('click', showLegacy);
-  el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? 'صوت ×' : 'صوت ✓';
+  function audioUI() {
+    const silent = muted || volume === 0;
+    el('platform-mute').setAttribute('aria-pressed', String(silent));
+    el('platform-mute').textContent = silent ? 'صوت ×' : 'صوت ✓';
+    el('platform-volume').value = String(Math.round(volume * 100));
+    el('platform-volume').setAttribute('aria-valuetext', `${Math.round(volume * 100)} بالمئة`);
+  }
+  function applyAudioPreference() {
+    audioUI();
+    try {
+      localStorage.setItem('platform-muted', String(muted));
+      localStorage.setItem('platform-volume', String(volume));
+    } catch (_) {}
+    if (muted || volume === 0) audio?.suspend?.()?.catch(() => {}); else audioUnlock();
+  }
   el('platform-mute').addEventListener('click', () => {
-    muted = !muted; el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? 'صوت ×' : 'صوت ✓';
-    try { localStorage.setItem('platform-muted', String(muted)); } catch (_) {}
-    if (muted) audio?.suspend?.()?.catch(() => {}); else audioUnlock();
+    muted = !(muted || volume === 0);
+    if (!muted && volume === 0) volume = .5;
+    applyAudioPreference();
   });
+  el('platform-volume').addEventListener('input', () => {
+    const value = Number(el('platform-volume').value);
+    if (!Number.isFinite(value)) return;
+    volume = Math.max(0, Math.min(1, value / 100));
+    if (volume > 0) muted = false;
+    applyAudioPreference();
+  });
+  audioUI();
   function motionUI() {
     el('platform-motion').setAttribute('aria-pressed', String(reduced));
     el('platform-motion').textContent = reduced ? 'حركة مخففة' : 'حركة كاملة';
@@ -284,7 +326,7 @@
   motionQuery?.addEventListener?.('change', e => { if (!motionOverride) { reduced = e.matches; particles = []; motionUI(); draw(); } });
   motionUI();
   // Read-only diagnostics support reproducible browser tests, not reward authority.
-  window.PlatformGame = { pause, showLegacy, showPlatform, inspect: () => ({ tick: sim.tick, status: sim.status, pose: sim.player.pose, facing: sim.player.facing, x: sim.player.x, y: sim.player.y, gems: sim.collected, mined: sim.mined, hearts: sim.player.hearts, running, paused, scheduled: Boolean(raf), ticket: ticket?.id, pending: Boolean(pending), reduced, version: R.VERSION, defeated: sim.defeated || 0, boss: Boolean(sim.bossDefeated) }) };
+  window.PlatformGame = { pause, showLegacy, showPlatform, inspect: () => ({ tick: sim.tick, status: sim.status, pose: sim.player.pose, facing: sim.player.facing, x: sim.player.x, y: sim.player.y, gems: sim.collected, mined: sim.mined, hearts: sim.player.hearts, running, paused, scheduled: Boolean(raf), ticket: ticket?.id, pending: Boolean(pending), reduced, muted: muted || volume === 0, volume, checkpoint: sim.checkpoint, version: R.VERSION, defeated: sim.defeated || 0, boss: Boolean(sim.bossDefeated) }) };
   el('platform-start').disabled = true;
   draw(); restore().catch(() => say('تعذّر استرجاع الجولة؛ يمكنك بدء رحلة جديدة.')).finally(() => { restoring = false; el('platform-start').disabled = Boolean(pending); });
 })();

@@ -8,7 +8,8 @@
     "dev": "node --watch server.js",
     "build": "node scripts/check-build.cjs",
     "test": "node --test test/api.test.js test/multiplayer.test.js test/auth.test.js test/client-security.test.js test/adventure-progression.test.js test/storage-transactions.test.js test/layout.test.js test/economy.test.js test/client-sync.test.js test/page-boot.test.js test/race-rules.test.js test/arena-rules.test.js test/platform-rules.test.js test/platform-api.test.js test/platform-ui.test.js",
-    "test:browser": "node scripts/test-platform-browser.cjs"
+    "test:browser": "node scripts/test-platform-browser.cjs",
+    "test:touch": "node scripts/test-platform-touch.cjs"
   },
   "engines": {
     "node": ">=22"

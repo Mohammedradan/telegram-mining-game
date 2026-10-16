@@ -143,7 +143,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
 
   const fire = (el, type, event = {}) => { for (const fn of el?._listeners?.[type] || []) fn({ type, preventDefault: noop, ...event }); };
   const fireWindow = (type, event = {}) => { for (const [t, fn] of windowListeners) if (t === type) fn({ type, preventDefault: noop, target: { tagName: 'BODY' }, ...event }); };
-  const key = (type, code) => fireWindow(type, { code, key: code });
+  const key = (type, code) => fireWindow(type, { code, key: code === 'Space' ? ' ' : code.startsWith('Key') ? code.slice(-1).toLowerCase() : code });
   const settle = async () => {
     for (let i = 0; i < 12; i++) {
       for (const fn of timers.splice(0)) { try { fn(); } catch (e) { log.errors.push(`timer: ${e.message}`); } }
@@ -160,7 +160,7 @@ test('platform UI: the page wires the scene — assets, mode switch and every el
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-mode', 'legacy-mode', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
-    'platform-guide', 'platform-motion', 'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
+    'platform-feedback', 'platform-volume', 'platform-guide', 'platform-motion', 'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   for (const mask of [1, 2, 4, 8]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
@@ -369,4 +369,79 @@ test('platform UI: a short mining tap swings once rather than continuing to mine
   tap(52); page.flushFrames(15); tap(53); page.flushFrames(15);
   assert.equal(page.PlatformGame().inspect().mined, 1, 'three deliberate taps break the rock');
   assert.equal(mine.dataset.down, 'false');
+});
+
+test('platform UI: volume is bounded, persists, mutes at zero, and can be restored by the sound button', async () => {
+  const page = bootPage(); await page.settle();
+  const slider = page.byId('platform-volume');
+  slider.value = '25'; page.fire(slider, 'input');
+  assert.equal(page.PlatformGame().inspect().volume, .25);
+  assert.equal(page.localStore.get('platform-volume'), '0.25');
+  slider.value = '0'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().muted, true);
+  page.fire(page.byId('platform-mute'), 'click');
+  assert.equal(page.PlatformGame().inspect().muted, false); assert.equal(page.PlatformGame().inspect().volume, .5);
+  slider.value = '500'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().volume, 1);
+  slider.value = '-20'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().volume, 0);
+  slider.value = 'not-a-number'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().volume, 0);
+});
+test('platform UI: slider keyboard commands do not move the miner', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  let prevented = false;
+  page.fireWindow('keydown', {code: 'ArrowRight', key:'ArrowRight', target: {tagName: 'INPUT'}, preventDefault: () => { prevented = true; }});
+  assert.equal(prevented, false, 'all scene listeners must leave native slider commands alone');
+  page.flushFrames(15); assert.equal(page.PlatformGame().inspect().x, 64);
+});
+test('platform UI: activating a checkpoint gives temporary feedback, frozen during pause', async () => {
+  const state = R.create(), inputs = [];
+  outer: for (const action of solution().inputs) for (let i = 0; i < action.frames; i++) {
+    if (inputs.at(-1)?.mask === action.mask) inputs.at(-1).frames++;
+    else inputs.push({mask: action.mask, frames: 1});
+    R.step(state, action.mask);
+    if (state.player.x >= 903) break outer;
+  }
+  assert.equal(state.checkpoint, 64);
+  const page = bootPage({storedRun: {version: R.VERSION, ticket: {id:'ticket-ui-1',version:R.VERSION},inputs}});
+  await page.settle(); page.fire(page.byId('platform-resume'), 'click');
+  page.key('keydown','ArrowRight'); page.flushFrames(8); page.key('keyup','ArrowRight');
+  assert.equal(page.PlatformGame().inspect().checkpoint, 920);
+  assert.equal(page.byId('platform-feedback').hidden, false);
+  assert.match(page.byId('platform-feedback').textContent, /راية مفعّلة/);
+  page.fireWindow('blur'); page.flushFrames(200); assert.equal(page.byId('platform-feedback').hidden, false);
+  page.fire(page.byId('platform-resume'),'click'); page.flushFrames(160);
+  assert.equal(page.byId('platform-feedback').hidden, true);
+});
+test('platform UI: a legal fall reports the respawn without removing the resources already collected', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  page.key('keydown','ArrowRight'); page.key('keydown','KeyE');
+  for (let i=0; i<45 && page.PlatformGame().inspect().hearts===3; i++) page.flushFrames(10);
+  page.key('keyup','ArrowRight'); page.key('keyup','KeyE');
+  const state = page.PlatformGame().inspect();
+  assert.equal(state.hearts, 2); assert.ok(state.gems >= 3); assert.equal(state.mined, 1);
+  assert.match(page.byId('platform-feedback').textContent, /عدت إلى نقطة البداية/);
+  assert.equal(page.log.platformFinishBodies.length, 0, 'feedback cannot grant or finish a reward');
+});
+
+test('scene isolation: real Space jumps only in the platform scene, and still starts the visible original cart', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  page.key('keydown','Space'); page.flushFrames(3); page.key('keyup','Space');
+  assert.ok(page.PlatformGame().inspect().y < 262);
+  assert.equal(vm.runInContext('adv.running',page.ctx), false, 'no hidden second simulation');
+  page.fire(page.byId('legacy-mode'),'click');
+  assert.equal(page.PlatformGame().inspect().scheduled, false);
+  page.key('keydown','Space'); page.key('keyup','Space');
+  assert.equal(vm.runInContext('adv.running',page.ctx), true, 'original keyboard control remains supported');
+});
+test('scene isolation: native form input cannot start the cart, and a seeded race reveals it and pauses platforms', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('legacy-mode'),'click');
+  page.fireWindow('keydown',{code:'Space',key:' ',target:{tagName:'INPUT'}});
+  assert.equal(vm.runInContext('adv.running',page.ctx), false);
+  page.fire(page.byId('platform-mode'),'click'); page.fire(page.byId('platform-start'),'click'); await page.settle();
+  vm.runInContext("startAdventure('race', 1234, 45)",page.ctx);
+  assert.equal(page.PlatformGame().inspect().paused, true); assert.equal(page.PlatformGame().inspect().scheduled, false);
+  assert.equal(page.byId('legacy-adventure').hidden, false); assert.equal(page.byId('platform-scene').hidden, true);
+  assert.equal(vm.runInContext('adv.mode',page.ctx), 'race'); assert.equal(vm.runInContext('adv.timeLeft',page.ctx), 45);
 });
