@@ -20,10 +20,10 @@ const HOST = process.env.HOST || '0.0.0.0';
 const RAW_TOKEN = (process.env.BOT_TOKEN || '').trim();
 const PLACEHOLDER = 'ضع_هنا_التوكن_الخاص_بك_من_BotFather';
 const BOT_TOKEN = RAW_TOKEN && RAW_TOKEN !== PLACEHOLDER ? RAW_TOKEN : '';
-// وضع الضيف للتطوير فقط عند غياب التوكن؛ في الإنتاج لا يُسمح به إلا بتفعيل صريح.
+// وضع الضيف للتطوير فقط؛ حتى العلم الصريح لا يسمح به في الإنتاج.
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const ALLOW_GUEST = process.env.ALLOW_GUEST_AUTH === 'true'
-  || (!BOT_TOKEN && !IS_PRODUCTION && process.env.ALLOW_GUEST_AUTH !== 'false');
+const ALLOW_GUEST = !IS_PRODUCTION && (process.env.ALLOW_GUEST_AUTH === 'true'
+  || (!BOT_TOKEN && process.env.ALLOW_GUEST_AUTH !== 'false'));
 const REFERRAL_REWARD = 1000;
 
 // إعدادات مكافحة الغش الخادمية (قابلة للضبط من البيئة)

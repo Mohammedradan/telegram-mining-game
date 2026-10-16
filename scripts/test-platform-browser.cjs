@@ -14,7 +14,7 @@ async function main() {
   if (!executablePath) throw new Error('Set CHROMIUM_PATH to an installed Chromium executable');
   const browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const errors = [];
-  const report = { viewports: [], networkRecovery: false, keyboardWin: false, regressionSmoke: false, errors };
+  const report = { viewports: [], networkRecovery: false, keyboardWin: false, bossWin: false, regressionSmoke: false, errors };
   fs.mkdirSync(screenshots, { recursive: true });
   async function context(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, ...extras });
@@ -34,6 +34,8 @@ async function main() {
       await page.waitForFunction(() => window.PlatformGame.inspect().running);
       assert.equal(starts, 1, 'double-click starts exactly one request/loop');
       if (viewport.width === 390) {
+        assert.equal((await read(page)).reduced, true);
+        await page.locator('#platform-motion').click(); assert.equal((await read(page)).reduced, false);
         await page.locator('#platform-mute').click();
         assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
         await page.keyboard.down('d'); await page.keyboard.down('ArrowRight'); await page.keyboard.up('ArrowRight');
@@ -41,14 +43,15 @@ async function main() {
         await page.keyboard.up('d');
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
-      assert.ok(bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}`);
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}`);
       const right = await page.locator('[data-platform-input="2"]').boundingBox();
       const jump = await page.locator('[data-platform-input="4"]').boundingBox();
       const cdp = await ctx.newCDPSession(page);
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: right.x + 15, y: right.y + 15, id: 1 }, { x: jump.x + 15, y: jump.y + 15, id: 2 }] });
       await wait(140);
-      const jumped = await read(page); assert.ok(jumped.x > 64); assert.ok(jumped.y < 260, 'touch movement and jump work simultaneously');
+      const jumped = await read(page); assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped })); assert.ok(jumped.y < 260, 'touch movement and jump work simultaneously');
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      const released = await read(page); await wait(100); assert.equal((await read(page)).x, released.x, 'touch release cannot latch direction');
       await page.locator('#platform-pause').click();
       const paused = await read(page); await wait(250); assert.equal((await read(page)).tick, paused.tick); assert.equal(paused.scheduled, false);
       await page.locator('#platform-resume').click(); await wait(100); assert.ok((await read(page)).tick > paused.tick);
@@ -57,7 +60,7 @@ async function main() {
       await page.reload();
       await page.waitForFunction(() => window.PlatformGame?.inspect().paused);
       const restored = await read(page); assert.ok(restored.tick >= left.tick - 2); assert.equal(restored.scheduled, false);
-      if (viewport.width === 390) assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
+      if (viewport.width === 390) { assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true'); assert.equal((await read(page)).reduced, false, 'motion override survives reload'); }
       await page.locator('#platform-resume').click(); await wait(50);
       if (viewport.width === 320) await page.screenshot({ path: path.join(screenshots, 'platform-small-phone.png') });
       if (viewport.width === 844) await page.screenshot({ path: path.join(screenshots, 'platform-landscape.png') });
@@ -81,17 +84,18 @@ async function main() {
     await page.waitForFunction(() => window.PlatformGame.inspect().running);
     await page.keyboard.down('ArrowRight'); await page.keyboard.down('e');
     let jumping = false, photographed = false;
-    const deadline = Date.now() + 50000;
+    const winStart = Date.now();
+    const deadline = winStart + 60000;
     while (Date.now() < deadline) {
       const state = await read(page);
       if (state.status !== 'playing') break;
       const jump = [[665, 740], [1140, 1220], [1470, 1550], [2020, 2110]].some(([a, b]) => state.x > a && state.x < b);
       if (jump !== jumping) { jumping = jump; if (jump) await page.keyboard.down('Space'); else await page.keyboard.up('Space'); }
-      if (state.x > 1000 && !photographed) { photographed = true; await page.screenshot({ path: path.join(screenshots, 'platform-mobile.png') }); }
+      if (state.x > 1000 && !photographed) { photographed = true; await page.keyboard.up('ArrowRight'); await page.screenshot({ path: path.join(screenshots, 'platform-mobile.png') }); await page.keyboard.down('ArrowRight'); }
       await wait(20);
     }
     await page.keyboard.up('ArrowRight'); await page.keyboard.up('e'); await page.keyboard.up('Space');
-    const final = await read(page); assert.equal(final.status, 'won'); assert.ok(final.mined >= 1); assert.ok(final.gems >= 3);
+    const final = await read(page); assert.equal(await page.evaluate(() => adv.running), false, 'platform Space cannot start a hidden legacy game'); report.throttledRound = { cpuRate: 4, wallSeconds: (Date.now() - winStart) / 1000, simulationSeconds: final.tick / 60 }; assert.equal(final.status, 'won'); assert.ok(final.mined >= 1); assert.ok(final.gems >= 3);
     await page.waitForFunction(() => !document.getElementById('platform-retry').hidden);
     assert.equal(committed.won, true); assert.ok(committed.gold > 0 && committed.gold <= 100);
     assert.equal((await read(page)).pending, true);
@@ -106,8 +110,8 @@ async function main() {
     assert.equal(savedGold, committed.gold, 'reload/lost response never doubles gold');
     await page.screenshot({ path: path.join(screenshots, 'platform-victory.png') });
     await page.locator('#play-nav-missions').click(); assert.equal(await page.locator('#daily-btn').isVisible(), true);
-    await page.locator('#play-nav-customize').click(); assert.equal(await page.locator('#stars-shop').isVisible(), true);
-    assert.equal(await page.evaluate(async () => (await window.PlatformBridge.request('/api/config')).shopEnabled), false);
+    await page.locator('#play-nav-customize').click(); assert.equal(await page.locator('#adv-upgrades-list').isVisible(), true);
+    assert.equal(await page.locator('#stars-shop').count(), 0, 'no real-money shop is introduced');
     await page.locator('#play-nav-adventure').click(); await page.locator('#legacy-mode').click();
     await page.locator('#game-overlay-btn').click(); await wait(250);
     assert.equal(await page.evaluate(() => adv.running), true);
@@ -128,6 +132,42 @@ async function main() {
     report.networkRecovery = true; report.keyboardWin = true; report.regressionSmoke = true;
     assert.deepEqual(errors, []);
     await ctx.close();
+    // A second legal keyboard route reaches the optional upper boss. No state injection.
+    const bossContext = await context({ width: 390, height: 844 });
+    const bossPage = bossContext.page;
+    await bossPage.locator('#platform-start').click();
+    await bossPage.waitForFunction(() => window.PlatformGame.inspect().running);
+    let stage = 'outbound', held = new Set(), bossPhoto = false;
+    const bossDeadline = Date.now() + 60000;
+    while (Date.now() < bossDeadline) {
+      const s = await read(bossPage); if (s.status !== 'playing') break;
+      let wanted = ['ArrowRight', 'e'];
+      if (stage === 'outbound') {
+        if ([[665, 740], [1140, 1220], [1470, 1550], [2020, 2110]].some(([a,b]) => s.x > a && s.x < b)) wanted.push('Space');
+        if (s.x >= 2370) stage = 'return';
+      } else if (stage === 'return') {
+        wanted = ['ArrowLeft', 'e', 'Space'];
+        if (s.x <= 2185) stage = 'boss';
+      } else if (stage === 'boss') {
+        wanted = s.facing < 0 ? ['e', 'ArrowRight'] : ['e'];
+        if (s.boss) stage = 'exit';
+      }
+      const next = new Set(wanted);
+      for (const key of held) if (!next.has(key)) await bossPage.keyboard.up(key);
+      for (const key of next) if (!held.has(key)) await bossPage.keyboard.down(key);
+      held = next;
+      if (stage === 'boss' && s.facing > 0 && !next.has('ArrowRight') && !bossPhoto) { bossPhoto = true; await bossPage.screenshot({ path: path.join(screenshots, 'platform-boss.png') }); }
+      await wait(20);
+    }
+    for (const key of held) await bossPage.keyboard.up(key);
+    const bossFinal = await read(bossPage);
+    assert.equal(bossFinal.status, 'won', JSON.stringify({stage, bossFinal})); assert.equal(bossFinal.boss, true); assert.ok(bossFinal.defeated >= 1);
+    await bossPage.waitForFunction(() => !window.PlatformGame.inspect().pending);
+    const bossProfile = await bossPage.evaluate(async () => await window.PlatformBridge.request('/api/me'));
+    assert.equal(bossProfile.state.adventure.bossWins, 1); assert.equal(bossProfile.state.adventure.zones, 3);
+    report.bossWin = true;
+    assert.deepEqual(errors, []);
+    await bossContext.ctx.close();
     console.log(JSON.stringify(report, null, 2));
   } finally {
     await Promise.race([browser.close(), wait(3000)]);

@@ -59,3 +59,37 @@ test('platform: malformed replay, excess ticks, masks and post-victory actions a
   assert.equal(R.replay([...solution().inputs, { mask: 2, frames: 1 }]).reason, 'after_end');
   const loss = R.replay([{mask: 0, frames: R.MAX_TICKS}]); assert.equal(loss.state.status, 'lost');
 });
+
+test('platform v2: guard signals a locked attack before damage; jump evades its strike', () => {
+  const s = R.create(); s.player.x = 2355;
+  R.step(s, 0);
+  assert.equal(s.enemies[0].phase, 'windup');
+  assert.equal(s.enemies[0].facing, -1);
+  advance(s, 0, 47); assert.equal(s.damage, 0);
+  R.step(s, 0); assert.equal(s.damage, 1); assert.equal(s.player.hearts, 2);
+  const dodge = R.create(); dodge.player.x = 2355;
+  advance(dodge, 0, 25); advance(dodge, R.INPUT.JUMP, 25);
+  assert.equal(dodge.enemies[0].phase, 'strike'); assert.equal(dodge.damage, 0);
+});
+test('platform v2: pickaxe defeats only nearby enemies, once, at the swing cooldown', () => {
+  const s = R.create(); advance(s, R.INPUT.MINE, 100); assert.equal(s.defeated, 0);
+  s.player.x = 2360; s.player.attack = 0;
+  R.step(s, R.INPUT.MINE); assert.equal(s.enemies[0].hp, 2);
+  advance(s, R.INPUT.MINE, 13); assert.equal(s.enemies[0].hp, 2);
+  advance(s, R.INPUT.MINE, 15); assert.equal(s.defeated, 1);
+  advance(s, R.INPUT.MINE, 100); assert.equal(s.defeated, 1); assert.equal(s.bossDefeated, false);
+});
+test('platform v2: optional boss upper route is reachable with legal input and no damage', () => {
+  const { state, inputs } = require('./fixtures/platform-boss-solution.cjs')();
+  assert.equal(state.status, 'won'); assert.equal(state.bossDefeated, true);
+  assert.equal(state.defeated, 2); assert.equal(state.damage, 0);
+  assert.deepEqual(R.replay(inputs).state, state);
+  assert.equal(R.rewardFor(state), 100); // same virtual-gold cap, no boss multiplier
+});
+test('platform versions: old saved input replays with frozen v1, unknown versions fail closed', () => {
+  const old = R.forVersion(1), replay = old.replay(solution().inputs);
+  assert.equal(old.VERSION, 1); assert.equal(replay.state.status, 'won');
+  assert.equal(old.rewardFor(replay.state), 98); assert.equal(replay.state.enemies, undefined);
+  assert.equal(R.forVersion(999), null);
+  assert.equal(R.cameraFor(R.create(), R.LEVEL.width + 100), 0);
+});

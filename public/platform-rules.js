@@ -4,27 +4,15 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 1;
+  const VERSION = 2;
   const FPS = 60, DT = 1 / FPS, MAX_TICKS = 60 * 150;
   const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8 });
-  const LEVEL = Object.freeze({
-    width: 2680, height: 360, exit: { x: 2540, y: 222, w: 70, h: 78 },
-    platforms: [
-      { x: 0, y: 300, w: 720, h: 80 }, { x: 810, y: 300, w: 720, h: 80 },
-      { x: 1640, y: 300, w: 1040, h: 80 },
-      { x: 260, y: 230, w: 115, h: 20 }, { x: 560, y: 222, w: 105, h: 20 },
-      { x: 900, y: 228, w: 100, h: 20 }, { x: 1320, y: 224, w: 112, h: 20 },
-      { x: 1780, y: 230, w: 110, h: 20 }, { x: 2180, y: 230, w: 135, h: 20 },
-    ],
-    rocks: [{ x: 440, y: 252, w: 46, h: 48 }, { x: 1040, y: 252, w: 46, h: 48 }, { x: 1940, y: 252, w: 46, h: 48 }],
-    gems: [{ x: 196, y: 276 }, { x: 309, y: 207 }, { x: 603, y: 199 }, { x: 860, y: 276 }, { x: 948, y: 205 }, { x: 1370, y: 201 }, { x: 1730, y: 276 }, { x: 1828, y: 207 }, { x: 2240, y: 207 }, { x: 2450, y: 276 }],
-    hazards: [{ x: 1190, y: 265, w: 42, h: 35, period: 180, active: 84 }, { x: 2080, y: 279, w: 48, h: 21, period: 1, active: 1 }],
-  });
+  const LEVEL = typeof module === 'object' && module.exports ? require('./platform-level') : globalThis.PlatformLevel;
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const activeHazard = (h, tick) => tick % h.period < h.active;
   function create() {
     return { version: VERSION, tick: 0, status: 'playing', player: { x: 64, y: 262, w: 24, h: 38, vx: 0, vy: 0, grounded: true, facing: 1, hearts: 3, invulnerable: 0, coyote: 6, jumpBuffer: 0, attack: 0, pose: 'idle' },
-      checkpoint: 64, rocks: LEVEL.rocks.map(r => ({ ...r, hp: 3 })), gems: LEVEL.gems.map(g => ({ ...g, taken: false })), collected: 0, mined: 0, damage: 0, lastMask: 0, events: [] };
+      checkpoint: 64, enemies: LEVEL.enemies.map(e => ({ ...e, phase: 'idle', timer: 0, facing: -1 })), defeated: 0, bossDefeated: false, rocks: LEVEL.rocks.map(r => ({ ...r, hp: 3 })), gems: LEVEL.gems.map(g => ({ ...g, taken: false })), collected: 0, mined: 0, damage: 0, lastMask: 0, events: [] };
   }
   function hurt(s) {
     const p = s.player;
@@ -57,6 +45,11 @@
         rock.hp--; s.events.push({ type: 'mine', x: rock.x + rock.w / 2, y: rock.y + 15 });
         if (!rock.hp) { s.mined++; s.collected += 2; s.events.push({ type: 'collect', x: rock.x, y: rock.y }); }
       }
+      // The same pickaxe is a close-range attack. Each swing hits once.
+      for (const enemy of s.enemies) if (enemy.hp > 0 && overlap(hitbox, enemy)) {
+        enemy.hp--; s.events.push({ type: 'mine', x: enemy.x + enemy.w / 2, y: enemy.y });
+        if (!enemy.hp) { s.defeated++; if (enemy.kind === 'boss') s.bossDefeated = true; s.events.push({ type: 'defeat', x: enemy.x, y: enemy.y }); }
+      }
     }
     const solids = LEVEL.platforms.concat(s.rocks.filter(r => r.hp > 0));
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
@@ -86,6 +79,22 @@
       else hurt(s);
     }
     for (const hazard of LEVEL.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
+    for (const enemy of s.enemies) {
+      if (enemy.hp <= 0) continue;
+      if (enemy.phase === 'idle') {
+        if (Math.abs(p.x + p.w / 2 - enemy.x - enemy.w / 2) < enemy.range && Math.abs(p.y - enemy.y) < 90) {
+          enemy.facing = p.x < enemy.x ? -1 : 1;
+          enemy.phase = 'windup'; enemy.timer = enemy.windup;
+          s.events.push({ type: 'warning', x: enemy.x, y: enemy.y });
+        }
+      } else if (--enemy.timer <= 0) {
+        if (enemy.phase === 'windup') { enemy.phase = 'strike'; enemy.timer = enemy.strike; }
+        else if (enemy.phase === 'strike') { enemy.phase = 'recovery'; enemy.timer = enemy.recovery; }
+        else enemy.phase = 'idle';
+      }
+      // Direction locks at the warning: retreat, jump, or mine during recovery.
+      if (enemy.phase === 'strike' && overlap(p, enemyHitbox(enemy))) hurt(s);
+    }
     if (s.status === 'playing' && s.mined >= 1 && s.collected >= 3 && overlap(p, LEVEL.exit)) {
       s.status = 'won'; s.events.push({ type: 'win', x: p.x, y: p.y });
     }
@@ -107,7 +116,14 @@
     }
     return { ok: true, state: s };
   }
-  const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
+  const enemyHitbox = e => ({ x: e.facing < 0 ? e.x - 70 : e.x + e.w, y: e.y + 8, w: 70, h: e.h - 8 });
+  function forVersion(version) {
+    if (version === VERSION) return api;
+    if (version === 1) return typeof module === 'object' && module.exports ? require('./platform-rules-v1') : globalThis.PlatformRulesV1;
+    return null;
+  }
+  const cameraFor = (s, width) => Math.max(0, Math.min(Math.max(0, LEVEL.width - width), s.player.x + s.player.w / 2 - width * 0.35));
   const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, LEVEL, create, step, replay, overlap, activeHazard, cameraFor, rewardFor };
+  const api = { forVersion, enemyHitbox, VERSION, FPS, DT, MAX_TICKS, INPUT, LEVEL, create, step, replay, overlap, activeHazard, cameraFor, rewardFor };
+  return api;
 });

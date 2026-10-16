@@ -1,7 +1,7 @@
 /* Original vector art, drawn locally. Rendering is not part of authoritative physics. */
 (function (root) {
   'use strict';
-  const R = root.PlatformRules;
+  const defaultRules = root.PlatformRules;
   const round = (c, x, y, w, h, r, color) => { c.fillStyle = color; c.beginPath(); c.roundRect(x, y, w, h, r); c.fill(); };
   function crystal(c, x, y, scale, color) {
     c.save(); c.translate(x, y); c.scale(scale, scale); c.fillStyle = color;
@@ -10,11 +10,12 @@
   }
   function miner(c, p, tick, reduced) {
     const phase = p.pose === 'run' && !reduced ? Math.sin(tick * .27) * 6 : 0;
-    c.save(); c.translate(p.x + 12, p.y + 20); c.scale(p.facing, 1);
-    if (p.invulnerable && tick % 10 < 4) c.globalAlpha = .45;
+    const airborne = p.pose === 'jump' || p.pose === 'fall';
+    c.save(); c.translate(p.x + 12, p.y + 20 + (p.pose === 'idle' && !reduced ? Math.sin(tick * .06) * .7 : 0)); c.scale(p.facing, 1);
+    if (!reduced && p.invulnerable && tick % 10 < 4) c.globalAlpha = .45;
     if (p.pose === 'hurt') c.rotate(-.12);
     c.fillStyle = '#0005'; c.beginPath(); c.ellipse(0, 19, 18, 5, 0, 0, Math.PI * 2); c.fill();
-    round(c, -11, 3 + phase / 3, 9, 15, 3, '#253b51'); round(c, 3, 3 - phase / 3, 9, 15, 3, '#253b51');
+    round(c, -11, (airborne ? 0 : 3) + phase / 3, 9, 15, 3, '#253b51'); round(c, 3, (airborne ? -3 : 3) - phase / 3, 9, 15, 3, '#253b51');
     round(c, -13 + phase / 3, 14, 13, 6, 3, '#392d2e'); round(c, 2 - phase / 3, 14, 14, 6, 3, '#392d2e');
     round(c, -13, -7, 26, 19, 7, '#4c93b5'); round(c, -10, -8, 5, 19, 2, '#90c7d0'); round(c, 5, -8, 5, 19, 2, '#90c7d0');
     round(c, -4, 1, 8, 6, 2, '#f0c064');
@@ -25,26 +26,51 @@
     round(c, 3, -17, 3, 4, 1, '#28343b'); round(c, 12, -15, 6, 6, 3, '#f7cca0');
     round(c, -5, -8, 19, 7, 4, '#7f513a'); round(c, 4, -7, 7, 2, 1, '#ffe0b3');
     c.save(); c.translate(12, -4);
-    c.rotate(p.pose === 'mine' ? -1.6 + (14 - p.attack) * .18 : p.pose === 'victory' ? -2 : .3);
+    c.rotate(p.pose === 'mine' ? -1.6 + (14 - p.attack) * .18 : p.pose === 'victory' ? -2 : p.pose === 'jump' ? -.7 : p.pose === 'fall' ? .8 : .3);
     round(c, -2, -3, 7, 17, 3, '#f1ba87');
     round(c, 1, -15, 4, 28, 1, '#bb8853');
     c.strokeStyle = '#bce2dc'; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(-8, -13); c.quadraticCurveTo(2, -22, 16, -14); c.stroke(); c.restore();
     round(c, -17, -5 - phase / 3, 7, 13, 3, '#f1ba87'); c.restore();
   }
-  function draw(canvas, s, { reduced = false, particles = [] } = {}) {
+  function guardian(c, e, tick, reduced) {
+    const boss = e.kind === 'boss', color = boss ? '#af8a70' : '#73968f';
+    const warning = e.phase === 'windup', strike = e.phase === 'strike';
+    c.save(); c.translate(e.x, e.y);
+    const bob = reduced ? 0 : Math.sin(tick * .09) * 1.3;
+    c.strokeStyle = '#364f54'; c.lineWidth = boss ? 6 : 4; c.lineCap = 'round';
+    for (const x of [4, e.w - 5]) for (const y of [e.h - 10, e.h - 4]) {
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x < 10 ? -8 : e.w + 8, y + 8 + bob); c.stroke();
+    }
+    round(c, 0, bob + 3, e.w, e.h - 5, boss ? 14 : 9, color);
+    round(c, 5, bob + 6, e.w - 10, 8, 4, boss ? '#d9b080' : '#aac4b5');
+    crystal(c, e.w / 2, bob + 5, boss ? .9 : .55, boss ? '#ffd578' : '#95f3d2');
+    for (const x of [e.w * .3, e.w * .7]) { round(c, x - 3, e.h * .55, 7, 8, 3, '#213d48'); round(c, x - 1, e.h * .55, 3, 3, 1, '#fff5ce'); }
+    const arm = e.facing < 0 ? -12 : e.w + 7;
+    round(c, arm - (strike ? 8 : 0), warning ? 2 : 15, strike ? 25 : 14, 12, 5, warning || strike ? '#ffbd78' : color);
+    round(c, 0, -14, e.w, 4, 2, '#25353f'); round(c, 0, -14, e.w * e.hp / (boss ? 6 : 3), 4, 2, '#8de0bc');
+    c.fillStyle = '#ffe5a7'; c.font = 'bold 13px sans-serif'; c.textAlign = 'center';
+    if (warning) c.fillText('!', e.w / 2, -23);
+    else if (boss) { c.font = 'bold 10px sans-serif'; c.fillText('حارس العقيق · اختياري', e.w / 2, -23); }
+    c.restore();
+  }
+  function draw(canvas, s, { reduced = false, particles = [], rules = defaultRules } = {}) {
+    const R = rules;
     const c = canvas.getContext('2d');
     const cssW = canvas.clientWidth || 480, cssH = canvas.clientHeight || 300;
     const dpr = Math.min(root.devicePixelRatio || 1, 2);
     const pixelW = Math.round(cssW * dpr), pixelH = Math.round(cssH * dpr);
     if (canvas.width !== pixelW || canvas.height !== pixelH) { canvas.width = pixelW; canvas.height = pixelH; }
-    const worldH = 360, w = Math.max(280, cssW * worldH / cssH);
-    const scale = pixelW / w;
-    c.setTransform(scale, 0, 0, pixelH / worldH, 0, 0);
+    // Keep the miner readable on short/landscape screens instead of shrinking the
+    // whole 360px cave to a miniature. Vertical follow keeps raised ledges visible.
+    const viewH = cssH < 210 ? 220 : 360;
+    const w = cssW * viewH / cssH, scale = pixelW / w;
+    const cameraY = Math.max(0, Math.min(360 - viewH, s.player.y + s.player.h / 2 - viewH * .30));
+    c.setTransform(scale, 0, 0, pixelH / viewH, 0, -cameraY * pixelH / viewH);
     const camera = R.cameraFor(s, w);
     const bg = c.createLinearGradient(0, 0, 0, 360); bg.addColorStop(0, '#0d1b28'); bg.addColorStop(1, '#214049'); c.fillStyle = bg; c.fillRect(0, 0, w, 360);
     // Two parallax cavern layers; draw only the visible part of each layer.
     for (let layer = 0; layer < 2; layer++) {
-      const factor = layer ? .45 : .18;
+      const factor = reduced ? 0 : layer ? .45 : .18;
       const shift = camera * factor;
       c.fillStyle = layer ? '#254550' : '#182f3d';
       for (let i = Math.floor(shift / 180) - 1; i < Math.ceil((shift + w) / 180) + 1; i++) {
@@ -77,6 +103,7 @@
     for (const rock of s.rocks) if (rock.hp > 0 && rock.x > camera - 60 && rock.x < camera + w) {
       round(c, rock.x, rock.y, rock.w, rock.h, 10, '#687d7b');
       c.strokeStyle = '#adc4b1'; c.lineWidth = 2; c.beginPath(); c.moveTo(rock.x + 6, rock.y + 15); c.lineTo(rock.x + 23, rock.y + 6); c.lineTo(rock.x + 35, rock.y + 25); c.stroke();
+      for (let i = 0; i < 3; i++) round(c, rock.x + 8 + i * 11, rock.y - 9, 7, 4, 2, i < rock.hp ? '#b3f5cf' : '#405b5b');
       crystal(c, rock.x + 20, rock.y + 26, .7, '#66dbcb');
       if (rock.hp < 3) { c.strokeStyle = '#26383f'; c.beginPath(); c.moveTo(rock.x + 24, rock.y); c.lineTo(rock.x + 18, rock.y + 15); c.lineTo(rock.x + 28, rock.y + 32); c.lineTo(rock.x + 17, rock.y + 48); c.stroke(); }
     }
@@ -93,16 +120,25 @@
         round(c, h.x - 4, 252, 50, 5, 2, '#263c43'); round(c, h.x - 4, 252, 50 * ((s.tick % h.period) / h.period), 5, 2, active ? '#ed885c' : '#74cdbb');
       }
     }
+    for (const enemy of s.enemies || []) {
+      if (enemy.hp <= 0 || enemy.x < camera - 130 || enemy.x > camera + w + 130) continue;
+      if (enemy.phase === 'windup' || enemy.phase === 'strike') {
+        const area = R.enemyHitbox(enemy);
+        round(c, area.x, area.y, area.w, area.h, 4, enemy.phase === 'strike' ? '#ffba7670' : '#ffba7625');
+        c.strokeStyle = '#ffcb86'; c.lineWidth = 1; c.strokeRect(area.x, area.y, area.w, area.h);
+      }
+      guardian(c, enemy, s.tick, reduced);
+    }
     // Visible signposts and checkpoint pennants.
     for (const x of [680, 1485, 2030]) { round(c, x, 267, 4, 33, 1, '#a18458'); round(c, x - 14, 253, 37, 20, 3, '#b2915e'); c.fillStyle = '#312d2d'; c.font = 'bold 14px sans-serif'; c.textAlign = 'center'; c.fillText('↑', x + 4, 269); }
     for (const x of [920, 1710]) { round(c, x, 255, 3, 45, 1, '#a8c2b4'); c.fillStyle = s.checkpoint === x ? '#71e2bf' : '#719094'; c.beginPath(); c.moveTo(x + 3, 256); c.lineTo(x + 29, 262); c.lineTo(x + 3, 274); c.fill(); }
     const e = R.LEVEL.exit;
     round(c, e.x - 8, e.y - 9, e.w + 16, e.h + 12, 25, '#aa8755'); round(c, e.x, e.y, e.w, e.h, 20, '#153e43'); round(c, e.x + 9, e.y + 7, e.w - 18, e.h - 10, 16, '#498a7e');
-    c.fillStyle = '#e7e9b7'; c.font = 'bold 11px sans-serif'; c.textAlign = 'center'; c.fillText('خروج', e.x + 35, e.y - 17);
+    c.fillStyle = '#e7e9b7'; c.font = 'bold 11px sans-serif'; c.textAlign = 'center'; c.fillText(s.mined >= 1 && s.collected >= 3 ? 'الخروج مفتوح' : '١ صخرة + ٣ بلورات', e.x + 35, e.y - 17);
     miner(c, s.player, s.tick, reduced);
     for (const p of particles) { c.globalAlpha = Math.max(0, p.life / 30); round(c, p.x, p.y, 4, 4, 1, p.color); } c.globalAlpha = 1;
     c.restore();
-    if (s.player.pose === 'hurt' && !reduced) { c.fillStyle = '#f5796330'; c.fillRect(0, 0, w, 360); }
+    if (s.player.pose === 'hurt' && !reduced) { c.fillStyle = '#f5796330'; c.fillRect(0, cameraY, w, viewH); }
   }
   root.PlatformRenderer = { draw };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
