@@ -11,6 +11,7 @@
   let raf = 0, last = 0, accumulator = 0;
   let audio = null, muted = false, particles = [];
   const keys = new Set(), pointers = new Map();
+  let pressed = 0; // Preserve quick jump/mine taps until the next fixed physics tick.
   const reduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   try { muted = localStorage.getItem('platform-muted') === 'true'; } catch (_) {}
   const keyMap = { ArrowLeft: 1, KeyA: 1, ArrowRight: 2, KeyD: 2, Space: 4, ArrowUp: 4, KeyW: 4, KeyE: 8, KeyX: 8 };
@@ -19,7 +20,7 @@
   const visible = () => !document.hidden && !el('platform-scene').hidden && el('play-panel-adventure').classList.contains('active') && el('tab-play').classList.contains('active');
   const draw = () => renderer.draw(canvas, sim, { reduced, particles });
   function clearInput() {
-    keys.clear(); pointers.clear();
+    keys.clear(); pointers.clear(); pressed = 0;
     document.querySelectorAll('[data-platform-input]').forEach(b => { b.dataset.down = 'false'; });
   }
   function audioUnlock() {
@@ -90,12 +91,13 @@
     accumulator += Math.min(.1, (time - last) / 1000); last = time;
     let count = 0;
     while (accumulator >= R.DT && count++ < 6 && sim.status === 'playing') {
-      let mask = 0;
+      let mask = pressed;
       for (const key of keys) mask |= keyMap[key] || 0;
       for (const value of pointers.values()) mask |= value;
       if (inputs.length >= 1000 && inputs[inputs.length - 1].mask !== mask) {
         pause(); say('وصلت إلى حد تسجيل الحركات؛ أعد بدء الجولة.'); return;
       }
+      pressed = 0;
       record(mask); R.step(sim, mask); consumeEvents(); accumulator -= R.DT;
       if (sim.tick % 120 === 0) save();
     }
@@ -150,7 +152,7 @@
         say('جولة محفوظة الهوية. عدّن صخرة واجمع 3 بلورات، ثم اعبر بوابة الخروج.');
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
       sim = R.create(); inputs = []; particles = []; running = true; paused = false; save();
-      resume();
+      if (visible()) resume(); else pause();
     } catch (e) { say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`); }
     finally { starting = false; el('platform-start').disabled = Boolean(pending); }
   }
@@ -170,7 +172,7 @@
     } else if (sim.status === 'playing') {
       try {
         const current = await request('/api/platform/start');
-        if (current.id !== ticket.id) { ticket = null; say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.'); return; }
+        if (current.id !== ticket.id || current.version !== R.VERSION) { ticket = null; say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.'); return; }
         running = true; paused = false; pause();
       } catch (_) { say('حفظ سابق موجود؛ أعد فتح الصفحة بعد عودة الاتصال لاستئنافه.'); }
     }
@@ -187,7 +189,7 @@
   for (const button of document.querySelectorAll('[data-platform-input]')) {
     button.addEventListener('pointerdown', e => {
       e.preventDefault(); if (!running || paused) return;
-      audioUnlock(); button.setPointerCapture?.(e.pointerId); pointers.set(e.pointerId, Number(button.dataset.platformInput)); button.dataset.down = 'true';
+      audioUnlock(); button.setPointerCapture?.(e.pointerId); pointers.set(e.pointerId, Number(button.dataset.platformInput)); pressed |= Number(button.dataset.platformInput) & 12; button.dataset.down = 'true';
     });
     const release = e => { pointers.delete(e.pointerId); button.dataset.down = 'false'; };
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release);
@@ -195,7 +197,7 @@
   }
   window.addEventListener('keydown', e => {
     if (!visible() || !keyMap[e.code] || /INPUT|TEXTAREA|SELECT/.test(e.target?.tagName || '')) return;
-    e.preventDefault(); if (running && !paused) keys.add(e.code);
+    e.preventDefault(); if (running && !paused) { keys.add(e.code); if (!e.repeat) pressed |= keyMap[e.code] & 12; }
   });
   window.addEventListener('keyup', e => { keys.delete(e.code); });
   window.addEventListener('blur', pause);

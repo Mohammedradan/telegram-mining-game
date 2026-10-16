@@ -2,6 +2,7 @@
 (function (root) {
   'use strict';
   const R = root.PlatformRules;
+  const views = new WeakMap();
   const round = (c, x, y, w, h, r, color) => { c.fillStyle = color; c.beginPath(); c.roundRect(x, y, w, h, r); c.fill(); };
   function crystal(c, x, y, scale, color) {
     c.save(); c.translate(x, y); c.scale(scale, scale); c.fillStyle = color;
@@ -40,7 +41,10 @@
     const worldH = 360, w = Math.max(280, cssW * worldH / cssH);
     const scale = pixelW / w;
     c.setTransform(scale, 0, 0, pixelH / worldH, 0, 0);
-    const camera = R.cameraFor(s, w);
+    const target = R.cameraFor(s, w), old = views.get(canvas);
+    const snap = reduced || !old || old.width !== w || s.tick < old.tick || old.damage !== s.damage;
+    const camera = R.followCamera(old?.camera, target, old ? (s.tick - old.tick) / R.FPS : 0, snap);
+    views.set(canvas, { camera, tick: s.tick, width: w, damage: s.damage });
     const bg = c.createLinearGradient(0, 0, 0, 360); bg.addColorStop(0, '#0d1b28'); bg.addColorStop(1, '#214049'); c.fillStyle = bg; c.fillRect(0, 0, w, 360);
     // Two parallax cavern layers; draw only the visible part of each layer.
     for (let layer = 0; layer < 2; layer++) {
@@ -78,6 +82,7 @@
       round(c, rock.x, rock.y, rock.w, rock.h, 10, '#687d7b');
       c.strokeStyle = '#adc4b1'; c.lineWidth = 2; c.beginPath(); c.moveTo(rock.x + 6, rock.y + 15); c.lineTo(rock.x + 23, rock.y + 6); c.lineTo(rock.x + 35, rock.y + 25); c.stroke();
       crystal(c, rock.x + 20, rock.y + 26, .7, '#66dbcb');
+      for (let hit = 0; hit < 3; hit++) round(c, rock.x + hit * 15, rock.y - 10, 12, 4, 2, hit < rock.hp ? '#8ce6cc' : '#30494d');
       if (rock.hp < 3) { c.strokeStyle = '#26383f'; c.beginPath(); c.moveTo(rock.x + 24, rock.y); c.lineTo(rock.x + 18, rock.y + 15); c.lineTo(rock.x + 28, rock.y + 32); c.lineTo(rock.x + 17, rock.y + 48); c.stroke(); }
     }
     for (const gem of s.gems) if (!gem.taken && gem.x > camera - 20 && gem.x < camera + w) crystal(c, gem.x, gem.y + (reduced ? 0 : Math.sin(s.tick * .07 + gem.x) * 2), .7, '#66f1cf');
@@ -93,12 +98,18 @@
         round(c, h.x - 4, 252, 50, 5, 2, '#263c43'); round(c, h.x - 4, 252, 50 * ((s.tick % h.period) / h.period), 5, 2, active ? '#ed885c' : '#74cdbb');
       }
     }
+    // In-world tutorial stays useful after the introduction is dismissed.
+    c.font = 'bold 12px sans-serif'; c.textAlign = 'center';
+    for (const [x, label] of [[160, 'تحرّك ← →'], [455, 'اضغط ⛏ / E للتعدين'], [710, 'اقفز عند الحافة'], [1205, 'انتظر البخار أو اقفز']]) {
+      round(c, x - 76, 158, 152, 25, 6, '#142b35dd');
+      c.fillStyle = '#ffe0a1'; c.fillText(label, x, 175);
+    }
     // Visible signposts and checkpoint pennants.
     for (const x of [680, 1485, 2030]) { round(c, x, 267, 4, 33, 1, '#a18458'); round(c, x - 14, 253, 37, 20, 3, '#b2915e'); c.fillStyle = '#312d2d'; c.font = 'bold 14px sans-serif'; c.textAlign = 'center'; c.fillText('↑', x + 4, 269); }
     for (const x of [920, 1710]) { round(c, x, 255, 3, 45, 1, '#a8c2b4'); c.fillStyle = s.checkpoint === x ? '#71e2bf' : '#719094'; c.beginPath(); c.moveTo(x + 3, 256); c.lineTo(x + 29, 262); c.lineTo(x + 3, 274); c.fill(); }
     const e = R.LEVEL.exit;
     round(c, e.x - 8, e.y - 9, e.w + 16, e.h + 12, 25, '#aa8755'); round(c, e.x, e.y, e.w, e.h, 20, '#153e43'); round(c, e.x + 9, e.y + 7, e.w - 18, e.h - 10, 16, '#498a7e');
-    c.fillStyle = '#e7e9b7'; c.font = 'bold 11px sans-serif'; c.textAlign = 'center'; c.fillText('خروج', e.x + 35, e.y - 17);
+    c.fillStyle = '#e7e9b7'; c.font = 'bold 11px sans-serif'; c.textAlign = 'center'; c.fillText(s.mined >= 1 && s.collected >= 3 ? 'البوابة مفتوحة' : 'صخرة + ٣ بلورات', e.x + 35, e.y - 17);
     miner(c, s.player, s.tick, reduced);
     for (const p of particles) { c.globalAlpha = Math.max(0, p.life / 30); round(c, p.x, p.y, 4, 4, 1, p.color); } c.globalAlpha = 1;
     c.restore();

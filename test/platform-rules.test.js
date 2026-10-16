@@ -59,3 +59,15 @@ test('platform: malformed replay, excess ticks, masks and post-victory actions a
   assert.equal(R.replay([...solution().inputs, { mask: 2, frames: 1 }]).reason, 'after_end');
   const loss = R.replay([{mask: 0, frames: R.MAX_TICKS}]); assert.equal(loss.state.status, 'lost');
 });
+
+test('platform: camera eases without overshoot, resets on teleport and honors reduced motion', () => {
+  const camera = R.followCamera(0, 600, 1 / 60);
+  assert.ok(camera > 0 && camera < 600);
+  let next = camera;
+  for (let i = 0; i < 120; i++) next = R.followCamera(next, 600, 1 / 60);
+  assert.ok(Math.abs(next - 600) < .01);
+  assert.equal(R.followCamera(600, 0, 1 / 60, true), 0);
+  assert.equal(R.followCamera(undefined, 120, 0), 120);
+  assert.equal(R.followCamera(100, 200, 0), 100);
+  assert.equal(R.followCamera(100, 200, -1), 100);
+});

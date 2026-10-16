@@ -1,0 +1,43 @@
+{
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    }
+  ],
+  "networkRecovery": true,
+  "keyboardWin": true,
+  "regressionSmoke": true,
+  "errors": [],
+  "lateStartPause": true,
+  "lossAndRetry": true,
+  "audioLifecycle": true
+}

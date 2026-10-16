@@ -6,8 +6,8 @@
   <title>Mining Clicker Empire</title>
   <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Precompiled local utilities: works inside Telegram without a CDN connection. -->
+  <link rel="stylesheet" href="/game.css?v=2">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&family=Tajawal:wght@400;700;900&display=swap');
 
@@ -312,7 +312,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=1">
+  <link rel="stylesheet" href="/platform.css?v=2">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -416,9 +416,9 @@
           <div class="mine-kicker">جولة حتمية — يعيد الخادم تشغيل حركاتك ويختم النتيجة</div>
           <h2>منجم المنصّة · عمق المعدن</h2>
         </div>
-        <button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button>
       </div>
-      <div class="mine-hud" aria-live="polite">
+      <div class="mine-hud">
+        <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم صوت المنجم">صوت ✓</button>
         <span id="platform-hearts">♥ ♥ ♥</span>
         <span id="platform-resources">بلورات 0 · صخور 0</span>
         <span id="platform-progress">0% · 150ث</span>
@@ -427,7 +427,7 @@
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم واقفز بالمسافة وعدّن بحرف E"></canvas>
         <div id="platform-overlay" class="mine-overlay">
           <h3 id="platform-title">منجم المنصّة</h3>
-          <p id="platform-message">عدّن صخرة بلّورات واجمع 3 بلورات على الأقل، ثم اعبر بوابة الخروج. راقب نفاثات البخار ولا تسقط في النهر الحار!</p>
+          <p id="platform-message">عدّن صخرة بلّورات واجمع 3 بلورات على الأقل، ثم اعبر بوابة الخروج. راقب نفاثات البخار ولا تسقط في النهر الحار! الأسهم / A وD للحركة، المسافة للقفز، واضغط مطولًا E أو ⛏ لتكسير الصخور. الأعلام تحفظ نقطة العودة.</p>
           <button id="platform-start" type="button">جولة جديدة</button>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
@@ -438,12 +438,12 @@
           <button type="button" data-platform-input="4" aria-label="قفز">⤒</button>
           <button type="button" data-platform-input="2" aria-label="يمين">▶</button>
         </div>
-        <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">⏸</button>
+        <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">❚❚</button>
         <div>
-          <button type="button" data-platform-input="8" aria-label="تعدين">⛏</button>
+          <button type="button" data-platform-input="8" aria-label="تعدين">تعدين</button>
         </div>
       </div>
-      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز بالمسافة وتعدين بحرف E.</div>
+      <div id="platform-status" class="mine-status" role="status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز بالمسافة وتعدين بحرف E.</div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
         <button id="platform-discard" type="button" hidden>تجاهل الحفظ المحلي المعلّق</button>
@@ -726,8 +726,8 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=1"></script>
-  <script src="/platform-renderer.js?v=1"></script>
+  <script src="/platform-rules.js?v=2"></script>
+  <script src="/platform-renderer.js?v=2"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -2595,7 +2595,11 @@
     advCanvas.addEventListener('pointerdown', (e) => { advCanvas.setPointerCapture?.(e.pointerId); moveAdventureTo(e.clientX); });
     advCanvas.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') moveAdventureTo(e.clientX); });
     window.addEventListener('keydown', (e) => {
-      if (!document.getElementById('tab-play').classList.contains('active')) return;
+      // The legacy scene must not consume platform jumps or start a hidden round.
+      if (!document.getElementById('tab-play').classList.contains('active')
+          || !document.getElementById('play-panel-adventure').classList.contains('active')
+          || document.getElementById('legacy-adventure').hidden
+          || /INPUT|TEXTAREA|SELECT/.test(e.target?.tagName || '')) return;
       if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
       advKeys[e.key] = true;
       if (e.key === ' ' && adv.running) useAdventureSkill();
@@ -2830,6 +2834,7 @@
         button.setAttribute('aria-selected', String(selected));
       });
 
+      if (panelId !== 'adventure') window.PlatformGame?.pause();
       if (panelId !== 'adventure' && adv.running && !adv.paused) setAdventurePaused(true);
       if (panelId === 'adventure') setTimeout(resizeAdventureCanvas, 30);
       if (panelId === 'customize') updateAdvUpgradesUI();
@@ -2850,6 +2855,7 @@
       activeBtn.classList.remove('text-slate-400');
 
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
+      if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
       if (tabId === 'leaderboard') loadLeaderboard();
@@ -2904,6 +2910,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=1"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=1"></script>
+  <script src="/platform-game.js?v=3"></script>
 </body>
 </html>
