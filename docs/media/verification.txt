@@ -1,0 +1,98 @@
+Verification session: 2026-10-17 (Asia/Riyadh)
+Baseline HEAD: 9dea92683db59e278424e771afcf3802b304b186
+Baseline git status: clean; origin session branch: 0 ahead / 0 behind.
+
+Baseline tests
+$ npm test
+1..152
+# tests 152
+# suites 0
+# pass 152
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 35774.78451
+exit_code=0
+
+Final tests
+$ npm test
+1..154
+# tests 154
+# suites 0
+# pass 154
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 35912.095552
+exit_code=0
+
+$ npm run build
+
+> telegram-mining-clicker@1.0.0 build
+> node --check server.js && node --check db.js && node --check platform-api.js && node --check public/platform-rules.js && node --check public/platform-renderer.js && node --check public/platform-game.js && node --check public/platform-bridge.js
+
+exit_code=0
+
+$ TEST_APP_URL=http://127.0.0.1:3001 CHROMIUM_PATH=/tmp/chromium LD_LIBRARY_PATH=/tmp/al2023/lib npm run test:browser
+
+> telegram-mining-clicker@1.0.0 test:browser
+> node scripts/test-platform-browser.cjs
+
+Viewport { width: 390, height: 844 }
+Viewport { width: 320, height: 568 }
+Viewport { width: 844, height: 390 }
+Viewport { width: 1280, height: 800 }
+{
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "controlsVisible": true
+    }
+  ],
+  "networkRecovery": true,
+  "keyboardWin": true,
+  "regressionSmoke": true,
+  "errors": [],
+  "lateStartPause": true,
+  "lossAndRetry": true,
+  "audioLifecycle": true
+}
+exit_code=0
+
+Earlier browser failures (fixed, not counted as passing):
+1. exit_code=1: "one audio context per scene", 2 !== 1. Real Space key started the hidden legacy adventure. Fixed legacy keyboard scene guard.
+2. exit_code=1: waitForFunction timeout observing a tone after a quick Space press. Short taps were lost between fixed steps. Fixed one-tick input latch; final browser test uses the short press and passes.
+
+No CI workflow, authentication, API reward or database schema changes in this follow-up.
+Real Telegram/device/manual audio listening not performed; Chromium audio graph was observed, not heard.
+Browser E2E is local; the existing remote CI runs Node tests on SQLite and PostgreSQL, not Chromium.

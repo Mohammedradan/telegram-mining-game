@@ -136,12 +136,12 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   ctx.window = ctx; ctx.globalThis = ctx; ctx.self = ctx; ctx.document.defaultView = ctx;
   vm.createContext(ctx);
   let topLevelError = null;
-  try { vm.runInContext(`${script}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' }); }
+  try { vm.runInContext(`${script}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC, legacyRunning: adv.running });`, ctx, { filename: 'index.html' }); }
   catch (e) { topLevelError = e; }
 
   const fire = (el, type, event = {}) => { for (const fn of el?._listeners?.[type] || []) fn({ preventDefault: noop, ...event }); };
   const fireWindow = (type, event = {}) => { for (const [t, fn] of windowListeners) if (t === type) fn({ preventDefault: noop, target: { tagName: 'BODY' }, ...event }); };
-  const key = (type, code) => fireWindow(type, { code, key: code });
+  const key = (type, code) => fireWindow(type, { code, key: ({ Space: ' ', KeyE: 'e', KeyD: 'd', KeyA: 'a' })[code] || code });
   const settle = async () => {
     for (let i = 0; i < 12; i++) {
       for (const fn of timers.splice(0)) { try { fn(); } catch (e) { log.errors.push(`timer: ${e.message}`); } }
@@ -274,4 +274,33 @@ test('platform UI: without a server identity the round is offline training — p
   page.key('keyup', 'ArrowRight');
   assert.equal(page.log.fetches.some((u) => u.startsWith('/api/platform')), false, 'offline play never touches the platform API');
   assert.deepEqual(page.log.errors, []);
+});
+
+
+test('platform UI: a quick jump tap survives the fixed-step boundary without starting a hidden legacy round', async () => {
+  const page = bootPage(); await page.settle();
+  page.fire(page.byId('platform-mode'), 'click');
+  page.fire(page.byId('platform-start'), 'click'); await page.settle();
+  page.key('keydown', 'Space'); page.key('keyup', 'Space');
+  page.flushFrames(3);
+  assert.equal(page.PlatformGame().inspect().pose, 'jump');
+  assert.ok(page.PlatformGame().inspect().y < 262);
+  assert.equal(page.dbg().legacyRunning, false);
+  page.flushFrames(90);
+  assert.equal(page.PlatformGame().inspect().y, 262, 'a released tap never causes repeated jumping');
+  page.fireWindow('blur');
+  page.key('keydown', 'Space'); page.key('keyup', 'Space'); // no queued jump while paused
+  page.fire(page.byId('platform-resume'), 'click'); page.flushFrames(3);
+  assert.equal(page.PlatformGame().inspect().y, 262);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('legacy keyboard: Space still starts the visible old adventure, but not another play panel', async () => {
+  const page = bootPage(); await page.settle();
+  page.byId('play-panel-adventure').classList.remove('active');
+  page.key('keydown', 'Space'); page.key('keyup', 'Space');
+  assert.equal(page.dbg().legacyRunning, false);
+  page.byId('play-panel-adventure').classList.add('active');
+  page.key('keydown', 'Space'); page.key('keyup', 'Space');
+  assert.equal(page.dbg().legacyRunning, true);
 });

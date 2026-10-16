@@ -37,5 +37,7 @@
   "keyboardWin": true,
   "regressionSmoke": true,
   "errors": [],
-  "lateStartPause": true
+  "lateStartPause": true,
+  "lossAndRetry": true,
+  "audioLifecycle": true
 }

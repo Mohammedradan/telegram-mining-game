@@ -19,6 +19,16 @@ async function main() {
   async function context(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, ...extras });
     const page = await ctx.newPage();
+    // Observe the real Web Audio engine; never replace physics, clocks or rewards.
+    await page.addInitScript(() => {
+      const Native = window.AudioContext || window.webkitAudioContext;
+      window.__platformAudio = { contexts: [], tones: 0 };
+      if (!Native) return;
+      window.AudioContext = class extends Native {
+        constructor(...args) { super(...args); window.__platformAudio.contexts.push(this); }
+        createOscillator(...args) { window.__platformAudio.tones++; return super.createOscillator(...args); }
+      };
+    });
     page.on('pageerror', e => errors.push(e.message));
     // The scene, style and fonts must work with all external resources unavailable.
     await page.route('**/*', r => new URL(r.request().url()).origin === new URL(base).origin ? r.continue() : r.abort());
@@ -83,6 +93,54 @@ async function main() {
       await wait(100); assert.ok((await read(page)).tick > late.tick);
       await ctx.close(); report.lateStartPause = true;
     }
+    {
+      const { ctx, page } = await context({ width: 390, height: 844 });
+      let receipt;
+      page.on('response', async res => {
+        if (res.url().endsWith('/api/platform/finish') && res.ok()) receipt = await res.json();
+      });
+      await page.locator('#platform-start').click();
+      await page.waitForFunction(() => window.PlatformGame.inspect().running);
+      const firstTicket = (await read(page)).ticket;
+      await page.waitForFunction(() => window.__platformAudio.contexts[0]?.state === 'running');
+      await page.keyboard.press('Space');
+      await page.waitForFunction(() => window.__platformAudio.tones > 0);
+      await page.locator('#platform-mute').click();
+      await page.waitForFunction(() => window.__platformAudio.contexts[0].state === 'suspended');
+      const tones = await page.evaluate(() => window.__platformAudio.tones);
+      await page.keyboard.down('e'); await wait(100); await page.keyboard.up('e');
+      assert.equal(await page.evaluate(() => window.__platformAudio.tones), tones, 'muting silences actual synthesis');
+      await page.locator('#platform-mute').click();
+      await page.waitForFunction(() => window.__platformAudio.contexts[0].state === 'running');
+      await page.locator('#platform-pause').click();
+      await page.waitForFunction(() => window.__platformAudio.contexts[0].state === 'suspended');
+      await page.locator('#platform-resume').click();
+      await page.waitForFunction(() => window.__platformAudio.contexts[0].state === 'running');
+      assert.equal(await page.evaluate(() => adv.running), false, 'platform jump never starts the hidden legacy adventure');
+      assert.equal(await page.evaluate(() => window.__platformAudio.contexts.length), 1, 'one audio context per scene');
+      // No injected state: walk and mine, deliberately never jump across the pit.
+      await page.keyboard.down('ArrowRight'); await page.keyboard.down('e');
+      await page.waitForFunction(() => window.PlatformGame.inspect().hearts === 2, null, { timeout: 15000 });
+      assert.equal((await read(page)).pose, 'hurt');
+      await page.waitForFunction(() => window.PlatformGame.inspect().status === 'lost', null, { timeout: 25000 });
+      await page.keyboard.up('ArrowRight'); await page.keyboard.up('e');
+      await page.waitForFunction(() => !window.PlatformGame.inspect().pending && !document.getElementById('platform-start').disabled);
+      assert.equal((await read(page)).hearts, 0);
+      assert.equal((await read(page)).scheduled, false);
+      assert.equal(receipt.won, false); assert.equal(receipt.gold, 0); assert.equal(receipt.xp, 0);
+      const profile = await page.evaluate(() => window.PlatformBridge.request('/api/me'));
+      assert.equal(profile.state.gold, 0); assert.equal(profile.state.adventure.runs, 1);
+      await page.screenshot({ path: path.join(screenshots, 'platform-loss.png') });
+      await page.locator('#platform-start').click();
+      await page.waitForFunction(() => window.PlatformGame.inspect().running);
+      const retry = await read(page);
+      assert.notEqual(retry.ticket, firstTicket); assert.equal(retry.hearts, 3); assert.equal(retry.gems, 0); assert.equal(retry.mined, 0);
+      await page.keyboard.down('ArrowRight'); await wait(100); await page.keyboard.up('ArrowRight');
+      assert.ok((await read(page)).x > 64, 'retry starts a genuinely playable fresh round');
+      assert.equal(await page.evaluate(() => window.__platformAudio.contexts.length), 1);
+      report.lossAndRetry = true; report.audioLifecycle = true;
+      await ctx.close();
+    }
     const { ctx, page } = await context({ width: 390, height: 844 });
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
@@ -110,6 +168,7 @@ async function main() {
       await wait(20);
     }
     await page.keyboard.up('ArrowRight'); await page.keyboard.up('e'); await page.keyboard.up('Space');
+    assert.equal(await page.evaluate(() => adv.running), false, 'legacy adventure remains stopped throughout the platform win');
     const final = await read(page); assert.equal(final.status, 'won'); assert.ok(final.mined >= 1); assert.ok(final.gems >= 3);
     await page.waitForFunction(() => !document.getElementById('platform-retry').hidden);
     assert.equal(committed.won, true); assert.ok(committed.gold > 0 && committed.gold <= 100);
