@@ -148,3 +148,13 @@ test('platform API: a confirmed legal loss cannot be upgraded to a win by replac
   assert.deepEqual((await store.getUser(owner)).state, before.state);
   assert.equal((await store.getUser(owner)).state.adventure.runs, 1);
 });
+
+test('platform API: hero selection is verified by server replay and persists defeated stats', async () => {
+  const payload = await historical('hero-warrior');
+  const result = await post('hero-warrior', 'finish', { ...payload, hero: 'warrior' });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.won, true);
+  assert.equal(result.body.gold, 98);
+  const userRow = await store.getUser(`guest_${user('hero-warrior')}`);
+  assert.equal(userRow.state.adventure.runs, 1);
+});

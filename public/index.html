@@ -413,10 +413,15 @@
     <div id="platform-scene" hidden>
       <div class="mine-heading">
         <div>
-          <div class="mine-kicker">جولة حتمية — يعيد الخادم تشغيل حركاتك ويختم النتيجة</div>
-          <h2>منجم المنصّة · عمق المعدن</h2>
+          <div class="mine-kicker">جولة أكشن ومنصّات حتمية — يعيد الخادم تشغيل حركاتك ويختم النتيجة</div>
+          <h2>منجم المنصّة · معركة الأعماق</h2>
         </div>
         <button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button>
+      </div>
+      <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
+        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner">⛏️ عامل المنجم</button>
+        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior">⚔️ المحارب</button>
+        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer">🏹 رامي السهام</button>
       </div>
       <div class="mine-hud" aria-live="polite">
         <span id="platform-hearts">♥ ♥ ♥</span>
@@ -424,26 +429,28 @@
         <span id="platform-progress">0% · 150ث</span>
       </div>
       <div class="mine-stage">
-        <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم واقفز بالمسافة وعدّن بحرف E"></canvas>
+        <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
         <div id="platform-overlay" class="mine-overlay">
           <h3 id="platform-title">منجم المنصّة</h3>
-          <p id="platform-message">عدّن صخرة بلّورات واجمع 3 بلورات على الأقل، ثم اعبر بوابة الخروج. راقب نفاثات البخار ولا تسقط في النهر الحار!</p>
+          <p id="platform-message">عدّن الصخور واجمع البلورات وقاتل وحوش المنجم (⚔️ هجوم، 💥 مهارة)! اعبر بوابة الخروج لإتمام المهمة.</p>
           <button id="platform-start" type="button">جولة جديدة</button>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
       </div>
       <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
-        <div>
+        <div class="mine-controls-dpad">
           <button type="button" data-platform-input="1" aria-label="يسار">◀</button>
-          <button type="button" data-platform-input="4" aria-label="قفز">⤒</button>
           <button type="button" data-platform-input="2" aria-label="يمين">▶</button>
         </div>
         <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">⏸</button>
-        <div>
+        <div class="mine-controls-actions">
           <button type="button" data-platform-input="8" aria-label="تعدين">⛏</button>
+          <button type="button" data-platform-input="16" aria-label="هجوم">⚔️</button>
+          <button type="button" data-platform-input="32" aria-label="مهارة">💥</button>
+          <button type="button" data-platform-input="4" aria-label="قفز">⤒</button>
         </div>
       </div>
-      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز بالمسافة وتعدين بحرف E.</div>
+      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز (Space)، تعدين (E)، هجوم (F)، مهارة (Q).</div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
         <button id="platform-discard" type="button" hidden>تجاهل الحفظ المحلي المعلّق</button>

@@ -55,7 +55,115 @@ test('platform: locked exit cannot win without mining and zero financial reward 
   s.status = 'lost'; assert.equal(R.rewardFor(s), 0);
 });
 test('platform: malformed replay, excess ticks, masks and post-victory actions are rejected', () => {
-  for (const input of [null, [], [{ mask: 16, frames: 1 }], [{ mask: -1, frames: 1 }], [{ mask: 1, frames: .5 }], [{ mask: 1, frames: 0 }], [{ mask: 1, frames: R.MAX_TICKS + 1 }], Array.from({length:1001}, () => ({mask:0,frames:1}))]) assert.equal(R.replay(input).ok, false);
+  for (const input of [null, [], [{ mask: 64, frames: 1 }], [{ mask: -1, frames: 1 }], [{ mask: 1, frames: .5 }], [{ mask: 1, frames: 0 }], [{ mask: 1, frames: R.MAX_TICKS + 1 }], Array.from({length:1001}, () => ({mask:0,frames:1}))]) assert.equal(R.replay(input).ok, false);
   assert.equal(R.replay([...solution().inputs, { mask: 2, frames: 1 }]).reason, 'after_end');
   const loss = R.replay([{mask: 0, frames: R.MAX_TICKS}]); assert.equal(loss.state.status, 'lost');
+});
+
+test('platform combat: attack damages enemies with cooldown and knockback; mine action does not damage enemies', () => {
+  const s = R.create();
+  // Stand within melee range of goblin 1 (at x: 290, y: 198) without touching
+  s.player.x = 245; s.player.y = 192; s.player.grounded = true; s.player.facing = 1;
+  const goblin = s.enemies.find(e => e.id === 1);
+  assert.ok(goblin);
+  assert.equal(goblin.hp, 2);
+
+  // MINE action (8) against enemy does not reduce enemy hp
+  R.step(s, R.INPUT.MINE);
+  assert.equal(goblin.hp, 2, 'mine action must not damage enemies');
+
+  // Wait out cooldown while staying outside collision
+  s.player.x = 245; s.player.y = 192; goblin.x = 290;
+  advance(s, 0, 15);
+
+  // ATTACK action (16) damages enemy
+  s.player.x = 245; s.player.y = 192; goblin.x = 290;
+  R.step(s, R.INPUT.ATTACK);
+  assert.equal(goblin.hp, 1, 'attack action damages enemy');
+  assert.ok(goblin.hurtCooldown > 0);
+  assert.equal(s.events.some(e => e.type === 'hit'), true);
+
+  // Second attack after cooldown defeats enemy
+  s.player.x = 245; s.player.y = 192; goblin.x = 290;
+  advance(s, 0, 15);
+  s.player.x = 245; s.player.y = 192; goblin.x = 290;
+  R.step(s, R.INPUT.ATTACK);
+  assert.equal(goblin.hp, 0);
+  assert.equal(goblin.dead, true);
+  assert.equal(s.defeated, 1);
+  assert.equal(s.events.some(e => e.type === 'enemy_death'), true);
+});
+
+test('platform characters: warrior has higher hearts and damage; archer fires projectiles', () => {
+  const miner = R.create('miner');
+  assert.equal(miner.player.hearts, 3);
+  assert.equal(miner.player.damage, 1);
+
+  const warrior = R.create('warrior');
+  assert.equal(warrior.player.hearts, 4);
+  assert.equal(warrior.player.damage, 2);
+
+  const archer = R.create('archer');
+  assert.equal(archer.player.hearts, 3);
+  assert.equal(archer.projectiles.length, 0);
+  // Archer attack spawns projectile arrow
+  R.step(archer, R.INPUT.ATTACK);
+  assert.equal(archer.projectiles.length, 1);
+  assert.ok(archer.projectiles[0].vx > 0);
+  // Projectile advances with DT
+  const p0 = archer.projectiles[0].x;
+  R.step(archer, 0);
+  assert.ok(archer.projectiles[0].x > p0);
+});
+
+test('platform skills: miner ground slam damages enemies in area with cooldown', () => {
+  const s = R.create('miner');
+  s.player.x = 280; s.player.y = 196;
+  const goblin = s.enemies.find(e => e.id === 1);
+  assert.equal(s.player.skillCooldown, 0);
+  R.step(s, R.INPUT.SKILL);
+  assert.ok(s.player.skillCooldown > 0);
+  assert.equal(goblin.hp, 0, 'miner slam deals 2 damage defeating 2 HP goblin');
+  assert.equal(goblin.dead, true);
+});
+
+test('platform enemy AI: patrols bounds, detects nearby player, and damages player on contact', () => {
+  const s = R.create();
+  const goblin = s.enemies.find(e => e.id === 1);
+  const startX = goblin.x;
+  // Patrol step
+  R.step(s, 0);
+  assert.notEqual(goblin.x, startX, 'goblin moves during patrol');
+
+  // Place player right at goblin position to test enemy attacking player
+  s.player.x = goblin.x; s.player.y = goblin.y; s.player.invulnerable = 0;
+  const hpBefore = s.player.hearts;
+  R.step(s, 0);
+  assert.equal(s.player.hearts, hpBefore - 1, 'enemy deals 1 heart damage to player on contact');
+  assert.ok(goblin.attackCooldown > 0);
+});
+
+test('platform projectiles: archer arrows collide with solids and despawn', () => {
+  const s = R.create('archer');
+  // Fire arrow toward rock 0 (at x: 440) from 140px away
+  s.player.x = 300; s.player.y = 262; s.player.facing = 1;
+  R.step(s, R.INPUT.ATTACK);
+  assert.equal(s.projectiles.length, 1);
+  // Advance until arrow hits rock
+  for (let i = 0; i < 25; i++) R.step(s, 0);
+  assert.equal(s.projectiles.length, 0, 'arrow despawned upon hitting solid rock');
+});
+
+test('platform health and death: zero hearts sets lost status, dead pose, and halts physics', () => {
+  const s = R.create();
+  s.player.hearts = 1; s.player.invulnerable = 0;
+  s.player.x = 1195; s.player.y = 262; // hazard position
+  R.step(s, 0);
+  assert.equal(s.player.hearts, 0);
+  assert.equal(s.status, 'lost');
+  assert.equal(s.player.pose, 'dead');
+  // Subsequent steps do nothing
+  const tickAtDeath = s.tick;
+  R.step(s, R.INPUT.RIGHT);
+  assert.equal(s.tick, tickAtDeath);
 });
