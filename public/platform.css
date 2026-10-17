@@ -4,8 +4,18 @@
 .mine-mode-switch button{flex:1;border:1px solid #3e5163;border-radius:9px;padding:7px 4px;font-size:11px;color:#b5c6d3;background:#17252e}
 .mine-mode-switch button[aria-pressed=true]{background:#f4bf62;color:#261e20;border-color:#f4bf62;font-weight:900}
 
-#platform-scene{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;color:#f9edcf;font-family:system-ui,sans-serif}
-.mine-heading{display:flex;align-items:center;justify-content:space-between;gap:5px}
+#platform-scene{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;color:#f9edcf;font-family:system-ui,sans-serif}
+/* The side-scroller is the focused play view. Keep economy and secondary panels one tap away, not stacked above the level. */
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .app-header,
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .balance-strip,
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav,
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .mine-mode-switch{display:none!important}
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #tab-play{padding:4px!important}
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .bottom-nav{flex-shrink:0;padding:4px}
+.mine-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;flex-shrink:0}
+.mine-heading-actions{display:flex;align-items:center;gap:5px}
+.mine-heading-actions button{font-size:10px;padding:6px 9px;border-radius:9px;background:#22333c;border:1px solid #40505a;min-height:42px;color:#e8f1f5;white-space:nowrap}
+.mine-heading-actions #platform-menus{color:#f6d58a;background:#27241d;border-color:#5e4b2d}
 .mine-heading h2{font-size:15px;font-weight:900;line-height:1.2}
 .mine-kicker{font-size:9px;letter-spacing:.6px;color:#e9b969}
 .mine-heading button{font-size:10px;padding:6px 9px;border-radius:9px;background:#22333c;border:1px solid #40505a;min-height:32px;color:#e8f1f5}
@@ -22,7 +32,7 @@
 .mine-stage{position:relative;flex:1;min-height:180px;border:2px solid #655142;border-radius:14px;overflow:hidden;background:#0d1822;box-shadow:0 8px 28px #0006}
 #platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none}
 
-.mine-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;padding:14px;background:linear-gradient(135deg,#0c1d29fa,#142732e8);text-align:center;overflow-y:auto}
+.mine-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;padding:14px;background:linear-gradient(135deg,#0c1d29dc,#142732b8);text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d}
 .mine-overlay h3{font-size:22px;line-height:1.1;font-weight:900;color:#ffdc91}
 .mine-overlay p{font-size:11px;line-height:1.7;max-width:390px;color:#c5d6d8}
 .mine-overlay button,#platform-retry{border-radius:10px;padding:9px 20px;background:#f5bc60;color:#302119;font-weight:800;border:1px solid #ffe2a2;font-size:12px;cursor:pointer}
@@ -32,7 +42,8 @@
 .mine-controls{display:flex;justify-content:space-between;align-items:center;gap:4px;flex-shrink:0}
 .mine-controls-dpad{display:flex;gap:4px}
 .mine-controls-actions{display:flex;gap:4px}
-.mine-controls button{min-width:44px;min-height:46px;padding:6px 10px;background:#223642;border:1px solid #4a6773;border-bottom:4px solid #0e1920;border-radius:12px;color:#f0f7f7;font-weight:800;font-size:13px;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:transform .08s,background .12s}
+.mine-controls button{min-width:44px;min-height:48px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#223642;border:1px solid #4a6773;border-bottom:4px solid #0e1920;border-radius:12px;color:#f0f7f7;font-weight:800;font-size:15px;line-height:1;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:transform .08s,background .12s}
+.mine-controls button span{font-size:9px;line-height:1.1;color:#d1e0e2}
 .mine-controls button[data-down=true],.mine-controls button:active{transform:translateY(2px);border-bottom-width:2px}
 
 /* Dedicated tactical button color themes */
@@ -58,7 +69,10 @@
 }
 
 @media(max-height:650px){
-  .mine-heading{display:none}
+  .mine-heading{display:flex}
+  .mine-kicker{display:none}
+  .mine-heading h2{font-size:13px}
+  .mine-heading-actions button{min-height:38px;padding:4px 7px}
   .mine-hud{padding:3px 7px}
   .mine-mode-switch button{padding:4px}
   .mine-hero-btn{padding:3px 2px}

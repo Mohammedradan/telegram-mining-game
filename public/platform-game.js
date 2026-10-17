@@ -79,19 +79,15 @@
     const fullHearts = Math.max(0, sim.player.hearts);
     const emptyHearts = Math.max(0, (sim.player.maxHearts || 3) - fullHearts);
     el('platform-hearts').textContent = '♥ '.repeat(fullHearts) + (emptyHearts > 0 ? '♡ '.repeat(emptyHearts) : '') || 'انتهت القلوب';
-    el('platform-resources').textContent = `بلورات ${sim.collected} · صخور ${sim.mined} · أعداء ${sim.defeated || 0}`;
+    el('platform-resources').textContent = `💎 ${Math.min(3, sim.collected)}/3 · ⛏ ${Math.min(1, sim.mined)}/1 · 👾 ${sim.defeated || 0}`;
     el('platform-progress').textContent = `${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
     // Skill button cooldown label
     const skillBtn = document.querySelector('[data-platform-input="32"]');
     if (skillBtn) {
-      if (sim.player.skillCooldown > 0) {
-        skillBtn.textContent = `💥 ${(sim.player.skillCooldown / R.FPS).toFixed(1)}ث`;
-        skillBtn.style.opacity = '0.6';
-      } else {
-        skillBtn.textContent = '💥 مهارة';
-        skillBtn.style.opacity = '1';
-      }
+      const label = skillBtn.querySelector('span');
+      if (label) label.textContent = sim.player.skillCooldown > 0 ? `${(sim.player.skillCooldown / R.FPS).toFixed(1)}ث` : 'قوة';
+      skillBtn.style.opacity = sim.player.skillCooldown > 0 ? '0.6' : '1';
     }
   }
 
@@ -238,7 +234,7 @@
       if (owner) {
         ticket = await request('/api/platform/start');
         if (ticket.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
-        say(`جولة محفوظة [${R.CHARACTERS[currentHero]?.name || 'المعدن'}]. عدّن الصخور وقاتل الأعداء واجمع البلورات!`);
+        say(`الهدف: 3 بلورات وصخرة واحدة، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
       sim = R.create(currentHero); inputs = []; particles = []; running = true; paused = false; save();
       resume();
@@ -316,6 +312,7 @@
     say('أُلغي الحفظ المحلي المعلق فقط. يمكنك بدء جولة جديدة؛ أرصدة الخادم لم تُحذف.');
   });
   el('platform-mode').addEventListener('click', showPlatform); el('legacy-mode').addEventListener('click', showLegacy);
+  el('platform-menus').addEventListener('click', showLegacy);
   el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? 'صوت ×' : 'صوت ✓';
   el('platform-mute').addEventListener('click', () => {
     muted = !muted; el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? 'صوت ×' : 'صوت ✓';

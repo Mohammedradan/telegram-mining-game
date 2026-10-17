@@ -49,10 +49,13 @@ test('platform: camera bounded at both ends and independent of display size/phys
   s.player.x = 2670; assert.equal(R.cameraFor(s, 800), R.LEVEL.width - 800);
   const old = JSON.stringify(s); R.cameraFor(s, 320); assert.equal(JSON.stringify(s), old);
 });
-test('platform: locked exit cannot win without mining and zero financial reward on failure', () => {
-  const s = R.create(); s.player.x = 2540; R.step(s, 0); assert.equal(s.status, 'playing');
-  s.collected = 10; R.step(s, 0); assert.equal(s.status, 'playing');
-  s.status = 'lost'; assert.equal(R.rewardFor(s), 0);
+test('platform: the exit unlocks only after mining and collecting three gems; failure gives no reward', () => {
+  const s = R.create();
+  assert.equal(R.canExit(s), false);
+  s.collected = 3; assert.equal(R.canExit(s), false, 'gems alone do not unlock the exit');
+  s.mined = 1; assert.equal(R.canExit(s), true, 'one mined rock and three gems unlock the exit');
+  s.player.x = 2540; R.step(s, 0); assert.equal(s.status, 'won');
+  const lost = R.create(); lost.status = 'lost'; assert.equal(R.rewardFor(lost), 0);
 });
 test('platform: malformed replay, excess ticks, masks and post-victory actions are rejected', () => {
   for (const input of [null, [], [{ mask: 64, frames: 1 }], [{ mask: -1, frames: 1 }], [{ mask: 1, frames: .5 }], [{ mask: 1, frames: 0 }], [{ mask: 1, frames: R.MAX_TICKS + 1 }], Array.from({length:1001}, () => ({mask:0,frames:1}))]) assert.equal(R.replay(input).ok, false);
