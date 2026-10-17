@@ -27,7 +27,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const user = await prepare(req.player);
       if (run.status === 'finished') return { ...JSON.parse(run.result_json), duplicate: true, profile: profileOf(user, false, { race: await store.raceTotals(user.id) }) };
       if (run.version !== Rules.VERSION || now() - Number(run.started_at) > lifetime || run.status !== 'playing') return { status: 409, error: 'انتهت صلاحية الجولة؛ ابدأ جولة جديدة' };
-      const replay = Rules.replay(req.body.inputs);
+      const replay = Rules.replay(req.body.inputs, req.body?.hero);
       if (!replay.ok) return { status: 400, error: 'حركات جولة غير صالحة' };
       const state = replay.state;
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };
@@ -41,6 +41,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const xp = grantXp(user.state, state.status === 'won' ? 20 + state.collected : 0);
       const a = user.state.adventure;
       a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
+      if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
       const score = state.collected * 25 + state.mined * 50 + (state.status === 'won' ? 200 : 0);
       a.bestScore = Math.max(a.bestScore, score); a.rewardEarned += gold;
       a.zones = a.gems >= 75 || a.bossWins >= 1 ? 3 : a.gems >= 25 || a.runs >= 3 ? 2 : 1;

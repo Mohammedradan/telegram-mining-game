@@ -161,7 +161,8 @@ test('platform UI: the page wires the scene — assets, mode switch and every el
     'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
-  for (const mask of [1, 2, 4, 8]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
+  for (const mask of [1, 2, 4, 8, 16, 32]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
+  for (const hero of ['miner', 'warrior', 'archer']) assert.ok(ids.has(`hero-btn-${hero}`), `#hero-btn-${hero} must exist`);
   // اللعبة الأصلية تبقى قائمة: نفس أزرارها ومعرّفاتها داخل الغلاف
   for (const id of ['game-canvas', 'game-overlay', 'game-overlay-btn', 'adv-pause-btn', 'adv-skill-btn', 'adv-mute-btn', 'adv-combo']) assert.ok(ids.has(id));
 });
@@ -273,5 +274,55 @@ test('platform UI: without a server identity the round is offline training — p
   assert.ok(page.PlatformGame().inspect().x > x0, 'offline training still runs real physics');
   page.key('keyup', 'ArrowRight');
   assert.equal(page.log.fetches.some((u) => u.startsWith('/api/platform')), false, 'offline play never touches the platform API');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('platform UI: character selection switches hero and attack/skill keys trigger combat actions', async () => {
+  const page = bootPage();
+  await page.settle();
+  page.fire(page.byId('platform-mode'), 'click');
+  const gameApi = page.PlatformGame();
+  assert.ok(gameApi);
+
+  // Default is miner
+  assert.equal(gameApi.inspect().hero, 'miner');
+
+  // Switch to warrior
+  gameApi.setHero('warrior');
+  assert.equal(gameApi.inspect().hero, 'warrior');
+  assert.equal(gameApi.inspect().hearts, 4);
+
+  // Switch to archer
+  gameApi.setHero('archer');
+  assert.equal(gameApi.inspect().hero, 'archer');
+  assert.equal(gameApi.inspect().hearts, 3);
+
+  // Switch back to miner
+  gameApi.setHero('miner');
+  assert.equal(gameApi.inspect().hero, 'miner');
+
+  // Start round
+  page.fire(page.byId('platform-start'), 'click');
+  await page.settle();
+  assert.equal(gameApi.inspect().running, true);
+
+  // Attack key (F) triggers attack pose
+  page.key('keydown', 'KeyF');
+  page.flushFrames(2);
+  let state = gameApi.inspect();
+  assert.equal(state.pose, 'attack');
+  page.key('keyup', 'KeyF');
+
+  page.flushFrames(20);
+  state = gameApi.inspect();
+  assert.notEqual(state.pose, 'attack');
+
+  // Mine key (E) triggers mine pose
+  page.key('keydown', 'KeyE');
+  page.flushFrames(2);
+  state = gameApi.inspect();
+  assert.equal(state.pose, 'mine');
+  page.key('keyup', 'KeyE');
+
   assert.deepEqual(page.log.errors, []);
 });
