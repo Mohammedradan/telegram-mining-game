@@ -90,6 +90,7 @@
 
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const activeHazard = (h, tick) => tick % h.period < h.active;
+  const canExit = s => s.mined >= 1 && s.collected >= 3;
 
   function create(heroId = 'miner') {
     const hero = CHARACTERS[heroId] || CHARACTERS.miner;
@@ -375,7 +376,7 @@
       else hurt(s);
     }
     for (const hazard of LEVEL.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
-    if (s.status === 'playing' && s.mined >= 1 && s.collected >= 3 && overlap(p, LEVEL.exit)) {
+    if (s.status === 'playing' && canExit(s) && overlap(p, LEVEL.exit)) {
       s.status = 'won'; s.events.push({ type: 'win', x: p.x, y: p.y });
     }
     if (s.tick >= MAX_TICKS && s.status === 'playing') {
@@ -412,5 +413,5 @@
   const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
   const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
 
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, create, step, replay, overlap, activeHazard, cameraFor, rewardFor };
+  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
 });

@@ -66,7 +66,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   const byId = (id) => {
     if (!ids.has(id)) return null;
     if (!elements.has(id)) {
-      const seeds = { 'platform-scene': { hidden: true }, 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] } };
+      const seeds = { 'platform-scene': { hidden: false }, 'legacy-adventure': { hidden: true }, 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] } };
       elements.set(id, makeElement(id, seeds[id] || {}));
     }
     return elements.get(id);
@@ -157,32 +157,32 @@ test('platform UI: the page wires the scene — assets, mode switch and every el
   for (const asset of ['/platform.css', '/platform-rules.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-game.js']) {
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
-  for (const id of ['platform-scene', 'legacy-adventure', 'platform-mode', 'legacy-mode', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
+  for (const id of ['platform-scene', 'legacy-adventure', 'platform-mode', 'legacy-mode', 'platform-menus', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
     'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   for (const mask of [1, 2, 4, 8, 16, 32]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
+  assert.match(html, /هدف الجولة: اجمع 3 بلورات/);
+  assert.match(html, /اقفز بالمسافة/);
   for (const hero of ['miner', 'warrior', 'archer']) assert.ok(ids.has(`hero-btn-${hero}`), `#hero-btn-${hero} must exist`);
   // اللعبة الأصلية تبقى قائمة: نفس أزرارها ومعرّفاتها داخل الغلاف
   for (const id of ['game-canvas', 'game-overlay', 'game-overlay-btn', 'adv-pause-btn', 'adv-skill-btn', 'adv-mute-btn', 'adv-combo']) assert.ok(ids.has(id));
 });
 
-test('platform UI: the legacy adventure stays the default view and the switch reveals the platform scene', async () => {
+test('platform UI: the side-scroller is the focused default and the legacy game remains accessible', async () => {
   const page = bootPage();
   assert.equal(page.topLevelError, null, page.topLevelError && `${page.topLevelError.message}\n${page.topLevelError.stack}`);
   await page.settle();
   assert.equal(page.dbg().serverMode, true);
-  assert.equal(page.byId('platform-scene').hidden, true, 'the platform scene starts hidden');
-  assert.equal(page.byId('legacy-adventure').hidden, false, 'the legacy adventure stays the default');
+  assert.equal(page.byId('platform-scene').hidden, false, 'the platform scene is the default play view');
+  assert.equal(page.byId('legacy-adventure').hidden, true, 'the legacy game is not stacked above the level');
   assert.deepEqual(page.log.errors, []);
-  // التبديل إلى مشهد المنصّة
-  page.fire(page.byId('platform-mode'), 'click');
-  assert.equal(page.byId('platform-scene').hidden, false);
-  assert.equal(page.byId('legacy-adventure').hidden, true);
-  // والعودة إلى المغامرة الأصلية
-  page.fire(page.byId('legacy-mode'), 'click');
-  assert.equal(page.byId('platform-scene').hidden, true);
+  page.fire(page.byId('platform-menus'), 'click');
+  assert.equal(page.byId('platform-scene').hidden, true, 'menus reveal the legacy view');
   assert.equal(page.byId('legacy-adventure').hidden, false);
+  page.fire(page.byId('platform-mode'), 'click');
+  assert.equal(page.byId('platform-scene').hidden, false, 'the original mode switch returns to the side-scroller');
+  assert.equal(page.byId('legacy-adventure').hidden, true);
 });
 
 test('platform UI: a real round runs — server ticket, live physics from keys, HUD, pause and resume', async () => {
@@ -202,7 +202,7 @@ test('platform UI: a real round runs — server ticket, live physics from keys, 
   game = page.PlatformGame().inspect();
   // HUD يتحدث من داخل الإطارات
   assert.match(page.byId('platform-hearts').textContent, /♥/);
-  assert.match(page.byId('platform-resources').textContent, /بلورات \d+ · صخور \d+/, 'the live HUD reports collected gems and mined rocks');
+  assert.match(page.byId('platform-resources').textContent, /💎 \d+\/3 · ⛏ \d+\/1 · 👾 \d+/, 'the live HUD tracks the actual exit requirements and defeated enemies');
   assert.ok(game.x > x0 + 50, `player must move right (x0=${x0}, x=${game.x})`);
   assert.equal(game.pose, 'run');
   assert.ok(game.tick > 10, 'fixed-step ticks advance');

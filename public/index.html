@@ -360,13 +360,13 @@
     </div>
 
     <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
-    <!-- 🎛️ مبدّل نمط المغامرة: العربة السريعة (الأصلية) أو منجم المنصّة (جولة حتمية يختمها الخادم) -->
+    <!-- وضع المنصات هو التجربة الأساسية الآن؛ الواجهة الكلاسيكية ما زالت متاحة من زر القوائم. -->
     <div class="mine-mode-switch" role="group" aria-label="اختيار نمط المغامرة">
-      <button id="legacy-mode" type="button" aria-pressed="true">⛏️ عربة المنجم <span>· الأصلية</span></button>
-      <button id="platform-mode" type="button" aria-pressed="false">🧭 منجم المنصّة <span>· موثّق</span></button>
+      <button id="legacy-mode" type="button" aria-pressed="false">⛏️ عربة المنجم <span>· الأصلية</span></button>
+      <button id="platform-mode" type="button" aria-pressed="true">🧭 منجم المنصّة <span>· موثّق</span></button>
     </div>
 
-    <div id="legacy-adventure" class="flex flex-col gap-1.5 flex-1 min-h-0">
+    <div id="legacy-adventure" hidden class="flex flex-col gap-1.5 flex-1 min-h-0">
     <div class="grid grid-cols-4 gap-1.5 text-center">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الوقت</div><div id="adv-time" class="font-black text-sky-300 text-sm">60</div></div>
@@ -410,13 +410,16 @@
     </div><!-- /#legacy-adventure: اللعبة الأصلية كما هي بلا أي تغيير في وظائفها -->
 
     <!-- 🧭 منجم المنصّة: جولة حتمية 60Hz يسجّل الخادم حركاتها ويعيد تشغيلها ويختم مكافأتها -->
-    <div id="platform-scene" hidden>
+    <div id="platform-scene">
       <div class="mine-heading">
         <div>
-          <div class="mine-kicker">جولة أكشن ومنصّات حتمية — يعيد الخادم تشغيل حركاتك ويختم النتيجة</div>
-          <h2>منجم المنصّة · معركة الأعماق</h2>
+          <div class="mine-kicker">اجمع البلورات · عدّن الصخور · قاتل وحوش الكهف</div>
+          <h2>معركة الأعماق</h2>
         </div>
-        <button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button>
+        <div class="mine-heading-actions">
+          <button id="platform-menus" type="button" aria-label="فتح القوائم">☰ القوائم</button>
+          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت">صوت ✓</button>
+        </div>
       </div>
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
         <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner">⛏️ عامل المنجم</button>
@@ -432,22 +435,22 @@
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
         <div id="platform-overlay" class="mine-overlay">
           <h3 id="platform-title">منجم المنصّة</h3>
-          <p id="platform-message">عدّن الصخور واجمع البلورات وقاتل وحوش المنجم (⚔️ هجوم، 💥 مهارة)! اعبر بوابة الخروج لإتمام المهمة.</p>
+          <p id="platform-message">هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F · استخدم المهارة بـ Q.</p>
           <button id="platform-start" type="button">جولة جديدة</button>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
       </div>
       <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
         <div class="mine-controls-dpad">
-          <button type="button" data-platform-input="1" aria-label="يسار">◀</button>
-          <button type="button" data-platform-input="2" aria-label="يمين">▶</button>
+          <button type="button" data-platform-input="1" aria-label="يسار"><b>◀</b><span>يسار</span></button>
+          <button type="button" data-platform-input="2" aria-label="يمين"><b>▶</b><span>يمين</span></button>
         </div>
         <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">⏸</button>
         <div class="mine-controls-actions">
-          <button type="button" data-platform-input="8" aria-label="تعدين">⛏</button>
-          <button type="button" data-platform-input="16" aria-label="هجوم">⚔️</button>
-          <button type="button" data-platform-input="32" aria-label="مهارة">💥</button>
-          <button type="button" data-platform-input="4" aria-label="قفز">⤒</button>
+          <button type="button" data-platform-input="8" aria-label="تعدين"><b>⛏</b><span>حفر</span></button>
+          <button type="button" data-platform-input="16" aria-label="هجوم"><b>⚔️</b><span>ضرب</span></button>
+          <button type="button" data-platform-input="32" aria-label="مهارة"><b>💥</b><span>قوة</span></button>
+          <button type="button" data-platform-input="4" aria-label="قفز"><b>⤒</b><span>قفز</span></button>
         </div>
       </div>
       <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز (Space)، تعدين (E)، هجوم (F)، مهارة (Q).</div>

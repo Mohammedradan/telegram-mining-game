@@ -643,19 +643,20 @@
     const e = R.LEVEL.exit;
     round(c, e.x - 10, e.y - 12, e.w + 20, e.h + 16, 26, '#a4814d');
     round(c, e.x, e.y, e.w, e.h, 20, '#10343a');
-    // Glowing magical portal interior
+    // Portal communicates its locked/open state in the world, not only in the HUD.
+    const unlocked = R.canExit(s);
     const portalGlow = c.createRadialGradient(e.x + e.w / 2, e.y + e.h / 2, 5, e.x + e.w / 2, e.y + e.h / 2, 35);
-    portalGlow.addColorStop(0, '#75ffdf');
-    portalGlow.addColorStop(0.7, '#249080');
-    portalGlow.addColorStop(1, '#0e3835');
+    portalGlow.addColorStop(0, unlocked ? '#a5ffe9' : '#ffd989');
+    portalGlow.addColorStop(0.7, unlocked ? '#249080' : '#94713d');
+    portalGlow.addColorStop(1, unlocked ? '#0e3835' : '#3c3020');
     c.fillStyle = portalGlow;
     c.beginPath();
     c.roundRect(e.x + 8, e.y + 6, e.w - 16, e.h - 10, 16);
     c.fill();
-    c.fillStyle = '#fef5cb';
-    c.font = 'bold 12px sans-serif';
+    c.fillStyle = unlocked ? '#baffed' : '#ffe2a1';
+    c.font = 'bold 11px sans-serif';
     c.textAlign = 'center';
-    c.fillText('مخرج المنجم', e.x + 35, e.y - 18);
+    c.fillText(unlocked ? 'بوابة مفتوحة' : 'مقفلة · 3 بلورات + تعدين', e.x + 35, e.y - 18, 132);
 
     // Draw Projectiles (Arrows)
     if (s.projectiles) {
