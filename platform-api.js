@@ -9,14 +9,14 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     const result = await store.withUsers([req.player.id], async () => {
       await prepare(req.player);
       let run = await store.activePlatformRun(req.player.id);
-      if (run && now() - Number(run.started_at) > lifetime) {
+      if (run && (now() - Number(run.started_at) > lifetime || Number(run.version) !== Rules.VERSION)) {
         run.status = 'expired'; await store.savePlatformRun(run); run = null;
       }
       if (!run) {
         run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing' };
         await store.savePlatformRun(run);
       }
-      return { id: run.id, version: run.version, startedAt: Number(run.started_at), expiresAt: Number(run.started_at) + lifetime };
+      return { id: run.id, version: run.version, seed: Rules.seedFromId(run.id), startedAt: Number(run.started_at), expiresAt: Number(run.started_at) + lifetime };
     });
     res.json(result);
   }));
@@ -27,7 +27,8 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const user = await prepare(req.player);
       if (run.status === 'finished') return { ...JSON.parse(run.result_json), duplicate: true, profile: profileOf(user, false, { race: await store.raceTotals(user.id) }) };
       if (run.version !== Rules.VERSION || now() - Number(run.started_at) > lifetime || run.status !== 'playing') return { status: 409, error: 'انتهت صلاحية الجولة؛ ابدأ جولة جديدة' };
-      const replay = Rules.replay(req.body.inputs, req.body?.hero);
+      // البذرة من معرّف الجولة المخزّن على الخادم فقط — مسار جولة أخرى لا يطابق هذا التخطيط
+      const replay = Rules.replay(req.body.inputs, req.body?.hero, Rules.seedFromId(run.id));
       if (!replay.ok) return { status: 400, error: 'حركات جولة غير صالحة' };
       const state = replay.state;
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };
@@ -50,6 +51,9 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const receipt = { id: run.id, won: state.status === 'won', gold, xp, score, gems: state.collected, mined: state.mined, duration, ...(tooSoon ? { reason: 'cooldown' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
+      // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
+      await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
+        detail: { won: receipt.won, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, ticks: state.tick, hero: state.player.hero, ...(tooSoon ? { reason: 'cooldown' } : {}) }, at: now() }]);
       await store.putUser(user);
       return { ...receipt, profile: profileOf(user, false, { race: await store.raceTotals(user.id) }) };
     });

@@ -1,7 +1,7 @@
 // A reproducible legal controller, not an injected score or physics override.
 const R = require('../../public/platform-rules');
-module.exports = function solution() {
-  const state = R.create(), inputs = [];
+module.exports = function solution(seed, hero = 'miner') {
+  const state = R.create(hero, seed), inputs = [];
   for (let i = 0; i < R.MAX_TICKS && state.status === 'playing'; i++) {
     const p = state.player;
     let mask = R.INPUT.RIGHT;

@@ -11,6 +11,12 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # وضع الإنتاج: الخادم يرفض البدء إن نقص BOT_TOKEN أو DATABASE_URL أو APP_URL (راجع DEPLOYMENT.md)
+      - key: NODE_ENV
+        value: production
+      # Render المجانية تنام بعد 15 دقيقة بلا طلبات: webhook يوقظ الخدمة، long-polling لا
+      - key: BOT_MODE
+        value: webhook
       # القيم السرية/الخاصة بنشرك — تُدخل يدوياً في لوحة Render (غير محفوظة هنا)
       - key: BOT_TOKEN
         sync: false
@@ -18,6 +24,12 @@ services:
         sync: false
       - key: APP_URL
         sync: false
+      # اختياري: سر webhook (16+ حرفاً A-Z a-z 0-9 _ -). إن تُرك فارغاً يُشتق من BOT_TOKEN
+      - key: WEBHOOK_SECRET
+        sync: false
+      # اختياري: اسم مستخدم البوت لروابط الدعوة؛ إن تُرك فارغاً يُقرأ من Telegram عند التشغيل
+      - key: BOT_USERNAME
+        sync: false
       - key: MAX_CLICKS_PER_SEC
         value: "20"
-      # لا تضف ALLOW_GUEST_AUTH في الإنتاج — المصادقة بتيليجرام فقط عند وجود التوكن
+      # لا تضف ALLOW_GUEST_AUTH في الإنتاج — الخادم يرفض البدء إن كانت true

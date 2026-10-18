@@ -34,7 +34,7 @@ npm start
 1. انسخ `.env.example` إلى `.env` وضع `BOT_TOKEN` من [@BotFather](https://t.me/BotFather).
 2. عرّض الخادم للإنترنت: `ngrok http 3000` (أو استضف على Render / Railway / Vercel).
 3. ضع رابط `https` الناتج في `APP_URL` داخل `.env` وأعد تشغيل الخادم،
-   واستبدل `MiningClickerBot` في `public/index.html` باسم مستخدم بوتك لتعمل روابط الدعوة.
+   وضع `BOT_USERNAME` (اسم البوت بدون `@`) لتعمل روابط الدعوة — تقرؤه الواجهة من `/api/config`.
 4. في `@BotFather`: ‏`/mybots` ← اختر البوت ← **Bot Settings** ← **Menu Button** ← **Configure menu button** ← أرسل نفس الرابط.
 5. افتح البوت واضغط زر القائمة لتشغيل اللعبة من داخل تيليجرام مباشرة.
 

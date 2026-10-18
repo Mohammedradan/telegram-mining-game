@@ -4,7 +4,7 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 1;
+  const VERSION = 2;
   const FPS = 60, DT = 1 / FPS, MAX_TICKS = 60 * 150;
   const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32 });
   const MAX_MASK = 63;
@@ -14,7 +14,7 @@
       id: 'miner',
       name: 'عامل المنجم',
       nameEn: 'Miner Fighter',
-      role: 'تعدين قوي وهجوم متوازن',
+      role: 'يحطم الصخور بضربة واحدة ومدى تعدين أطول',
       speed: 210,
       jumpSpeed: -450,
       hearts: 3,
@@ -22,7 +22,8 @@
       damage: 1,
       attackRange: 54,
       attackCooldown: 14,
-      miningPower: 1,
+      miningPower: 3,
+      miningReach: 66,
       skillCooldown: 180,
       skillName: 'صدمة أرضية',
       color: '#eab85a',
@@ -32,15 +33,17 @@
       id: 'warrior',
       name: 'المحارب',
       nameEn: 'Warrior',
-      role: 'هجوم حاسم وصحة أعلى',
-      speed: 210,
+      role: 'صحة أعلى وضربة مزدوجة وحماية أطول بعد الإصابة، لكنه أبطأ',
+      speed: 195,
       jumpSpeed: -450,
       hearts: 4,
       maxHearts: 4,
       damage: 2,
       attackRange: 60,
-      attackCooldown: 14,
+      attackCooldown: 18,
       miningPower: 1,
+      miningReach: 54,
+      hurtInvulnerable: 120,
       skillCooldown: 150,
       skillName: 'اندفاع هجومي',
       color: '#4f8bc4',
@@ -50,15 +53,16 @@
       id: 'archer',
       name: 'رامي السهام',
       nameEn: 'Archer',
-      role: 'رمي بعيد المدى وسرعة حركة',
-      speed: 210,
+      role: 'سهام بعيدة المدى وأسرع حركة، لكن صحته أقل',
+      speed: 228,
       jumpSpeed: -450,
       hearts: 3,
       maxHearts: 3,
       damage: 1,
-      attackRange: 42,
-      attackCooldown: 14,
+      attackRange: 240,
+      attackCooldown: 16,
       miningPower: 1,
+      miningReach: 54,
       skillCooldown: 160,
       skillName: 'رمية ثلاثية',
       color: '#55b376',
@@ -88,13 +92,48 @@
     ],
   });
 
+  // تنويع المرحلة من بذرة الجولة: مواقع الصخور والبلورات وبداية دوريات الأعداء تتغير داخل نطاقات
+  // مدروسة (التضاريس والفجوات والفخاخ ثابتة)، فلا يصلح تسجيل حركات جولة لإعادة استخدامه في أخرى.
+  // البذرة تُشتق من معرّف الجولة الذي يصدره الخادم؛ الخادم يعيد التشغيل بالبذرة نفسها ولا يقبلها من العميل.
+  // كل صخرة تختار مقطعاً ثم موقعاً داخله (بعيداً عن الفجوات والفخاخ ومنطقة البداية)
+  // (لا صخرة بعد قفزة فوق فجوة/فخ مباشرة ولا تحت منصة منخفضة: الوقوف عليها يحبس اللاعب)
+  const ROCK_SPANS = [[[250, 600]], [[915, 1095]], [[1790, 1980], [2330, 2420]]];
+  const GEM_SPANS = [[156, 236], [270, 355], [570, 645], [820, 900], [910, 985], [1330, 1415], [1700, 1760], [1790, 1875], [2190, 2300], [2440, 2510]];
+  function seedFromId(id) {
+    let h = 0x811c9dc5;
+    for (const ch of String(id || '')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h >>> 0;
+  }
+  function prng(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function layoutFor(seed) {
+    if (seed === undefined || seed === null) return { rocks: LEVEL.rocks, gems: LEVEL.gems, enemies: LEVEL.enemies.map(e => ({ ...e, dir: 1 })) };
+    const rnd = prng(Number(seed) >>> 0);
+    const pick = ([a, b]) => Math.round(a + rnd() * (b - a));
+    return {
+      rocks: LEVEL.rocks.map((r, i) => { const spans = ROCK_SPANS[i]; return { ...r, x: pick(spans[Math.floor(rnd() * spans.length)]) }; }),
+      gems: LEVEL.gems.map((g, i) => ({ ...g, x: pick(GEM_SPANS[i]) })),
+      enemies: LEVEL.enemies.map(e => ({ ...e, x: pick([e.minX, e.maxX - e.w]), dir: rnd() < 0.5 ? -1 : 1 })),
+    };
+  }
+
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const activeHazard = (h, tick) => tick % h.period < h.active;
   const canExit = s => s.mined >= 1 && s.collected >= 3;
 
-  function create(heroId = 'miner') {
+  function create(heroId = 'miner', seed) {
     const hero = CHARACTERS[heroId] || CHARACTERS.miner;
+    const layout = layoutFor(seed);
     return {
+      seed: seed === undefined || seed === null ? null : Number(seed) >>> 0,
       version: VERSION,
       tick: 0,
       status: 'playing',
@@ -116,18 +155,20 @@
         damage: hero.damage,
         attackRange: hero.attackRange,
         miningPower: hero.miningPower,
+        miningReach: hero.miningReach,
+        hurtInvulnerable: hero.hurtInvulnerable || 90,
         skillCooldown: 0,
         skillMaxCooldown: hero.skillCooldown,
         pose: 'idle',
         landTimer: 0,
       },
       checkpoint: 64,
-      rocks: LEVEL.rocks.map(r => ({ ...r, hp: 3 })),
-      gems: LEVEL.gems.map(g => ({ ...g, taken: false })),
-      enemies: LEVEL.enemies.map(e => ({
+      rocks: layout.rocks.map(r => ({ ...r, hp: 3 })),
+      gems: layout.gems.map(g => ({ ...g, taken: false })),
+      enemies: layout.enemies.map(({ dir, ...e }) => ({
         ...e,
         hp: e.maxHp,
-        vx: e.patrolSpeed || 40,
+        vx: (e.patrolSpeed || 40) * dir,
         vy: 0,
         facing: 1,
         attackCooldown: 0,
@@ -148,7 +189,7 @@
   function hurt(s) {
     const p = s.player;
     if (p.invulnerable) return;
-    p.hearts--; s.damage++; p.invulnerable = 90;
+    p.hearts--; s.damage++; p.invulnerable = p.hurtInvulnerable || 90;
     s.events.push({ type: 'hurt', x: p.x, y: p.y });
     p.x = s.checkpoint; p.y = 240; p.vx = 0; p.vy = 0;
     if (p.hearts <= 0) {
@@ -178,7 +219,8 @@
     // MINE Action: targets rocks/ores only
     if ((mask & INPUT.MINE) && !p.attack) {
       p.attack = p.attackCooldown;
-      const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - 54, y: p.y - 8, w: 54, h: p.h + 16 };
+      const reach = p.miningReach || 54;
+      const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - reach, y: p.y - 8, w: reach, h: p.h + 16 };
       const rock = s.rocks.find(r => r.hp > 0 && overlap(hitbox, r));
       if (rock) {
         rock.hp = Math.max(0, rock.hp - p.miningPower);
@@ -200,7 +242,7 @@
           vx: p.facing * 450,
           vy: 0,
           w: 14, h: 4,
-          life: 55,
+          life: Math.ceil(p.attackRange / (450 / FPS)),
           damage: p.damage,
           owner: 'player',
         });
@@ -396,13 +438,13 @@
     return s;
   }
 
-  function replay(inputs, hero = 'miner') {
+  function replay(inputs, hero = 'miner', seed) {
     if (!Array.isArray(inputs) || !inputs.length || inputs.length > 1000) return { ok: false, reason: 'inputs' };
     let total = 0;
     for (const item of inputs) {
       if (!item || !Number.isInteger(item.mask) || item.mask < 0 || item.mask > MAX_MASK || !Number.isInteger(item.frames) || item.frames < 1 || (total += item.frames) > MAX_TICKS) return { ok: false, reason: 'inputs' };
     }
-    const s = create(hero);
+    const s = create(hero, seed);
     for (const item of inputs) for (let i = 0; i < item.frames; i++) {
       if (s.status !== 'playing') return { ok: false, reason: 'after_end' };
       step(s, item.mask);
@@ -413,5 +455,5 @@
   const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
   const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
 
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
+  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
 });

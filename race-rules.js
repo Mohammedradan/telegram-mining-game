@@ -38,6 +38,9 @@ const forfeitAllowed = (rules, startAt, now) => now >= startAt + rules.forfeitAf
 function decideWinner(results, forfeitBy = null) {
   if (results.length < 2) return null;
   if (forfeitBy) return results.find((r) => r.id !== forfeitBy)?.id ?? null;
+  // نتيجة تجاوزت سقف الزمن/التدفق (flagged) لا تفوز على خصم نظيف: القص وحده يترك للغشاش أعلى نقاط ممكنة
+  const clean = results.filter((r) => !r.flagged);
+  if (clean.length === 1) return clean[0].id;
   const sorted = [...results].sort((a, b) => b.score - a.score);
   return sorted[0].score === sorted[1].score ? null : sorted[0].id;
 }

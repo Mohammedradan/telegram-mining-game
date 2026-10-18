@@ -15,15 +15,28 @@ const ArenaRules = require('./public/arena-rules');
 const { mountPlatform } = require('./platform-api');
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const RAW_TOKEN = (process.env.BOT_TOKEN || '').trim();
-const PLACEHOLDER = 'ضع_هنا_التوكن_الخاص_بك_من_BotFather';
-const BOT_TOKEN = RAW_TOKEN && RAW_TOKEN !== PLACEHOLDER ? RAW_TOKEN : '';
+const { loadConfig, productionConfigErrors, configWarnings } = require('./config');
+const { createRateLimiter } = require('./rate-limit');
+const { securityHeaders } = require('./security-headers');
+const CONFIG = loadConfig();
+const BOT_TOKEN = CONFIG.botToken;
+// اسم مستخدم البوت العام لروابط الدعوة: BOT_USERNAME صريحاً، وإلا يُقرأ من getMe عند تشغيل البوت
+let botUsername = CONFIG.botUsername;
 // وضع الضيف للتطوير فقط عند غياب التوكن؛ في الإنتاج لا يُسمح به إلا بتفعيل صريح.
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const ALLOW_GUEST = process.env.ALLOW_GUEST_AUTH === 'true'
-  || (!BOT_TOKEN && !IS_PRODUCTION && process.env.ALLOW_GUEST_AUTH !== 'false');
+const IS_PRODUCTION = CONFIG.production;
+const ALLOW_GUEST = CONFIG.allowGuest;
+// الإنتاج لا يبدأ بإعداد ناقص: لا وضع ضيف صامت ولا SQLite مؤقتة ولا بوت بلا رابط
+const CONFIG_ERRORS = productionConfigErrors(CONFIG);
+for (const w of configWarnings(CONFIG)) console.warn(`⚠️  ${w}`);
+if (CONFIG_ERRORS.length) {
+  console.error('⛔ إعداد الإنتاج غير مكتمل (NODE_ENV=production) — لن يبدأ الخادم:');
+  for (const e of CONFIG_ERRORS) console.error(`   • ${e}`);
+  console.error('   راجع DEPLOYMENT.md لإعداد متغيرات البيئة.');
+  process.exit(1);
+}
 const REFERRAL_REWARD = 1000;
 
 // إعدادات مكافحة الغش الخادمية (قابلة للضبط من البيئة)
@@ -942,35 +955,39 @@ function parseInitDataUser(initData) { // بدون توكن لا يمكن الت
   try { return JSON.parse(new URLSearchParams(initData).get('user') || 'null'); } catch { return null; }
 }
 
-function requireAuth(req, res, next) {
-  const initData = req.get('x-telegram-init-data') || (req.get('authorization') || '').replace(/^tma\s+/i, '');
+// مصدر واحد لقرار الهوية لكل المسارات (HTTP وWebSocket): initData موقّع بالتوكن، أو بلا توقيع
+// في التطوير فقط، أو ضيف عند السماح به. يعيد { player } أو { error } دون أي تراجع صامت.
+function authenticate(initData, rawGuestId) {
   if (initData) {
     const tgUser = BOT_TOKEN
       ? validateInitData(initData)
       : (!IS_PRODUCTION && ALLOW_GUEST ? parseInitDataUser(initData) : null);
-    if (!tgUser?.id) return res.status(401).json({ error: 'بيانات تيليجرام غير صالحة أو منتهية — أعد فتح اللعبة من البوت' });
-    req.player = { id: String(tgUser.id), name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || 'معدّن أسطوري' };
-    return next();
+    if (!tgUser?.id) return { error: 'بيانات تيليجرام غير صالحة أو منتهية — أعد فتح اللعبة من البوت' };
+    return { player: { id: String(tgUser.id), name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || 'معدّن أسطوري' } };
   }
-  const guestId = (req.get('x-guest-id') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-  if (guestId && ALLOW_GUEST) {
-    req.player = { id: `guest_${guestId}`, name: 'ضيف' };
-    return next();
-  }
-  return res.status(401).json({ error: BOT_TOKEN ? 'افتح اللعبة من داخل تيليجرام' : 'مصادقة مفقودة' });
+  const guestId = String(rawGuestId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+  if (guestId && ALLOW_GUEST && !IS_PRODUCTION) return { player: { id: `guest_${guestId}`, name: 'ضيف' } };
+  return { error: BOT_TOKEN ? 'افتح اللعبة من داخل تيليجرام' : 'مصادقة مفقودة' };
+}
+
+function requireAuth(req, res, next) {
+  const initData = req.get('x-telegram-init-data') || (req.get('authorization') || '').replace(/^tma\s+/i, '');
+  const auth = authenticate(initData, req.get('x-guest-id'));
+  if (!auth.player) return res.status(401).json({ error: auth.error });
+  req.player = auth.player;
+  return next();
 }
 
 // تحديد معدّل بسيط حسب اللاعب/العنوان لكل مسار
+// المفتاح: اللاعب الموثَّق، وإلا عنوان العميل كما يحدده trust proxy (لا يُقبل X-Forwarded-For من العميل مباشرة)
+const RATE_LIMITER = createRateLimiter({ windowMs: 60_000, maxKeys: Number(process.env.RATE_LIMIT_MAX_KEYS) || 10_000 });
 function rateLimit(name, maxPerMinute) {
-  const hits = new Map();
   return (req, res, next) => {
-    const key = `${name}:${req.player?.id || req.ip}`;
-    const now = Date.now();
-    const arr = (hits.get(key) || []).filter((t) => now - t < 60_000);
-    if (arr.length >= maxPerMinute) return res.status(429).json({ error: 'طلبات كثيرة جداً — انتظر قليلاً' });
-    arr.push(now);
-    hits.set(key, arr);
-    if (hits.size > 5000) hits.clear();
+    const verdict = RATE_LIMITER.hit(`${name}:${req.player?.id || req.ip}`, maxPerMinute);
+    if (!verdict.allowed) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((verdict.resetAt - Date.now()) / 1000))));
+      return res.status(429).json({ error: 'طلبات كثيرة جداً — انتظر قليلاً' });
+    }
     next();
   };
 }
@@ -978,6 +995,9 @@ function rateLimit(name, maxPerMinute) {
 // ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
+// Render يضع بروكسي واحداً أمام الخدمة: نثق بآخر X-Forwarded-For يضيفه هو فقط، لا بما يرسله العميل
+app.set('trust proxy', CONFIG.trustProxyHops);
+app.use(securityHeaders({ production: IS_PRODUCTION }));
 app.use(express.json({ limit: '32kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -987,8 +1007,14 @@ const asyncRoute = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e)
 });
 
 app.get('/health', asyncRoute(async (req, res) => {
-  res.json({ ok: true, bot: Boolean(BOT_TOKEN), db: store.driver, users: await store.countUsers() });
+  res.json({ ok: true, bot: Boolean(BOT_TOKEN), botMode: CONFIG.botMode, db: store.driver, users: await store.countUsers() });
 }));
+
+// إعدادات عامة للواجهة: اسم مستخدم البوت فقط (لروابط الدعوة) — لا أسرار ولا رابط Webhook
+app.get('/api/config', rateLimit('config', 60), (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({ botUsername: botUsername || null });
+});
 
 // جلب/إنشاء ملف اللاعب — يعالج الدعوات عند أول دخول (?ref=ref_<id>) ويسوّي الدخل السلبي خادمياً
 app.get('/api/me', requireAuth, rateLimit('me', 60), asyncRoute(async (req, res) => {
@@ -1231,17 +1257,8 @@ function setupMultiplayer(httpServer) {
 
   wss.on('connection', async (ws, req) => {
     const url = new URL(req.url, 'http://localhost');
-    let player = null;
-    const initData = url.searchParams.get('initData') || '';
-    const guest = (url.searchParams.get('guest') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-    if (initData) {
-      const tgUser = BOT_TOKEN
-      ? validateInitData(initData)
-      : (!IS_PRODUCTION && ALLOW_GUEST ? parseInitDataUser(initData) : null);
-      if (tgUser?.id) player = { id: String(tgUser.id), name: tgUser.first_name || 'لاعب' };
-    } else if (guest && ALLOW_GUEST) {
-      player = { id: `guest_${guest}`, name: 'ضيف' };
-    }
+    const auth = authenticate(url.searchParams.get('initData') || '', url.searchParams.get('guest'));
+    const player = auth.player || null;
     if (!player) { ws.close(4001, 'auth required'); return; }
     try { const dbUser = await store.getUser(player.id); if (dbUser?.name && dbUser.name !== 'ضيف') player.name = dbUser.name; } catch (_) {}
 
@@ -1420,11 +1437,30 @@ function setupMultiplayer(httpServer) {
 // بوت تيليجرام
 // ---------------------------------------------------------------------------
 let bot = null;
+let httpServer = null;
+// Render المجانية تنام بعد 15 دقيقة بلا طلبات واردة (render.com/docs/free): الـ long-polling يتوقف معها
+// فلا يرد البوت على /start، بينما طلب webhook الوارد من Telegram يوقظ الخدمة ويعيد Telegram المحاولة عند الفشل.
+// لذلك webhook هو الافتراضي في الإنتاج متى توفر رابط https، وpolling للتطوير المحلي (BOT_MODE يتجاوز ذلك).
+const WEBHOOK_PATH = BOT_TOKEN ? `/telegram/webhook/${crypto.createHash('sha256').update(BOT_TOKEN).digest('hex').slice(0, 32)}` : '';
+const WEBHOOK_SECRET = BOT_TOKEN
+  ? (CONFIG.webhookSecret || crypto.createHmac('sha256', BOT_TOKEN).update('telegram-webhook-secret').digest('hex').slice(0, 64))
+  : '';
+// معرّفات التحديثات المعالجة/الجارية: Telegram يعيد إرسال التحديث إن لم يصله 200، فلا يُعالج مرتين
+const handledUpdates = new Map();
+function rememberUpdate(id) {
+  handledUpdates.delete(id); handledUpdates.set(id, Date.now());
+  while (handledUpdates.size > 2000) handledUpdates.delete(handledUpdates.keys().next().value);
+}
+function safeEqual(a, b) {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
 if (BOT_TOKEN) {
   bot = new Telegraf(BOT_TOKEN);
 
   bot.start((ctx) => {
-    const appUrl = process.env.APP_URL || 'https://your-domain.com';
+    const appUrl = CONFIG.appUrl || 'https://your-domain.com';
     const startPayload = ctx.startPayload || '';
     const isRef = startPayload.startsWith('ref_');
 
@@ -1440,20 +1476,55 @@ if (BOT_TOKEN) {
     console.error(`خطأ في البوت لتحديث ${ctx?.updateType}:`, err);
   });
 
-  // لا نترك فشل إطلاق البوت (توكن خاطئ/شبكة) يُسقط خادم اللعبة
-  bot.launch()
-    .then(() => console.log('🤖 تم تشغيل بوت تيليجرام بنجاح!'))
-    .catch((err) => console.error('خطأ في تشغيل البوت (سيستمر خادم الويب):', err.message));
+  if (CONFIG.botMode === 'webhook') {
+    app.post(WEBHOOK_PATH, async (req, res) => {
+      if (!safeEqual(req.get('x-telegram-bot-api-secret-token') || '', WEBHOOK_SECRET)) return res.sendStatus(401);
+      const id = req.body?.update_id;
+      if (!Number.isSafeInteger(id)) return res.sendStatus(400);
+      if (handledUpdates.has(id)) return res.sendStatus(200);
+      rememberUpdate(id);
+      try {
+        await bot.handleUpdate(req.body);
+        res.sendStatus(200);
+      } catch (err) {
+        handledUpdates.delete(id); // فشل غير متوقع: نسمح لإعادة محاولة Telegram بمعالجته
+        console.error('خطأ في معالجة تحديث webhook:', err.message);
+        res.sendStatus(500);
+      }
+    });
+  }
 
-  const shutdown = (signal) => { try { bot.stop(signal); } catch (_) { /* already stopped */ } };
-  process.once('SIGINT', () => shutdown('SIGINT'));
-  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  // لا نترك فشل تهيئة البوت (توكن خاطئ/شبكة) يُسقط خادم اللعبة
+  (async () => {
+    const me = await bot.telegram.getMe();
+    bot.botInfo = me;
+    if (!botUsername) botUsername = me.username || '';
+    if (CONFIG.botMode === 'webhook') {
+      await bot.telegram.setWebhook(`${CONFIG.appUrl}${WEBHOOK_PATH}`, {
+        secret_token: WEBHOOK_SECRET,
+        allowed_updates: ['message', 'callback_query'],
+      });
+      console.log(`🤖 بوت تيليجرام @${me.username} يعمل بوضع webhook`);
+    } else {
+      await bot.launch();
+      console.log(`🤖 بوت تيليجرام @${me.username} يعمل بوضع polling`);
+    }
+  })().catch((err) => console.error('خطأ في تشغيل البوت (سيستمر خادم الويب):', err.message));
 } else {
   console.log('⚠️  لم يتم وضع BOT_TOKEN (انسخ .env.example إلى .env)، سيعمل خادم الويب فقط بوضع الضيف.');
 }
 
+// إيقاف نظيف: إيقاف polling (إن وُجد) وإغلاق الخادم ثم قاعدة البيانات. لا نحذف الـ webhook: نسخة النشر الجديدة تخدمه
+function shutdown(signal) {
+  if (bot && CONFIG.botMode === 'polling') { try { bot.stop(signal); } catch (_) { /* already stopped */ } }
+  const finish = () => Promise.resolve(store.close?.()).catch(() => {}).finally(() => process.exit(0));
+  if (httpServer) { httpServer.close(finish); setTimeout(finish, 5000).unref(); } else finish();
+}
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+
 migrateLegacyJson().finally(() => {
-  const httpServer = app.listen(PORT, HOST, () => {
+  httpServer = app.listen(PORT, HOST, () => {
     console.log(`🎮 خادم اللعبة يعمل الآن على: http://localhost:${PORT}`);
   });
   setupMultiplayer(httpServer);

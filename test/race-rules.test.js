@@ -47,3 +47,12 @@ test('forfeit window and winner decision', () => {
   assert.equal(decideWinner([a, b], 'a'), 'b', 'the leaver loses even when ahead');
   assert.equal(decideWinner([a], null), null);
 });
+
+test('race winner: a score clamped for exceeding the time/stream caps cannot beat a clean opponent', () => {
+  const cheat = { id: 'cheat', score: 900, flagged: true };
+  const honest = { id: 'honest', score: 300, flagged: false };
+  assert.equal(decideWinner([cheat, honest]), 'honest');
+  assert.equal(decideWinner([honest, cheat]), 'honest');
+  assert.equal(decideWinner([cheat, { id: 'b', score: 100, flagged: true }]), 'cheat', 'both flagged ⇒ plain score order');
+  assert.equal(decideWinner([cheat, honest], 'honest'), 'cheat', 'forfeit rule still applies first');
+});

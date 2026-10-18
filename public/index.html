@@ -312,7 +312,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=1">
+  <link rel="stylesheet" href="/platform.css?v=2">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -736,8 +736,8 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=1"></script>
-  <script src="/platform-renderer.js?v=1"></script>
+  <script src="/platform-rules.js?v=2"></script>
+  <script src="/platform-renderer.js?v=2"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -1068,7 +1068,7 @@
         loadSyncQueue();
         if (data.user.name && data.user.name !== 'ضيف') document.getElementById('username').innerText = data.user.name;
         setSyncStatus('☁️ محفوظ على الخادم');
-        document.getElementById('ref-link-preview').innerText = referralUrl();
+        showReferralPreview();
 
         if (data.isNew && state.totalEarned > (data.state?.totalEarned || 0)) {
           // Keep the offline save recoverable; never import unverified cloud currency.
@@ -2868,18 +2868,26 @@
     }
 
     // --- Referral / Share ---
-    // ⚠️ استبدل MiningClickerBot باسم مستخدم بوتك الفعلي من BotFather
-    const BOT_USERNAME = 'MiningClickerBot';
+    // اسم البوت يأتي من الخادم (/api/config) — لا قيمة ثابتة قد تشير إلى بوت آخر
+    let BOT_USERNAME = '';
     function myPlayerId() {
       return myId || tg?.initDataUnsafe?.user?.id || `guest_${guestId}`;
     }
     function referralUrl() {
-      return `https://t.me/${BOT_USERNAME}?start=ref_${myPlayerId()}`;
+      return BOT_USERNAME ? `https://t.me/${BOT_USERNAME}?start=ref_${myPlayerId()}` : '';
     }
-    document.getElementById('ref-link-preview').innerText = referralUrl();
+    function showReferralPreview() {
+      document.getElementById('ref-link-preview').innerText = referralUrl() || 'رابط الدعوة غير متاح حالياً';
+    }
+    showReferralPreview();
+    fetch('/api/config').then((r) => (r.ok ? r.json() : {})).then((cfg) => {
+      const name = String(cfg?.botUsername || '').replace(/[^A-Za-z0-9_]/g, '');
+      if (name) { BOT_USERNAME = name; showReferralPreview(); }
+    }).catch(() => {});
 
     async function shareReferral() {
       const refUrl = referralUrl();
+      if (!refUrl) { alert('رابط الدعوة غير متاح حالياً — حاول لاحقاً'); return; }
       const shareText = `⛏️ انضم إليّ في إمبراطورية التعدين واجمع الذهب! ${refUrl}`;
       // داخل تيليجرام: فتح نافذة مشاركة أصلية
       if (tg?.openTelegramLink) {
@@ -2912,8 +2920,8 @@
     window.platformReady = bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
   </script>
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
-  <script src="/platform-bridge.js?v=1"></script>
+  <script src="/platform-bridge.js?v=2"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=1"></script>
+  <script src="/platform-game.js?v=2"></script>
 </body>
 </html>
