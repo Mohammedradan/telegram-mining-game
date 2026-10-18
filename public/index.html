@@ -312,7 +312,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=1">
+  <link rel="stylesheet" href="/platform.css?v=2">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -736,8 +736,8 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=1"></script>
-  <script src="/platform-renderer.js?v=1"></script>
+  <script src="/platform-rules.js?v=2"></script>
+  <script src="/platform-renderer.js?v=2"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -2920,8 +2920,8 @@
     window.platformReady = bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
   </script>
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
-  <script src="/platform-bridge.js?v=1"></script>
+  <script src="/platform-bridge.js?v=2"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=1"></script>
+  <script src="/platform-game.js?v=2"></script>
 </body>
 </html>
