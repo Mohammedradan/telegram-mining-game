@@ -18,7 +18,7 @@ const app = express();
 app.disable('x-powered-by');
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const { loadConfig, productionConfigErrors } = require('./config');
+const { loadConfig, productionConfigErrors, configWarnings } = require('./config');
 const { createRateLimiter } = require('./rate-limit');
 const { securityHeaders } = require('./security-headers');
 const CONFIG = loadConfig();
@@ -30,6 +30,7 @@ const IS_PRODUCTION = CONFIG.production;
 const ALLOW_GUEST = CONFIG.allowGuest;
 // الإنتاج لا يبدأ بإعداد ناقص: لا وضع ضيف صامت ولا SQLite مؤقتة ولا بوت بلا رابط
 const CONFIG_ERRORS = productionConfigErrors(CONFIG);
+for (const w of configWarnings(CONFIG)) console.warn(`⚠️  ${w}`);
 if (CONFIG_ERRORS.length) {
   console.error('⛔ إعداد الإنتاج غير مكتمل (NODE_ENV=production) — لن يبدأ الخادم:');
   for (const e of CONFIG_ERRORS) console.error(`   • ${e}`);
