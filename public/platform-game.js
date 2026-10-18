@@ -14,6 +14,8 @@
   } catch (_) {}
 
   let sim = R.create(currentHero), inputs = [], ticket = null, owner = null;
+  // تخطيط المرحلة يتبع بذرة الجولة المشتقة من معرّف تذكرة الخادم (الخادم يعيد التشغيل بالبذرة نفسها)
+  const seedOf = (t) => (t?.id ? R.seedFromId(t.id) : undefined);
   let running = false, paused = false, starting = false, restoring = true, submitting = false, pending = null;
   let raf = 0, last = 0, accumulator = 0;
   let audio = null, muted = false, particles = [];
@@ -220,7 +222,7 @@
       btn.setAttribute('aria-selected', String(btn.dataset.hero === currentHero));
     });
     if (!running) {
-      sim = R.create(currentHero);
+      sim = R.create(currentHero, seedOf(ticket));
       hud(); draw();
     }
   }
@@ -236,7 +238,7 @@
         if (ticket.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
         say(`الهدف: 3 بلورات وصخرة واحدة، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
-      sim = R.create(currentHero); inputs = []; particles = []; running = true; paused = false; save();
+      sim = R.create(currentHero, seedOf(ticket)); inputs = []; particles = []; running = true; paused = false; save();
       resume();
     } catch (e) { say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`); }
     finally { starting = false; el('platform-start').disabled = Boolean(pending); }
@@ -248,7 +250,7 @@
     try { stored = JSON.parse(localStorage.getItem(storageKey()) || 'null'); } catch (_) { return; }
     if (!stored || stored.version !== R.VERSION || !stored.ticket?.id) return;
     if (stored.hero && R.CHARACTERS?.[stored.hero]) currentHero = stored.hero;
-    const replay = stored.inputs?.length ? R.replay(stored.inputs, currentHero) : { ok: true, state: R.create(currentHero) };
+    const replay = stored.inputs?.length ? R.replay(stored.inputs, currentHero, seedOf(stored.ticket)) : { ok: true, state: R.create(currentHero, seedOf(stored.ticket)) };
     if (!replay.ok) { say('ملف جولة غير صالح؛ يمكنك البدء مجددًا.'); return; }
     ticket = stored.ticket; inputs = stored.inputs || []; sim = replay.state;
     hud(); draw();

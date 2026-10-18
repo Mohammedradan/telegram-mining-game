@@ -19,7 +19,8 @@ test('platform: gravity lands exactly on ground and a held jump never becomes in
   R.step(s, 0); R.step(s, 4); assert.ok(s.player.vy < 0);
 });
 test('platform: solid rock blocks movement until three timed close-range hits destroy it', () => {
-  const s = R.create(); advance(s, 8, 45); assert.equal(s.mined, 0); // too far
+  // قوة تعدين عادية (1): عامل المنجم يملك قوة 3 ويُختبر تفوقه في اختبار التوازن
+  const s = R.create(); s.player.miningPower = 1; s.player.miningReach = 54; advance(s, 8, 45); assert.equal(s.mined, 0); // too far
   advance(s, 2, 120); assert.equal(s.player.x, 416); assert.equal(s.rocks[0].hp, 3);
   R.step(s, 8); assert.equal(s.rocks[0].hp, 2);
   advance(s, 8, 13); assert.equal(s.rocks[0].hp, 2);
@@ -169,4 +170,41 @@ test('platform health and death: zero hearts sets lost status, dead pose, and ha
   const tickAtDeath = s.tick;
   R.step(s, R.INPUT.RIGHT);
   assert.equal(s.tick, tickAtDeath);
+});
+
+test('platform seeds: each run id yields its own layout; the legal controller wins every layout; foreign paths do not', () => {
+  const seeds = Array.from({ length: 40 }, (_, i) => R.seedFromId(`run-${i}`));
+  const layouts = new Set(seeds.map(seed => JSON.stringify(R.layoutFor(seed).rocks.map(r => r.x))));
+  assert.ok(layouts.size >= 38, 'rock layouts vary between runs');
+  let foreignWins = 0;
+  for (const [i, seed] of seeds.entries()) {
+    const own = solution(seed);
+    assert.equal(own.state.status, 'won', `seed ${seed}`);
+    assert.deepEqual(R.replay(own.inputs, 'miner', seed).state, own.state);
+    const other = R.replay(own.inputs, 'miner', seeds[(i + 1) % seeds.length]);
+    if (other.ok && other.state.status === 'won') foreignWins++;
+  }
+  assert.ok(foreignWins <= 2, `recorded paths replayed on other layouts won ${foreignWins}/40 times`);
+  assert.equal(R.seedFromId('abc'), R.seedFromId('abc'));
+  assert.deepEqual(R.create('miner', 7), R.create('miner', 7));
+});
+
+test('platform balance: each hero has a distinct, measurable advantage', () => {
+  const C = R.CHARACTERS;
+  // Miner: breaks a rock in one swing with longer reach
+  assert.ok(C.miner.miningPower >= 3 && C.miner.miningReach > C.warrior.miningReach);
+  const m = R.create('miner'); m.player.x = 440 - 24 - 60; R.step(m, R.INPUT.MINE);
+  assert.equal(m.mined, 1, 'miner reaches and breaks the rock from 60px');
+  const w = R.create('warrior'); w.player.x = 440 - 24 - 60; R.step(w, R.INPUT.MINE);
+  assert.equal(w.mined, 0);
+  // Warrior: most hearts, double damage, longest post-hit protection, but slower
+  assert.ok(C.warrior.hearts > C.miner.hearts && C.warrior.damage > C.miner.damage && C.warrior.hurtInvulnerable > 90);
+  assert.ok(C.warrior.speed < C.miner.speed);
+  // Archer: real range — an arrow kills a bat-sized target 200px away, melee cannot
+  assert.ok(C.archer.attackRange >= 200 && C.archer.speed > C.miner.speed);
+  const a = R.create('archer'); a.enemies = [{ ...a.enemies[0], x: a.player.x + 200, y: a.player.y + 4, minX: 0, maxX: 9999, patrolSpeed: 0, vx: 0, hp: 1 }];
+  R.step(a, R.INPUT.ATTACK); for (let i = 0; i < 40; i++) R.step(a, 0);
+  assert.equal(a.defeated, 1);
+  const melee = R.create('warrior'); melee.enemies = [{ ...melee.enemies[0], x: melee.player.x + 200, y: melee.player.y + 4, patrolSpeed: 0, vx: 0 }];
+  R.step(melee, R.INPUT.ATTACK); assert.equal(melee.defeated, 0);
 });

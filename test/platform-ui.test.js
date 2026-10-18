@@ -96,7 +96,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
       // نفس عقد الخادم: إعادة تشغيل الحركات بقواعد المشروع — المتصفح لا يفرض شيئاً
       const body = JSON.parse(options.body || '{}');
       log.platformFinishBodies.push(body);
-      const replay = R.replay(body.inputs);
+      const replay = R.replay(body.inputs, body.hero, R.seedFromId(body.id));
       if (!replay.ok || replay.state.status !== 'won') return { ok: false, status: 400, json: async () => ({ error: 'حركات جولة غير صالحة' }) };
       const s = replay.state;
       const gold = R.rewardFor(s);
@@ -229,7 +229,7 @@ test('platform UI: a real round runs — server ticket, live physics from keys, 
 });
 
 test('platform UI: a finished winning round is submitted on boot, confirmed by the server replay and adopted — no local award', async () => {
-  const { inputs, state } = solution();
+  const { inputs, state } = solution(R.seedFromId('ticket-ui-9'));
   const stored = { version: R.VERSION, ticket: { id: 'ticket-ui-9', version: R.VERSION, startedAt: Date.now(), expiresAt: Date.now() + 864e5 }, inputs, finished: true };
   const page = bootPage({ storedRun: stored });
   await page.settle();
