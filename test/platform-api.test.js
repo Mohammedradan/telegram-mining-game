@@ -32,7 +32,7 @@ async function historical(name, elapsedMs, hero = 'miner') {
   await post(name, 'start');
   const id = crypto.randomUUID();
   const s = solution(R.seedFromId(id), hero);
-  const row = { id, user_id: `guest_${user(name)}`, version: R.VERSION, status: 'playing', started_at: Date.now() - (elapsedMs ?? s.state.tick / 60 * 1000) - 2000 };
+  const row = { id, user_id: `guest_${user(name)}`, version: R.VERSION, status: 'playing', started_at: Math.floor(Date.now() - (elapsedMs ?? s.state.tick / 60 * 1000) - 2000) };
   await store.withUsers([row.user_id], async () => {
     const active = await store.activePlatformRun(row.user_id); active.status = 'expired'; await store.savePlatformRun(active);
     await store.savePlatformRun(row);
