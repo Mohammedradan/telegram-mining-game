@@ -57,4 +57,11 @@ function productionConfigErrors(config) {
   return errors;
 }
 
-module.exports = { loadConfig, productionConfigErrors, isPostgresUrl, PLACEHOLDER_TOKEN };
+// خدمة Render أُنشئت يدوياً (لا عبر render.yaml) قد لا تملك NODE_ENV=production فتُعطَّل فحوص الإنتاج بصمت
+function configWarnings(config, env = process.env) {
+  const warnings = [];
+  if (!config.production && env.RENDER) warnings.push('يعمل على Render بدون NODE_ENV=production — فحوص أمان الإنتاج معطلة ووضع الضيف/SQLite ممكنان. أضف NODE_ENV=production في لوحة Render.');
+  return warnings;
+}
+
+module.exports = { loadConfig, productionConfigErrors, configWarnings, isPostgresUrl, PLACEHOLDER_TOKEN };

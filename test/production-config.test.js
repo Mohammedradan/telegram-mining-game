@@ -162,3 +162,12 @@ test('server: production webhook path rejects requests without the Telegram secr
   const guest = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: { 'X-Guest-Id': 'spoof' } });
   assert.equal(guest.status, 401);
 });
+
+test('config warnings: a Render service without NODE_ENV=production is flagged loudly', () => {
+  const { loadConfig, configWarnings } = require('../config');
+  const env = { RENDER: 'true', BOT_TOKEN: '' };
+  assert.equal(configWarnings(loadConfig(env), env).length, 1);
+  const prod = { ...env, NODE_ENV: 'production' };
+  assert.deepEqual(configWarnings(loadConfig(prod), prod), []);
+  assert.deepEqual(configWarnings(loadConfig({}), {}), [], 'plain local dev stays quiet');
+});
