@@ -11,6 +11,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: NODE_ENV
+        value: "production"
       # القيم السرية/الخاصة بنشرك — تُدخل يدوياً في لوحة Render (غير محفوظة هنا)
       - key: BOT_TOKEN
         sync: false
@@ -20,4 +22,6 @@ services:
         sync: false
       - key: MAX_CLICKS_PER_SEC
         value: "20"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
       # لا تضف ALLOW_GUEST_AUTH في الإنتاج — المصادقة بتيليجرام فقط عند وجود التوكن

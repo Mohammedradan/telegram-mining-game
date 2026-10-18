@@ -13,7 +13,7 @@ const runId = `${process.pid}_${Date.now()}`;
 const user = name => `platform_${runId}_${name}`;
 const headers = name => ({ 'X-Guest-Id': user(name), 'Content-Type': 'application/json' });
 async function launch(port) {
-  const child = spawn(process.execPath, ['server.js'], { cwd: path.join(__dirname, '..'), env: { ...process.env, PORT: String(port), NODE_ENV: 'development', BOT_TOKEN: '', BOT_MODE: 'polling', STARS_ENABLED: 'false', DATABASE_URL: url, DATABASE_FILE: file }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['server.js'], { cwd: path.join(__dirname, '..'), env: { ...process.env, PORT: String(port), NODE_ENV: 'development', BOT_TOKEN: '', BOT_MODE: 'polling', STARS_ENABLED: 'false', DATABASE_URL: url, DATABASE_FILE: file, ALLOW_GUEST: 'true' }, stdio: ['ignore', 'pipe', 'pipe'] });
   children.push(child); let output = '';
   child.stdout.on('data', b => { output += b; }); child.stderr.on('data', b => { output += b; });
   for (let i = 0; i < 80; i++) {
@@ -24,8 +24,10 @@ async function launch(port) {
   throw new Error(output);
 }
 async function stop(child) { if (child?.exitCode === null) { const done = new Promise(r => child.once('exit', r)); child.kill('SIGTERM'); await done; } }
-async function post(name, route, body = {}, port = ports[0]) {
-  const res = await fetch(`http://127.0.0.1:${port}/api/platform/${route}`, { method: 'POST', headers: headers(name), body: JSON.stringify(body) });
+async function post(name, route, body = {}, port = ports[0], verified = false) {
+  const h = headers(name);
+  if (verified) h['x-test-verified'] = 'true';
+  const res = await fetch(`http://127.0.0.1:${port}/api/platform/${route}`, { method: 'POST', headers: h, body: JSON.stringify(body) });
   return { status: res.status, body: await res.json() };
 }
 async function historical(name, elapsedMs) {
@@ -147,4 +149,122 @@ test('platform API: a confirmed legal loss cannot be upgraded to a win by replac
   assert.equal(swapped.body.won, false); assert.equal(swapped.body.gold, 0);
   assert.deepEqual((await store.getUser(owner)).state, before.state);
   assert.equal((await store.getUser(owner)).state.adventure.runs, 1);
+});
+
+test('platform API: daily cap database functions work correctly', async () => {
+  const id = 'cap-db-test';
+  const ownerId = `guest_${user(id)}`;
+  const today = new Date().toISOString().split('T')[0];
+
+  // Test getPlatformDailyReward returns 0 for no existing record
+  const earned1 = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(earned1, 0);
+
+  // Test addPlatformDailyReward adds amount
+  await store.addPlatformDailyReward(ownerId, today, 100);
+  const earned2 = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(earned2, 100);
+
+  // Test addPlatformDailyReward accumulates
+  await store.addPlatformDailyReward(ownerId, today, 50);
+  const earned3 = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(earned3, 150);
+
+  // Test different date returns 0
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const earned4 = await store.getPlatformDailyReward(ownerId, tomorrow);
+  assert.equal(earned4, 0);
+});
+
+test('platform API: atomic cap function enforces 10,000 limit', async () => {
+  const id = 'cap-atomic-test';
+  const ownerId = `guest_${user(id)}`;
+  const today = new Date().toISOString().split('T')[0];
+
+  // Test: balance 0, normal reward
+  const added1 = await store.addPlatformDailyRewardWithCap(ownerId, today, 100, 10000);
+  assert.equal(added1, 100);
+  const earned1 = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(earned1, 100);
+
+  // Test: balance 9,900, request 100 -> should add 100
+  await store.addPlatformDailyReward(ownerId, today, 9800); // Set to 9,900
+  const added2 = await store.addPlatformDailyRewardWithCap(ownerId, today, 100, 10000);
+  assert.equal(added2, 100);
+  const earned2 = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(earned2, 10000);
+
+  // Test: balance 10,000, request 100 -> should add 0
+  const added3 = await store.addPlatformDailyRewardWithCap(ownerId, today, 100, 10000);
+  assert.equal(added3, 0);
+  const earned3 = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(earned3, 10000);
+
+  // Test: balance 9,900, request 200 -> should add 100 (cap remaining)
+  await store.addPlatformDailyReward(ownerId, today, -100); // Reset to 9,900
+  const added4 = await store.addPlatformDailyRewardWithCap(ownerId, today, 200, 10000);
+  assert.equal(added4, 100);
+  const earned4 = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(earned4, 10000);
+});
+
+test('platform API: concurrent requests cannot exceed daily cap', async () => {
+  const id = 'cap-concurrent-test';
+  const ownerId = `guest_${user(id)}`;
+  const today = new Date().toISOString().split('T')[0];
+
+  // Set balance to 9,900
+  await store.addPlatformDailyReward(ownerId, today, 9900);
+
+  // Simulate 10 concurrent requests each asking for 100
+  // Total should not exceed 10,000
+  const promises = [];
+  for (let i = 0; i < 10; i++) {
+    promises.push(store.addPlatformDailyRewardWithCap(ownerId, today, 100, 10000));
+  }
+
+  const results = await Promise.all(promises);
+  const totalAdded = results.reduce((sum, val) => sum + val, 0);
+
+  // Total added should be exactly 100 (the remaining cap)
+  assert.equal(totalAdded, 100);
+
+  const finalBalance = await store.getPlatformDailyReward(ownerId, today);
+  assert.equal(finalBalance, 10000);
+});
+
+test('platform API: daily cap is enforced via database functions within transaction', async () => {
+  const id = 'cap-transaction-test';
+  const ownerId = `guest_${user(id)}`;
+  const today = new Date().toISOString().split('T')[0];
+
+  // Simulate what the API does: check cap, calculate remaining, add to DB
+  await store.withUsers([ownerId], async () => {
+    const earnedBefore = await store.getPlatformDailyReward(ownerId, today);
+    assert.equal(earnedBefore, 0);
+
+    const potential = 98;
+    const remaining = 10000 - earnedBefore;
+    const gold = Math.min(potential, remaining);
+
+    await store.addPlatformDailyReward(ownerId, today, gold);
+
+    const earnedAfter = await store.getPlatformDailyReward(ownerId, today);
+    assert.equal(earnedAfter, 98);
+  });
+
+  // Test that accumulating works correctly
+  await store.withUsers([ownerId], async () => {
+    const earnedBefore = await store.getPlatformDailyReward(ownerId, today);
+    assert.equal(earnedBefore, 98);
+
+    const potential = 100;
+    const remaining = 10000 - earnedBefore;
+    const gold = Math.min(potential, remaining);
+
+    await store.addPlatformDailyReward(ownerId, today, gold);
+
+    const earnedAfter = await store.getPlatformDailyReward(ownerId, today);
+    assert.equal(earnedAfter, 198);
+  });
 });

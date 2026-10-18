@@ -1,10 +1,18 @@
 const crypto = require('node:crypto');
 const Rules = require('./public/platform-rules');
 
+// حساب اليوم الاقتصادي بالتوقيت الموحد UTC
+function getUtcDate(now = Date.now()) {
+  const date = new Date(now);
+  return date.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
 // Only virtual gold, never a competitive/financial payout. Deterministic replay
 // proves legal physics, not a human player: automation remains possible.
 function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, now = Date.now }) {
   const lifetime = 30 * 60 * 1000;
+  const DAILY_CAP = 10000; // سقف يومي 10,000 ذهب للحسابات الموثّقة
+
   app.post('/api/platform/start', requireAuth, rateLimit('platform-start', 20), asyncRoute(async (req, res) => {
     const result = await store.withUsers([req.player.id], async () => {
       await prepare(req.player);
@@ -35,7 +43,18 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       if (now() - Number(run.started_at) + 1000 < duration * 1000) return { status: 409, error: 'الجولة أسرع من الزمن الحقيقي؛ أعد المحاولة بعد ثوانٍ' };
       const potential = Rules.rewardFor(state);
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
-      const gold = tooSoon ? 0 : potential;
+      let gold = tooSoon ? 0 : potential;
+
+      // تطبيق السقف اليومي للحسابات الموثّقة فقط
+      // استخدام دالة ذرية لمنع تجاوز السقف في الطلبات المتزامنة
+      if (gold > 0 && req.player.verified) {
+        const today = getUtcDate(now());
+        // الدالة الذرية تضيف المبلغ مع تطبيق السقف في قاعدة البيانات مباشرة
+        // وتُرجع المبلغ الذي أُضيف فعليًا
+        const actualAdded = await store.addPlatformDailyRewardWithCap(req.player.id, today, gold, DAILY_CAP);
+        gold = actualAdded; // تحديث gold بما تم إضافته فعليًا
+      }
+
       if (gold) user.sync.lastRewardAt.adventure = now();
       user.state.gold += gold; user.state.totalEarned += gold;
       const xp = grantXp(user.state, state.status === 'won' ? 20 + state.collected : 0);

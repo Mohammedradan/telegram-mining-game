@@ -91,6 +91,10 @@ CREATE TABLE IF NOT EXISTS platform_runs (
   status TEXT NOT NULL, result_json TEXT, started_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS platform_daily_rewards (
+  user_id TEXT NOT NULL, date TEXT NOT NULL, reward_earned REAL NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL, PRIMARY KEY (user_id, date)
+);
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
@@ -123,6 +127,10 @@ CREATE TABLE IF NOT EXISTS platform_runs (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
   status TEXT NOT NULL, result_json TEXT, started_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS platform_daily_rewards (
+  user_id TEXT NOT NULL, date TEXT NOT NULL, reward_earned DOUBLE PRECISION NOT NULL DEFAULT 0,
+  updated_at BIGINT NOT NULL, PRIMARY KEY (user_id, date)
 );
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
@@ -229,6 +237,57 @@ function createSqliteStore(file) {
         ON CONFLICT(id) DO UPDATE SET status = excluded.status, result_json = excluded.result_json, updated_at = excluded.updated_at`)
         .run(String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
           run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now());
+    },
+    async getPlatformDailyReward(userId, date) {
+      const row = conn.prepare('SELECT reward_earned FROM platform_daily_rewards WHERE user_id = ? AND date = ?').get(String(userId), String(date));
+      return row ? Number(row.reward_earned) || 0 : 0;
+    },
+    async addPlatformDailyReward(userId, date, amount) {
+      conn.prepare(`INSERT INTO platform_daily_rewards (user_id, date, reward_earned, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, date) DO UPDATE SET reward_earned = reward_earned + excluded.reward_earned, updated_at = excluded.updated_at`)
+        .run(String(userId), String(date), Number(amount) || 0, Date.now());
+    },
+    // دالة ذرية: تضيف المكافأة مع تطبيق السقف في قاعدة البيانات مباشرة
+    // تُرجع المبلغ الذي أُضيف فعليًا (قد يكون أقل من المطلوب بسبب السقف)
+    async addPlatformDailyRewardWithCap(userId, date, amount, cap = 10000) {
+      const uid = String(userId);
+      const d = String(date);
+      const amt = Number(amount) || 0;
+      const now = Date.now();
+
+      // استخدام معاملة لضمان الذرية
+      const transaction = conn.transaction(() => {
+        // قراءة القيمة الحالية داخل المعاملة
+        const row = conn.prepare('SELECT reward_earned FROM platform_daily_rewards WHERE user_id = ? AND date = ?').get(uid, d);
+        const current = row ? Number(row.reward_earned) || 0 : 0;
+
+        // حساب المبلغ الذي يمكن إضافته
+        const remaining = cap - current;
+        const toAdd = Math.min(amt, remaining);
+
+        if (toAdd <= 0) {
+          return 0; // لا شيء يمكن إضافته
+        }
+
+        // UPDATE أو INSERT
+        if (row) {
+          conn.prepare(
+            `UPDATE platform_daily_rewards
+             SET reward_earned = reward_earned + ?, updated_at = ?
+             WHERE user_id = ? AND date = ?`
+          ).run(toAdd, now, uid, d);
+        } else {
+          conn.prepare(
+            `INSERT INTO platform_daily_rewards (user_id, date, reward_earned, updated_at)
+             VALUES (?, ?, ?, ?)`
+          ).run(uid, d, toAdd, now);
+        }
+
+        return toAdd;
+      });
+
+      return transaction();
     },
     async getPending(id) { return conn.prepare('SELECT count FROM pending_referrals WHERE id = ?').get(String(id))?.count || 0; },
     async addPending(id) {
@@ -348,18 +407,122 @@ function createPgStore(url) {
       [String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
         run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now()]);
     },
+    async getPlatformDailyReward(userId, date) {
+      const r = (await q('SELECT reward_earned FROM platform_daily_rewards WHERE user_id = $1 AND date = $2', [String(userId), String(date)])).rows[0];
+      return r ? Number(r.reward_earned) || 0 : 0;
+    },
+    async addPlatformDailyReward(userId, date, amount) {
+      await q(`INSERT INTO platform_daily_rewards (user_id, date, reward_earned, updated_at)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT(user_id, date) DO UPDATE SET reward_earned = platform_daily_rewards.reward_earned + EXCLUDED.reward_earned, updated_at = EXCLUDED.updated_at`,
+      [String(userId), String(date), Number(amount) || 0, Date.now()]);
+    },
+    // دالة ذرية: تضيف المكافأة مع تطبيق السقف في قاعدة البيانات مباشرة
+    // تُرجع المبلغ الذي أُضيف فعليًا (قد يكون أقل من المطلوب بسبب السقف)
+    async addPlatformDailyRewardWithCap(userId, date, amount, cap = 10000) {
+      const uid = String(userId);
+      const d = String(date);
+      const amt = Number(amount) || 0;
+      const now = Date.now();
+
+      // التحقق من وجود معاملة حالية (من withUsers)
+      const txClient = transactionContext.getStore();
+
+      if (txClient) {
+        // داخل معاملة، نستخدم الـ client الموجود
+        const r = await txClient.query(
+          'SELECT reward_earned FROM platform_daily_rewards WHERE user_id = $1 AND date = $2 FOR UPDATE',
+          [uid, d]
+        );
+        const current = r.rows.length > 0 ? Number(r.rows[0].reward_earned) || 0 : 0;
+        const remaining = cap - current;
+        const toAdd = Math.min(amt, remaining);
+
+        if (toAdd <= 0) return 0;
+
+        if (r.rows.length > 0) {
+          await txClient.query(
+            'UPDATE platform_daily_rewards SET reward_earned = reward_earned + $1, updated_at = $2 WHERE user_id = $3 AND date = $4',
+            [toAdd, now, uid, d]
+          );
+        } else {
+          await txClient.query(
+            'INSERT INTO platform_daily_rewards (user_id, date, reward_earned, updated_at) VALUES ($1, $2, $3, $4)',
+            [uid, d, toAdd, now]
+          );
+        }
+        return toAdd;
+      }
+
+      // خارج معاملة، ننشئ معاملة جديدة
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const r = await client.query(
+          'SELECT reward_earned FROM platform_daily_rewards WHERE user_id = $1 AND date = $2 FOR UPDATE',
+          [uid, d]
+        );
+        const current = r.rows.length > 0 ? Number(r.rows[0].reward_earned) || 0 : 0;
+        const remaining = cap - current;
+        const toAdd = Math.min(amt, remaining);
+
+        if (toAdd <= 0) {
+          await client.query('ROLLBACK');
+          return 0;
+        }
+
+        if (r.rows.length > 0) {
+          await client.query(
+            'UPDATE platform_daily_rewards SET reward_earned = reward_earned + $1, updated_at = $2 WHERE user_id = $3 AND date = $4',
+            [toAdd, now, uid, d]
+          );
+        } else {
+          await client.query(
+            'INSERT INTO platform_daily_rewards (user_id, date, reward_earned, updated_at) VALUES ($1, $2, $3, $4)',
+            [uid, d, toAdd, now]
+          );
+        }
+
+        await client.query('COMMIT');
+        return toAdd;
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+    },
     async close() { await pool.end(); },
   };
 }
 
 function createStore() {
   const url = process.env.DATABASE_URL || '';
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // في الإنتاج، يجب استخدام PostgreSQL (إلا في الاختبارات)
+  if (isProduction) {
+    // السماح بـ sqlite:memory للاختبارات فقط
+    if (url === 'sqlite:memory' && process.env.SKIP_PRODUCTION_CHECK === 'true') {
+      console.log('🗄️  قاعدة البيانات: SQLite in-memory (اختبار إنتاجي)');
+      return createSqliteStore(':memory:');
+    }
+    if (!url || !/^postgres(ql)?:\/\//.test(url)) {
+      console.error('❌ خطأ إنتاجي: DATABASE_URL مطلوب ويجب أن يكون رابط PostgreSQL في وضع الإنتاج.');
+      console.error('❌ SQLite غير مسموح في الإنتاج بسبب فقدان البيانات عند إعادة النشر.');
+      process.exit(1);
+    }
+    console.log('🗄️  قاعدة البيانات: PostgreSQL (الإنتاج)');
+    return createPgStore(url);
+  }
+
+  // في التطوير، يمكن استخدام SQLite أو PostgreSQL
   if (/^postgres(ql)?:\/\//.test(url)) {
-    console.log('🗄️  قاعدة البيانات: PostgreSQL');
+    console.log('🗄️  قاعدة البيانات: PostgreSQL (التطوير)');
     return createPgStore(url);
   }
   const file = process.env.DATABASE_FILE || path.join(__dirname, 'data', 'game.db');
-  console.log(`🗄️  قاعدة البيانات: SQLite (${file})`);
+  console.log(`🗄️  قاعدة البيانات: SQLite (${file}) - للتطوير فقط`);
   return createSqliteStore(file);
 }
 

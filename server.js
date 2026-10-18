@@ -17,6 +17,38 @@ const { mountPlatform } = require('./platform-api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+
+// Render وغيرها من المنصات تستخدم proxy - يجب الثقة به للحصول على عنوان IP الصحيح
+// Render يستخدم Cloudflare + Render proxy = 2 hops على الأقل
+// لكن Render يوصي بـ trust proxy = 1 في وثائقهم الرسمية
+// للحصول على IP الحقيقي غير قابل للتزوير، نستخدم CF-Connecting-IP أو True-Client-IP من Cloudflare
+const trustProxyHops = process.env.TRUST_PROXY_HOPS ? parseInt(process.env.TRUST_PROXY_HOPS, 10) :
+                      (process.env.NODE_ENV === 'production' ? 1 : 0);
+if (trustProxyHops > 0) {
+  app.set('trust proxy', trustProxyHops);
+  console.log(`🔒 Trust proxy: ${trustProxyHops} hop(s)`);
+}
+
+// استخدام Cloudflare headers للحصول على IP الحقيقي غير قابل للتزوير
+app.use((req, res, next) => {
+  const cfConnectingIp = req.get('CF-Connecting-IP');
+  const trueClientIp = req.get('True-Client-IP');
+  if (cfConnectingIp || trueClientIp) {
+    // Cloudflare يضبط هذه الترويسات وهي غير قابلة للتزوير
+    req.realIp = cfConnectingIp || trueClientIp;
+  } else {
+    // إذا لم تكن الترويسات موجودة (مثلاً في التطوير المحلي)، نستخدم req.ip
+    // لكننا نتحقق من عدم وجود X-Forwarded-For مزور
+    const xff = req.get('X-Forwarded-For');
+    if (xff && trustProxyHops === 0) {
+      // إذا لم نكن نثق بالـ proxy ووجدنا X-Forwarded-For، نتجاهله
+      req.realIp = req.socket.remoteAddress;
+    } else {
+      req.realIp = req.ip;
+    }
+  }
+  next();
+});
 const RAW_TOKEN = (process.env.BOT_TOKEN || '').trim();
 const PLACEHOLDER = 'ضع_هنا_التوكن_الخاص_بك_من_BotFather';
 const BOT_TOKEN = RAW_TOKEN && RAW_TOKEN !== PLACEHOLDER ? RAW_TOKEN : '';
@@ -25,6 +57,23 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ALLOW_GUEST = process.env.ALLOW_GUEST_AUTH === 'true'
   || (!BOT_TOKEN && !IS_PRODUCTION && process.env.ALLOW_GUEST_AUTH !== 'false');
 const REFERRAL_REWARD = 1000;
+
+// تحقق أمني للإنتاج: يجب وجود BOT_TOKEN وقاعدة بيانات
+// يمكن تجاوز هذا التحقق في الاختبارات عبر SKIP_PRODUCTION_CHECK=true
+if (IS_PRODUCTION && process.env.SKIP_PRODUCTION_CHECK !== 'true') {
+  if (!BOT_TOKEN) {
+    console.error('❌ خطأ إنتاجي: BOT_TOKEN مطلوب في وضع الإنتاج. ضع التوكن في متغير البيئة.');
+    process.exit(1);
+  }
+  if (!process.env.DATABASE_URL) {
+    console.error('❌ خطأ إنتاجي: DATABASE_URL مطلوب في وضع الإنتاج. استخدم PostgreSQL بدلاً من SQLite.');
+    process.exit(1);
+  }
+  if (process.env.ALLOW_GUEST_AUTH === 'true') {
+    console.error('❌ خطأ إنتاجي: ALLOW_GUEST_AUTH=true غير مسموح في وضع الإنتاج.');
+    process.exit(1);
+  }
+}
 
 // إعدادات مكافحة الغش الخادمية (قابلة للضبط من البيئة)
 const MAX_CLICKS_PER_SEC = Number(process.env.MAX_CLICKS_PER_SEC || 20); // نقرات بشرية/لمس متعدد كحد أقصى معقول
@@ -949,12 +998,14 @@ function requireAuth(req, res, next) {
       ? validateInitData(initData)
       : (!IS_PRODUCTION && ALLOW_GUEST ? parseInitDataUser(initData) : null);
     if (!tgUser?.id) return res.status(401).json({ error: 'بيانات تيليجرام غير صالحة أو منتهية — أعد فتح اللعبة من البوت' });
-    req.player = { id: String(tgUser.id), name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || 'معدّن أسطوري' };
+    req.player = { verified: Boolean(BOT_TOKEN), id: String(tgUser.id), name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || tgUser.username || 'معدّن أسطوري' };
     return next();
   }
   const guestId = (req.get('x-guest-id') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
   if (guestId && ALLOW_GUEST) {
-    req.player = { id: `guest_${guestId}`, name: 'ضيف' };
+    // في وضع الاختبار، يمكن فرض verified عبر ترويسة x-test-verified
+    const testVerified = !IS_PRODUCTION && process.env.ALLOW_GUEST !== 'false' && req.get('x-test-verified') === 'true';
+    req.player = { verified: testVerified, id: `guest_${guestId}`, name: 'ضيف' };
     return next();
   }
   return res.status(401).json({ error: BOT_TOKEN ? 'افتح اللعبة من داخل تيليجرام' : 'مصادقة مفقودة' });
@@ -963,14 +1014,38 @@ function requireAuth(req, res, next) {
 // تحديد معدّل بسيط حسب اللاعب/العنوان لكل مسار
 function rateLimit(name, maxPerMinute) {
   const hits = new Map();
+  const CLEANUP_INTERVAL = 60_000; // تنظيف كل دقيقة
+  const MAX_KEYS = 10000; // حد أعلى للمفاتيح
+
+  setInterval(() => {
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [key, arr] of hits.entries()) {
+      const filtered = arr.filter((t) => now - t < 60_000);
+      if (filtered.length === 0) {
+        hits.delete(key);
+        cleaned++;
+      } else if (filtered.length !== arr.length) {
+        hits.set(key, filtered);
+      }
+    }
+    // تنظيف عشوائي إذا تجاوز الحد الأقصى
+    if (hits.size > MAX_KEYS) {
+      const keys = Array.from(hits.keys());
+      const toDelete = keys.slice(0, keys.length - MAX_KEYS);
+      for (const key of toDelete) hits.delete(key);
+    }
+  }, CLEANUP_INTERVAL);
+
   return (req, res, next) => {
-    const key = `${name}:${req.player?.id || req.ip}`;
+    // استخدام IP الحقيقي من Cloudflare إذا كان متاحاً، غير قابل للتزوير
+    const ip = req.realIp || req.ip;
+    const key = `${name}:${req.player?.id || ip}`;
     const now = Date.now();
     const arr = (hits.get(key) || []).filter((t) => now - t < 60_000);
     if (arr.length >= maxPerMinute) return res.status(429).json({ error: 'طلبات كثيرة جداً — انتظر قليلاً' });
     arr.push(now);
     hits.set(key, arr);
-    if (hits.size > 5000) hits.clear();
     next();
   };
 }
@@ -980,6 +1055,30 @@ function rateLimit(name, maxPerMinute) {
 // ---------------------------------------------------------------------------
 app.use(express.json({ limit: '32kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ترويسات الأمان
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'no-referrer');
+  if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
+
+  // سياسة محتوى CSP متوافقة مع Telegram Mini App
+  // تسمح بالمصادر الضرورية فقط
+  // ملاحظة: unsafe-inline ضروري لـ Tailwind CDN، يمكن إزالته عند استخدام nonce أو hash
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://telegram.org/js/telegram-web-app.js https://cdn.tailwindcss.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https://cdn.jsdelivr.net https://cdn.tailwindcss.com",
+    "connect-src 'self' ws://localhost:* wss:*.onrender.com", // WebSocket للسباقات فقط
+    "frame-ancestors 'self' https://web.telegram.org https://t.me",
+  ].join('; ');
+  res.set('Content-Security-Policy', csp);
+
+  next();
+});
 
 const asyncRoute = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => {
   console.error('خطأ API:', e);

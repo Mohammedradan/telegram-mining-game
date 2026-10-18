@@ -21,7 +21,8 @@ function startServer() {
       BOT_TOKEN: '',
       ALLOW_GUEST_AUTH: 'false',
       DATABASE_FILE: path.join(tmpDir, 'game.db'),
-      DATABASE_URL: '',
+      DATABASE_URL: 'sqlite:memory', // استخدام SQLite في الذاكرة للاختبار
+      SKIP_PRODUCTION_CHECK: 'true', // تجاوز التحقق الإنتاجي للاختبار
     },
     stdio: 'inherit',
   });
