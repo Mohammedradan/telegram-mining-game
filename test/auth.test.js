@@ -18,7 +18,11 @@ function startServer() {
       ...process.env,
       NODE_ENV: 'production',
       PORT: String(PORT),
-      BOT_TOKEN: '',
+      // توكن بصيغة صالحة لكنه غير حقيقي: الإنتاج يرفض البدء بلا توكن، والتوقيعات المزيفة تبقى مرفوضة
+      BOT_TOKEN: '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      APP_URL: 'https://example.test',
+      BOT_MODE: 'webhook',
+      ALLOW_SQLITE_IN_PRODUCTION: 'true',
       ALLOW_GUEST_AUTH: 'false',
       DATABASE_FILE: path.join(tmpDir, 'game.db'),
       DATABASE_URL: '',
