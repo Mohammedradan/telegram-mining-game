@@ -82,7 +82,7 @@
     const emptyHearts = Math.max(0, (sim.player.maxHearts || 3) - fullHearts);
     el('platform-hearts').textContent = '♥ '.repeat(fullHearts) + (emptyHearts > 0 ? '♡ '.repeat(emptyHearts) : '') || 'انتهت القلوب';
     el('platform-resources').textContent = `💎 ${Math.min(3, sim.collected)}/3 · ⛏ ${Math.min(1, sim.mined)}/1 · 👾 ${sim.defeated || 0}`;
-    el('platform-progress').textContent = `${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+    el('platform-progress').textContent = `${(R.ZONES[sim.zone] || R.ZONES[0]).name} · ${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
     // Skill button cooldown label
     const skillBtn = document.querySelector('[data-platform-input="32"]');

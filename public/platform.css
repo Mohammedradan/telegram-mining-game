@@ -39,7 +39,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-overlay button:disabled{opacity:.55}
 .mine-overlay #platform-resume{background:#26545c;color:#d5ffef;border-color:#468b85}
 
-.mine-controls{display:flex;justify-content:space-between;align-items:center;gap:4px;flex-shrink:0}
+/* الحركة يساراً والأفعال يميناً حتى داخل صفحة RTL (عرف ألعاب الجوال) */
+.mine-controls{direction:ltr;display:flex;justify-content:space-between;align-items:center;gap:4px;flex-shrink:0}
 .mine-controls-dpad{display:flex;gap:4px}
 .mine-controls-actions{display:flex;gap:4px}
 .mine-controls button{min-width:44px;min-height:48px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#223642;border:1px solid #4a6773;border-bottom:4px solid #0e1920;border-radius:12px;color:#f0f7f7;font-weight:800;font-size:15px;line-height:1;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:transform .08s,background .12s}

@@ -208,3 +208,46 @@ test('platform balance: each hero has a distinct, measurable advantage', () => {
   const melee = R.create('warrior'); melee.enemies = [{ ...melee.enemies[0], x: melee.player.x + 200, y: melee.player.y + 4, patrolSpeed: 0, vx: 0 }];
   R.step(melee, R.INPUT.ATTACK); assert.equal(melee.defeated, 0);
 });
+
+test('platform zones: the run seed picks a cosmetic cave zone without changing physics or the verdict', () => {
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) {
+    const seed = R.seedFromId(`zone-${i}`);
+    const s = R.create('miner', seed);
+    assert.equal(s.zone, R.zoneFor(seed));
+    assert.ok(R.ZONES[s.zone].name);
+    seen.add(s.zone);
+  }
+  assert.equal(seen.size, R.ZONES.length, 'every zone appears across run ids');
+  assert.equal(R.create().zone, 0, 'no seed ⇒ the classic blue cave');
+  const seed = R.seedFromId('zone-verdict');
+  const { inputs, state } = solution(seed);
+  const replay = R.replay(inputs, 'miner', seed);
+  assert.equal(replay.state.status, state.status);
+  assert.equal(R.rewardFor(replay.state), R.rewardFor(state));
+});
+
+test('platform zones: all four caves are reachable from server-style run ids, each with its name, own layout and a winnable route', () => {
+  const crypto = require('node:crypto');
+  const names = ['كهف البلّور الأزرق', 'مناجم الحمم', 'كهف الزمرّد', 'الأعماق البنفسجية'];
+  assert.deepEqual(R.ZONES.map(z => z.name), names);
+  const found = new Map();
+  for (let i = 0; i < 200 && found.size < R.ZONES.length; i++) {
+    const id = crypto.randomUUID(); // نفس صيغة معرّف الجولة في platform-api.js
+    const seed = R.seedFromId(id);
+    if (!found.has(R.zoneFor(seed))) found.set(R.zoneFor(seed), seed);
+  }
+  assert.equal(found.size, R.ZONES.length, 'every zone is reachable from random run ids');
+  const layouts = new Set();
+  for (const [zone, seed] of found) {
+    const s = R.create('miner', seed);
+    assert.equal(s.zone, zone);
+    assert.equal(R.ZONES[s.zone].name, names[zone]);
+    for (const key of ['sky', 'far', 'mid', 'glow']) assert.ok(R.ZONES[zone][key], `zone ${zone} has ${key} colours`);
+    assert.equal(s.rocks.length, R.LEVEL.rocks.length);
+    assert.equal(s.gems.length, R.LEVEL.gems.length);
+    layouts.add(JSON.stringify(s.rocks.map(r => r.x)));
+    assert.equal(solution(seed).state.status, 'won', `zone ${names[zone]} layout is winnable`);
+  }
+  assert.equal(layouts.size, found.size, 'each zone sample has its own layout');
+});
