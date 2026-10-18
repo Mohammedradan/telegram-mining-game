@@ -452,17 +452,18 @@
     const camera = R.cameraFor(s, w);
 
     // Deep Cavern Background Gradient
+    const zone = R.ZONES[s.zone || 0] || R.ZONES[0];
     const bg = c.createLinearGradient(0, 0, 0, 360);
-    bg.addColorStop(0, '#0a1520');
-    bg.addColorStop(0.5, '#132836');
-    bg.addColorStop(1, '#1d3945');
+    bg.addColorStop(0, zone.sky[0]);
+    bg.addColorStop(0.5, zone.sky[1]);
+    bg.addColorStop(1, zone.sky[2]);
     c.fillStyle = bg;
     c.fillRect(0, 0, w, 360);
 
     // 3 Parallax Cavern Layers
     // Layer 0: Distant stalactites and cavern silhouettes
     const shift0 = camera * 0.12;
-    c.fillStyle = '#0f2230';
+    c.fillStyle = zone.far;
     for (let i = Math.floor(shift0 / 200) - 1; i < Math.ceil((shift0 + w) / 200) + 1; i++) {
       const x = i * 200 - shift0;
       c.beginPath();
@@ -474,7 +475,7 @@
 
     // Layer 1: Mid-distance cavern rock columns & arches
     const shift1 = camera * 0.32;
-    c.fillStyle = '#1c3748';
+    c.fillStyle = zone.mid;
     for (let i = Math.floor(shift1 / 180) - 1; i < Math.ceil((shift1 + w) / 180) + 1; i++) {
       const x = i * 180 - shift1;
       c.beginPath();
@@ -493,7 +494,7 @@
       round(c, x + 15, 50, 12, 260, 3, '#2a353d');
       round(c, x - 30, 48, 180, 12, 3, '#3e4952');
       // Glowing green/cyan cave mushroom
-      c.fillStyle = '#3ee6b3';
+      c.fillStyle = zone.glow;
       c.beginPath();
       c.arc(x + 80, 295, 6, Math.PI, 0);
       c.fill();

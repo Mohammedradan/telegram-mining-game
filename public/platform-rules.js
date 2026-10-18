@@ -114,6 +114,15 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
+  // مناطق تجميلية فقط (لا تؤثر في الفيزياء ولا في التحقق): تختلف ألوان الكهف واسمه حسب بذرة الجولة
+  const ZONES = [
+    { id: 'blue', name: 'كهف البلّور الأزرق', sky: ['#0a1520', '#132836', '#1d3945'], far: '#0f2230', mid: '#1c3748', glow: '#3ee6b3' },
+    { id: 'lava', name: 'مناجم الحمم', sky: ['#1a0d0a', '#2e1510', '#46201a'], far: '#2a120c', mid: '#3d1d14', glow: '#ff8a3d' },
+    { id: 'emerald', name: 'كهف الزمرّد', sky: ['#08160f', '#10291c', '#1b3d2a'], far: '#0d2318', mid: '#173826', glow: '#7dff9a' },
+    { id: 'amethyst', name: 'الأعماق البنفسجية', sky: ['#120a1e', '#1f1233', '#2d1b47'], far: '#1a0f2b', mid: '#2a1a40', glow: '#d58bff' },
+  ];
+  const zoneFor = (seed) => (seed === undefined || seed === null ? 0 : (seed >>> 0) % ZONES.length);
+
   function layoutFor(seed) {
     if (seed === undefined || seed === null) return { rocks: LEVEL.rocks, gems: LEVEL.gems, enemies: LEVEL.enemies.map(e => ({ ...e, dir: 1 })) };
     const rnd = prng(Number(seed) >>> 0);
@@ -134,6 +143,7 @@
     const layout = layoutFor(seed);
     return {
       seed: seed === undefined || seed === null ? null : Number(seed) >>> 0,
+      zone: zoneFor(seed),
       version: VERSION,
       tick: 0,
       status: 'playing',
@@ -455,5 +465,5 @@
   const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
   const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
 
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
+  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, ZONES, zoneFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
 });

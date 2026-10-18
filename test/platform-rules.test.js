@@ -208,3 +208,21 @@ test('platform balance: each hero has a distinct, measurable advantage', () => {
   const melee = R.create('warrior'); melee.enemies = [{ ...melee.enemies[0], x: melee.player.x + 200, y: melee.player.y + 4, patrolSpeed: 0, vx: 0 }];
   R.step(melee, R.INPUT.ATTACK); assert.equal(melee.defeated, 0);
 });
+
+test('platform zones: the run seed picks a cosmetic cave zone without changing physics or the verdict', () => {
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) {
+    const seed = R.seedFromId(`zone-${i}`);
+    const s = R.create('miner', seed);
+    assert.equal(s.zone, R.zoneFor(seed));
+    assert.ok(R.ZONES[s.zone].name);
+    seen.add(s.zone);
+  }
+  assert.equal(seen.size, R.ZONES.length, 'every zone appears across run ids');
+  assert.equal(R.create().zone, 0, 'no seed ⇒ the classic blue cave');
+  const seed = R.seedFromId('zone-verdict');
+  const { inputs, state } = solution(seed);
+  const replay = R.replay(inputs, 'miner', seed);
+  assert.equal(replay.state.status, state.status);
+  assert.equal(R.rewardFor(replay.state), R.rewardFor(state));
+});
