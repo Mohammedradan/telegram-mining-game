@@ -1,102 +1,130 @@
-/* Self-contained scene layout: no CDN, images, fonts or game engine download. */
+/* Self-contained scene layout: professional 2D platformer theme — no CDN, no images, no font downloads */
 [hidden] { display: none !important; }
 .mine-mode-switch{display:flex;gap:6px;flex-shrink:0}
-.mine-mode-switch button{flex:1;border:1px solid #3e5163;border-radius:9px;padding:7px 4px;font-size:11px;color:#b5c6d3;background:#17252e}
-.mine-mode-switch button[aria-pressed=true]{background:#f4bf62;color:#261e20;border-color:#f4bf62;font-weight:900}
+.mine-mode-switch button{flex:1;border:1px solid #3e5163;border-radius:10px;padding:7px 4px;font-size:11px;color:#b5c6d3;background:#17252e;transition:all .15s}
+.mine-mode-switch button[aria-pressed=true]{background:linear-gradient(135deg,#f4bf62,#e09a2d);color:#261e20;border-color:#f4bf62;font-weight:900;box-shadow:0 2px 10px rgba(244,191,98,.35)}
 
-#platform-scene{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;color:#f9edcf;font-family:system-ui,sans-serif}
+#platform-scene{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;color:#f9edcf;font-family:'Tajawal',system-ui,-apple-system,sans-serif}
 /* The side-scroller is the focused play view. Keep economy and secondary panels one tap away, not stacked above the level. */
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .app-header,
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .balance-strip,
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav,
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .mine-mode-switch{display:none!important}
-body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #tab-play{padding:4px!important}
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #tab-play{padding:4px!important;gap:4px!important}
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .bottom-nav{flex-shrink:0;padding:4px}
-.mine-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;flex-shrink:0}
-.mine-heading-actions{display:flex;align-items:center;gap:5px}
-.mine-heading-actions button{font-size:10px;padding:6px 9px;border-radius:9px;background:#22333c;border:1px solid #40505a;min-height:42px;color:#e8f1f5;white-space:nowrap}
-.mine-heading-actions #platform-menus{color:#f6d58a;background:#27241d;border-color:#5e4b2d}
-.mine-heading h2{font-size:15px;font-weight:900;line-height:1.2}
-.mine-kicker{font-size:9px;letter-spacing:.6px;color:#e9b969}
+.mine-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;padding:4px 6px;background:linear-gradient(135deg,rgba(18,33,43,.95),rgba(26,47,62,.85));border:1px solid rgba(101,81,66,.5);border-radius:12px;backdrop-filter:blur(6px)}
+.mine-heading-actions{display:flex;align-items:center;gap:6px}
+.mine-heading-actions button{font-size:10px;padding:7px 10px;border-radius:9px;background:rgba(34,51,60,.9);border:1px solid #40505a;min-height:38px;color:#e8f1f5;white-space:nowrap;cursor:pointer;transition:all .15s;font-weight:700}
+.mine-heading-actions button:active{transform:scale(.96)}
+.mine-heading-actions #platform-menus{color:#f6d58a;background:linear-gradient(135deg,#3a2f1a,#27241d);border-color:#5e4b2d;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.mine-heading h2{font-size:15px;font-weight:900;line-height:1.2;color:#ffdf8a;text-shadow:0 1px 4px rgba(0,0,0,.5);letter-spacing:.3px}
+.mine-kicker{font-size:9px;letter-spacing:.6px;color:#e9b969;opacity:.95}
 .mine-heading button{font-size:10px;padding:6px 9px;border-radius:9px;background:#22333c;border:1px solid #40505a;min-height:32px;color:#e8f1f5}
 
-.mine-hero-bar{display:flex;gap:4px;flex-shrink:0;background:#13212b;padding:3px;border-radius:9px;border:1px solid #324754}
-.mine-hero-btn{flex:1;border:1px solid transparent;border-radius:7px;padding:5px 2px;font-size:10px;font-weight:700;color:#95aab8;background:transparent;cursor:pointer;transition:all .15s}
-.mine-hero-btn.active{background:#253d4d;color:#ffdf7a;border-color:#eab85a;box-shadow:0 2px 6px #0004}
+.mine-hero-bar{display:flex;gap:4px;flex-shrink:0;background:linear-gradient(135deg,#0f1e2b,#13212b);padding:4px;border-radius:10px;border:1px solid #324754;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 2px 8px rgba(0,0,0,.3)}
+.mine-hero-btn{flex:1;border:1px solid transparent;border-radius:8px;padding:6px 2px;font-size:10px;font-weight:700;color:#95aab8;background:transparent;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.mine-hero-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,.04));opacity:0;transition:opacity .15s}
+.mine-hero-btn:hover::before{opacity:1}
+.mine-hero-btn.active{background:linear-gradient(135deg,#2a4355,#253d4d);color:#ffdf7a;border-color:#eab85a;box-shadow:0 2px 8px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,223,122,.15);transform:translateY(-1px)}
+.mine-hero-btn.active::after{content:'';position:absolute;bottom:-1px;left:20%;right:20%;height:2px;background:#eab85a;border-radius:999px;box-shadow:0 0 6px #eab85a}
 
-.mine-hud{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:6px 9px;border:1px solid #485047;border-radius:10px;background:#15232c;flex-shrink:0}
-#platform-hearts{color:#ff7675;letter-spacing:2px;font-size:12px;font-weight:900}
-#platform-resources{color:#a8e6cf;font-weight:700}
-#platform-progress{color:#ffd32a;font-weight:700}
+.mine-hud{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:7px 10px;border:1px solid rgba(72,80,71,.6);border-radius:11px;background:linear-gradient(135deg,rgba(21,35,44,.95),rgba(16,28,36,.9));flex-shrink:0;backdrop-filter:blur(4px);box-shadow:0 2px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.06)}
+#platform-hearts{color:#ff7675;letter-spacing:1.5px;font-size:13px;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,.5);filter:drop-shadow(0 0 4px rgba(255,118,117,.4))}
+#platform-resources{color:#a8e6cf;font-weight:800;font-size:10.5px;display:flex;gap:8px;align-items:center}
+#platform-resources::before{content:'◆';color:#5cf3d2;font-size:7px;opacity:.7}
+#platform-progress{color:#ffd32a;font-weight:800;display:flex;align-items:center;gap:4px}
+#platform-progress::before{content:'◉';color:#f6b93b;font-size:8px;animation:progressPulse 1.5s ease-in-out infinite}
+@keyframes progressPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
 
-.mine-stage{position:relative;flex:1;min-height:180px;border:2px solid #655142;border-radius:14px;overflow:hidden;background:#0d1822;box-shadow:0 8px 28px #0006}
-#platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none}
+.mine-stage{position:relative;flex:1;min-height:260px;border:2px solid #6b5a3e;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at center top,#0f2535 0%,#0a1622 40%,#07101a 100%);box-shadow:0 10px 36px rgba(0,0,0,.55),0 0 0 1px rgba(244,191,98,.12),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 8px rgba(0,0,0,.4)}
+#platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none;image-rendering:optimizeQuality}
 
-.mine-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;padding:14px;background:linear-gradient(135deg,#0c1d29dc,#142732b8);text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d}
-.mine-overlay h3{font-size:22px;line-height:1.1;font-weight:900;color:#ffdc91}
-.mine-overlay p{font-size:11px;line-height:1.7;max-width:390px;color:#c5d6d8}
-.mine-overlay button,#platform-retry{border-radius:10px;padding:9px 20px;background:#f5bc60;color:#302119;font-weight:800;border:1px solid #ffe2a2;font-size:12px;cursor:pointer}
-.mine-overlay button:disabled{opacity:.55}
-.mine-overlay #platform-resume{background:#26545c;color:#d5ffef;border-color:#468b85}
+.mine-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;padding:16px;background:linear-gradient(135deg,rgba(7,20,32,.92),rgba(16,33,48,.85),rgba(8,22,35,.90));text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d;backdrop-filter:blur(2px)}
+.mine-overlay h3{font-size:23px;line-height:1.1;font-weight:900;color:#ffdc91;text-shadow:0 2px 12px rgba(0,0,0,.6),0 0 20px rgba(255,220,145,.25);letter-spacing:.4px}
+.mine-overlay p{font-size:11.5px;line-height:1.7;max-width:400px;color:#cfe0e2;opacity:.95}
+.mine-overlay button,#platform-retry{border-radius:11px;padding:10px 22px;background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;border:1px solid #ffe2a2;font-size:12px;cursor:pointer;box-shadow:0 4px 14px rgba(245,188,96,.3),inset 0 1px 0 rgba(255,255,255,.3);transition:all .15s}
+.mine-overlay button:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(245,188,96,.4),inset 0 1px 0 rgba(255,255,255,.3)}
+.mine-overlay button:active{transform:translateY(1px) scale(.98)}
+.mine-overlay button:disabled{opacity:.55;transform:none;box-shadow:none}
+.mine-overlay #platform-resume{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;box-shadow:0 4px 14px rgba(38,84,92,.3)}
 
-.mine-controls{display:flex;justify-content:space-between;align-items:center;gap:4px;flex-shrink:0}
-.mine-controls-dpad{display:flex;gap:4px}
-.mine-controls-actions{display:flex;gap:4px}
-.mine-controls button{min-width:44px;min-height:48px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#223642;border:1px solid #4a6773;border-bottom:4px solid #0e1920;border-radius:12px;color:#f0f7f7;font-weight:800;font-size:15px;line-height:1;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:transform .08s,background .12s}
-.mine-controls button span{font-size:9px;line-height:1.1;color:#d1e0e2}
-.mine-controls button[data-down=true],.mine-controls button:active{transform:translateY(2px);border-bottom-width:2px}
+.mine-controls{display:flex;justify-content:space-between;align-items:center;gap:5px;flex-shrink:0;padding:3px;background:linear-gradient(135deg,rgba(18,30,42,.6),rgba(12,22,32,.4));border-radius:14px;border:1px solid rgba(60,80,95,.25)}
+.mine-controls-dpad{display:flex;gap:5px}
+.mine-controls-actions{display:flex;gap:5px}
+.mine-controls button{min-width:46px;min-height:50px;padding:5px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:linear-gradient(135deg,#243a4a,#1e2f3e);border:1px solid #4a6773;border-bottom:4px solid #0e1920;border-radius:13px;color:#f0f7f7;font-weight:800;font-size:15px;line-height:1;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:transform .08s,background .12s,box-shadow .12s;box-shadow:0 3px 8px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.08)}
+.mine-controls button:hover{box-shadow:0 4px 12px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1)}
+.mine-controls button span{font-size:8.5px;line-height:1.1;color:#d1e0e2;font-weight:700;letter-spacing:.2px}
+.mine-controls button[data-down=true],.mine-controls button:active{transform:translateY(2px) scale(.97);border-bottom-width:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 
-/* Dedicated tactical button color themes */
-.mine-controls button[data-platform-input="8"]{background:#785434;border-color:#b58a55;color:#ffebb8}/* ⛏️ Mine */
-.mine-controls button[data-platform-input="8"][data-down=true]{background:#593d25}
-.mine-controls button[data-platform-input="16"]{background:#8a2f34;border-color:#c4474d;color:#ffd0d2}/* ⚔️ Attack */
-.mine-controls button[data-platform-input="16"][data-down=true]{background:#631f23}
-.mine-controls button[data-platform-input="32"]{background:#64307a;border-color:#994bb8;color:#f3d4ff}/* 💥 Skill */
-.mine-controls button[data-platform-input="32"][data-down=true]{background:#482059}
-.mine-controls button[data-platform-input="4"]{background:#1f5e7a;border-color:#3a8bb1;color:#d7f3ff}/* ⤒ Jump */
-.mine-controls button[data-platform-input="4"][data-down=true]{background:#154459}
-.mine-controls #platform-pause{min-width:36px;padding:5px;font-size:15px;background:#1b2a33;border-color:#394c57}
+/* Dedicated tactical button color themes - richer gradients */
+.mine-controls button[data-platform-input="8"]{background:linear-gradient(135deg,#8a5e2e,#785434);border-color:#b58a55;color:#ffebb8;box-shadow:0 3px 10px rgba(120,84,52,.3),inset 0 1px 0 rgba(255,235,184,.12)}
+.mine-controls button[data-platform-input="8"][data-down=true]{background:linear-gradient(135deg,#6b4722,#593d25)}
+.mine-controls button[data-platform-input="16"]{background:linear-gradient(135deg,#a33a40,#8a2f34);border-color:#c4474d;color:#ffd0d2;box-shadow:0 3px 10px rgba(138,47,52,.3),inset 0 1px 0 rgba(255,208,210,.12)}
+.mine-controls button[data-platform-input="16"][data-down=true]{background:linear-gradient(135deg,#7e2a2f,#631f23)}
+.mine-controls button[data-platform-input="32"]{background:linear-gradient(135deg,#7a3d94,#64307a);border-color:#994bb8;color:#f3d4ff;box-shadow:0 3px 10px rgba(100,48,122,.3),inset 0 1px 0 rgba(243,212,255,.12)}
+.mine-controls button[data-platform-input="32"][data-down=true]{background:linear-gradient(135deg,#5e2e74,#482059)}
+.mine-controls button[data-platform-input="4"]{background:linear-gradient(135deg,#247090,#1f5e7a);border-color:#3a8bb1;color:#d7f3ff;box-shadow:0 3px 10px rgba(31,94,122,.3),inset 0 1px 0 rgba(215,243,255,.12)}
+.mine-controls button[data-platform-input="4"][data-down=true]{background:linear-gradient(135deg,#1c5670,#154459)}
+.mine-controls #platform-pause{min-width:38px;padding:6px;font-size:15px;background:linear-gradient(135deg,#243845,#1b2a33);border-color:#394c57;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 
-.mine-status{font-size:10px;line-height:1.4;color:#a8bcc0;min-height:24px}
-#platform-retry{padding:6px 12px;flex-shrink:0}
+.mine-status{font-size:10.5px;line-height:1.5;color:#a8bcc0;min-height:26px;padding:4px 6px;background:rgba(16,28,36,.45);border-radius:8px;border:1px solid rgba(60,75,85,.2)}
+#platform-retry{padding:7px 14px;flex-shrink:0;font-size:11px}
+.mine-recovery{display:flex;gap:6px;flex-shrink:0}
+.mine-recovery:has(>button[hidden]):not(:has(>button:not([hidden]))){display:none}
+#platform-discard{font-size:10px;border:1px solid #9b7253;border-radius:8px;padding:7px;color:#ebc5a0;background:linear-gradient(135deg,#4a3a32,#3d3030);cursor:pointer;transition:all .15s}
+#platform-discard:hover{background:linear-gradient(135deg,#5a4438,#4a3832)}
+/* Skill cooldown visual on button */
+.mine-controls button.skill-cooldown{opacity:.55;pointer-events:none;filter:grayscale(.3)}
 
 /* Compact phones (iPhone SE, 320px) */
 @media(max-width:360px){
-  .mine-controls button{min-width:38px;min-height:42px;padding:4px 6px;font-size:11px}
-  .mine-hud{font-size:10px;padding:4px 6px}
+  .mine-controls button{min-width:38px;min-height:44px;padding:4px 5px;font-size:12px}
+  .mine-controls button span{font-size:7.5px}
+  .mine-hud{font-size:10px;padding:5px 7px}
   .mine-hero-btn{font-size:9px;padding:4px 2px}
   .mine-heading h2{font-size:13px}
+  .mine-stage{min-height:230px}
 }
 
 @media(max-height:650px){
-  .mine-heading{display:flex}
+  .mine-heading{padding:3px 6px}
   .mine-kicker{display:none}
   .mine-heading h2{font-size:13px}
-  .mine-heading-actions button{min-height:38px;padding:4px 7px}
-  .mine-hud{padding:3px 7px}
-  .mine-mode-switch button{padding:4px}
-  .mine-hero-btn{padding:3px 2px}
-  .mine-controls button{min-height:40px}
-  .mine-overlay{padding:10px;gap:5px}
-  .mine-overlay h3{font-size:18px}
-  .mine-overlay p{font-size:10px;line-height:1.4}
-  .mine-status{font-size:9px;min-height:18px}
-  #platform-scene{gap:3px}
-  .mine-stage{min-height:140px}
+  .mine-heading-actions button{min-height:36px;padding:4px 8px;font-size:10px}
+  .mine-hud{padding:4px 8px}
+  .mine-mode-switch button{padding:5px}
+  .mine-hero-btn{padding:4px 2px}
+  .mine-controls{padding:2px}
+  .mine-controls button{min-height:42px}
+  .mine-overlay{padding:12px;gap:6px}
+  .mine-overlay h3{font-size:19px}
+  .mine-overlay p{font-size:10.5px;line-height:1.45}
+  .mine-status{font-size:9.5px;min-height:20px}
+  #platform-scene{gap:4px}
+  .mine-stage{min-height:200px}
 }
 
 @media(min-width:800px){
-  .mine-stage{max-height:510px}
-  .mine-heading h2{font-size:20px}
-  .mine-controls button{min-width:58px;min-height:50px;font-size:14px}
-  .mine-overlay p{font-size:13px}
+  .mine-stage{min-height:420px;max-height:540px}
+  .mine-heading h2{font-size:18px}
+  .mine-kicker{font-size:10px}
+  .mine-controls button{min-width:56px;min-height:52px;font-size:16px}
+  .mine-controls button span{font-size:9px}
+  .mine-overlay p{font-size:12px}
+  .mine-overlay h3{font-size:26px}
+  #platform-hearts{font-size:14px}
+}
+
+@media(min-width:1100px){
+  .mine-stage{min-height:480px}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .mine-controls button{transform:none!important}
+  .mine-controls button{transform:none!important;transition:none!important}
+  #platform-progress::before{animation:none!important}
 }
 
-/* Landscape phones */
+/* Landscape phones - keep play area immersive */
 @media (max-height:480px) and (min-width:600px){
   body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])){gap:3px;padding:3px!important}
   body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .app-header,
@@ -106,11 +134,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .bottom-nav button span{font-size:9px;margin:0}
   body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav{margin-bottom:2px!important}
   body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav-btn{padding:3px;font-size:9px}
-  #platform-scene .mine-stage{min-height:115px}
-  #platform-scene .mine-status{min-height:13px;line-height:13px}
-  .mine-controls button{min-height:36px;padding:3px 8px;font-size:11px}
+  #platform-scene .mine-stage{min-height:180px}
+  #platform-scene .mine-status{min-height:14px;line-height:14px;font-size:9px}
+  .mine-controls button{min-height:38px;padding:3px 7px;font-size:11px}
 }
-
-.mine-recovery{display:flex;gap:6px;flex-shrink:0}
-.mine-recovery:has(>button[hidden]):not(:has(>button:not([hidden]))){display:none}
-#platform-discard{font-size:10px;border:1px solid #9b7253;border-radius:8px;padding:6px;color:#ebc5a0;background:#3d3030}
