@@ -28,13 +28,11 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-hero-btn.active{background:linear-gradient(135deg,#2a4355,#253d4d);color:#ffdf7a;border-color:#eab85a;box-shadow:0 2px 8px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,223,122,.15);transform:translateY(-1px)}
 .mine-hero-btn.active::after{content:'';position:absolute;bottom:-1px;left:20%;right:20%;height:2px;background:#eab85a;border-radius:999px;box-shadow:0 0 6px #eab85a}
 
-.mine-hud{display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:7px 10px;border:1px solid rgba(72,80,71,.6);border-radius:11px;background:linear-gradient(135deg,rgba(21,35,44,.95),rgba(16,28,36,.9));flex-shrink:0;backdrop-filter:blur(4px);box-shadow:0 2px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.06)}
-#platform-hearts{color:#ff7675;letter-spacing:1.5px;font-size:13px;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,.5);filter:drop-shadow(0 0 4px rgba(255,118,117,.4))}
-#platform-resources{color:#a8e6cf;font-weight:800;font-size:10.5px;display:flex;gap:8px;align-items:center}
-#platform-resources::before{content:'◆';color:#5cf3d2;font-size:7px;opacity:.7}
-#platform-progress{color:#ffd32a;font-weight:800;display:flex;align-items:center;gap:4px}
-#platform-progress::before{content:'◉';color:#f6b93b;font-size:8px;animation:progressPulse 1.5s ease-in-out infinite}
-@keyframes progressPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
+/* Minimal HUD — only essentials, small and calm as requested */
+.mine-hud{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;padding:5px 9px;border:1px solid rgba(65,75,70,.35);border-radius:10px;background:rgba(16,28,36,.88);flex-shrink:0;backdrop-filter:blur(4px);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+#platform-hearts{color:#ff7a7a;letter-spacing:1.2px;font-size:12px;font-weight:900}
+#platform-resources{color:#a8dcc8;font-weight:700;font-size:10px;display:flex;gap:6px;align-items:center}
+#platform-progress{color:#e8c36a;font-weight:700;display:flex;align-items:center;gap:4px;font-size:10px}
 
 .mine-stage{position:relative;flex:1;min-height:260px;border:2px solid #6b5a3e;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at center top,#0f2535 0%,#0a1622 40%,#07101a 100%);box-shadow:0 10px 36px rgba(0,0,0,.55),0 0 0 1px rgba(244,191,98,.12),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 8px rgba(0,0,0,.4)}
 #platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none;image-rendering:optimizeQuality}
