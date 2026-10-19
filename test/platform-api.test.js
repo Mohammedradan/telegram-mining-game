@@ -174,3 +174,23 @@ test('platform API: a recorded winning path from one run cannot be replayed on a
   const start = await post('replay-seed', 'start');
   assert.equal(start.body.seed, R.seedFromId(start.body.id));
 });
+
+test('platform API: daily 10,000 gold cap is enforced across wins and reported in the receipt', async () => {
+  const { state, ...payload } = await historical('daily-cap');
+  const owner = `guest_${user('daily-cap')}`;
+  const day = new Date().toISOString().slice(0, 10);
+  await store.withUsers([owner], async () => {
+    const u = await store.getUser(owner);
+    u.sync.platformDay = day;
+    u.sync.platformGold = 9_950;
+    await store.putUser(u);
+  });
+  const result = await post('daily-cap', 'finish', payload);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.gold, 50);
+  assert.equal(result.body.reason, 'daily_cap');
+  assert.equal(result.body.dailyRemaining, 0);
+  assert.equal((await store.getUser(owner)).sync.platformGold, 10_000);
+  assert.equal((await store.getUser(owner)).state.gold, 50);
+  assert.ok(R.rewardFor(state) > 50);
+});

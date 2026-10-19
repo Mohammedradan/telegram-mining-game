@@ -573,7 +573,7 @@ function applyArena(user, op, now) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena() });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0 });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -593,6 +593,8 @@ function ensureSync(user) {
     weeklyClaimed: Number.isFinite(sync.weeklyClaimed) ? sync.weeklyClaimed : 0,
     achievements: obj(sync.achievements),
     arena: normalizeArena(sync.arena),
+    platformDay: typeof sync.platformDay === 'string' ? sync.platformDay : '',
+    platformGold: Math.max(0, Math.floor(Number(sync.platformGold) || 0)),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
