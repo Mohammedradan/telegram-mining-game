@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS op_ledger (
 CREATE TABLE IF NOT EXISTS platform_runs (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
   status TEXT NOT NULL, result_json TEXT, started_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL, character_type TEXT DEFAULT 'miner'
 );
 CREATE TABLE IF NOT EXISTS platform_daily_rewards (
   user_id TEXT NOT NULL, date TEXT NOT NULL, reward_earned REAL NOT NULL DEFAULT 0,
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS op_ledger (
 CREATE TABLE IF NOT EXISTS platform_runs (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
   status TEXT NOT NULL, result_json TEXT, started_at BIGINT NOT NULL,
-  updated_at BIGINT NOT NULL
+  updated_at BIGINT NOT NULL, character_type TEXT DEFAULT 'miner'
 );
 CREATE TABLE IF NOT EXISTS platform_daily_rewards (
   user_id TEXT NOT NULL, date TEXT NOT NULL, reward_earned DOUBLE PRECISION NOT NULL DEFAULT 0,
@@ -232,11 +232,12 @@ function createSqliteStore(file) {
     async getPlatformRun(id) { return runFromRow(conn.prepare('SELECT * FROM platform_runs WHERE id = ?').get(String(id))); },
     // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) لا يُلمس — إعادة الحفظ لا تُعيد شباب الجولة
     async savePlatformRun(run) {
-      conn.prepare(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET status = excluded.status, result_json = excluded.result_json, updated_at = excluded.updated_at`)
+      conn.prepare(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at, character_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET status = excluded.status, result_json = excluded.result_json, updated_at = excluded.updated_at, character_type = excluded.character_type`)
         .run(String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
-          run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now());
+          run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now(),
+          String(run.character_type || 'miner'));
     },
     async getPlatformDailyReward(userId, date) {
       const row = conn.prepare('SELECT reward_earned FROM platform_daily_rewards WHERE user_id = ? AND date = ?').get(String(userId), String(date));
@@ -401,11 +402,12 @@ function createPgStore(url) {
     async getPlatformRun(id) { return runFromRow((await q('SELECT * FROM platform_runs WHERE id = $1', [String(id)])).rows[0]); },
     // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) لا يُلمس — إعادة الحفظ لا تُعيد شباب الجولة
     async savePlatformRun(run) {
-      await q(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT(id) DO UPDATE SET status = EXCLUDED.status, result_json = EXCLUDED.result_json, updated_at = EXCLUDED.updated_at`,
+      await q(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at, character_type)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT(id) DO UPDATE SET status = EXCLUDED.status, result_json = EXCLUDED.result_json, updated_at = EXCLUDED.updated_at, character_type = EXCLUDED.character_type`,
       [String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
-        run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now()]);
+        run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now(),
+        String(run.character_type || 'miner')]);
     },
     async getPlatformDailyReward(userId, date) {
       const r = (await q('SELECT reward_earned FROM platform_daily_rewards WHERE user_id = $1 AND date = $2', [String(userId), String(date)])).rows[0];

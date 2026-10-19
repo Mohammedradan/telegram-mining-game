@@ -81,10 +81,10 @@
       background: rgba(148, 163, 184, 0.7);
     }
 
-    /* ارتفاع ملعب المغامرة يتبع الشاشة: أقصر على الهواتف الصغيرة، 330px كحد أقصى */
-    #game-canvas { height: clamp(230px, 40vh, 330px); }
+    /* ارتفاع ملعب المغامرة يتبع الشاشة: تكبير الحجم لمنح مساحة أكبر للعب */
+    #game-canvas { height: clamp(280px, 55vh, 400px); }
     @supports (height: 100dvh) {
-      #game-canvas { height: clamp(230px, 40dvh, 330px); }
+      #game-canvas { height: clamp(280px, 55dvh, 400px); }
     }
 
     /* هيكل تطبيق ثابت: تبويب اللعب لا يمرّر الصفحة، بل يبدّل لوحات مستقلة داخل المساحة المتاحة. */
@@ -416,12 +416,40 @@
           <div class="mine-kicker">جولة حتمية — يعيد الخادم تشغيل حركاتك ويختم النتيجة</div>
           <h2>منجم المنصّة · عمق المعدن</h2>
         </div>
-        <button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button>
+        <div class="flex gap-2">
+          <select id="platform-character-select" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300">
+            <option value="miner">⛏️ عامل المنجم</option>
+            <option value="warrior">⚔️ المحارب</option>
+            <option value="ranger">🏹 الرامي</option>
+          </select>
+          <button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button>
+        </div>
       </div>
       <div class="mine-hud" aria-live="polite">
-        <span id="platform-hearts">♥ ♥ ♥</span>
-        <span id="platform-resources">بلورات 0 · صخور 0</span>
-        <span id="platform-progress">0% · 150ث</span>
+        <div class="stat-group">
+          <span class="stat-label">الشخصية</span>
+          <span id="platform-character">عامل المنجم</span>
+        </div>
+        <div class="stat-group">
+          <span class="stat-label">الصحة</span>
+          <span id="platform-hearts">♥ ♥ ♥</span>
+        </div>
+        <div class="stat-group">
+          <span class="stat-label">الذهب</span>
+          <span id="platform-gold">0</span>
+        </div>
+        <div class="stat-group">
+          <span class="stat-label">البلورات</span>
+          <span id="platform-resources">0</span>
+        </div>
+        <div class="stat-group">
+          <span class="stat-label">التقدم</span>
+          <span id="platform-progress">0%</span>
+        </div>
+        <div class="stat-group">
+          <span class="stat-label">المهارة</span>
+          <span id="platform-skill">جاهز</span>
+        </div>
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم واقفز بالمسافة وعدّن بحرف E"></canvas>
@@ -440,6 +468,7 @@
         </div>
         <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">⏸</button>
         <div>
+          <button id="platform-skill" type="button" aria-label="مهارة خاصة">⚡</button>
           <button type="button" data-platform-input="8" aria-label="تعدين">⛏</button>
         </div>
       </div>

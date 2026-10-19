@@ -21,7 +21,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         run.status = 'expired'; await store.savePlatformRun(run); run = null;
       }
       if (!run) {
-        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing' };
+        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing', character_type: req.body.characterType || 'miner' };
         await store.savePlatformRun(run);
       }
       return { id: run.id, version: run.version, startedAt: Number(run.started_at), expiresAt: Number(run.started_at) + lifetime };
@@ -35,7 +35,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const user = await prepare(req.player);
       if (run.status === 'finished') return { ...JSON.parse(run.result_json), duplicate: true, profile: profileOf(user, false, { race: await store.raceTotals(user.id) }) };
       if (run.version !== Rules.VERSION || now() - Number(run.started_at) > lifetime || run.status !== 'playing') return { status: 409, error: 'انتهت صلاحية الجولة؛ ابدأ جولة جديدة' };
-      const replay = Rules.replay(req.body.inputs);
+      const replay = Rules.replay(req.body.inputs, req.body.characterType || 'miner');
       if (!replay.ok) return { status: 400, error: 'حركات جولة غير صالحة' };
       const state = replay.state;
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };

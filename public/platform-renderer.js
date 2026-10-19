@@ -8,7 +8,7 @@
     c.beginPath(); c.moveTo(0, -11); c.lineTo(8, -3); c.lineTo(6, 8); c.lineTo(0, 12); c.lineTo(-7, 5); c.lineTo(-7, -4); c.closePath(); c.fill();
     c.fillStyle = '#d6fff3'; c.beginPath(); c.moveTo(0, -11); c.lineTo(1, 6); c.lineTo(-7, -4); c.closePath(); c.fill(); c.restore();
   }
-  function miner(c, p, tick, reduced) {
+  function miner(c, p, tick, reduced, weapon) {
     const phase = p.pose === 'run' && !reduced ? Math.sin(tick * .27) * 6 : 0;
     c.save(); c.translate(p.x + 12, p.y + 20); c.scale(p.facing, 1);
     if (p.invulnerable && tick % 10 < 4) c.globalAlpha = .45;
@@ -28,7 +28,9 @@
     c.rotate(p.pose === 'mine' ? -1.6 + (14 - p.attack) * .18 : p.pose === 'victory' ? -2 : .3);
     round(c, -2, -3, 7, 17, 3, '#f1ba87');
     round(c, 1, -15, 4, 28, 1, '#bb8853');
-    c.strokeStyle = '#bce2dc'; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(-8, -13); c.quadraticCurveTo(2, -22, 16, -14); c.stroke(); c.restore();
+    // رسم السلاح حسب النوع
+    const weaponColor = weapon?.color || '#bce2dc';
+    c.strokeStyle = weaponColor; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(-8, -13); c.quadraticCurveTo(2, -22, 16, -14); c.stroke(); c.restore();
     round(c, -17, -5 - phase / 3, 7, 13, 3, '#f1ba87'); c.restore();
   }
   function draw(canvas, s, { reduced = false, particles = [] } = {}) {
@@ -99,7 +101,43 @@
     const e = R.LEVEL.exit;
     round(c, e.x - 8, e.y - 9, e.w + 16, e.h + 12, 25, '#aa8755'); round(c, e.x, e.y, e.w, e.h, 20, '#153e43'); round(c, e.x + 9, e.y + 7, e.w - 18, e.h - 10, 16, '#498a7e');
     c.fillStyle = '#e7e9b7'; c.font = 'bold 11px sans-serif'; c.textAlign = 'center'; c.fillText('خروج', e.x + 35, e.y - 17);
-    miner(c, s.player, s.tick, reduced);
+    
+    // رسم الأعداء
+    for (const enemy of s.enemies) {
+      if (enemy.currentHp <= 0) continue;
+      c.save();
+      c.translate(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2);
+      c.scale(enemy.direction, 1);
+      // جسم العدو
+      round(c, -12, -12, 24, 24, 6, '#8b3a3a');
+      // عيون
+      c.fillStyle = '#ffcc00';
+      c.beginPath(); c.arc(-4, -4, 4, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(4, -4, 4, 0, Math.PI * 2); c.fill();
+      // فم
+      c.fillStyle = '#1a1a1a';
+      c.beginPath(); c.arc(0, 4, 6, 0, Math.PI); c.fill();
+      // شريط الصحة
+      const healthPercent = enemy.currentHp / enemy.hp;
+      c.fillStyle = '#333';
+      round(c, -12, -20, 24, 4, 2, '#333');
+      round(c, -12, -20, 24 * healthPercent, 4, 2, healthPercent > 0.5 ? '#4ade80' : '#ef4444');
+      c.restore();
+    }
+    
+    miner(c, s.player, s.tick, reduced, s.weapon);
+    
+    // تأثير المهارة النشطة
+    if (s.skillActive > 0) {
+      c.save();
+      c.globalAlpha = 0.3 + Math.sin(s.tick * 0.2) * 0.2;
+      c.fillStyle = s.skillActive > 0 ? '#ffd700' : '#4ade80';
+      c.beginPath();
+      c.arc(s.player.x + s.player.w / 2, s.player.y + s.player.h / 2, 40, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+    
     for (const p of particles) { c.globalAlpha = Math.max(0, p.life / 30); round(c, p.x, p.y, 4, 4, 1, p.color); } c.globalAlpha = 1;
     c.restore();
     if (s.player.pose === 'hurt' && !reduced) { c.fillStyle = '#f5796330'; c.fillRect(0, 0, w, 360); }

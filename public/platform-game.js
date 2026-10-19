@@ -6,7 +6,7 @@
   const el = id => document.getElementById(id);
   const canvas = el('platform-canvas');
   if (!canvas || !R || !renderer || !bridge) return;
-  let sim = R.create(), inputs = [], ticket = null, owner = null;
+  let sim = R.create('miner'), inputs = [], ticket = null, owner = null;
   let running = false, paused = false, starting = false, restoring = true, submitting = false, pending = null;
   let raf = 0, last = 0, accumulator = 0;
   let audio = null, muted = false, particles = [];
@@ -44,9 +44,25 @@
     catch (_) { say('التخزين المحلي غير متاح؛ لا تغلق الصفحة قبل تأكيد الخادم للنتيجة.'); }
   }
   function hud() {
+    const charName = R.CHARACTERS[sim.characterType]?.name || 'عامل المنجم';
+    el('platform-character').textContent = charName;
     el('platform-hearts').textContent = '♥ '.repeat(Math.max(0, sim.player.hearts)) || 'انتهت القلوب';
-    el('platform-resources').textContent = `بلورات ${sim.collected} · صخور ${sim.mined}`;
-    el('platform-progress').textContent = `${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+    // حساب الذهب المحلي للعرض فقط (القيمة الفعلية من الخادم)
+    const gold = sim.collected * 25 + sim.mined * 50;
+    el('platform-gold').textContent = gold;
+    el('platform-resources').textContent = `${sim.collected} بلور · ${sim.mined} صخور`;
+    el('platform-progress').textContent = `${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}%`;
+    // حالة المهارة
+    if (sim.skillActive > 0) {
+      el('platform-skill').textContent = 'نشط';
+      el('platform-skill').style.color = '#4ade80';
+    } else if (sim.skillCooldown > 0) {
+      el('platform-skill').textContent = `${Math.ceil(sim.skillCooldown / 60)}ث`;
+      el('platform-skill').style.color = '#94a3b8';
+    } else {
+      el('platform-skill').textContent = 'جاهز';
+      el('platform-skill').style.color = '#f9edcf';
+    }
   }
   function overlay(title, text, resume = false) {
     el('platform-overlay').hidden = false; el('platform-title').textContent = title; el('platform-message').textContent = text;
@@ -114,7 +130,7 @@
     say('جارٍ إعادة محاكاة الجولة وتأكيد المكافأة على الخادم…');
     try {
       await bridge.flush();
-      const result = await request('/api/platform/finish', pending);
+      const result = await request('/api/platform/finish', { ...pending, characterType: sim.characterType });
       bridge.adopt(result.profile);
       el('platform-title').textContent = result.won ? 'وصلت إلى قلب المنجم!' : 'انتهت الجولة — جرّب من جديد';
       el('platform-message').textContent = `${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة ومحفوظة؛ +${result.gold} ذهب افتراضي. يمكنك بدء رحلة جديدة.`;
@@ -145,11 +161,12 @@
     try {
       await bridge.ready(); owner = bridge.user();
       if (owner) {
-        ticket = await request('/api/platform/start');
+        const characterType = el('platform-character-select').value;
+        ticket = await request('/api/platform/start', { characterType });
         if (ticket.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
         say('جولة محفوظة الهوية. عدّن صخرة واجمع 3 بلورات، ثم اعبر بوابة الخروج.');
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
-      sim = R.create(); inputs = []; particles = []; running = true; paused = false; save();
+      sim = R.create(el('platform-character-select').value); inputs = []; particles = []; running = true; paused = false; save();
       resume();
     } catch (e) { say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`); }
     finally { starting = false; el('platform-start').disabled = Boolean(pending); }
@@ -206,6 +223,12 @@
   el('platform-start').addEventListener('click', start);
   el('platform-resume').addEventListener('click', resume);
   el('platform-pause').addEventListener('click', () => { if (paused) resume(); else pause(); });
+  el('platform-skill').addEventListener('click', () => {
+    if (!running || paused || sim.skillCooldown > 0 || sim.skillActive > 0) return;
+    sim.skillCooldown = R.SKILLS[sim.characterType]?.cooldown || 600;
+    sim.skillActive = R.SKILLS[sim.characterType]?.duration || 180;
+    sim.events.push({ type: 'skill', x: sim.player.x, y: sim.player.y });
+  });
   el('platform-retry').addEventListener('click', submit);
   el('platform-discard').addEventListener('click', () => {
     if (submitting || !pending || !confirm('إلغاء النتيجة المحلية المعلقة؟ قد تفقد جولة لم يؤكدها الخادم. أي مكافأة حُفظت خادميًا تبقى محفوظة ولا تُمنح مرتين.')) return;
