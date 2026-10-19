@@ -265,7 +265,7 @@
       el('platform-message').textContent = `${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة ومحفوظة؛ +${result.gold} ذهب افتراضي. يمكنك بدء رحلة جديدة.`;
       pending = null; ticket = null; shake = 0;
       try { localStorage.removeItem(storageKey()); } catch (_) {}
-      say(`محفوظ على الخادم: ${result.score} نقطة · +${result.gold} ذهب افتراضي · +${result.xp} خبرة${result.duplicate ? ' — تأكيد سابق، بلا مكافأة مكررة' : ''}${result.reason === 'cooldown' ? ' — مهلة المكافأة: 20 ثانية بين جائزتي مغامرة' : ''}`);
+      say(`محفوظ على الخادم: ${result.score} نقطة · +${result.gold} ذهب افتراضي · +${result.xp} خبرة${result.duplicate ? ' — تأكيد سابق، بلا مكافأة مكررة' : ''}${result.reason === 'cooldown' ? ' — مهلة المكافأة: 20 ثانية بين جائزتي مغامرة' : ''}${result.reason === 'daily_cap' ? ' — وصلت سقف 10,000 ذهب اليومي من المناجم' : ''}`);
       el('platform-start').disabled = false;
     } catch (e) {
       say(`${e.message || 'انقطع الاتصال'}. النتيجة محفوظة محليًا؛ أعد الإرسال، ولا تبدأ حسابًا آخر.`);
