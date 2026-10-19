@@ -45,24 +45,42 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-overlay button:disabled{opacity:.55;transform:none;box-shadow:none}
 .mine-overlay #platform-resume{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;box-shadow:0 4px 14px rgba(38,84,92,.3)}
 
-.mine-controls{display:flex;justify-content:space-between;align-items:center;gap:5px;flex-shrink:0;padding:3px;background:linear-gradient(135deg,rgba(18,30,42,.6),rgba(12,22,32,.4));border-radius:14px;border:1px solid rgba(60,80,95,.25)}
-.mine-controls-dpad{display:flex;gap:5px}
-.mine-controls-actions{display:flex;gap:5px}
-.mine-controls button{min-width:46px;min-height:50px;padding:5px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:linear-gradient(135deg,#243a4a,#1e2f3e);border:1px solid #4a6773;border-bottom:4px solid #0e1920;border-radius:13px;color:#f0f7f7;font-weight:800;font-size:15px;line-height:1;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:transform .08s,background .12s,box-shadow .12s;box-shadow:0 3px 8px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.08)}
-.mine-controls button:hover{box-shadow:0 4px 12px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1)}
-.mine-controls button span{font-size:8.5px;line-height:1.1;color:#d1e0e2;font-weight:700;letter-spacing:.2px}
-.mine-controls button[data-down=true],.mine-controls button:active{transform:translateY(2px) scale(.97);border-bottom-width:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.mine-controls{display:flex;justify-content:space-between;align-items:center;gap:5px;flex-shrink:0;padding:3px;background:linear-gradient(135deg,rgba(18,30,42,.6),rgba(12,22,32,.4));border-radius:14px;border:1px solid rgba(60,80,95,.25);position:relative}
+
+/* Virtual Joystick */
+.virtual-joystick{position:relative;width:110px;height:110px;touch-action:none;-webkit-touch-callout:none;user-select:none;display:none}@media(max-width:768px){.virtual-joystick{display:block}}
+.joystick-base{position:absolute;inset:0;background:radial-gradient(circle,rgba(30,50,70,.4),rgba(15,25,35,.6));border:2px solid rgba(80,100,120,.4);border-radius:50%;box-shadow:inset 0 2px 8px rgba(0,0,0,.3),0 2px 6px rgba(0,0,0,.2)}
+.joystick-handle{position:absolute;width:44px;height:44px;background:linear-gradient(135deg,#4a6b8a,#3a5570);border:2px solid rgba(120,150,180,.5);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:0 3px 10px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.15);transition:transform .05s ease-out;pointer-events:none}
+.joystick-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px;background:radial-gradient(circle,rgba(180,200,220,.8),rgba(140,170,200,.6));border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+
+/* Action Buttons */
+.mine-controls-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.action-btn{min-width:52px;min-height:52px;padding:5px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:linear-gradient(135deg,#243a4a,#1e2f3e);border:1px solid #4a6773;border-bottom:4px solid #0e1920;border-radius:13px;color:#f0f7f7;font-weight:800;font-size:15px;line-height:1;touch-action:none;-webkit-touch-callout:none;user-select:none;cursor:pointer;transition:transform .08s,background .12s,box-shadow .12s;box-shadow:0 3px 8px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.08)}
+.action-btn:hover{box-shadow:0 4px 12px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.1)}
+.action-btn span{font-size:8.5px;line-height:1.1;color:#d1e0e2;font-weight:700;letter-spacing:.2px}
+.action-btn[data-down=true],.action-btn:active{transform:translateY(2px) scale(.97);border-bottom-width:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+
+/* Hide action buttons on desktop, show keyboard hint */
+@media(min-width:769px){.action-btn{display:none}}
+@media(min-width:769px){.mine-controls-actions::after{content:'استخدم لوحة المفاتيح: الأسهم للحركة، المسافة للقفز، E للتعدين، F للهجوم، Q للمهارة';font-size:9px;color:#8a9caa;text-align:right;padding:4px 8px;white-space:nowrap}}
+
+/* Button variants */
+.pause-btn{min-width:38px;min-height:38px;font-size:13px;padding:4px}
+.jump-btn{min-width:56px;min-height:56px}
+.mine-btn{min-width:56px;min-height:56px}
+.attack-btn{min-width:56px;min-height:56px}
+.skill-btn{min-width:56px;min-height:56px}
 
 /* Dedicated tactical button color themes - richer gradients */
-.mine-controls button[data-platform-input="8"]{background:linear-gradient(135deg,#8a5e2e,#785434);border-color:#b58a55;color:#ffebb8;box-shadow:0 3px 10px rgba(120,84,52,.3),inset 0 1px 0 rgba(255,235,184,.12)}
-.mine-controls button[data-platform-input="8"][data-down=true]{background:linear-gradient(135deg,#6b4722,#593d25)}
-.mine-controls button[data-platform-input="16"]{background:linear-gradient(135deg,#a33a40,#8a2f34);border-color:#c4474d;color:#ffd0d2;box-shadow:0 3px 10px rgba(138,47,52,.3),inset 0 1px 0 rgba(255,208,210,.12)}
-.mine-controls button[data-platform-input="16"][data-down=true]{background:linear-gradient(135deg,#7e2a2f,#631f23)}
-.mine-controls button[data-platform-input="32"]{background:linear-gradient(135deg,#7a3d94,#64307a);border-color:#994bb8;color:#f3d4ff;box-shadow:0 3px 10px rgba(100,48,122,.3),inset 0 1px 0 rgba(243,212,255,.12)}
-.mine-controls button[data-platform-input="32"][data-down=true]{background:linear-gradient(135deg,#5e2e74,#482059)}
-.mine-controls button[data-platform-input="4"]{background:linear-gradient(135deg,#247090,#1f5e7a);border-color:#3a8bb1;color:#d7f3ff;box-shadow:0 3px 10px rgba(31,94,122,.3),inset 0 1px 0 rgba(215,243,255,.12)}
-.mine-controls button[data-platform-input="4"][data-down=true]{background:linear-gradient(135deg,#1c5670,#154459)}
-.mine-controls #platform-pause{min-width:38px;padding:6px;font-size:15px;background:linear-gradient(135deg,#243845,#1b2a33);border-color:#394c57;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.action-btn.mine-btn{background:linear-gradient(135deg,#8a5e2e,#785434);border-color:#b58a55;color:#ffebb8;box-shadow:0 3px 10px rgba(120,84,52,.3),inset 0 1px 0 rgba(255,235,184,.12)}
+.action-btn.mine-btn[data-down=true]{background:linear-gradient(135deg,#6b4722,#593d25)}
+.action-btn.attack-btn{background:linear-gradient(135deg,#a33a40,#8a2f34);border-color:#c4474d;color:#ffd0d2;box-shadow:0 3px 10px rgba(138,47,52,.3),inset 0 1px 0 rgba(255,208,210,.12)}
+.action-btn.attack-btn[data-down=true]{background:linear-gradient(135deg,#7e2a2f,#631f23)}
+.action-btn.skill-btn{background:linear-gradient(135deg,#7a3d94,#64307a);border-color:#994bb8;color:#f3d4ff;box-shadow:0 3px 10px rgba(100,48,122,.3),inset 0 1px 0 rgba(243,212,255,.12)}
+.action-btn.skill-btn[data-down=true]{background:linear-gradient(135deg,#5e2e74,#482059)}
+.action-btn.jump-btn{background:linear-gradient(135deg,#247090,#1f5e7a);border-color:#3a8bb1;color:#d7f3ff;box-shadow:0 3px 10px rgba(31,94,122,.3),inset 0 1px 0 rgba(215,243,255,.12)}
+.action-btn.jump-btn[data-down=true]{background:linear-gradient(135deg,#1c5670,#154459)}
+.action-btn.pause-btn{background:linear-gradient(135deg,#243845,#1b2a33);border-color:#394c57;box-shadow:0 2px 6px rgba(0,0,0,.2)}
 
 .mine-status{font-size:10.5px;line-height:1.5;color:#a8bcc0;min-height:26px;padding:4px 6px;background:rgba(16,28,36,.45);border-radius:8px;border:1px solid rgba(60,75,85,.2)}
 #platform-retry{padding:7px 14px;flex-shrink:0;font-size:11px}
@@ -75,8 +93,10 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 
 /* Compact phones (iPhone SE, 320px) */
 @media(max-width:360px){
-  .mine-controls button{min-width:38px;min-height:44px;padding:4px 5px;font-size:12px}
-  .mine-controls button span{font-size:7.5px}
+  .virtual-joystick{width:90px;height:90px}
+  .joystick-handle{width:36px;height:36px}
+  .action-btn{min-width:44px;min-height:44px;padding:4px 5px;font-size:12px}
+  .action-btn span{font-size:7.5px}
   .mine-hud{font-size:10px;padding:5px 7px}
   .mine-economy{font-size:9px;padding:3px 6px}
   .mine-hero-btn{font-size:9px;padding:4px 2px}
@@ -92,7 +112,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   .mine-hud{padding:4px 8px}
   .mine-hero-btn{padding:4px 2px}
   .mine-controls{padding:2px}
-  .mine-controls button{min-height:42px}
+  .virtual-joystick{width:95px;height:95px}
+  .action-btn{min-height:42px}
   .mine-overlay{padding:12px;gap:6px}
   .mine-overlay h3{font-size:19px}
   .mine-overlay p{font-size:10.5px;line-height:1.45}

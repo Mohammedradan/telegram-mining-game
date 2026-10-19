@@ -31,6 +31,12 @@
     KeyQ: 32, KeyK: 32, KeyC: 32,
   };
 
+  // Virtual Joystick State
+  let joystickActive = false;
+  let joystickX = 0; // -1 to 1
+  let joystickY = 0; // -1 to 1
+  let joystickPointerId = null;
+
   const storageKey = () => `platform-run:v1:${owner}`;
   const say = text => { const s = el('platform-status'); if (s) s.textContent = text; };
   const visible = () => !document.hidden && !el('platform-scene').hidden && el('play-panel-adventure').classList.contains('active') && el('tab-play').classList.contains('active');
@@ -246,6 +252,13 @@
       let mask = 0;
       for (const k of keys) mask |= keyMap[k] || 0;
       for (const v of pointers.values()) mask |= v;
+
+      // Add joystick input to mask
+      if (joystickActive) {
+        if (joystickX < -0.2) mask |= 1; // LEFT
+        if (joystickX > 0.2) mask |= 2; // RIGHT
+      }
+
       if (inputs.length >= 1000 && inputs[inputs.length - 1].mask !== mask) {
         pause(); say('وصلت إلى حد تسجيل الحركات؛ أعد بدء الجولة.'); return;
       }
@@ -368,6 +381,73 @@
     button.addEventListener('touchend', e => e.preventDefault(), { passive: false });
   }
 
+  // --- Virtual Joystick Logic ---
+  const joystick = el('virtual-joystick');
+  const joystickHandle = joystick?.querySelector('.joystick-handle');
+  if (joystick && joystickHandle) {
+    const maxRadius = 33; // Maximum distance from center
+
+    const updateJoystick = (clientX, clientY) => {
+      const rect = joystick.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      let dx = clientX - centerX;
+      let dy = clientY - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Clamp to max radius
+      if (distance > maxRadius) {
+        dx = (dx / distance) * maxRadius;
+        dy = (dy / distance) * maxRadius;
+      }
+
+      // Update handle position
+      joystickHandle.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+      // Normalize to -1 to 1
+      joystickX = dx / maxRadius;
+      joystickY = dy / maxRadius;
+    };
+
+    const resetJoystick = () => {
+      if (joystickHandle) joystickHandle.style.transform = 'translate(-50%, -50%)';
+      joystickX = 0;
+      joystickY = 0;
+      joystickActive = false;
+      joystickPointerId = null;
+    };
+
+    joystick.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      if (!running || paused) return;
+      audioUnlock();
+      joystickActive = true;
+      joystickPointerId = e.pointerId;
+      joystick.setPointerCapture(e.pointerId);
+      updateJoystick(e.clientX, e.clientY);
+    });
+
+    joystick.addEventListener('pointermove', e => {
+      if (!joystickActive || e.pointerId !== joystickPointerId) return;
+      e.preventDefault();
+      updateJoystick(e.clientX, e.clientY);
+    });
+
+    joystick.addEventListener('pointerup', e => {
+      if (e.pointerId !== joystickPointerId) return;
+      resetJoystick();
+    });
+
+    joystick.addEventListener('pointercancel', e => {
+      if (e.pointerId !== joystickPointerId) return;
+      resetJoystick();
+    });
+
+    joystick.addEventListener('lostpointercapture', resetJoystick);
+    joystick.addEventListener('contextmenu', e => e.preventDefault());
+  }
+
   // Prevent scrolling while interacting with canvas
   canvas.addEventListener('touchmove', e => { if (running) e.preventDefault(); }, { passive: false });
   canvas.addEventListener('wheel', e => { if (running) e.preventDefault(); }, { passive: false });
@@ -381,7 +461,7 @@
     e.preventDefault(); if (running && !paused) keys.add(e.code);
   });
   window.addEventListener('keyup', e => { keys.delete(e.code); });
-  window.addEventListener('blur', () => { keys.clear(); pause(); });
+  window.addEventListener('blur', () => { keys.clear(); pause(); if (joystickActive) { joystickActive = false; joystickX = 0; joystickY = 0; joystickPointerId = null; if (joystickHandle) joystickHandle.style.transform = 'translate(-50%, -50%)'; } });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
   window.addEventListener('pagehide', () => { save(Boolean(pending)); pause(); });
   window.addEventListener('online', () => { if (pending) submit(); });

@@ -469,16 +469,19 @@
         </div>
       </div>
       <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
-        <div class="mine-controls-dpad">
-          <button type="button" data-platform-input="1" aria-label="يسار"><b>◀</b><span>يسار</span></button>
-          <button type="button" data-platform-input="2" aria-label="يمين"><b>▶</b><span>يمين</span></button>
+        <!-- Virtual Joystick (Mobile Only) -->
+        <div id="virtual-joystick" class="virtual-joystick" aria-label="عصا تحكم للحركة">
+          <div class="joystick-base"></div>
+          <div class="joystick-handle"></div>
         </div>
-        <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">⏸</button>
+
+        <!-- Action Buttons (Bottom Right) -->
         <div class="mine-controls-actions">
-          <button type="button" data-platform-input="8" aria-label="تعدين"><b>⛏</b><span>حفر</span></button>
-          <button type="button" data-platform-input="16" aria-label="هجوم"><b>⚔️</b><span>ضرب</span></button>
-          <button type="button" data-platform-input="32" aria-label="مهارة"><b>💥</b><span>قوة</span></button>
-          <button type="button" data-platform-input="4" aria-label="قفز"><b>⤒</b><span>قفز</span></button>
+          <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn">⏸</button>
+          <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><b>⤒</b><span>قفز</span></button>
+          <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><b>⛏</b><span>حفر</span></button>
+          <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><b>⚔️</b><span>ضرب</span></button>
+          <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><b>💥</b><span>قوة</span></button>
         </div>
       </div>
       <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز (Space)، تعدين (E)، هجوم (F)، مهارة (Q).</div>

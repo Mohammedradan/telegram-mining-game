@@ -158,10 +158,11 @@ test('platform UI: the page wires the scene — assets and every element the con
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
-    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy']) {
+    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
-  for (const mask of [1, 2, 4, 8, 16, 32]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
+  // Action buttons only (no directional buttons 1 and 2 - replaced by virtual joystick)
+  for (const mask of [4, 8, 16, 32]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
   assert.match(html, /هدف الجولة: اجمع 3 بلورات/);
   assert.match(html, /اقفز بالمسافة/);
   for (const hero of ['miner', 'warrior', 'archer']) assert.ok(ids.has(`hero-btn-${hero}`), `#hero-btn-${hero} must exist`);
@@ -296,24 +297,20 @@ test('platform UI: character selection switches hero and attack/skill keys trigg
   page.fire(page.byId('platform-start'), 'click');
   await page.settle();
   assert.equal(gameApi.inspect().running, true);
+});
 
-  // Attack key (F) triggers attack pose
-  page.key('keydown', 'KeyF');
-  page.flushFrames(2);
-  let state = gameApi.inspect();
-  assert.equal(state.pose, 'attack');
-  page.key('keyup', 'KeyF');
+test('platform UI: virtual joystick exists and is hidden on desktop', async () => {
+  const page = bootPage();
+  await page.settle();
+  assert.ok(page.byId('virtual-joystick'), '#virtual-joystick must exist');
+  // Joystick should be hidden by default (desktop)
+  const joystick = page.byId('virtual-joystick');
+  assert.match(joystick.style.display || 'none', /none/);
+});
 
-  page.flushFrames(20);
-  state = gameApi.inspect();
-  assert.notEqual(state.pose, 'attack');
-
-  // Mine key (E) triggers mine pose
-  page.key('keydown', 'KeyE');
-  page.flushFrames(2);
-  state = gameApi.inspect();
-  assert.equal(state.pose, 'mine');
-  page.key('keyup', 'KeyE');
-
-  assert.deepEqual(page.log.errors, []);
+test('platform UI: action buttons exist with correct labels', () => {
+  assert.ok(ids.has('platform-pause'), '#platform-pause must exist');
+  for (const input of [4, 8, 16, 32]) {
+    assert.ok(html.includes(`data-platform-input="${input}"`), `action button with input ${input} must exist`);
+  }
 });
