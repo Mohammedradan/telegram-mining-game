@@ -4,10 +4,12 @@ const Rules = require('./public/platform-rules');
 // سقف يومي صريح للذهب المكتسب من المنصات (بتوقيت UTC) فوق سقف الجولة والمهلة،
 // حتى لا يتحول التشغيل الآلي لجولات صحيحة إلى مزرعة ذهب لا نهائية.
 const DAILY_GOLD_CAP = 10_000;
-function dailyQuota(adventure, potential, at = Date.now()) {
+// العدّاد في دفتر المزامنة الخادمي (user.sync) لا في state.adventure:
+// ensureSync يطبّع الحالة كل جولة، فحقول adventure غير المعروفة تُسقَط.
+function dailyQuota(sync, potential, at = Date.now()) {
   const day = new Date(at).toISOString().slice(0, 10);
-  if (adventure.platformDay !== day) { adventure.platformDay = day; adventure.platformGold = 0; }
-  const used = Math.max(0, Number(adventure.platformGold) || 0);
+  if (sync.platformDay !== day) { sync.platformDay = day; sync.platformGold = 0; }
+  const used = Math.max(0, Number(sync.platformGold) || 0);
   const allowed = Math.max(0, Math.min(Number(potential) || 0, DAILY_GOLD_CAP - used));
   return { day, gold: allowed, capped: allowed < potential, remaining: Math.max(0, DAILY_GOLD_CAP - used - allowed) };
 }
@@ -48,10 +50,10 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const potential = Rules.rewardFor(state);
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
       const a = user.state.adventure;
-      const quota = dailyQuota(a, tooSoon ? 0 : potential, now());
+      const quota = dailyQuota(user.sync, tooSoon ? 0 : potential, now());
       const gold = tooSoon ? 0 : quota.gold;
       if (gold) {
-        a.platformGold = (Number(a.platformGold) || 0) + gold;
+        user.sync.platformGold = (Number(user.sync.platformGold) || 0) + gold;
         user.sync.lastRewardAt.adventure = now();
       }
       user.state.gold += gold; user.state.totalEarned += gold;

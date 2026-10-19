@@ -181,8 +181,8 @@ test('platform API: daily 10,000 gold cap is enforced across wins and reported i
   const day = new Date().toISOString().slice(0, 10);
   await store.withUsers([owner], async () => {
     const u = await store.getUser(owner);
-    u.state.adventure.platformDay = day;
-    u.state.adventure.platformGold = 9_950;
+    u.sync.platformDay = day;
+    u.sync.platformGold = 9_950;
     await store.putUser(u);
   });
   const result = await post('daily-cap', 'finish', payload);
@@ -190,7 +190,7 @@ test('platform API: daily 10,000 gold cap is enforced across wins and reported i
   assert.equal(result.body.gold, 50);
   assert.equal(result.body.reason, 'daily_cap');
   assert.equal(result.body.dailyRemaining, 0);
-  assert.equal((await store.getUser(owner)).state.adventure.platformGold, 10_000);
+  assert.equal((await store.getUser(owner)).sync.platformGold, 10_000);
   assert.equal((await store.getUser(owner)).state.gold, 50);
   assert.ok(R.rewardFor(state) > 50);
 });
