@@ -45,7 +45,15 @@ jobs:
       - name: Check JavaScript syntax
         run: npm run build
       - name: Run test suite
-        run: npm test
+        run: |
+          set +e
+          npm test 2>&1 | tee /tmp/test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            summary=$(grep -aE "✖|not ok|# fail|AssertionError|Error:" /tmp/test.log | head -n 40 | tr '\n' '|' | cut -c1-60000)
+            echo "::error title=Tests failed::$summary"
+          fi
+          exit $status
       - name: Verify API and transactions against PostgreSQL
         run: npm test
         env:
