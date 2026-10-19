@@ -312,7 +312,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=2">
+  <link rel="stylesheet" href="/platform.css?v=3">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -412,13 +412,16 @@
     <!-- 🧭 منجم المنصّة: جولة حتمية 60Hz يسجّل الخادم حركاتها ويعيد تشغيلها ويختم مكافأتها -->
     <div id="platform-scene">
       <div class="mine-heading">
-        <div>
-          <div class="mine-kicker">اجمع البلورات · عدّن الصخور · قاتل وحوش الكهف</div>
-          <h2>معركة الأعماق</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f4bf62,#e09a2d);display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(244,191,98,.35);flex-shrink:0">⛏️</div>
+          <div>
+            <div class="mine-kicker">عالم الكهوف · منصات · بلورات · أعداء</div>
+            <h2>منجم الأعماق المتقدمة</h2>
+          </div>
         </div>
         <div class="mine-heading-actions">
           <button id="platform-menus" type="button" aria-label="فتح القوائم">☰ القوائم</button>
-          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت">صوت ✓</button>
+          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت">🔊 صوت</button>
         </div>
       </div>
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
@@ -736,8 +739,8 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=2"></script>
-  <script src="/platform-renderer.js?v=2"></script>
+  <script src="/platform-rules.js?v=3"></script>
+  <script src="/platform-renderer.js?v=3"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -2920,8 +2923,8 @@
     window.platformReady = bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
   </script>
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
-  <script src="/platform-bridge.js?v=2"></script>
+  <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=2"></script>
+  <script src="/platform-game.js?v=3"></script>
 </body>
 </html>
