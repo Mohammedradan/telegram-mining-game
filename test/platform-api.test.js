@@ -148,3 +148,36 @@ test('platform API: a confirmed legal loss cannot be upgraded to a win by replac
   assert.deepEqual((await store.getUser(owner)).state, before.state);
   assert.equal((await store.getUser(owner)).state.adventure.runs, 1);
 });
+
+test('platform API: a v1 in-flight ticket survives the v2 rollout; client cannot select its rules or boss result', async () => {
+  const payload = await historical('v1-rollout');
+  const owner = `guest_${user('v1-rollout')}`;
+  await store.withUsers([owner], async () => {
+    const active = await store.getPlatformRun(payload.id); active.status = 'expired'; await store.savePlatformRun(active);
+  });
+  const id = crypto.randomUUID();
+  await store.withUsers([owner], () => store.savePlatformRun({id,user_id:owner,version:1,status:'playing',started_at:Date.now()-60000}));
+  assert.equal((await post('v1-rollout', 'start')).body.version, 1);
+  const response = await post('v1-rollout', 'finish', {id,inputs:payload.inputs,version:2,boss:true,defeated:5000});
+  assert.equal(response.status, 200); assert.equal(response.body.gold, 98);
+  assert.equal(response.body.boss, false); assert.equal(response.body.defeated, 0);
+  assert.equal((await store.getUser(owner)).state.adventure.bossWins, 0);
+  const entries = (await store.ledgerFor(owner)).filter(e => e.kind === 'platform');
+  assert.equal(entries.length, 1); assert.equal(entries[0].goldDelta, 98);
+  await post('v1-rollout', 'finish', { id, inputs: [] });
+  assert.equal((await store.ledgerFor(owner)).filter(e => e.kind === 'platform').length, 1);
+});
+test('platform API: optional boss is replay-verified, advances existing progression and is credited only once', async () => {
+  const {state, inputs} = require('./fixtures/platform-boss-solution.cjs')();
+  const payload = await historical('real-boss', state.tick / R.FPS * 1000);
+  const result = await post('real-boss', 'finish', {...payload, inputs, boss:false, gold:999999});
+  assert.equal(result.status, 200); assert.equal(result.body.boss, true); assert.equal(result.body.defeated, 2);
+  assert.equal(result.body.gold, 100); assert.equal(result.body.xp, 20 + state.collected + 10);
+  const owner = `guest_${user('real-boss')}`;
+  const saved = await store.getUser(owner);
+  assert.equal(saved.state.adventure.bossWins, 1); assert.equal(saved.state.adventure.zones, 3);
+  assert.equal(saved.state.adventure.gems, state.collected);
+  const duplicate = await post('real-boss', 'finish', {...payload, inputs}, ports[1]);
+  assert.equal(duplicate.body.duplicate, true);
+  assert.deepEqual((await store.getUser(owner)).state, saved.state);
+});
