@@ -153,12 +153,12 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   return { ctx, log, byId, settle, flushFrames, fire, fireWindow, key, topLevelError, dbg: () => (ctx.__dbg ? ctx.__dbg() : {}), PlatformGame: () => ctx.PlatformGame, localStore };
 }
 
-test('platform UI: the page wires the scene — assets, mode switch and every element the controller needs', () => {
+test('platform UI: the page wires the scene — assets and every element the controller needs', () => {
   for (const asset of ['/platform.css', '/platform-rules.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-game.js']) {
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
-  for (const id of ['platform-scene', 'legacy-adventure', 'platform-mode', 'legacy-mode', 'platform-menus', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
-    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
+  for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
+    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   for (const mask of [1, 2, 4, 8, 16, 32]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
@@ -169,26 +169,19 @@ test('platform UI: the page wires the scene — assets, mode switch and every el
   for (const id of ['game-canvas', 'game-overlay', 'game-overlay-btn', 'adv-pause-btn', 'adv-skill-btn', 'adv-mute-btn', 'adv-combo']) assert.ok(ids.has(id));
 });
 
-test('platform UI: the side-scroller is the focused default and the legacy game remains accessible', async () => {
+test('platform UI: the side-scroller is the focused default play view', async () => {
   const page = bootPage();
   assert.equal(page.topLevelError, null, page.topLevelError && `${page.topLevelError.message}\n${page.topLevelError.stack}`);
   await page.settle();
   assert.equal(page.dbg().serverMode, true);
   assert.equal(page.byId('platform-scene').hidden, false, 'the platform scene is the default play view');
-  assert.equal(page.byId('legacy-adventure').hidden, true, 'the legacy game is not stacked above the level');
+  assert.equal(page.byId('legacy-adventure').hidden, true, 'the legacy game is hidden');
   assert.deepEqual(page.log.errors, []);
-  page.fire(page.byId('platform-menus'), 'click');
-  assert.equal(page.byId('platform-scene').hidden, true, 'menus reveal the legacy view');
-  assert.equal(page.byId('legacy-adventure').hidden, false);
-  page.fire(page.byId('platform-mode'), 'click');
-  assert.equal(page.byId('platform-scene').hidden, false, 'the original mode switch returns to the side-scroller');
-  assert.equal(page.byId('legacy-adventure').hidden, true);
 });
 
 test('platform UI: a real round runs — server ticket, live physics from keys, HUD, pause and resume', async () => {
   const page = bootPage();
   await page.settle();
-  page.fire(page.byId('platform-mode'), 'click');
   page.fire(page.byId('platform-start'), 'click');
   await page.settle();
   assert.equal(page.log.platformStarts, 1, 'the round must be opened on the server (/api/platform/start)');
@@ -261,7 +254,6 @@ test('platform UI: without a server identity the round is offline training — p
   const page = bootPage({ failServer: true });
   await page.settle();
   assert.equal(page.dbg().serverMode, false);
-  page.fire(page.byId('platform-mode'), 'click');
   page.fire(page.byId('platform-start'), 'click');
   await page.settle();
   const game = page.PlatformGame().inspect();
@@ -280,7 +272,6 @@ test('platform UI: without a server identity the round is offline training — p
 test('platform UI: character selection switches hero and attack/skill keys trigger combat actions', async () => {
   const page = bootPage();
   await page.settle();
-  page.fire(page.byId('platform-mode'), 'click');
   const gameApi = page.PlatformGame();
   assert.ok(gameApi);
 

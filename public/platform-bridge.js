@@ -24,14 +24,7 @@
       if (typeof api !== 'function') return Promise.reject(new Error('واجهة التطبيق غير جاهزة'));
       return api(path, options);
     },
-    // إيقاف اللعبة الأصلية مؤقتاً أثناء جولة المنصّة (بلا أي تعديل على حالتها)
-    pauseLegacy() {
-      try {
-        if (typeof adv !== 'undefined' && adv && adv.running && !adv.paused && typeof setAdventurePaused === 'function') {
-          setAdventurePaused(true);
-        }
-      } catch (_) {}
-    },
+
     // إنزال أي عمليات معلّقة قبل الطلب حتى يقرأ الخادم أحدث حالة ويرد بأحدث ملف
     flush() {
       try { return typeof flushOps === 'function' ? Promise.resolve(flushOps()) : Promise.resolve(); }

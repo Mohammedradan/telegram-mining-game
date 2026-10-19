@@ -290,6 +290,33 @@
     .mining-btn { transition: transform 0.05s ease-out; }
     .mining-btn:active { transform: scale(0.92); }
 
+    @keyframes mining-swing {
+      0%, 100% { transform: rotate(-5deg); }
+      50% { transform: rotate(5deg); }
+    }
+    
+    @keyframes pickaxe-swing {
+      0%, 100% { transform: rotate(-20deg); }
+      50% { transform: rotate(20deg); }
+    }
+    
+    .animate-mining-swing {
+      animation: mining-swing 1s ease-in-out infinite;
+    }
+    
+    .animate-pickaxe-swing {
+      animation: pickaxe-swing 0.5s ease-in-out infinite;
+    }
+    
+    @keyframes sparkle {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    
+    .animate-sparkle {
+      animation: sparkle 0.8s ease-in-out infinite;
+    }
+
     .floating-text {
       position: absolute;
       animation: floatUp 0.8s ease-out forwards;
@@ -360,12 +387,7 @@
     </div>
 
     <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
-    <!-- وضع المنصات هو التجربة الأساسية الآن؛ الواجهة الكلاسيكية ما زالت متاحة من زر القوائم. -->
-    <div class="mine-mode-switch" role="group" aria-label="اختيار نمط المغامرة">
-      <button id="legacy-mode" type="button" aria-pressed="false">⛏️ عربة المنجم <span>· الأصلية</span></button>
-      <button id="platform-mode" type="button" aria-pressed="true">🧭 منجم المنصّة <span>· موثّق</span></button>
-    </div>
-
+    <!-- 🧭 منجم المنصّة هو الشاشة الرئيسية - لعبة منصات ثنائية الأبعاد تفاعلية -->
     <div id="legacy-adventure" hidden class="flex flex-col gap-1.5 flex-1 min-h-0">
     <div class="grid grid-cols-4 gap-1.5 text-center">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
@@ -420,7 +442,6 @@
           </div>
         </div>
         <div class="mine-heading-actions">
-          <button id="platform-menus" type="button" aria-label="فتح القوائم">☰ القوائم</button>
           <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت">🔊 صوت</button>
         </div>
       </div>
@@ -433,6 +454,10 @@
         <span id="platform-hearts">♥ ♥ ♥</span>
         <span id="platform-resources">بلورات 0 · صخور 0</span>
         <span id="platform-progress">0% · 150ث</span>
+      </div>
+      <div class="mine-economy" aria-live="polite">
+        <span class="mine-gold"><span id="platform-gold">0</span> 🪙</span>
+        <span class="mine-energy"><span id="platform-energy">1000</span> ⚡</span>
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
@@ -537,7 +562,44 @@
   <!-- TAB 1: MINING (QUICK CLICK) -->
   <main id="tab-mining" class="tab-content flex-col items-center justify-center relative my-auto">
     <div id="click-area" class="relative flex items-center justify-center">
-      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none">
+      <!-- شخصيات تعدين على الجوانب -->
+      <div class="absolute -left-16 top-1/2 -translate-y-1/2 miner-character-left">
+        <div class="relative w-20 h-24">
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-amber-600 to-amber-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg">
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-amber-400 rounded-full shadow-md"></div>
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-amber-300 rounded-full opacity-50 animate-pulse"></div>
+          </div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-amber-900 rounded-full shadow-inner"></div>
+          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-400 rounded-full animate-sparkle"></div>
+        </div>
+      </div>
+      
+      <div class="absolute -right-16 top-1/2 -translate-y-1/2 miner-character-right">
+        <div class="relative w-20 h-24">
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-blue-600 to-blue-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 0.5s;">
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-blue-400 rounded-full shadow-md"></div>
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 0.5s;"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-blue-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 0.5s;"></div>
+          </div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-blue-900 rounded-full shadow-inner"></div>
+          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-400 rounded-full animate-sparkle" style="animation-delay: 0.5s;"></div>
+        </div>
+      </div>
+      
+      <div class="absolute -top-20 left-1/2 -translate-x-1/2 miner-character-top">
+        <div class="relative w-20 h-24">
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-green-600 to-green-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 1s;">
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-green-400 rounded-full shadow-md"></div>
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 1s;"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-green-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 1s;"></div>
+          </div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-green-900 rounded-full shadow-inner"></div>
+          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-green-400 rounded-full animate-sparkle" style="animation-delay: 1s;"></div>
+        </div>
+      </div>
+      
+      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none z-10">
         <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-[0_0_50px_rgba(245,158,11,0.4)] border-4 border-yellow-200/40 pointer-events-none">
           <span class="text-7xl sm:text-8xl drop-shadow-2xl">💎</span>
         </div>

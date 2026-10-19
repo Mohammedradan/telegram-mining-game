@@ -1,15 +1,11 @@
 /* Self-contained scene layout: professional 2D platformer theme — no CDN, no images, no font downloads */
 [hidden] { display: none !important; }
-.mine-mode-switch{display:flex;gap:6px;flex-shrink:0}
-.mine-mode-switch button{flex:1;border:1px solid #3e5163;border-radius:10px;padding:7px 4px;font-size:11px;color:#b5c6d3;background:#17252e;transition:all .15s}
-.mine-mode-switch button[aria-pressed=true]{background:linear-gradient(135deg,#f4bf62,#e09a2d);color:#261e20;border-color:#f4bf62;font-weight:900;box-shadow:0 2px 10px rgba(244,191,98,.35)}
 
 #platform-scene{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;color:#f9edcf;font-family:'Tajawal',system-ui,-apple-system,sans-serif}
 /* The side-scroller is the focused play view. Keep economy and secondary panels one tap away, not stacked above the level. */
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .app-header,
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .balance-strip,
-body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav,
-body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .mine-mode-switch{display:none!important}
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav{display:none!important}
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #tab-play{padding:4px!important;gap:4px!important}
 body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .bottom-nav{flex-shrink:0;padding:4px}
 .mine-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;padding:4px 6px;background:linear-gradient(135deg,rgba(18,33,43,.95),rgba(26,47,62,.85));border:1px solid rgba(101,81,66,.5);border-radius:12px;backdrop-filter:blur(6px)}
@@ -33,6 +29,9 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 #platform-hearts{color:#ff7a7a;letter-spacing:1.2px;font-size:12px;font-weight:900}
 #platform-resources{color:#a8dcc8;font-weight:700;font-size:10px;display:flex;gap:6px;align-items:center}
 #platform-progress{color:#e8c36a;font-weight:700;display:flex;align-items:center;gap:4px;font-size:10px}
+.mine-economy{display:flex;justify-content:space-between;align-items:center;font-size:10px;padding:4px 8px;border:1px solid rgba(101,81,66,.3);border-radius:10px;background:linear-gradient(135deg,rgba(26,42,54,.9),rgba(18,30,38,.85));flex-shrink:0;backdrop-filter:blur(4px);box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.mine-gold{color:#ffd700;font-weight:900;font-size:11px;letter-spacing:0.5px}
+.mine-energy{color:#7dd3fc;font-weight:700;font-size:11px;letter-spacing:0.5px}
 
 .mine-stage{position:relative;flex:1;min-height:260px;border:2px solid #6b5a3e;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at center top,#0f2535 0%,#0a1622 40%,#07101a 100%);box-shadow:0 10px 36px rgba(0,0,0,.55),0 0 0 1px rgba(244,191,98,.12),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 8px rgba(0,0,0,.4)}
 #platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none;image-rendering:optimizeQuality}
@@ -79,6 +78,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   .mine-controls button{min-width:38px;min-height:44px;padding:4px 5px;font-size:12px}
   .mine-controls button span{font-size:7.5px}
   .mine-hud{font-size:10px;padding:5px 7px}
+  .mine-economy{font-size:9px;padding:3px 6px}
   .mine-hero-btn{font-size:9px;padding:4px 2px}
   .mine-heading h2{font-size:13px}
   .mine-stage{min-height:230px}
@@ -90,7 +90,6 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   .mine-heading h2{font-size:13px}
   .mine-heading-actions button{min-height:36px;padding:4px 8px;font-size:10px}
   .mine-hud{padding:4px 8px}
-  .mine-mode-switch button{padding:5px}
   .mine-hero-btn{padding:4px 2px}
   .mine-controls{padding:2px}
   .mine-controls button{min-height:42px}
@@ -111,6 +110,30 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   .mine-overlay p{font-size:12px}
   .mine-overlay h3{font-size:26px}
   #platform-hearts{font-size:14px}
+  .mine-economy{font-size:11px;padding:5px 10px}
+}
+
+/* Medium phones (iPhone 14 Pro, 390px) */
+@media(min-width:380px) and (max-width:420px){
+  .mine-stage{min-height:300px}
+  .mine-heading h2{font-size:16px}
+  .mine-controls button{min-width:50px;min-height:48px;font-size:14px}
+  .mine-controls button span{font-size:8.5px}
+  .mine-hud{font-size:11px}
+  .mine-economy{font-size:10.5px}
+}
+
+/* Desktop horizontal (1280x800 and larger) */
+@media(min-width:1024px){
+  .mine-stage{min-height:480px;max-height:600px}
+  .mine-heading h2{font-size:20px}
+  .mine-kicker{font-size:11px}
+  .mine-controls button{min-width:60px;min-height:56px;font-size:17px}
+  .mine-controls button span{font-size:9.5px}
+  .mine-overlay p{font-size:13px}
+  .mine-overlay h3{font-size:28px}
+  #platform-hearts{font-size:15px}
+  .mine-economy{font-size:12px;padding:6px 12px}
 }
 
 @media(min-width:1100px){

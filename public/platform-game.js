@@ -124,6 +124,16 @@
     const progEl = el('platform-progress');
     if (progEl) progEl.textContent = `${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
+    // Update gold and energy from main game state
+    try {
+      if (typeof state !== 'undefined' && state) {
+        const goldEl = el('platform-gold');
+        const energyEl = el('platform-energy');
+        if (goldEl) goldEl.textContent = Math.floor(state.gold).toLocaleString('en-US');
+        if (energyEl) energyEl.textContent = Math.floor(state.energy).toLocaleString('en-US');
+      }
+    } catch (_) {}
+
     const skillBtn = document.querySelector('[data-platform-input="32"]');
     if (skillBtn) {
       const label = skillBtn.querySelector('span');
@@ -304,7 +314,7 @@
   async function start() {
     if (starting || restoring || submitting || pending) return;
     starting = true; el('platform-start').disabled = true; clearInput(); cancelAnimationFrame(raf); raf = 0;
-    bridge.pauseLegacy(); audioUnlock();
+    audioUnlock();
     try {
       await bridge.ready(); owner = bridge.user();
       if (owner) {
@@ -343,17 +353,6 @@
         running = true; paused = false; pause();
       } catch (_) { say('حفظ سابق موجود؛ أعد فتح الصفحة بعد عودة الاتصال لاستئنافه.'); }
     }
-  }
-
-  function showLegacy() {
-    pause(); el('platform-scene').hidden = true; el('legacy-adventure').hidden = false;
-    el('platform-mode').setAttribute('aria-pressed', 'false'); el('legacy-mode').setAttribute('aria-pressed', 'true');
-    if (typeof resizeAdventureCanvas === 'function') resizeAdventureCanvas();
-  }
-
-  function showPlatform() {
-    bridge.pauseLegacy(); el('legacy-adventure').hidden = true; el('platform-scene').hidden = false;
-    el('platform-mode').setAttribute('aria-pressed', 'true'); el('legacy-mode').setAttribute('aria-pressed', 'false'); draw();
   }
 
   // --- Input: pointer + keyboard, prevent page scroll ---
@@ -401,8 +400,6 @@
     el('platform-start').disabled = false; el('platform-retry').hidden = true; el('platform-discard').hidden = true;
     say('أُلغي الحفظ المحلي المعلق فقط. يمكنك بدء جولة جديدة؛ أرصدة الخادم لم تُحذف.');
   });
-  el('platform-mode').addEventListener('click', showPlatform); el('legacy-mode').addEventListener('click', showLegacy);
-  el('platform-menus').addEventListener('click', showLegacy);
   el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? '🔇 صوت ×' : '🔊 صوت ✓';
   el('platform-mute').addEventListener('click', () => {
     muted = !muted; el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? '🔇 صوت ×' : '🔊 صوت ✓';
@@ -412,7 +409,7 @@
 
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
-    pause, showLegacy, showPlatform, setHero,
+    pause, setHero,
     inspect: () => ({
       tick: sim.tick, status: sim.status, pose: sim.player.pose,
       x: sim.player.x, y: sim.player.y, gems: sim.collected, mined: sim.mined,
