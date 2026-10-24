@@ -2,6 +2,11 @@
 (function (root) {
   'use strict';
   const R = root.PlatformRules;
+  // Fallback for cached/legacy rule modules that predate cosmetic run zones.
+  const DEFAULT_ZONE = {
+    name: '', sky: ['#080e1a', '#0c1e2e', '#112838', '#1a3545', '#1e3a4a'],
+    far: '#0a1a28', mid: '#0d2233', columns: '#143040', glow: '#3ee6b3', crystal: '#39a9a4',
+  };
 
   const round = (c, x, y, w, h, r, color) => {
     c.fillStyle = color;
@@ -466,15 +471,17 @@
     }
 
     const camera = R.cameraFor(s, w);
+    // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
+    const zone = (R.ZONES || [])[s.zone || 0] || DEFAULT_ZONE;
 
     // ===== Background =====
     // Deep cavern gradient with vignette
     const bg = c.createLinearGradient(0, 0, 0, 360);
-    bg.addColorStop(0, '#080e1a');
-    bg.addColorStop(0.18, '#0c1e2e');
-    bg.addColorStop(0.5, '#112838');
-    bg.addColorStop(0.78, '#1a3545');
-    bg.addColorStop(1, '#1e3a4a');
+    bg.addColorStop(0, zone.sky[0]);
+    bg.addColorStop(0.18, zone.sky[1]);
+    bg.addColorStop(0.5, zone.sky[2]);
+    bg.addColorStop(0.78, zone.sky[3]);
+    bg.addColorStop(1, zone.sky[4]);
     c.fillStyle = bg; c.fillRect(0, 0, w, 360);
 
     // Vignette darkening at edges
@@ -487,7 +494,7 @@
 
     // Layer -2: Far cavern wall silhouette with faint crystals
     const shiftFar = camera * 0.07;
-    c.fillStyle = '#0a1a28';
+    c.fillStyle = zone.far;
     for (let i = Math.floor(shiftFar / 260) - 1; i < Math.ceil((shiftFar + w) / 260) + 1; i++) {
       const x = i * 260 - shiftFar;
       c.beginPath();
@@ -496,13 +503,13 @@
       if (i % 3 === 0) {
         c.fillStyle = '#2a6b7a22';
         c.beginPath(); c.arc(x + 40, 45, 4, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#0a1a28';
+        c.fillStyle = zone.far;
       }
     }
 
     // Layer 0: Distant stalactites
     const shift0 = camera * 0.14;
-    c.fillStyle = '#0d2233';
+    c.fillStyle = zone.mid;
     for (let i = Math.floor(shift0 / 200) - 1; i < Math.ceil((shift0 + w) / 200) + 1; i++) {
       const x = i * 200 - shift0;
       const hgt = 55 + (Math.abs(i * 13) % 35);
@@ -510,12 +517,12 @@
       // tiny drips
       c.fillStyle = '#1a3a4a';
       c.fillRect(x + 18, hgt - 2, 2, 6);
-      c.fillStyle = '#0d2233';
+      c.fillStyle = zone.mid;
     }
 
     // Layer 1: Mid rock columns & arches
     const shift1 = camera * 0.30;
-    c.fillStyle = '#143040';
+    c.fillStyle = zone.columns;
     for (let i = Math.floor(shift1 / 180) - 1; i < Math.ceil((shift1 + w) / 180) + 1; i++) {
       const x = i * 180 - shift1;
       c.beginPath();
@@ -523,7 +530,7 @@
       // arch highlights
       c.fillStyle = '#1e4458';
       c.fillRect(x + 10, 120, 2, 40);
-      c.fillStyle = '#143040';
+      c.fillStyle = zone.columns;
     }
 
     // Layer 2: Near supports, rails, mushrooms
@@ -539,7 +546,7 @@
       round(c, x - 30, 48, 180, 12, 3, '#3e4a52');
       round(c, x - 28, 50, 176, 8, 2, '#5a6570');
       // glowing mushrooms (varied)
-      const mushColors = ['#3ee6b3', '#7dd3c6', '#56cfe1'];
+      const mushColors = [zone.glow, '#7dd3c6', '#56cfe1'];
       c.fillStyle = mushColors[Math.abs(i) % 3];
       c.beginPath(); c.arc(x + 80, 295, 6, Math.PI, 0); c.fill();
       c.fillStyle = mushColors[Math.abs(i) % 3] + '88';
@@ -598,7 +605,7 @@
       // ambient crystal cluster
       const flicker = reduced ? 1 : 0.85 + Math.sin(s.tick * 0.07 + x * 0.02) * 0.2;
       c.globalAlpha = flicker;
-      crystal(c, x + 155, 287, 0.65, '#39a9a4', false);
+      crystal(c, x + 155, 287, 0.65, zone.crystal, false);
       c.globalAlpha = 0.5 * flicker;
       crystal(c, x + 162, 291, 0.38, '#7dd3c6', false);
       c.globalAlpha = 1;

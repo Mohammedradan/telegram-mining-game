@@ -45,7 +45,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-overlay button:disabled{opacity:.55;transform:none;box-shadow:none}
 .mine-overlay #platform-resume{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;box-shadow:0 4px 14px rgba(38,84,92,.3)}
 
-.mine-controls{display:flex;justify-content:space-between;align-items:center;gap:5px;flex-shrink:0;padding:3px;background:linear-gradient(135deg,rgba(18,30,42,.6),rgba(12,22,32,.4));border-radius:14px;border:1px solid rgba(60,80,95,.25);position:relative}
+/* الحركة يساراً والأفعال يميناً داخل صفحة RTL (عرف ألعاب الجوال) */
+.mine-controls{direction:ltr;display:flex;justify-content:space-between;align-items:center;gap:5px;flex-shrink:0;padding:3px;background:linear-gradient(135deg,rgba(18,30,42,.6),rgba(12,22,32,.4));border-radius:14px;border:1px solid rgba(60,80,95,.25);position:relative}
 
 /* Virtual Joystick */
 .virtual-joystick{position:relative;width:110px;height:110px;touch-action:none;-webkit-touch-callout:none;user-select:none;display:none}@media(max-width:768px){.virtual-joystick{display:block}}

@@ -45,9 +45,9 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       if (!replay.ok) return { status: 400, error: 'حركات جولة غير صالحة' };
       const state = replay.state;
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };
-      const duration = state.tick / rules.FPS;
+      const duration = state.tick / Rules.FPS;
       if (now() - Number(run.started_at) + 1000 < duration * 1000) return { status: 409, error: 'الجولة أسرع من الزمن الحقيقي؛ أعد المحاولة بعد ثوانٍ' };
-      const potential = rules.rewardFor(state);
+      const potential = Rules.rewardFor(state);
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
       const a = user.state.adventure;
       const quota = dailyQuota(user.sync, tooSoon ? 0 : potential, now());

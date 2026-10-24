@@ -21,7 +21,31 @@
   let raf = 0, last = 0, accumulator = 0;
   let audio = null, muted = false, particles = [], shake = 0;
   const keys = new Set(), pointers = new Map();
+  // Preserve a quick jump/mine tap until one simulation step consumes it. Sources
+  // are separate so cancelling a finger cannot erase a keyboard or another finger.
+  const pulses = new Map();
+  const queueAction = (source, mask) => { if (mask & 12) pulses.set(source, mask & 12); };
+  function releasePointer(id, cancelled = false) {
+    if (cancelled) pulses.delete(`pointer:${id}`);
+    pointers.delete(id);
+    document.querySelectorAll('[data-platform-input]').forEach(b => {
+      b.dataset.down = String([...pointers.values()].includes(Number(b.dataset.platformInput)));
+    });
+  }
   const reduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const volume = 1; // master gain for the synthesised effects (0 mutes)
+  let feedbackUntil = 0, observedCheckpoint = sim.checkpoint, observedMined = sim.mined;
+  let learnedJump = false;
+  function feedback(text) {
+    const box = el('platform-feedback');
+    if (!box) return;
+    box.textContent = text; box.hidden = false;
+    feedbackUntil = sim.tick + 150;
+  }
+  function resetFeedback() {
+    feedbackUntil = 0; observedCheckpoint = sim.checkpoint; observedMined = sim.mined;
+    const box = el('platform-feedback'); if (box) box.hidden = true;
+  }
   try { muted = localStorage.getItem('platform-muted') === 'true'; } catch (_) {}
 
   const keyMap = {
@@ -135,7 +159,8 @@
     const resEl = el('platform-resources');
     if (resEl) resEl.textContent = `💎 ${Math.min(3, sim.collected)}/3 · ⛏ ${Math.min(1, sim.mined)}/1 · 👾 ${sim.defeated || 0}`;
     const progEl = el('platform-progress');
-    if (progEl) progEl.textContent = `${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+    const zoneName = R.ZONES?.[sim.zone || 0]?.name;
+    if (progEl) progEl.textContent = `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
     // Update gold and energy from main game state
     try {
@@ -250,6 +275,10 @@
       p.vx *= 0.99;
     }
     particles = particles.filter(p => p.life > 0);
+    if (feedbackUntil && sim.tick >= feedbackUntil) {
+      const box = el('platform-feedback'); if (box) box.hidden = true;
+      feedbackUntil = 0;
+    }
     // decay shake
     if (shake > 0) shake = Math.max(0, shake - 0.07);
   }
@@ -265,6 +294,8 @@
       let mask = 0;
       for (const k of keys) mask |= keyMap[k] || 0;
       for (const v of pointers.values()) mask |= v;
+      for (const v of pulses.values()) mask |= v; // quick taps survive until one physics step
+      pulses.clear();
 
       // Add joystick input to mask
       if (joystickActive) {

@@ -208,3 +208,30 @@ test('platform balance: each hero has a distinct, measurable advantage', () => {
   const melee = R.create('warrior'); melee.enemies = [{ ...melee.enemies[0], x: melee.player.x + 200, y: melee.player.y + 4, patrolSpeed: 0, vx: 0 }];
   R.step(melee, R.INPUT.ATTACK); assert.equal(melee.defeated, 0);
 });
+
+// من فرع devin/1792351084-gameplay-overhaul (PR #25): أربعة كهوف تجميلية حسب بذرة الجولة.
+test('platform zones: all four caves are reachable from server-style run ids, with own colours, layout and a winnable route', () => {
+  const names = ['كهف البلّور الأزرق', 'مناجم الحمم', 'كهف الزمرّد', 'الأعماق البنفسجية'];
+  assert.deepEqual(R.ZONES.map(z => z.name), names);
+  const found = new Map();
+  for (let i = 0; i < 200 && found.size < R.ZONES.length; i++) {
+    const seed = R.seedFromId(`zone-run-${i}`); // نفس صيغة معرّف الجولة في platform-api.js
+    const zone = R.zoneFor(seed);
+    if (!found.has(zone)) found.set(zone, seed);
+  }
+  assert.equal(found.size, R.ZONES.length, 'every cosmetic zone is reachable from run ids');
+  const layouts = new Set();
+  for (const [zone, seed] of found) {
+    const s = R.create('miner', seed);
+    assert.equal(s.zone, zone);
+    assert.equal(R.ZONES[s.zone].name, names[zone]);
+    for (const key of ['sky', 'far', 'mid', 'columns', 'glow', 'crystal']) {
+      assert.ok(R.ZONES[zone][key], `zone ${zone} has ${key} colours`);
+    }
+    layouts.add(JSON.stringify(s.rocks.map(r => r.x)));
+    const { state, inputs } = solution(seed);
+    assert.equal(state.status, 'won', `zone ${names[zone]} layout is winnable`);
+    assert.deepEqual(R.replay(inputs, 'miner', seed).state, state, 'the zone never changes verified physics');
+  }
+  assert.equal(layouts.size, found.size, 'each zone sample has its own layout');
+});
