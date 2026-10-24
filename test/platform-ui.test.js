@@ -40,8 +40,8 @@ function makeElement(id = '', seed = {}) {
     _listeners: {},
     appendChild(c) { this.children.push(c); return c; }, append(...c) { this.children.push(...c); }, prepend: noop, remove: noop, removeChild: noop,
     addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); }, removeEventListener: noop,
-    setAttribute: noop, getAttribute: () => null, removeAttribute: noop, focus: noop, blur: noop, click: noop, scrollIntoView: noop,
-    querySelector: () => null, querySelectorAll: () => [], closest: () => null, matches: () => false, contains: () => false,
+    setAttribute: noop, getAttribute: () => null, removeAttribute: noop, focus: noop, blur: noop, click: noop, scrollIntoView: noop, setPointerCapture: noop, releasePointerCapture: noop,
+    querySelector(selector) { if (id === 'virtual-joystick' && selector === '.joystick-handle') { if (!this._joystickHandle) this._joystickHandle = makeElement('joystick-handle'); return this._joystickHandle; } return null; }, querySelectorAll: () => [], closest: () => null, matches: () => false, contains: () => false,
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 360, height: 330, right: 360, bottom: 330 }),
     getContext: () => new Proxy({}, {
       get: (t, k) => (k === 'canvas' ? e : k === 'measureText' ? () => ({ width: 10 }) : /^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(String(k)) ? () => ({ addColorStop: noop }) : typeof k === 'string' ? noop : undefined),
@@ -221,6 +221,25 @@ test('platform UI: a real round runs — server ticket, live physics from keys, 
   assert.deepEqual(page.log.errors, []);
   // جولة لم تنتهِ: لا إنهاء ولا مكافأة
   assert.equal(page.log.platformFinishBodies.length, 0);
+});
+
+test('platform UI: pausing clears a held virtual joystick so movement does not stick on resume', async () => {
+  const page = bootPage();
+  await page.settle();
+  page.fire(page.byId('platform-start'), 'click');
+  await page.settle();
+  const joystick = page.byId('virtual-joystick');
+  const startX = page.PlatformGame().inspect().x;
+  page.fire(joystick, 'pointerdown', { pointerId: 7, clientX: 240, clientY: 165 });
+  page.flushFrames(20);
+  const movedX = page.PlatformGame().inspect().x;
+  assert.ok(movedX > startX + 40, 'the virtual joystick moves the player');
+  page.PlatformGame().pause();
+  const pausedX = page.PlatformGame().inspect().x;
+  page.fire(page.byId('platform-resume'), 'click');
+  page.flushFrames(15);
+  assert.equal(page.PlatformGame().inspect().x, pausedX, 'a stale joystick pointer must not keep moving the player after resume');
+  assert.deepEqual(page.log.errors, []);
 });
 
 test('platform UI: a finished winning round is submitted on boot, confirmed by the server replay and adopted — no local award', async () => {
