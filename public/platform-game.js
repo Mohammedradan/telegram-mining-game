@@ -45,6 +45,11 @@
   function clearInput() {
     keys.clear(); pointers.clear();
     document.querySelectorAll('[data-platform-input]').forEach(b => { b.dataset.down = 'false'; });
+    // Reset analog input whenever the game pauses or resumes. A hidden tab can
+    // miss pointerup, otherwise leaving the player walking after returning.
+    joystickActive = false; joystickX = 0; joystickY = 0; joystickPointerId = null;
+    const handle = el('virtual-joystick')?.querySelector('.joystick-handle');
+    if (handle) handle.style.transform = 'translate(-50%, -50%)';
   }
 
   function audioUnlock() {
