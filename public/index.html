@@ -2250,7 +2250,7 @@
 
     function startAdventure(mode = 'solo', seed = null, duration = null) {
       // A server-started race must reveal the cart, and suspend the platform RAF.
-      window.PlatformGame?.showLegacy();
+      window.PlatformGame?.showLegacy?.();
       if (mode === 'race') switchPlayPanel('adventure');
       for (const key of Object.keys(advKeys)) delete advKeys[key];
       resizeAdventureCanvas();
@@ -2613,6 +2613,7 @@
       cancelAnimationFrame(adv.raf);
       const finalScore = Math.floor(adv.score);
       const inRace = adv.mode === 'race' && race.inRace;
+      if (inRace) window.PlatformGame?.showPlatform?.(); // restore the side-scroller after a race
       const rewardCap = adv.gameMode === 'survival' ? 150 : 100;
       const victoryBonus = adv.bossDefeated ? 150 : 0;
       const reward = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)

@@ -541,12 +541,26 @@
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
     pause, setHero,
+    // Races reuse the original cart scene; restore the side-scroller afterwards.
+    showLegacy: () => {
+      pause();
+      const scene = el('platform-scene'), legacy = el('legacy-adventure');
+      if (scene) scene.hidden = true;
+      if (legacy) legacy.hidden = false;
+      try { window.resizeAdventureCanvas?.(); } catch (_) {}
+    },
+    showPlatform: () => {
+      const scene = el('platform-scene'), legacy = el('legacy-adventure');
+      if (legacy) legacy.hidden = true;
+      if (scene) scene.hidden = false;
+      hud(); draw();
+    },
     inspect: () => ({
       tick: sim.tick, status: sim.status, pose: sim.player.pose,
       x: sim.player.x, y: sim.player.y, gems: sim.collected, mined: sim.mined,
       hearts: sim.player.hearts, running, paused, scheduled: Boolean(raf),
       ticket: ticket?.id, pending: Boolean(pending), hero: sim.player.hero,
-      defeated: sim.defeated,
+      defeated: sim.defeated, reduced, zone: sim.zone,
     }),
   };
 
