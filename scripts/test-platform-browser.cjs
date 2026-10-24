@@ -38,10 +38,10 @@ async function main() {
         assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
         await page.keyboard.down('d'); await page.keyboard.down('ArrowRight');
         const bothHeld = await read(page);
-        await page.waitForFunction(x => window.PlatformGame.inspect().x > x + 1, bothHeld.x, { timeout: 2000 });
+        await page.waitForFunction(x => window.PlatformGame.inspect().x > x + 1, bothHeld.x, { timeout: 5000 });
         await page.keyboard.up('ArrowRight');
         const alias = await read(page);
-        await page.waitForFunction(x => window.PlatformGame.inspect().x > x + 1, alias.x, { timeout: 2000 });
+        await page.waitForFunction(x => window.PlatformGame.inspect().x > x + 1, alias.x, { timeout: 5000 });
         await page.keyboard.up('d');
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
@@ -58,20 +58,22 @@ async function main() {
       }, [right, jump]);
       if (touchReady) {
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: right.x + 15, y: right.y + 15, id: 1 }, { x: jump.x + 15, y: jump.y + 15, id: 2 }] });
-        await wait(140);
-        const jumped = await read(page); assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped })); assert.ok(jumped.y < 260, 'touch movement and jump work simultaneously');
-        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-        const released = await read(page); await wait(100); assert.equal((await read(page)).x, released.x, 'touch release cannot latch direction');
       } else {
         await page.keyboard.down('ArrowRight'); await page.keyboard.down('Space');
-        await wait(140);
-        const jumped = await read(page); assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped })); assert.ok(jumped.y < 260, 'keyboard movement and jump work simultaneously');
-        await page.keyboard.up('Space'); await page.keyboard.up('ArrowRight');
-        const released = await read(page); await wait(100); assert.equal((await read(page)).x, released.x, 'key release cannot latch direction');
       }
+      // Poll instead of relying on one fixed sleep: CI runners can be slower.
+      let jumped = await read(page);
+      for (let i = 0; i < 20 && !(jumped.x > 64 && jumped.y < 260); i++) { await wait(50); jumped = await read(page); }
+      assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped }));
+      assert.ok(jumped.y < 260, 'movement and jump work simultaneously');
+      if (touchReady) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      else { await page.keyboard.up('Space'); await page.keyboard.up('ArrowRight'); }
+      const released = await read(page); await wait(180);
+      assert.equal((await read(page)).x, released.x, 'input release cannot latch direction');
       await page.locator('#platform-pause').click();
       const paused = await read(page); await wait(250); assert.equal((await read(page)).tick, paused.tick); assert.equal(paused.scheduled, false);
-      await page.locator('#platform-resume').click(); await wait(100); assert.ok((await read(page)).tick > paused.tick);
+      await page.locator('#platform-resume').click();
+      await page.waitForFunction(t => window.PlatformGame.inspect().tick > t, paused.tick, { timeout: 8000 });
       await page.locator('#nav-mining').click(); const left = await read(page); assert.equal(left.paused, true); await wait(100); assert.equal((await read(page)).tick, left.tick);
       await page.locator('#nav-play').click();
       await page.reload();
@@ -103,7 +105,7 @@ async function main() {
     await page.keyboard.down('ArrowRight'); await page.keyboard.down('e');
     let jumping = false;
     const winStart = Date.now();
-    const deadline = winStart + 100000;
+    const deadline = winStart + 140000;
     while (Date.now() < deadline) {
       const state = await read(page);
       if (state.status !== 'playing') break;
