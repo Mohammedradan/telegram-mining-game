@@ -114,6 +114,17 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
+  // مناطق تجميلية فقط: لون الكهف واسمه يتبعان بذرة الجولة، ولا يؤثران في الفيزياء
+  // ولا في التحقق الخادمي (replay). أعيد إدخالها من فرع devin/1792351084-gameplay-overhaul
+  // بعد تحديث المحرك إلى VERSION 2.
+  const ZONES = Object.freeze([
+    { id: 'blue', name: 'كهف البلّور الأزرق', sky: ['#080e1a', '#0c1e2e', '#112838', '#1a3545', '#1e3a4a'], far: '#0a1a28', mid: '#0d2233', columns: '#143040', glow: '#3ee6b3', crystal: '#39a9a4' },
+    { id: 'lava', name: 'مناجم الحمم', sky: ['#160a08', '#2a110c', '#3d1810', '#542318', '#6a2c1e'], far: '#2a120c', mid: '#3d1d14', columns: '#4a2116', glow: '#ff8a3d', crystal: '#ff7043' },
+    { id: 'emerald', name: 'كهف الزمرّد', sky: ['#06130d', '#0b2115', '#10301f', '#17432b', '#1d5033'], far: '#0d2318', mid: '#173826', columns: '#1b4129', glow: '#7dff9a', crystal: '#54d98a' },
+    { id: 'amethyst', name: 'الأعماق البنفسجية', sky: ['#0e0718', '#1a0f2a', '#28163d', '#381f52', '#462862'], far: '#1a0f2b', mid: '#2a1a40', columns: '#331f4d', glow: '#d58bff', crystal: '#b06bea' },
+  ]);
+  const zoneFor = seed => (seed === undefined || seed === null ? 0 : (Number(seed) >>> 0) % ZONES.length);
+
   function layoutFor(seed) {
     if (seed === undefined || seed === null) return { rocks: LEVEL.rocks, gems: LEVEL.gems, enemies: LEVEL.enemies.map(e => ({ ...e, dir: 1 })) };
     const rnd = prng(Number(seed) >>> 0);
@@ -134,6 +145,7 @@
     const layout = layoutFor(seed);
     return {
       seed: seed === undefined || seed === null ? null : Number(seed) >>> 0,
+      zone: zoneFor(seed),
       version: VERSION,
       tick: 0,
       status: 'playing',
@@ -313,11 +325,8 @@
           });
         }
       }
-      // The same pickaxe is a close-range attack. Each swing hits once.
-      for (const enemy of s.enemies) if (enemy.hp > 0 && overlap(hitbox, enemy)) {
-        enemy.hp--; s.events.push({ type: 'mine', x: enemy.x + enemy.w / 2, y: enemy.y });
-        if (!enemy.hp) { s.defeated++; if (enemy.kind === 'boss') s.bossDefeated = true; s.events.push({ type: 'defeat', x: enemy.x, y: enemy.y }); }
-      }
+      // Enemy damage is handled by the ATTACK action above; no stray close-range
+      // hitbox is in scope here (an undefined `hitbox` used to crash every skill).
     }
 
     const solids = LEVEL.platforms.concat(s.rocks.filter(r => r.hp > 0));
@@ -460,5 +469,5 @@
   const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
   const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
 
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
+  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, ZONES, zoneFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
 });

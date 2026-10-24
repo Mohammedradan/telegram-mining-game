@@ -83,3 +83,14 @@ test('telegram viewport height and vertical-swipe guard are applied when running
   // الطاقة عنصر تبويب التعدين فقط؛ التبويب الابتدائي هو اللعب
   assert.match(html, /<div id="energy-container" class="w-full mb-3" style="display:none">/);
 });
+
+// من فرع arena/d5e3e0bb (PR #20) وdevin/1792351084-gameplay-overhaul (PR #25):
+// الأنماط المحلية مرتبطة فعلاً، وأدوات اللمس تحافظ على ترتيبها المكاني داخل صفحة RTL.
+test('local styles are actually linked and platform touch controls preserve spatial order', () => {
+  assert.match(html, /<link[^>]+href="\/game\.css/);
+  assert.doesNotMatch(html, /<script[^>]+cdn\.tailwindcss\.com/);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  assert.match(css, /\.mine-controls\s*\{\s*direction:ltr/);
+  assert.match(html, /if \(tabId !== 'play'\) window\.PlatformGame\?\.pause\(\)/);
+  assert.match(html, /if \(panelId !== 'adventure'\) window\.PlatformGame\?\.pause\(\)/);
+});

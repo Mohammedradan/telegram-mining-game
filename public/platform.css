@@ -45,7 +45,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-overlay button:disabled{opacity:.55;transform:none;box-shadow:none}
 .mine-overlay #platform-resume{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;box-shadow:0 4px 14px rgba(38,84,92,.3)}
 
-.mine-controls{display:flex;justify-content:space-between;align-items:center;gap:5px;flex-shrink:0;padding:3px;background:linear-gradient(135deg,rgba(18,30,42,.6),rgba(12,22,32,.4));border-radius:14px;border:1px solid rgba(60,80,95,.25);position:relative}
+/* الحركة يساراً والأفعال يميناً داخل صفحة RTL (عرف ألعاب الجوال) */
+.mine-controls{direction:ltr;display:flex;justify-content:space-between;align-items:center;gap:5px;flex-shrink:0;padding:3px;background:linear-gradient(135deg,rgba(18,30,42,.6),rgba(12,22,32,.4));border-radius:14px;border:1px solid rgba(60,80,95,.25);position:relative}
 
 /* Virtual Joystick */
 .virtual-joystick{position:relative;width:110px;height:110px;touch-action:none;-webkit-touch-callout:none;user-select:none;display:none}@media(max-width:768px){.virtual-joystick{display:block}}
@@ -60,9 +61,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .action-btn span{font-size:8.5px;line-height:1.1;color:#d1e0e2;font-weight:700;letter-spacing:.2px}
 .action-btn[data-down=true],.action-btn:active{transform:translateY(2px) scale(.97);border-bottom-width:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 
-/* Hide action buttons on desktop, show keyboard hint */
-@media(min-width:769px){.action-btn{display:none}}
-@media(min-width:769px){.mine-controls-actions::after{content:'استخدم لوحة المفاتيح: الأسهم للحركة، المسافة للقفز، E للتعدين، F للهجوم، Q للمهارة';font-size:9px;color:#8a9caa;text-align:right;padding:4px 8px;white-space:nowrap}}
+/* أدوات اللمس تبقى ظاهرة على كل المقاسات (بما فيها سطح المكتب) — من فرع PR #20/51b5244.
+   يمكن دائماً استخدام لوحة المفاتيح، لكن إخفاء الأزرار كان يكسر التحكم في WebView المكتبي. */
 
 /* Button variants */
 .pause-btn{min-width:38px;min-height:38px;font-size:13px;padding:4px}
@@ -179,4 +179,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   #platform-scene .mine-stage{min-height:180px}
   #platform-scene .mine-status{min-height:14px;line-height:14px;font-size:9px}
   .mine-controls button{min-height:38px;padding:3px 7px;font-size:11px}
+  /* الشاشة الأفقية القصيرة: أزل الأشرطة الثانوية حتى لا يغطي شريط التنقل أدوات اللمس */
+  #platform-scene .mine-hero-bar,
+  #platform-scene .mine-economy{display:none}
+  #platform-scene .mine-stage{min-height:110px}
 }
