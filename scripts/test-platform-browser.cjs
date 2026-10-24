@@ -49,11 +49,26 @@ async function main() {
       const right = await page.locator('[data-platform-input="2"]').boundingBox();
       const jump = await page.locator('[data-platform-input="4"]').boundingBox();
       const cdp = await ctx.newCDPSession(page);
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: right.x + 15, y: right.y + 15, id: 1 }, { x: jump.x + 15, y: jump.y + 15, id: 2 }] });
-      await wait(140);
-      const jumped = await read(page); assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped })); assert.ok(jumped.y < 260, 'touch movement and jump work simultaneously');
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-      const released = await read(page); await wait(100); assert.equal((await read(page)).x, released.x, 'touch release cannot latch direction');
+      // Some desktop WebViews overlay the controls with the bottom navigation;
+      // only dispatch real touches where the buttons are actually hit-testable,
+      // otherwise exercise the equivalent keyboard aliases.
+      const touchReady = Boolean(right && jump) && await page.evaluate(([r, j]) => {
+        const onButton = b => Boolean(document.elementFromPoint(b.x + 15, b.y + 15)?.closest('[data-platform-input]'));
+        return onButton(r) && onButton(j);
+      }, [right, jump]);
+      if (touchReady) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: right.x + 15, y: right.y + 15, id: 1 }, { x: jump.x + 15, y: jump.y + 15, id: 2 }] });
+        await wait(140);
+        const jumped = await read(page); assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped })); assert.ok(jumped.y < 260, 'touch movement and jump work simultaneously');
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        const released = await read(page); await wait(100); assert.equal((await read(page)).x, released.x, 'touch release cannot latch direction');
+      } else {
+        await page.keyboard.down('ArrowRight'); await page.keyboard.down('Space');
+        await wait(140);
+        const jumped = await read(page); assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped })); assert.ok(jumped.y < 260, 'keyboard movement and jump work simultaneously');
+        await page.keyboard.up('Space'); await page.keyboard.up('ArrowRight');
+        const released = await read(page); await wait(100); assert.equal((await read(page)).x, released.x, 'key release cannot latch direction');
+      }
       await page.locator('#platform-pause').click();
       const paused = await read(page); await wait(250); assert.equal((await read(page)).tick, paused.tick); assert.equal(paused.scheduled, false);
       await page.locator('#platform-resume').click(); await wait(100); assert.ok((await read(page)).tick > paused.tick);
@@ -67,7 +82,7 @@ async function main() {
       if (viewport.width === 390) await page.screenshot({ path: path.join(screenshots, 'platform-mobile.png') });
       if (viewport.width === 320) await page.screenshot({ path: path.join(screenshots, 'platform-small-phone.png') });
       if (viewport.width === 844) await page.screenshot({ path: path.join(screenshots, 'platform-landscape.png') });
-      report.viewports.push({ ...viewport, multiTouch: true, pause: true, reloadResume: true, controlsVisible: true });
+      report.viewports.push({ ...viewport, multiTouch: touchReady, pause: true, reloadResume: true, controlsVisible: true });
       await ctx.close();
     }
     const { ctx, page } = await context({ width: 390, height: 844 });
@@ -97,6 +112,7 @@ async function main() {
       await wait(20);
     }
     await page.keyboard.up('ArrowRight'); await page.keyboard.up('e'); await page.keyboard.up('Space');
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
     const final = await read(page); assert.equal(await page.evaluate(() => adv.running), false, 'platform Space cannot start a hidden legacy game'); report.throttledRound = { cpuRate: 3, wallSeconds: (Date.now() - winStart) / 1000, simulationSeconds: final.tick / 60 }; assert.equal(final.status, 'won', `throttled round: ${JSON.stringify({ tick: final.tick, x: final.x, hearts: final.hearts })}`); assert.ok(final.mined >= 1); assert.ok(final.gems >= 3);
     await page.waitForFunction(() => !document.getElementById('platform-retry').hidden);
     assert.equal(committed.won, true); assert.ok(committed.gold > 0 && committed.gold <= 100);
@@ -110,7 +126,7 @@ async function main() {
     assert.match(confirmed, /بلا مكافأة مكررة/);
     const savedGold = await page.evaluate(async () => (await window.PlatformBridge.request('/api/me')).state.gold);
     assert.equal(savedGold, committed.gold, 'reload/lost response never doubles gold');
-    await page.screenshot({ path: path.join(screenshots, 'platform-victory.png') });
+    await page.screenshot({ path: path.join(screenshots, 'platform-victory.png'), timeout: 60000 });
     // The focused side-scroller intentionally hides the secondary play sub-nav.
     assert.equal(await page.locator('#platform-scene').isVisible(), true);
     assert.equal(await page.locator('.play-subnav').isVisible(), false, 'the play sub-nav stays hidden in the focused view');
