@@ -313,6 +313,11 @@
           });
         }
       }
+      // The same pickaxe is a close-range attack. Each swing hits once.
+      for (const enemy of s.enemies) if (enemy.hp > 0 && overlap(hitbox, enemy)) {
+        enemy.hp--; s.events.push({ type: 'mine', x: enemy.x + enemy.w / 2, y: enemy.y });
+        if (!enemy.hp) { s.defeated++; if (enemy.kind === 'boss') s.bossDefeated = true; s.events.push({ type: 'defeat', x: enemy.x, y: enemy.y }); }
+      }
     }
 
     const solids = LEVEL.platforms.concat(s.rocks.filter(r => r.hp > 0));

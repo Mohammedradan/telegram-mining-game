@@ -2,7 +2,9 @@
 (() => {
   'use strict';
   if (window.PlatformGame) return;
-  const R = window.PlatformRules, renderer = window.PlatformRenderer, bridge = window.PlatformBridge;
+  let R = window.PlatformRules;
+  const currentRules = R;
+  const renderer = window.PlatformRenderer, bridge = window.PlatformBridge;
   const el = id => document.getElementById(id);
   const canvas = el('platform-canvas');
   if (!canvas || !R || !renderer || !bridge) return;
@@ -43,7 +45,7 @@
   const draw = () => renderer.draw(canvas, sim, { reduced, particles, shake });
 
   function clearInput() {
-    keys.clear(); pointers.clear();
+    keys.clear(); pointers.clear(); pulses.clear();
     document.querySelectorAll('[data-platform-input]').forEach(b => { b.dataset.down = 'false'; });
     // Reset analog input whenever the game pauses or resumes. A hidden tab can
     // miss pointerup, otherwise leaving the player walking after returning.
@@ -63,7 +65,7 @@
 
   // Richer sound synthesis with per-event timbres
   function beep(type) {
-    if (muted || !audio || audio.state !== 'running') return;
+    if (muted || volume === 0 || !audio || audio.state !== 'running') return;
     try {
       const defs = {
         jump: { freq: 440, dur: 0.14, type: 'sine', slide: 660 },
@@ -189,7 +191,13 @@
   }
 
   function consumeEvents() {
+    if (sim.mined > observedMined) feedback('تكسّر العِرق! جمعت بلورتين من المعدن.');
+    if (sim.checkpoint !== observedCheckpoint) feedback('راية مفعّلة — ستعود إلى هنا إن أصابك خطر.');
+    observedMined = sim.mined; observedCheckpoint = sim.checkpoint;
     for (const event of sim.events) {
+      if (event.type === 'jump') learnedJump = true;
+      if (event.type === 'hurt') feedback(sim.player.hearts > 0 ? (sim.checkpoint === 64 ? 'احذر الخطر! عدت إلى نقطة البداية.' : 'احذر الخطر! عدت إلى آخر راية، ومواردك باقية.') : 'نفدت القلوب — يمكنك المحاولة من جديد.');
+      if (event.type === 'defeat') feedback('هزمت حارسًا — الطريق أكثر أمانًا.');
       beep(event.type);
       // shake feedback for impactful events
       if (event.type === 'hurt') { doShake(0.65); haptic('hurt'); }
@@ -331,6 +339,7 @@
 
   async function start() {
     if (starting || restoring || submitting || pending) return;
+    pause();
     starting = true; el('platform-start').disabled = true; clearInput(); cancelAnimationFrame(raf); raf = 0;
     audioUnlock();
     try {
@@ -359,7 +368,7 @@
     const replay = stored.inputs?.length ? R.replay(stored.inputs, currentHero, seedOf(stored.ticket)) : { ok: true, state: R.create(currentHero, seedOf(stored.ticket)) };
     if (!replay.ok) { say('ملف جولة غير صالح؛ يمكنك البدء مجددًا.'); return; }
     ticket = stored.ticket; inputs = stored.inputs || []; sim = replay.state;
-    hud(); draw();
+    resetFeedback(); hud(); draw();
     if (sim.status !== 'playing') {
       pending = { id: ticket.id, inputs, hero: currentHero }; el('platform-start').disabled = true;
       overlay(sim.status === 'won' ? 'استرجاع نتيجة جولتك' : 'جولة سابقة انتهت', 'جارٍ استرجاع تأكيد الخادم. إعادة الطلب لا تضاعف الجائزة.');
@@ -369,7 +378,7 @@
         const current = await request('/api/platform/start');
         if (current.id !== ticket.id) { ticket = null; say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.'); return; }
         running = true; paused = false; pause();
-      } catch (_) { say('حفظ سابق موجود؛ أعد فتح الصفحة بعد عودة الاتصال لاستئنافه.'); }
+      } catch (_) { running = true; paused = false; pause(); say('تعذّر الاتصال؛ جولتك محفوظة محليًا ويمكنك متابعتها. ستُرسل النتيجة عند عودة الشبكة قبل انتهاء التذكرة.'); }
     }
   }
 
@@ -377,9 +386,11 @@
   for (const button of document.querySelectorAll('[data-platform-input]')) {
     button.addEventListener('pointerdown', e => {
       e.preventDefault(); if (!running || paused) return;
-      audioUnlock(); button.setPointerCapture?.(e.pointerId); pointers.set(e.pointerId, Number(button.dataset.platformInput)); button.dataset.down = 'true';
+      const mask = Number(button.dataset.platformInput);
+      audioUnlock(); button.setPointerCapture?.(e.pointerId); pointers.set(e.pointerId, mask);
+      queueAction(`pointer:${e.pointerId}`, mask); button.dataset.down = 'true';
     });
-    const release = e => { pointers.delete(e.pointerId); button.dataset.down = 'false'; };
+    const release = e => releasePointer(e.pointerId, e.type === 'pointercancel' || (e.type === 'lostpointercapture' && pointers.has(e.pointerId)));
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release);
     button.addEventListener('contextmenu', e => e.preventDefault());
     // prevent double-tap zoom
@@ -463,7 +474,11 @@
 
   window.addEventListener('keydown', e => {
     if (!visible() || !keyMap[e.code] || /INPUT|TEXTAREA|SELECT/.test(e.target?.tagName || '')) return;
-    e.preventDefault(); if (running && !paused) keys.add(e.code);
+    e.preventDefault();
+    if (running && !paused) {
+      if (!e.repeat && !keys.has(e.code)) queueAction(`key:${e.code}`, keyMap[e.code]);
+      keys.add(e.code);
+    }
   });
   window.addEventListener('keyup', e => { keys.delete(e.code); });
   window.addEventListener('blur', () => { keys.clear(); pause(); if (joystickActive) { joystickActive = false; joystickX = 0; joystickY = 0; joystickPointerId = null; if (joystickHandle) joystickHandle.style.transform = 'translate(-50%, -50%)'; } });

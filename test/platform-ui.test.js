@@ -71,6 +71,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
     }
     return elements.get(id);
   };
+  const controls = [1, 2, 4, 8].map(mask => { const b = makeElement(); b.dataset.platformInput = String(mask); return b; });
   const clock = { now: 0 };
   const tick = () => (clock.now += 16.7);
   const timers = [];
@@ -114,7 +115,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   const ctx = {
     console: { log: noop, info: noop, debug: noop, warn: noop, error: (...a) => log.errors.push(a.map(String).join(' ')) },
     document: {
-      getElementById: byId, querySelector: () => null, querySelectorAll: () => [], createElement: () => makeElement(), createTextNode: (t) => ({ textContent: t }),
+      getElementById: byId, querySelector: () => null, querySelectorAll: selector => selector === '[data-platform-input]' ? controls : [], createElement: () => makeElement(), createTextNode: (t) => ({ textContent: t }),
       addEventListener: noop, removeEventListener: noop, body: makeElement('body'), documentElement: makeElement('html'), hidden: false, visibilityState: 'visible',
     },
     localStorage: { getItem: (k) => (localStore.has(k) ? localStore.get(k) : null), setItem: (k, v) => localStore.set(k, String(v)), removeItem: (k) => localStore.delete(k), clear: () => localStore.clear() },
@@ -139,9 +140,9 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   try { vm.runInContext(`${script}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' }); }
   catch (e) { topLevelError = e; }
 
-  const fire = (el, type, event = {}) => { for (const fn of el?._listeners?.[type] || []) fn({ preventDefault: noop, ...event }); };
-  const fireWindow = (type, event = {}) => { for (const [t, fn] of windowListeners) if (t === type) fn({ preventDefault: noop, target: { tagName: 'BODY' }, ...event }); };
-  const key = (type, code) => fireWindow(type, { code, key: code });
+  const fire = (el, type, event = {}) => { for (const fn of el?._listeners?.[type] || []) fn({ type, preventDefault: noop, ...event }); };
+  const fireWindow = (type, event = {}) => { for (const [t, fn] of windowListeners) if (t === type) fn({ type, preventDefault: noop, target: { tagName: 'BODY' }, ...event }); };
+  const key = (type, code) => fireWindow(type, { code, key: code === 'Space' ? ' ' : code.startsWith('Key') ? code.slice(-1).toLowerCase() : code });
   const settle = async () => {
     for (let i = 0; i < 12; i++) {
       for (const fn of timers.splice(0)) { try { fn(); } catch (e) { log.errors.push(`timer: ${e.message}`); } }
@@ -150,7 +151,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   };
   // كل إطار بطابع زمني متزايد كما في المتصفح — وإلا تبقى الحركات المتراكمة صفراً
   const flushFrames = (n) => { for (let i = 0; i < n; i++) { clock.now += 16.7; const batch = [...rafQueue.values()]; rafQueue.clear(); for (const fn of batch) fn(clock.now); } };
-  return { ctx, log, byId, settle, flushFrames, fire, fireWindow, key, topLevelError, dbg: () => (ctx.__dbg ? ctx.__dbg() : {}), PlatformGame: () => ctx.PlatformGame, localStore };
+  return { ctx, log, byId, controls, settle, flushFrames, fire, fireWindow, key, topLevelError, dbg: () => (ctx.__dbg ? ctx.__dbg() : {}), PlatformGame: () => ctx.PlatformGame, localStore };
 }
 
 test('platform UI: the page wires the scene — assets and every element the controller needs', () => {

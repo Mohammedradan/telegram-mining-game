@@ -45,9 +45,9 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       if (!replay.ok) return { status: 400, error: 'حركات جولة غير صالحة' };
       const state = replay.state;
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };
-      const duration = state.tick / Rules.FPS;
+      const duration = state.tick / rules.FPS;
       if (now() - Number(run.started_at) + 1000 < duration * 1000) return { status: 409, error: 'الجولة أسرع من الزمن الحقيقي؛ أعد المحاولة بعد ثوانٍ' };
-      const potential = Rules.rewardFor(state);
+      const potential = rules.rewardFor(state);
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
       const a = user.state.adventure;
       const quota = dailyQuota(user.sync, tooSoon ? 0 : potential, now());
@@ -74,6 +74,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         detail: { won: receipt.won, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, ticks: state.tick, hero: state.player.hero,
           dailyRemaining: quota.remaining, ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);
       await store.putUser(user);
+      await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform', goldDelta: gold, at: now(), detail: receipt }]);
       return { ...receipt, profile: profileOf(user, false, { race: await store.raceTotals(user.id) }) };
     });
     if (result.error) return res.status(result.status).json({ error: result.error });
