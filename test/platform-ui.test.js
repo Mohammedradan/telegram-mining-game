@@ -40,7 +40,7 @@ function makeElement(id = '', seed = {}) {
     _listeners: {},
     appendChild(c) { this.children.push(c); return c; }, append(...c) { this.children.push(...c); }, prepend: noop, remove: noop, removeChild: noop,
     addEventListener(type, fn) { (this._listeners[type] ||= []).push(fn); }, removeEventListener: noop,
-    setAttribute: noop, getAttribute: () => null, removeAttribute: noop, focus: noop, blur: noop, click: noop, scrollIntoView: noop,
+    setAttribute: noop, getAttribute: () => null, removeAttribute: noop, focus: noop, blur: noop, click: noop, scrollIntoView: noop, setPointerCapture: noop, releasePointerCapture: noop,
     querySelector(selector) { if (id === 'virtual-joystick' && selector === '.joystick-handle') { if (!this._joystickHandle) this._joystickHandle = makeElement('joystick-handle'); return this._joystickHandle; } return null; }, querySelectorAll: () => [], closest: () => null, matches: () => false, contains: () => false,
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 360, height: 330, right: 360, bottom: 330 }),
     getContext: () => new Proxy({}, {
