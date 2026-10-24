@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "build": "node --check server.js && node --check db.js && node --check config.js && node --check rate-limit.js && node --check security-headers.js && node --check platform-api.js && node --check race-rules.js && node --check public/arena-rules.js && node --check public/platform-rules.js && node --check public/platform-game.js && node --check public/platform-renderer.js && node --check public/platform-bridge.js && node scripts/check-build.cjs",
-    "test": "node --test test/api.test.js test/multiplayer.test.js test/auth.test.js test/client-security.test.js test/adventure-progression.test.js test/storage-transactions.test.js test/layout.test.js test/economy.test.js test/client-sync.test.js test/page-boot.test.js test/race-rules.test.js test/arena-rules.test.js test/platform-rules.test.js test/platform-api.test.js test/platform-ui.test.js test/production-config.test.js"
+    "test": "node --test test/api.test.js test/multiplayer.test.js test/auth.test.js test/client-security.test.js test/adventure-progression.test.js test/storage-transactions.test.js test/layout.test.js test/economy.test.js test/client-sync.test.js test/page-boot.test.js test/race-rules.test.js test/arena-rules.test.js test/platform-rules.test.js test/platform-api.test.js test/platform-ui.test.js test/production-config.test.js",
+    "test:browser": "node scripts/test-platform-browser.cjs"
   },
   "engines": {
     "node": ">=22"
@@ -19,5 +20,8 @@
     "telegraf": "^4.16.3",
     "ws": "^8.22.0",
     "better-sqlite3": "^13.0.3"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1"
   }
 }
