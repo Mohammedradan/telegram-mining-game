@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "build": "node --check server.js && node --check db.js && node --check config.js && node --check rate-limit.js && node --check security-headers.js && node --check platform-api.js && node --check race-rules.js",
+    "build": "node --check server.js && node --check db.js && node --check config.js && node --check rate-limit.js && node --check security-headers.js && node --check platform-api.js && node --check race-rules.js && node --check public/arena-rules.js && node --check public/platform-rules.js && node --check public/platform-game.js && node --check public/platform-renderer.js && node --check public/platform-bridge.js && node scripts/check-build.cjs",
     "test": "node --test test/*.test.js",
     "test:browser": "node scripts/test-platform-browser.cjs"
   },
