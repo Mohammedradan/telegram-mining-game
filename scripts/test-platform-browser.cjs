@@ -36,8 +36,12 @@ async function main() {
       if (viewport.width === 390) {
         await page.locator('#platform-mute').click();
         assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
-        await page.keyboard.down('d'); await page.keyboard.down('ArrowRight'); await page.keyboard.up('ArrowRight');
-        const alias = await read(page); await wait(100); assert.ok((await read(page)).x > alias.x, 'releasing one alias does not cancel the other');
+        await page.keyboard.down('d'); await page.keyboard.down('ArrowRight');
+        const bothHeld = await read(page);
+        await page.waitForFunction(x => window.PlatformGame.inspect().x > x + 1, bothHeld.x, { timeout: 2000 });
+        await page.keyboard.up('ArrowRight');
+        const alias = await read(page);
+        await page.waitForFunction(x => window.PlatformGame.inspect().x > x + 1, alias.x, { timeout: 2000 });
         await page.keyboard.up('d');
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
