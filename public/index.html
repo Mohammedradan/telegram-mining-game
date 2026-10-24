@@ -289,6 +289,33 @@
     .mining-btn { transition: transform 0.05s ease-out; }
     .mining-btn:active { transform: scale(0.92); }
 
+    @keyframes mining-swing {
+      0%, 100% { transform: rotate(-5deg); }
+      50% { transform: rotate(5deg); }
+    }
+    
+    @keyframes pickaxe-swing {
+      0%, 100% { transform: rotate(-20deg); }
+      50% { transform: rotate(20deg); }
+    }
+    
+    .animate-mining-swing {
+      animation: mining-swing 1s ease-in-out infinite;
+    }
+    
+    .animate-pickaxe-swing {
+      animation: pickaxe-swing 0.5s ease-in-out infinite;
+    }
+    
+    @keyframes sparkle {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+    
+    .animate-sparkle {
+      animation: sparkle 0.8s ease-in-out infinite;
+    }
+
     .floating-text {
       position: absolute;
       animation: floatUp 0.8s ease-out forwards;
@@ -359,12 +386,7 @@
     </div>
 
     <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
-    <!-- 🎛️ مبدّل نمط المغامرة: العربة السريعة (الأصلية) أو منجم المنصّة (جولة حتمية يختمها الخادم) -->
-    <div class="mine-mode-switch" role="group" aria-label="اختيار نمط المغامرة">
-      <button id="legacy-mode" type="button" aria-pressed="false">⛏️ عربة المنجم <span>· الأصلية</span></button>
-      <button id="platform-mode" type="button" aria-pressed="true">🧭 منجم المنصّة <span>· موثّق</span></button>
-    </div>
-
+    <!-- 🧭 منجم المنصّة هو الشاشة الرئيسية - لعبة منصات ثنائية الأبعاد تفاعلية -->
     <div id="legacy-adventure" hidden class="flex flex-col gap-1.5 flex-1 min-h-0">
     <div class="grid grid-cols-4 gap-1.5 text-center">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
@@ -411,40 +433,57 @@
     <!-- 🧭 منجم المنصّة: جولة حتمية 60Hz يسجّل الخادم حركاتها ويعيد تشغيلها ويختم مكافأتها -->
     <div id="platform-scene">
       <div class="mine-heading">
-        <div>
-          <div class="mine-kicker">المستوى ١ / كهف الفوانيس · استكشف، عدّن، ثم اعبر</div>
-          <h2>كهف الفوانيس</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f4bf62,#e09a2d);display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(244,191,98,.35);flex-shrink:0">⛏️</div>
+          <div>
+            <div class="mine-kicker">عالم الكهوف · منصات · بلورات · أعداء</div>
+            <h2>منجم الأعماق المتقدمة</h2>
+          </div>
         </div>
-        <div class="mine-settings"><input id="platform-volume" type="range" dir="ltr" min="0" max="100" step="5" value="75" aria-label="مستوى صوت اللعبة" title="مستوى صوت اللعبة"><button id="platform-motion" type="button" aria-pressed="false" aria-label="تقليل الحركة">حركة كاملة</button><button id="platform-mute" type="button" aria-pressed="false">صوت ✓</button></div>
+        <div class="mine-heading-actions">
+          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت">🔊 صوت</button>
+        </div>
+      </div>
+      <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
+        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner">⛏️ عامل المنجم</button>
+        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior">⚔️ المحارب</button>
+        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer">🏹 رامي السهام</button>
       </div>
       <div class="mine-hud" aria-label="حالة الجولة">
         <span id="platform-hearts">♥ ♥ ♥</span>
         <span id="platform-resources">بلورات 0 · صخور 0</span>
         <span id="platform-progress">0% · 150ث</span>
       </div>
-      <div id="platform-guide" class="mine-guide" role="status" aria-live="polite">١ / تحرك باتجاه البلورة المضيئة باستخدام ◀ ▶ أو الأسهم.</div>
+      <div class="mine-economy" aria-live="polite">
+        <span class="mine-gold"><span id="platform-gold">0</span> 🪙</span>
+        <span class="mine-energy"><span id="platform-energy">1000</span> ⚡</span>
+      </div>
       <div class="mine-stage">
-        <div id="platform-feedback" class="mine-feedback" role="status" aria-live="polite" hidden></div>
-        <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم واقفز بالمسافة وعدّن بحرف E"></canvas>
+        <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
         <div id="platform-overlay" class="mine-overlay">
-          <h3 id="platform-title">رحلة إلى كهف الفوانيس</h3>
-          <p id="platform-message">تحرّك بالأسهم، واقفز بزر «قفز» أو المسافة، واضرب بزر «تعدين» أو E. عدّن صخرة واجمع 3 بلورات ثم اعبر بوابة الخروج. يمكنك الحركة والقفز معًا؛ انتبه للبخار والحفر!</p>
-          <button id="platform-start" type="button">ابدأ المغامرة</button>
+          <h3 id="platform-title">منجم المنصّة</h3>
+          <p id="platform-message">هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F · استخدم المهارة بـ Q.</p>
+          <button id="platform-start" type="button">جولة جديدة</button>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
       </div>
-      <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة" dir="ltr">
-        <div class="mine-directions" role="group" aria-label="حركة بالإبهام الأيسر">
-          <button type="button" data-platform-input="1" aria-label="يسار">◀</button>
-          <button type="button" data-platform-input="2" aria-label="يمين">▶</button>
+      <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
+        <!-- Virtual Joystick (Mobile Only) -->
+        <div id="virtual-joystick" class="virtual-joystick" aria-label="عصا تحكم للحركة">
+          <div class="joystick-base"></div>
+          <div class="joystick-handle"></div>
         </div>
-        <button id="platform-pause" type="button" aria-label="إيقاف مؤقت">II</button>
-        <div class="mine-actions" role="group" aria-label="قفز وتعدين بالإبهام الأيمن">
-          <button type="button" data-platform-input="4" aria-label="قفز">قفز</button>
-          <button type="button" data-platform-input="8" aria-label="تعدين أو هجوم">تعدين</button>
+
+        <!-- Action Buttons (Bottom Right) -->
+        <div class="mine-controls-actions">
+          <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn">⏸</button>
+          <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><b>⤒</b><span>قفز</span></button>
+          <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><b>⛏</b><span>حفر</span></button>
+          <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><b>⚔️</b><span>ضرب</span></button>
+          <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><b>💥</b><span>قوة</span></button>
         </div>
       </div>
-      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز بالمسافة وتعدين بحرف E.</div>
+      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز (Space)، تعدين (E)، هجوم (F)، مهارة (Q).</div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
         <button id="platform-discard" type="button" hidden>تجاهل الحفظ المحلي المعلّق</button>
@@ -525,7 +564,44 @@
   <!-- TAB 1: MINING (QUICK CLICK) -->
   <main id="tab-mining" class="tab-content flex-col items-center justify-center relative my-auto">
     <div id="click-area" class="relative flex items-center justify-center">
-      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none">
+      <!-- شخصيات تعدين على الجوانب -->
+      <div class="absolute -left-16 top-1/2 -translate-y-1/2 miner-character-left">
+        <div class="relative w-20 h-24">
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-amber-600 to-amber-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg">
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-amber-400 rounded-full shadow-md"></div>
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-amber-300 rounded-full opacity-50 animate-pulse"></div>
+          </div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-amber-900 rounded-full shadow-inner"></div>
+          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-400 rounded-full animate-sparkle"></div>
+        </div>
+      </div>
+      
+      <div class="absolute -right-16 top-1/2 -translate-y-1/2 miner-character-right">
+        <div class="relative w-20 h-24">
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-blue-600 to-blue-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 0.5s;">
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-blue-400 rounded-full shadow-md"></div>
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 0.5s;"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-blue-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 0.5s;"></div>
+          </div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-blue-900 rounded-full shadow-inner"></div>
+          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-400 rounded-full animate-sparkle" style="animation-delay: 0.5s;"></div>
+        </div>
+      </div>
+      
+      <div class="absolute -top-20 left-1/2 -translate-x-1/2 miner-character-top">
+        <div class="relative w-20 h-24">
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-green-600 to-green-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 1s;">
+            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-green-400 rounded-full shadow-md"></div>
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 1s;"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-green-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 1s;"></div>
+          </div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-green-900 rounded-full shadow-inner"></div>
+          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-green-400 rounded-full animate-sparkle" style="animation-delay: 1s;"></div>
+        </div>
+      </div>
+      
+      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none z-10">
         <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-[0_0_50px_rgba(245,158,11,0.4)] border-4 border-yellow-200/40 pointer-events-none">
           <span class="text-7xl sm:text-8xl drop-shadow-2xl">💎</span>
         </div>
@@ -727,10 +803,8 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-level.js"></script>
-  <script src="/platform-rules-v1.js"></script>
-  <script src="/platform-rules.js?v=2"></script>
-  <script src="/platform-renderer.js?v=2"></script>
+  <script src="/platform-rules.js?v=3"></script>
+  <script src="/platform-renderer.js?v=3"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -1061,7 +1135,7 @@
         loadSyncQueue();
         if (data.user.name && data.user.name !== 'ضيف') document.getElementById('username').innerText = data.user.name;
         setSyncStatus('☁️ محفوظ على الخادم');
-        document.getElementById('ref-link-preview').innerText = referralUrl();
+        showReferralPreview();
 
         if (data.isNew && state.totalEarned > (data.state?.totalEarned || 0)) {
           // Keep the offline save recoverable; never import unverified cloud currency.
@@ -2874,18 +2948,26 @@
     }
 
     // --- Referral / Share ---
-    // ⚠️ استبدل MiningClickerBot باسم مستخدم بوتك الفعلي من BotFather
-    const BOT_USERNAME = 'MiningClickerBot';
+    // اسم البوت يأتي من الخادم (/api/config) — لا قيمة ثابتة قد تشير إلى بوت آخر
+    let BOT_USERNAME = '';
     function myPlayerId() {
       return myId || tg?.initDataUnsafe?.user?.id || `guest_${guestId}`;
     }
     function referralUrl() {
-      return `https://t.me/${BOT_USERNAME}?start=ref_${myPlayerId()}`;
+      return BOT_USERNAME ? `https://t.me/${BOT_USERNAME}?start=ref_${myPlayerId()}` : '';
     }
-    document.getElementById('ref-link-preview').innerText = referralUrl();
+    function showReferralPreview() {
+      document.getElementById('ref-link-preview').innerText = referralUrl() || 'رابط الدعوة غير متاح حالياً';
+    }
+    showReferralPreview();
+    fetch('/api/config').then((r) => (r.ok ? r.json() : {})).then((cfg) => {
+      const name = String(cfg?.botUsername || '').replace(/[^A-Za-z0-9_]/g, '');
+      if (name) { BOT_USERNAME = name; showReferralPreview(); }
+    }).catch(() => {});
 
     async function shareReferral() {
       const refUrl = referralUrl();
+      if (!refUrl) { alert('رابط الدعوة غير متاح حالياً — حاول لاحقاً'); return; }
       const shareText = `⛏️ انضم إليّ في إمبراطورية التعدين واجمع الذهب! ${refUrl}`;
       // داخل تيليجرام: فتح نافذة مشاركة أصلية
       if (tg?.openTelegramLink) {
@@ -2918,8 +3000,8 @@
     window.platformReady = bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
   </script>
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
-  <script src="/platform-bridge.js?v=1"></script>
+  <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=3"></script>
+  <script src="/platform-game.js?v=4"></script>
 </body>
 </html>

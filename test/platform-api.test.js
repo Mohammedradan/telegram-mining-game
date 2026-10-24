@@ -28,15 +28,16 @@ async function post(name, route, body = {}, port = ports[0]) {
   const res = await fetch(`http://127.0.0.1:${port}/api/platform/${route}`, { method: 'POST', headers: headers(name), body: JSON.stringify(body) });
   return { status: res.status, body: await res.json() };
 }
-async function historical(name, elapsedMs) {
+async function historical(name, elapsedMs, hero = 'miner') {
   await post(name, 'start');
-  const s = solution();
-  const row = { id: crypto.randomUUID(), user_id: `guest_${user(name)}`, version: R.VERSION, status: 'playing', started_at: Date.now() - (elapsedMs ?? s.state.tick / 60 * 1000) - 2000 };
+  const id = crypto.randomUUID();
+  const s = solution(R.seedFromId(id), hero);
+  const row = { id, user_id: `guest_${user(name)}`, version: R.VERSION, status: 'playing', started_at: Math.floor(Date.now() - (elapsedMs ?? s.state.tick / 60 * 1000) - 2000) };
   await store.withUsers([row.user_id], async () => {
     const active = await store.activePlatformRun(row.user_id); active.status = 'expired'; await store.savePlatformRun(active);
     await store.savePlatformRun(row);
   });
-  return { id: row.id, inputs: s.inputs };
+  return { id: row.id, inputs: s.inputs, state: s.state };
 }
 before(async () => {
   await launch(ports[0]); await launch(ports[1]);
@@ -56,7 +57,7 @@ test('platform API: auth required and concurrent repeated start returns one tick
 });
 test('platform API: fake score, premature finish, malformed inputs, unfinished level and wrong owner cannot reward', async () => {
   const fresh = (await post('forgery', 'start')).body;
-  const inputs = solution().inputs;
+  const inputs = solution(R.seedFromId(fresh.id)).inputs; // مسار فائز صالح لهذه الجولة، لكنه أسرع من الزمن الحقيقي
   assert.equal((await post('forgery', 'finish', { id: fresh.id, inputs, gold: 999999, won: true })).status, 409);
   assert.equal((await post('forgery', 'finish', { id: fresh.id, inputs: [{ mask: 31, frames: 5 }] })).status, 400);
   assert.equal((await post('forgery', 'finish', { id: fresh.id, inputs: [{ mask: 0, frames: 5 }], score: 999999 })).status, 400);
@@ -64,8 +65,9 @@ test('platform API: fake score, premature finish, malformed inputs, unfinished l
   assert.equal((await store.getUser(`guest_${user('forgery')}`)).state.gold, 0);
 });
 test('platform API: failure rolls back receipt and balance; two processes confirm one reward and persistent result', async () => {
-  const payload = await historical('winner');
-  const s = solution().state;
+  const { state: s, ...payload } = await historical('winner');
+  const expected = R.rewardFor(s);
+  assert.ok(expected > 0);
   // Real transaction failure independent of HTTP transport.
   await assert.rejects(store.withUsers([`guest_${user('winner')}`], async () => {
     const row = await store.getPlatformRun(payload.id); row.status = 'finished'; row.result_json = '{}'; await store.savePlatformRun(row);
@@ -78,15 +80,18 @@ test('platform API: failure rolls back receipt and balance; two processes confir
   assert.equal(results.filter(r => !r.body.duplicate).length, 1);
   assert.ok(results.every(r => r.body.gold === R.rewardFor(s)));
   const saved = await store.getUser(`guest_${user('winner')}`);
-  assert.equal(saved.state.gold, 98); assert.equal(saved.state.adventure.runs, 1);
+  assert.equal(saved.state.gold, expected); assert.equal(saved.state.adventure.runs, 1);
   assert.equal(saved.state.adventure.gems, s.collected); assert.equal(saved.state.adventure.bossWins, 0);
   await stop(children[0]); children[0] = await launch(ports[0]);
   const duplicate = await post('winner', 'finish', payload);
-  assert.equal(duplicate.body.duplicate, true); assert.equal(duplicate.body.profile.state.gold, 98);
+  assert.equal(duplicate.body.duplicate, true); assert.equal(duplicate.body.profile.state.gold, expected);
+  const ledger = (await store.ledgerFor(saved.id)).filter(e => e.kind === 'platform_finish');
+  assert.equal(ledger.length, 1, 'one audit entry despite concurrent and repeated finishes');
+  assert.equal(ledger[0].goldDelta, expected); assert.equal(ledger[0].session, `platform:${payload.id}`);
   assert.equal((await store.getUser(saved.id)).state.adventure.runs, 1);
 });
 test('platform API: respects the existing shared adventure reward cooldown', async () => {
-  const payload = await historical('cooldown');
+  const { state: _cooldownState, ...payload } = await historical('cooldown');
   await store.withUsers([`guest_${user('cooldown')}`], async () => {
     const u = await store.getUser(`guest_${user('cooldown')}`);
     u.sync.lastRewardAt.adventure = Date.now(); await store.putUser(u);
@@ -98,7 +103,7 @@ test('platform API: respects the existing shared adventure reward cooldown', asy
 });
 
 test('platform API: timeout loss closes once without gold, expired ticket cannot reward', async () => {
-  const payload = await historical('loss');
+  const { state: _lossState, ...payload } = await historical('loss');
   await store.withUsers([`guest_${user('loss')}`], async () => {
     const old = await store.getPlatformRun(payload.id); old.status = 'expired'; await store.savePlatformRun(old);
   });
@@ -149,35 +154,43 @@ test('platform API: a confirmed legal loss cannot be upgraded to a win by replac
   assert.equal((await store.getUser(owner)).state.adventure.runs, 1);
 });
 
-test('platform API: a v1 in-flight ticket survives the v2 rollout; client cannot select its rules or boss result', async () => {
-  const payload = await historical('v1-rollout');
-  const owner = `guest_${user('v1-rollout')}`;
-  await store.withUsers([owner], async () => {
-    const active = await store.getPlatformRun(payload.id); active.status = 'expired'; await store.savePlatformRun(active);
-  });
-  const id = crypto.randomUUID();
-  await store.withUsers([owner], () => store.savePlatformRun({id,user_id:owner,version:1,status:'playing',started_at:Date.now()-60000}));
-  assert.equal((await post('v1-rollout', 'start')).body.version, 1);
-  const response = await post('v1-rollout', 'finish', {id,inputs:payload.inputs,version:2,boss:true,defeated:5000});
-  assert.equal(response.status, 200); assert.equal(response.body.gold, 98);
-  assert.equal(response.body.boss, false); assert.equal(response.body.defeated, 0);
-  assert.equal((await store.getUser(owner)).state.adventure.bossWins, 0);
-  const entries = (await store.ledgerFor(owner)).filter(e => e.kind === 'platform');
-  assert.equal(entries.length, 1); assert.equal(entries[0].goldDelta, 98);
-  await post('v1-rollout', 'finish', { id, inputs: [] });
-  assert.equal((await store.ledgerFor(owner)).filter(e => e.kind === 'platform').length, 1);
+test('platform API: hero selection is verified by server replay and persists defeated stats', async () => {
+  const { state, ...payload } = await historical('hero-warrior', undefined, 'warrior');
+  const result = await post('hero-warrior', 'finish', { ...payload, hero: 'warrior' });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.won, true);
+  assert.equal(result.body.gold, R.rewardFor(state));
+  const userRow = await store.getUser(`guest_${user('hero-warrior')}`);
+  assert.equal(userRow.state.adventure.runs, 1);
 });
-test('platform API: optional boss is replay-verified, advances existing progression and is credited only once', async () => {
-  const {state, inputs} = require('./fixtures/platform-boss-solution.cjs')();
-  const payload = await historical('real-boss', state.tick / R.FPS * 1000);
-  const result = await post('real-boss', 'finish', {...payload, inputs, boss:false, gold:999999});
-  assert.equal(result.status, 200); assert.equal(result.body.boss, true); assert.equal(result.body.defeated, 2);
-  assert.equal(result.body.gold, 100); assert.equal(result.body.xp, 20 + state.collected + 10);
-  const owner = `guest_${user('real-boss')}`;
-  const saved = await store.getUser(owner);
-  assert.equal(saved.state.adventure.bossWins, 1); assert.equal(saved.state.adventure.zones, 3);
-  assert.equal(saved.state.adventure.gems, state.collected);
-  const duplicate = await post('real-boss', 'finish', {...payload, inputs}, ports[1]);
-  assert.equal(duplicate.body.duplicate, true);
-  assert.deepEqual((await store.getUser(owner)).state, saved.state);
+
+test('platform API: a recorded winning path from one run cannot be replayed on another run layout', async () => {
+  const target = await historical('replayer');
+  // حركات فائزة لجولة أخرى (بذرة مختلفة) تُرسل لجولة هذا اللاعب
+  const foreign = solution(R.seedFromId(`other-${target.id}`));
+  assert.equal(foreign.state.status, 'won');
+  const res = await post('replayer', 'finish', { id: target.id, inputs: foreign.inputs });
+  assert.notEqual(res.body.gold > 0 && res.body.won, true, 'foreign path must not win this layout');
+  const start = await post('replay-seed', 'start');
+  assert.equal(start.body.seed, R.seedFromId(start.body.id));
+});
+
+test('platform API: daily 10,000 gold cap is enforced across wins and reported in the receipt', async () => {
+  const { state, ...payload } = await historical('daily-cap');
+  const owner = `guest_${user('daily-cap')}`;
+  const day = new Date().toISOString().slice(0, 10);
+  await store.withUsers([owner], async () => {
+    const u = await store.getUser(owner);
+    u.sync.platformDay = day;
+    u.sync.platformGold = 9_950;
+    await store.putUser(u);
+  });
+  const result = await post('daily-cap', 'finish', payload);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.gold, 50);
+  assert.equal(result.body.reason, 'daily_cap');
+  assert.equal(result.body.dailyRemaining, 0);
+  assert.equal((await store.getUser(owner)).sync.platformGold, 10_000);
+  assert.equal((await store.getUser(owner)).state.gold, 50);
+  assert.ok(R.rewardFor(state) > 50);
 });

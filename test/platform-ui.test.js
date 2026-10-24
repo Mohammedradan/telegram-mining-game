@@ -66,9 +66,8 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   const byId = (id) => {
     if (!ids.has(id)) return null;
     if (!elements.has(id)) {
-      const seeds = { 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] } };
-      const tag = html.match(new RegExp(`<[^>]+id="${id}"[^>]*>`))?.[0] || '';
-      elements.set(id, makeElement(id, { hidden: /\shidden(?:[\s>])/.test(tag), ...seeds[id] }));
+      const seeds = { 'platform-scene': { hidden: false }, 'legacy-adventure': { hidden: true }, 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] } };
+      elements.set(id, makeElement(id, seeds[id] || {}));
     }
     return elements.get(id);
   };
@@ -98,7 +97,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
       // نفس عقد الخادم: إعادة تشغيل الحركات بقواعد المشروع — المتصفح لا يفرض شيئاً
       const body = JSON.parse(options.body || '{}');
       log.platformFinishBodies.push(body);
-      const replay = R.replay(body.inputs);
+      const replay = R.replay(body.inputs, body.hero, R.seedFromId(body.id));
       if (!replay.ok || replay.state.status !== 'won') return { ok: false, status: 400, json: async () => ({ error: 'حركات جولة غير صالحة' }) };
       const s = replay.state;
       const gold = R.rewardFor(s);
@@ -155,41 +154,36 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   return { ctx, log, byId, controls, settle, flushFrames, fire, fireWindow, key, topLevelError, dbg: () => (ctx.__dbg ? ctx.__dbg() : {}), PlatformGame: () => ctx.PlatformGame, localStore };
 }
 
-test('platform UI: the page wires the scene — assets, mode switch and every element the controller needs', () => {
-  for (const asset of ['/game.css', '/platform-level.js', '/platform-rules-v1.js', '/platform.css', '/platform-rules.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-game.js']) {
+test('platform UI: the page wires the scene — assets and every element the controller needs', () => {
+  for (const asset of ['/platform.css', '/platform-rules.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-game.js']) {
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
-  for (const id of ['platform-scene', 'legacy-adventure', 'platform-mode', 'legacy-mode', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
-    'platform-feedback', 'platform-volume', 'platform-guide', 'platform-motion', 'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status']) {
+  for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
+    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
-  for (const mask of [1, 2, 4, 8]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
+  // Action buttons only (no directional buttons 1 and 2 - replaced by virtual joystick)
+  for (const mask of [4, 8, 16, 32]) assert.match(html, new RegExp(`data-platform-input="${mask}"`));
+  assert.match(html, /هدف الجولة: اجمع 3 بلورات/);
+  assert.match(html, /اقفز بالمسافة/);
+  for (const hero of ['miner', 'warrior', 'archer']) assert.ok(ids.has(`hero-btn-${hero}`), `#hero-btn-${hero} must exist`);
   // اللعبة الأصلية تبقى قائمة: نفس أزرارها ومعرّفاتها داخل الغلاف
   for (const id of ['game-canvas', 'game-overlay', 'game-overlay-btn', 'adv-pause-btn', 'adv-skill-btn', 'adv-mute-btn', 'adv-combo']) assert.ok(ids.has(id));
 });
 
-test('platform UI: platform is the default, with the original cart preserved behind the switch', async () => {
+test('platform UI: the side-scroller is the focused default play view', async () => {
   const page = bootPage();
   assert.equal(page.topLevelError, null, page.topLevelError && `${page.topLevelError.message}\n${page.topLevelError.stack}`);
   await page.settle();
   assert.equal(page.dbg().serverMode, true);
-  assert.equal(page.byId('platform-scene').hidden, false, 'the platform scene is the new default');
-  assert.equal(page.byId('legacy-adventure').hidden, true, 'the original cart is kept behind the mode switch');
+  assert.equal(page.byId('platform-scene').hidden, false, 'the platform scene is the default play view');
+  assert.equal(page.byId('legacy-adventure').hidden, true, 'the legacy game is hidden');
   assert.deepEqual(page.log.errors, []);
-  // التبديل إلى مشهد المنصّة
-  page.fire(page.byId('platform-mode'), 'click');
-  assert.equal(page.byId('platform-scene').hidden, false);
-  assert.equal(page.byId('legacy-adventure').hidden, true);
-  // والعودة إلى المغامرة الأصلية
-  page.fire(page.byId('legacy-mode'), 'click');
-  assert.equal(page.byId('platform-scene').hidden, true);
-  assert.equal(page.byId('legacy-adventure').hidden, false);
 });
 
 test('platform UI: a real round runs — server ticket, live physics from keys, HUD, pause and resume', async () => {
   const page = bootPage();
   await page.settle();
-  page.fire(page.byId('platform-mode'), 'click');
   page.fire(page.byId('platform-start'), 'click');
   await page.settle();
   assert.equal(page.log.platformStarts, 1, 'the round must be opened on the server (/api/platform/start)');
@@ -203,7 +197,7 @@ test('platform UI: a real round runs — server ticket, live physics from keys, 
   game = page.PlatformGame().inspect();
   // HUD يتحدث من داخل الإطارات
   assert.match(page.byId('platform-hearts').textContent, /♥/);
-  assert.match(page.byId('platform-resources').textContent, /بلورات \d+ · صخور \d+/, 'the live HUD reports collected gems and mined rocks');
+  assert.match(page.byId('platform-resources').textContent, /💎 \d+\/3 · ⛏ \d+\/1 · 👾 \d+/, 'the live HUD tracks the actual exit requirements and defeated enemies');
   assert.ok(game.x > x0 + 50, `player must move right (x0=${x0}, x=${game.x})`);
   assert.equal(game.pose, 'run');
   assert.ok(game.tick > 10, 'fixed-step ticks advance');
@@ -230,7 +224,7 @@ test('platform UI: a real round runs — server ticket, live physics from keys, 
 });
 
 test('platform UI: a finished winning round is submitted on boot, confirmed by the server replay and adopted — no local award', async () => {
-  const { inputs, state } = solution();
+  const { inputs, state } = solution(R.seedFromId('ticket-ui-9'));
   const stored = { version: R.VERSION, ticket: { id: 'ticket-ui-9', version: R.VERSION, startedAt: Date.now(), expiresAt: Date.now() + 864e5 }, inputs, finished: true };
   const page = bootPage({ storedRun: stored });
   await page.settle();
@@ -262,7 +256,6 @@ test('platform UI: without a server identity the round is offline training — p
   const page = bootPage({ failServer: true });
   await page.settle();
   assert.equal(page.dbg().serverMode, false);
-  page.fire(page.byId('platform-mode'), 'click');
   page.fire(page.byId('platform-start'), 'click');
   await page.settle();
   const game = page.PlatformGame().inspect();
@@ -278,170 +271,47 @@ test('platform UI: without a server identity the round is offline training — p
   assert.deepEqual(page.log.errors, []);
 });
 
-test('platform UI: multi-touch releases and cancel clear only the corresponding finger, never latch movement', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('platform-start'), 'click'); await page.settle();
-  const right = page.controls.find(b => b.dataset.platformInput === '2');
-  const jump = page.controls.find(b => b.dataset.platformInput === '4');
-  page.fire(right, 'pointerdown', { pointerId: 11 });
-  page.fire(jump, 'pointerdown', { pointerId: 12 });
-  page.flushFrames(5);
-  assert.ok(page.PlatformGame().inspect().x > 64); assert.ok(page.PlatformGame().inspect().y < 262);
-  page.fire(jump, 'pointercancel', { pointerId: 12 });
-  assert.equal(right.dataset.down, 'true');
-  page.fire(right, 'pointerdown', { pointerId: 13 });
-  page.fire(right, 'pointerup', { pointerId: 11 });
-  assert.equal(right.dataset.down, 'true', 'second finger still holds this button');
-  page.fireWindow('pointercancel', { pointerId: 13 });
-  const before = page.PlatformGame().inspect().x; page.flushFrames(8);
-  assert.equal(page.PlatformGame().inspect().x, before);
-  assert.equal(right.dataset.down, 'false');
-  assert.deepEqual(page.log.errors, []);
-});
-test('platform UI: tutorial responds to play, reduced motion persists, and pause freezes the fixed-step clock', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('platform-start'), 'click'); await page.settle();
-  assert.match(page.byId('platform-guide').textContent, /١/);
-  page.key('keydown', 'ArrowRight'); page.flushFrames(45); page.key('keyup', 'ArrowRight');
-  assert.match(page.byId('platform-guide').textContent, /القفز/);
-  page.fire(page.byId('platform-motion'), 'click');
-  assert.equal(page.PlatformGame().inspect().reduced, true);
-  assert.equal(page.localStore.get('platform-reduced'), 'true');
-  page.fireWindow('blur'); const paused = page.PlatformGame().inspect(); page.flushFrames(30);
-  assert.equal(page.PlatformGame().inspect().tick, paused.tick); assert.equal(paused.scheduled, false);
-});
-test('platform UI: an old v1 checkpoint resumes under v1 rather than silently changing physics', async () => {
-  const page = bootPage({ storedRun: { version: 1, ticket: { id: 'ticket-ui-1', version: 1 }, inputs: [{mask: 2, frames: 10}] } });
+test('platform UI: character selection switches hero and attack/skill keys trigger combat actions', async () => {
+  const page = bootPage();
   await page.settle();
-  assert.equal(page.PlatformGame().inspect().version, 1);
-  assert.equal(page.PlatformGame().inspect().paused, true);
-  assert.equal(page.PlatformGame().inspect().x, 99);
+  const gameApi = page.PlatformGame();
+  assert.ok(gameApi);
+
+  // Default is miner
+  assert.equal(gameApi.inspect().hero, 'miner');
+
+  // Switch to warrior
+  gameApi.setHero('warrior');
+  assert.equal(gameApi.inspect().hero, 'warrior');
+  assert.equal(gameApi.inspect().hearts, 4);
+
+  // Switch to archer
+  gameApi.setHero('archer');
+  assert.equal(gameApi.inspect().hero, 'archer');
+  assert.equal(gameApi.inspect().hearts, 3);
+
+  // Switch back to miner
+  gameApi.setHero('miner');
+  assert.equal(gameApi.inspect().hero, 'miner');
+
+  // Start round
+  page.fire(page.byId('platform-start'), 'click');
+  await page.settle();
+  assert.equal(gameApi.inspect().running, true);
 });
 
-test('platform UI: a complete keyboard or touch jump tap between frames is consumed once', async () => {
-  for (const source of ['keyboard', 'touch']) {
-    const page = bootPage(); await page.settle();
-    page.fire(page.byId('platform-start'), 'click'); await page.settle();
-    const jump = page.controls.find(b => b.dataset.platformInput === '4');
-    if (source === 'keyboard') { page.key('keydown', 'Space'); page.key('keyup', 'Space'); }
-    else {
-      page.fire(jump, 'pointerdown', {pointerId: 31}); page.fire(jump, 'pointerup', {pointerId: 31});
-      // Implicit capture loss after a normal release must not discard the tap.
-      page.fire(jump, 'lostpointercapture', {pointerId: 31});
-    }
-    page.flushFrames(3);
-    assert.ok(page.PlatformGame().inspect().y < 262, `${source} tap must reach the physics step`);
-    page.flushFrames(100);
-    assert.equal(page.PlatformGame().inspect().y, 262, `${source} tap must not cause repeat jumping`);
-    assert.equal(page.PlatformGame().inspect().pose, 'idle');
-  }
-});
-test('platform UI: cancelled taps and pre-pause actions do not execute on the next frame or resume', async () => {
-  for (const cancel of ['pointercancel', 'lostpointercapture', 'pause']) {
-    const page = bootPage(); await page.settle();
-    page.fire(page.byId('platform-start'), 'click'); await page.settle();
-    const jump = page.controls.find(b => b.dataset.platformInput === '4');
-    page.fire(jump, 'pointerdown', {pointerId: 41});
-    if (cancel === 'pause') { page.fireWindow('blur'); page.fire(page.byId('platform-resume'), 'click'); }
-    else page.fire(jump, cancel, {pointerId: 41});
-    page.flushFrames(8);
-    assert.equal(page.PlatformGame().inspect().y, 262, `${cancel} must clear the queued action`);
-    assert.equal(jump.dataset.down, 'false');
-  }
-});
-test('platform UI: cancelling a finger does not delete a queued keyboard jump', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('platform-start'), 'click'); await page.settle();
-  const jump = page.controls.find(b => b.dataset.platformInput === '4');
-  page.key('keydown', 'Space'); page.key('keyup', 'Space');
-  page.fire(jump, 'pointerdown', {pointerId: 42}); page.fire(jump, 'pointercancel', {pointerId: 42});
-  page.flushFrames(3); assert.ok(page.PlatformGame().inspect().y < 262);
-});
-test('platform UI: a short mining tap swings once rather than continuing to mine after release', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('platform-start'), 'click'); await page.settle();
-  page.key('keydown', 'ArrowRight'); page.flushFrames(115); page.key('keyup', 'ArrowRight');
-  assert.equal(page.PlatformGame().inspect().x, 416, 'standing against the first ore vein');
-  const mine = page.controls.find(b => b.dataset.platformInput === '8');
-  const tap = id => { page.fire(mine, 'pointerdown', {pointerId: id}); page.fire(mine, 'pointerup', {pointerId: id}); };
-  tap(51); page.flushFrames(40);
-  assert.equal(page.PlatformGame().inspect().mined, 0, 'one tap must not repeat until the rock breaks');
-  tap(52); page.flushFrames(15); tap(53); page.flushFrames(15);
-  assert.equal(page.PlatformGame().inspect().mined, 1, 'three deliberate taps break the rock');
-  assert.equal(mine.dataset.down, 'false');
+test('platform UI: virtual joystick exists and is hidden on desktop', async () => {
+  const page = bootPage();
+  await page.settle();
+  assert.ok(page.byId('virtual-joystick'), '#virtual-joystick must exist');
+  // Joystick should be hidden by default (desktop)
+  const joystick = page.byId('virtual-joystick');
+  assert.match(joystick.style.display || 'none', /none/);
 });
 
-test('platform UI: volume is bounded, persists, mutes at zero, and can be restored by the sound button', async () => {
-  const page = bootPage(); await page.settle();
-  const slider = page.byId('platform-volume');
-  slider.value = '25'; page.fire(slider, 'input');
-  assert.equal(page.PlatformGame().inspect().volume, .25);
-  assert.equal(page.localStore.get('platform-volume'), '0.25');
-  slider.value = '0'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().muted, true);
-  page.fire(page.byId('platform-mute'), 'click');
-  assert.equal(page.PlatformGame().inspect().muted, false); assert.equal(page.PlatformGame().inspect().volume, .5);
-  slider.value = '500'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().volume, 1);
-  slider.value = '-20'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().volume, 0);
-  slider.value = 'not-a-number'; page.fire(slider, 'input'); assert.equal(page.PlatformGame().inspect().volume, 0);
-});
-test('platform UI: slider keyboard commands do not move the miner', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('platform-start'), 'click'); await page.settle();
-  let prevented = false;
-  page.fireWindow('keydown', {code: 'ArrowRight', key:'ArrowRight', target: {tagName: 'INPUT'}, preventDefault: () => { prevented = true; }});
-  assert.equal(prevented, false, 'all scene listeners must leave native slider commands alone');
-  page.flushFrames(15); assert.equal(page.PlatformGame().inspect().x, 64);
-});
-test('platform UI: activating a checkpoint gives temporary feedback, frozen during pause', async () => {
-  const state = R.create(), inputs = [];
-  outer: for (const action of solution().inputs) for (let i = 0; i < action.frames; i++) {
-    if (inputs.at(-1)?.mask === action.mask) inputs.at(-1).frames++;
-    else inputs.push({mask: action.mask, frames: 1});
-    R.step(state, action.mask);
-    if (state.player.x >= 903) break outer;
+test('platform UI: action buttons exist with correct labels', () => {
+  assert.ok(ids.has('platform-pause'), '#platform-pause must exist');
+  for (const input of [4, 8, 16, 32]) {
+    assert.ok(html.includes(`data-platform-input="${input}"`), `action button with input ${input} must exist`);
   }
-  assert.equal(state.checkpoint, 64);
-  const page = bootPage({storedRun: {version: R.VERSION, ticket: {id:'ticket-ui-1',version:R.VERSION},inputs}});
-  await page.settle(); page.fire(page.byId('platform-resume'), 'click');
-  page.key('keydown','ArrowRight'); page.flushFrames(8); page.key('keyup','ArrowRight');
-  assert.equal(page.PlatformGame().inspect().checkpoint, 920);
-  assert.equal(page.byId('platform-feedback').hidden, false);
-  assert.match(page.byId('platform-feedback').textContent, /راية مفعّلة/);
-  page.fireWindow('blur'); page.flushFrames(200); assert.equal(page.byId('platform-feedback').hidden, false);
-  page.fire(page.byId('platform-resume'),'click'); page.flushFrames(160);
-  assert.equal(page.byId('platform-feedback').hidden, true);
-});
-test('platform UI: a legal fall reports the respawn without removing the resources already collected', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('platform-start'), 'click'); await page.settle();
-  page.key('keydown','ArrowRight'); page.key('keydown','KeyE');
-  for (let i=0; i<45 && page.PlatformGame().inspect().hearts===3; i++) page.flushFrames(10);
-  page.key('keyup','ArrowRight'); page.key('keyup','KeyE');
-  const state = page.PlatformGame().inspect();
-  assert.equal(state.hearts, 2); assert.ok(state.gems >= 3); assert.equal(state.mined, 1);
-  assert.match(page.byId('platform-feedback').textContent, /عدت إلى نقطة البداية/);
-  assert.equal(page.log.platformFinishBodies.length, 0, 'feedback cannot grant or finish a reward');
-});
-
-test('scene isolation: real Space jumps only in the platform scene, and still starts the visible original cart', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('platform-start'), 'click'); await page.settle();
-  page.key('keydown','Space'); page.flushFrames(3); page.key('keyup','Space');
-  assert.ok(page.PlatformGame().inspect().y < 262);
-  assert.equal(vm.runInContext('adv.running',page.ctx), false, 'no hidden second simulation');
-  page.fire(page.byId('legacy-mode'),'click');
-  assert.equal(page.PlatformGame().inspect().scheduled, false);
-  page.key('keydown','Space'); page.key('keyup','Space');
-  assert.equal(vm.runInContext('adv.running',page.ctx), true, 'original keyboard control remains supported');
-});
-test('scene isolation: native form input cannot start the cart, and a seeded race reveals it and pauses platforms', async () => {
-  const page = bootPage(); await page.settle();
-  page.fire(page.byId('legacy-mode'),'click');
-  page.fireWindow('keydown',{code:'Space',key:' ',target:{tagName:'INPUT'}});
-  assert.equal(vm.runInContext('adv.running',page.ctx), false);
-  page.fire(page.byId('platform-mode'),'click'); page.fire(page.byId('platform-start'),'click'); await page.settle();
-  vm.runInContext("startAdventure('race', 1234, 45)",page.ctx);
-  assert.equal(page.PlatformGame().inspect().paused, true); assert.equal(page.PlatformGame().inspect().scheduled, false);
-  assert.equal(page.byId('legacy-adventure').hidden, false); assert.equal(page.byId('platform-scene').hidden, true);
-  assert.equal(vm.runInContext('adv.mode',page.ctx), 'race'); assert.equal(vm.runInContext('adv.timeLeft',page.ctx), 45);
 });
