@@ -18,15 +18,15 @@ for (const dir of ['', 'public']) {
 
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
 let inlineScripts = 0;
-for (const [, source] of html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)) {
+for (const [, source] of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) {
   new Script(source, { filename: 'public/index.html:inline' });
   inlineScripts++;
 }
 
 let localAssets = 0;
-for (const [, reference] of html.matchAll(/(?:src|href)="(\\/[^"#]+)"/g)) {
+for (const [, reference] of html.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
   const pathname = reference.split('?')[0];
-  const assetPath = path.join(root, 'public', pathname.replace(/^\\//, ''));
+  const assetPath = path.join(root, 'public', pathname.replace(/^\//, ''));
   if (!fs.existsSync(assetPath)) {
     throw new Error(`Missing local asset referenced by public/index.html: ${reference}`);
   }
