@@ -62,3 +62,22 @@ jobs:
         run: node --test test/multiplayer.test.js
         env:
           TEST_RACE_DATABASE_URL: postgres://mining_test:local_test_only@localhost:5432/mining_test
+      - name: Install Chromium for platform browser tests
+        run: npx playwright-core install --with-deps chromium
+      - name: Start local app for browser tests
+        run: |
+          PORT=3000 HOST=127.0.0.1 ALLOW_GUEST_AUTH=true BOT_MODE=off npm start > /tmp/platform-server.log 2>&1 &
+          echo $! > /tmp/platform-server.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/platform-server.log
+          exit 1
+      - name: Run platform browser end-to-end tests
+        run: npm run test:browser
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+          CHROMIUM_PATH: /home/runner/.cache/ms-playwright/chromium-*/chrome-linux/chrome
