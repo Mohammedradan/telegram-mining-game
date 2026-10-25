@@ -157,7 +157,13 @@
     const heartsEl = el('platform-hearts');
     if (heartsEl) heartsEl.textContent = fullHearts > 0 ? '♥ '.repeat(fullHearts) + '♡ '.repeat(emptyHearts) : 'انتهت القلوب 💀';
     const resEl = el('platform-resources');
-    if (resEl) resEl.textContent = `💎 ${Math.min(3, sim.collected)}/3 · ⛏ ${Math.min(1, sim.mined)}/1 · 👾 ${sim.defeated || 0}`;
+    if (resEl) {
+      // عدّادات منفصلة مع أيقونات SVG: لا تُستبدل بنية الشريط في كل إطار.
+      const chip = (id, value) => { const node = el(id); if (node) node.textContent = String(value); };
+      chip('res-gems', Math.min(3, sim.collected));
+      chip('res-rocks', Math.min(1, sim.mined));
+      chip('res-foes', sim.defeated || 0);
+    }
     const progEl = el('platform-progress');
     const zoneName = R.ZONES?.[sim.zone || 0]?.name;
     if (progEl) progEl.textContent = `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
@@ -531,9 +537,17 @@
     el('platform-start').disabled = false; el('platform-retry').hidden = true; el('platform-discard').hidden = true;
     say('أُلغي الحفظ المحلي المعلق فقط. يمكنك بدء جولة جديدة؛ أرصدة الخادم لم تُحذف.');
   });
-  el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? '🔇 صوت ×' : '🔊 صوت ✓';
+  function updateMuteUI() {
+    const btn = el('platform-mute');
+    btn.setAttribute('aria-pressed', String(muted));
+    // حدّث النص فقط: لا تستبدل محتوى الزر حتى لا تُحذف أيقونة SVG.
+    const label = btn.querySelector?.('.mute-label');
+    const text = muted ? 'صوت ×' : 'صوت ✓';
+    if (label) label.textContent = text; else btn.textContent = text;
+  }
+  updateMuteUI();
   el('platform-mute').addEventListener('click', () => {
-    muted = !muted; el('platform-mute').setAttribute('aria-pressed', String(muted)); el('platform-mute').textContent = muted ? '🔇 صوت ×' : '🔊 صوت ✓';
+    muted = !muted; updateMuteUI();
     try { localStorage.setItem('platform-muted', String(muted)); } catch (_) {}
     if (muted) audio?.suspend?.()?.catch(() => {}); else audioUnlock();
   });

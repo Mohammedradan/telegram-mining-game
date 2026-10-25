@@ -171,6 +171,18 @@ test('platform UI: the page wires the scene — assets and every element the con
   for (const id of ['game-canvas', 'game-overlay', 'game-overlay-btn', 'adv-pause-btn', 'adv-skill-btn', 'adv-mute-btn', 'adv-combo']) assert.ok(ids.has(id));
 });
 
+test('UI chrome uses inline SVG icons instead of emoji glyphs', () => {
+  assert.ok(html.includes('class="icon-sprite"'), 'the SVG sprite must be inlined in the page');
+  const buttons = [...html.matchAll(/<button\b[^>]*class="action-btn[^"]*"[^>]*>[\s\S]*?<\/button>/g)].map(m => m[0]);
+  assert.equal(buttons.length, 7, 'all seven platform controls must be found');
+  for (const button of buttons) {
+    assert.match(button, /<use href="#i-[a-z]+"\/>/, 'every control uses a sprite icon');
+    assert.doesNotMatch(button, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'no emoji glyph in a control button');
+  }
+  assert.doesNotMatch(html.match(/<nav class="bottom-nav[\s\S]*?<\/nav>/)?.[0] || '', /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'bottom navigation must not rely on emoji fonts');
+  assert.ok(html.includes('id="res-gems"') && html.includes('id="res-rocks"') && html.includes('id="res-foes"'), 'HUD counters are separate SVG chips');
+});
+
 test('platform UI: the side-scroller is the focused default play view', async () => {
   const page = bootPage();
   assert.equal(page.topLevelError, null, page.topLevelError && `${page.topLevelError.message}\n${page.topLevelError.stack}`);
@@ -197,7 +209,9 @@ test('platform UI: a real round runs — server ticket, live physics from keys, 
   game = page.PlatformGame().inspect();
   // HUD يتحدث من داخل الإطارات
   assert.match(page.byId('platform-hearts').textContent, /♥/);
-  assert.match(page.byId('platform-resources').textContent, /💎 \d+\/3 · ⛏ \d+\/1 · 👾 \d+/, 'the live HUD tracks the actual exit requirements and defeated enemies');
+  for (const id of ['res-gems', 'res-rocks', 'res-foes']) {
+    assert.match(page.byId(id).textContent, /^\d+$/, `${id} shows a live HUD counter`);
+  } // the HUD tracks exit requirements and defeated enemies with SVG chips
   assert.ok(game.x > x0 + 50, `player must move right (x0=${x0}, x=${game.x})`);
   assert.equal(game.pose, 'run');
   assert.ok(game.tick > 10, 'fixed-step ticks advance');

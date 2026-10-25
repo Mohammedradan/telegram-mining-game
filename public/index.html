@@ -342,11 +342,46 @@
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
+  <!-- أيقونات متجهية موحّدة: واجهة المنجم لا تعتمد على خطوط الإيموجي -->
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14" stroke-width="3.6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" stroke-width="3"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" stroke-width="3"/></symbol>
+    <symbol id="i-jump" viewBox="0 0 24 24"><path d="M12 20V4m-6 7 6-7 6 7M5 20h14"/></symbol>
+    <symbol id="i-pickaxe" viewBox="0 0 24 24">
+      <path d="M4 7Q10.5 2.5 17 7"/><path d="m4 7-1.5 2.5M17 7l1.5 2.5"/>
+      <path d="M10.5 4.8 7.5 19.5"/><path d="m6.2 18.7 2.9.8"/>
+    </symbol>
+    <symbol id="i-swords" viewBox="0 0 24 24">
+      <path d="M4 3.5 19 19M20 3.5 5 19"/>
+      <path d="m13 18 4.5-4.5M11 18l-4.5-4.5"/>
+    </symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5 5.5 13.5h5.2L9.5 21.5l9-12h-5.2l.2-7Z" fill="currentColor" fill-opacity=".22"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24">
+      <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4.2 4.2 0 0 1 0 6M18.6 6.4a7.7 7.7 0 0 1 0 11.2"/>
+    </symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24">
+      <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m16.5 9.5 5 5m0-5-5 5"/>
+    </symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9.5 10h5M9.5 14h5"/></symbol>
+    <symbol id="i-bow" viewBox="0 0 24 24">
+      <path d="M7 3c7 3.5 7 14.5 0 18"/><path d="M7 3v18"/><path d="M3 12h15"/><path d="m14 8 4 4-4 4"/>
+    </symbol>
+    <symbol id="i-gem" viewBox="0 0 24 24"><path d="M6 4h12l4 5.5L12 20 2 9.5 6 4Z"/><path d="M2 9.5h20M8 4l-2 5.5 6 10.5 6-10.5L16 4"/></symbol>
+    <symbol id="i-gamepad" viewBox="0 0 24 24"><path d="M7.5 8h9a4.5 4.5 0 0 1 4.4 3.6l.9 4.2A2.6 2.6 0 0 1 17.3 19c-.8 0-1.5-.4-2-1l-1.3-1.6h-4L8.7 18c-.5.6-1.2 1-2 1a2.6 2.6 0 0 1-2.5-3.2l.9-4.2A4.5 4.5 0 0 1 7.5 8Z"/><path d="M7.5 11.5v3M6 13h3M16.5 12.5h.01M18.5 14.5h.01"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.3a3 3 0 0 1 0 5.4M17.5 14.2a5.5 5.5 0 0 1 3 4.8"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5"/><path d="M12 14v4M8.5 20h7M10 18h4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"/><path d="m18.5 16 .7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></symbol>
+  </svg>
+
+
   <!-- Header Info -->
   <header class="app-header flex justify-between items-center bg-slate-900/80 border border-slate-800 px-3 py-2 rounded-2xl backdrop-blur-md">
     <div class="flex items-center gap-2">
       <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-xl shadow-lg shadow-amber-500/30">
-        ⛏️
+        <svg class="ui-icon logo-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
       </div>
       <div>
         <div id="username" class="font-bold text-sm text-slate-200">معدّن أسطوري</div>
@@ -379,10 +414,10 @@
   <!-- TAB 0: INTERACTIVE ADVENTURE GAME (الشاشة الرئيسية) -->
   <main id="tab-play" class="tab-content active flex-col flex-1 min-h-0 py-0 px-0.5">
     <div class="play-subnav grid grid-cols-4 gap-1 mb-2" role="tablist" aria-label="أقسام اللعب">
-      <button id="play-nav-adventure" onclick="switchPlayPanel('adventure')" class="play-subnav-btn active" role="tab" aria-selected="true">🎮 <span>المغامرة</span></button>
-      <button id="play-nav-missions" onclick="switchPlayPanel('missions')" class="play-subnav-btn" role="tab" aria-selected="false">✅ <span>المهام</span></button>
-      <button id="play-nav-customize" onclick="switchPlayPanel('customize')" class="play-subnav-btn" role="tab" aria-selected="false">✨ <span>تطوير</span></button>
-      <button id="play-nav-social" onclick="switchPlayPanel('social')" class="play-subnav-btn" role="tab" aria-selected="false">⚔️ <span>سباق</span></button>
+      <button id="play-nav-adventure" onclick="switchPlayPanel('adventure')" class="play-subnav-btn active" role="tab" aria-selected="true"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-gamepad"/></svg> <span>المغامرة</span></button>
+      <button id="play-nav-missions" onclick="switchPlayPanel('missions')" class="play-subnav-btn" role="tab" aria-selected="false"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-check"/></svg> <span>المهام</span></button>
+      <button id="play-nav-customize" onclick="switchPlayPanel('customize')" class="play-subnav-btn" role="tab" aria-selected="false"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-sparkle"/></svg> <span>تطوير</span></button>
+      <button id="play-nav-social" onclick="switchPlayPanel('social')" class="play-subnav-btn" role="tab" aria-selected="false"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-swords"/></svg> <span>سباق</span></button>
     </div>
 
     <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
@@ -434,29 +469,33 @@
     <div id="platform-scene">
       <div class="mine-heading">
         <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f4bf62,#e09a2d);display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(244,191,98,.35);flex-shrink:0">⛏️</div>
+          <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f4bf62,#e09a2d);display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(244,191,98,.35);flex-shrink:0"><svg class="ui-icon badge-icon" style="color:#4a3212" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
           <div>
             <div class="mine-kicker">عالم الكهوف · منصات · بلورات · أعداء</div>
             <h2>منجم الأعماق المتقدمة</h2>
           </div>
         </div>
         <div class="mine-heading-actions">
-          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت">🔊 صوت</button>
+          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت"><svg class="ui-icon mute-icon mute-icon-on" aria-hidden="true"><use href="#i-sound"/></svg><svg class="ui-icon mute-icon mute-icon-off" aria-hidden="true"><use href="#i-muted"/></svg><span class="mute-label">صوت ✓</span></button>
         </div>
       </div>
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
-        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner">⛏️ عامل المنجم</button>
-        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior">⚔️ المحارب</button>
-        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer">🏹 رامي السهام</button>
+        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg> عامل المنجم</button>
+        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg> المحارب</button>
+        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg> رامي السهام</button>
       </div>
       <div class="mine-hud" aria-label="حالة الجولة">
         <span id="platform-hearts">♥ ♥ ♥</span>
-        <span id="platform-resources">بلورات 0 · صخور 0</span>
+        <span id="platform-resources" class="mine-resources">
+          <span class="res-chip" title="بلورات"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="res-gems">0</span>/3</span>
+          <span class="res-chip" title="صخور مُعدّنة"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span id="res-rocks">0</span>/1</span>
+          <span class="res-chip" title="أعداء مهزومون"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span id="res-foes">0</span></span>
+        </span>
         <span id="platform-progress">0% · 150ث</span>
       </div>
       <div class="mine-economy" aria-live="polite">
-        <span class="mine-gold"><span id="platform-gold">0</span> 🪙</span>
-        <span class="mine-energy"><span id="platform-energy">1000</span> ⚡</span>
+        <span class="mine-gold"><span id="platform-gold">0</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-coin"/></svg></span>
+        <span class="mine-energy"><span id="platform-energy">1000</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-bolt"/></svg></span>
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
@@ -476,13 +515,13 @@
 
         <!-- Action Buttons (Bottom Right) -->
         <div class="mine-controls-actions">
-          <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn">⏸</button>
-          <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><b>◀</b><span>يسار</span></button>
-          <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><b>▶</b><span>يمين</span></button>
-          <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><b>⤒</b><span>قفز</span></button>
-          <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><b>⛏</b><span>حفر</span></button>
-          <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><b>⚔️</b><span>ضرب</span></button>
-          <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><b>💥</b><span>قوة</span></button>
+          <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pause"/></svg></button>
+          <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-left"/></svg><span>يسار</span></button>
+          <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>يمين</span></button>
+          <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
+          <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
+          <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
+          <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
         </div>
       </div>
       <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز (Space)، تعدين (E)، هجوم (F)، مهارة (Q).</div>
@@ -777,27 +816,27 @@
   <!-- Bottom Navigation Bar -->
   <nav class="bottom-nav grid grid-cols-6 gap-1 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
     <button onclick="switchTab('play')" id="nav-play" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
-      <span class="text-lg">🎮</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-gamepad"/></svg>
       <span class="text-[9px] font-bold mt-0.5">اللعب</span>
     </button>
     <button onclick="switchTab('mining')" id="nav-mining" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">⛏️</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
       <span class="text-[9px] font-bold mt-0.5">تعدين</span>
     </button>
     <button onclick="switchTab('shop')" id="nav-shop" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">🛒</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-cart"/></svg>
       <span class="text-[11px] font-bold mt-0.5">ترقيات</span>
     </button>
     <button onclick="switchTab('friends')" id="nav-friends" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">👥</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-users"/></svg>
       <span class="text-[10px] font-bold mt-0.5">الأصدقاء</span>
     </button>
     <button onclick="switchTab('leaderboard')" id="nav-leaderboard" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">🏆</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-trophy"/></svg>
       <span class="text-[10px] font-bold mt-0.5">الصدارة</span>
     </button>
     <button onclick="switchTab('arena')" id="nav-arena" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">⚔️</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-swords"/></svg>
       <span class="text-[10px] font-bold mt-0.5">الساحة</span>
     </button>
   </nav>
