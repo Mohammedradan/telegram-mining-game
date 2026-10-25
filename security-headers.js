@@ -16,8 +16,12 @@ const CSP = [
 ].join('; ');
 
 function securityHeaders({ production = false } = {}) {
+  // في التطوير تُفتح اللعبة داخل معاينات iframe (Arena/أنفاق محلية). أضف مضيف
+  // المعاينة إلى frame-ancestors مع الإبقاء على مضيفي تيليجرام؛ الإنتاج يبقى بالسياسة الأصلية.
+  const previewAncestors = process.env.PREVIEW_FRAME_ANCESTORS || 'https://*.e2b.app';
+  const csp = production ? CSP : CSP.replace(/frame-ancestors [^;]+/, match => `${match} ${previewAncestors}`);
   return (req, res, next) => {
-    res.setHeader('Content-Security-Policy', CSP);
+    res.setHeader('Content-Security-Policy', csp);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
