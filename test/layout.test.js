@@ -94,3 +94,20 @@ test('local styles are actually linked and platform touch controls preserve spat
   assert.match(html, /if \(tabId !== 'play'\) window\.PlatformGame\?\.pause\(\)/);
   assert.match(html, /if \(panelId !== 'adventure'\) window\.PlatformGame\?\.pause\(\)/);
 });
+
+// المرحلة 1: مؤثرات الإحساس بالضربة على العميل فقط — المحرك الحتمي المشترك لا يتغير.
+test('phase 1: impact feedback is client-only and deterministic rules stay at VERSION 2', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-renderer.js'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  assert.equal(require('../public/platform-rules').VERSION, 2, 'phase 1 must not change the shared engine');
+  for (const id of ['platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(game, /pushFloater\(/);
+  assert.match(game, /hitStopUntil > time/, 'hit-stop must freeze rendering, never R.step');
+  assert.match(game, /R\.step\(sim, mask\)/, 'the physics step call stays intact');
+  assert.match(renderer, /opts\.floaters/);
+  assert.match(css, /\.mine-combo\{/);
+  assert.match(css, /\.overlay-mission\{/);
+});

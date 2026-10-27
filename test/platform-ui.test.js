@@ -159,7 +159,8 @@ test('platform UI: the page wires the scene — assets and every element the con
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
-    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick']) {
+    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick',
+    'platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   // Action buttons only (no directional buttons 1 and 2 - replaced by virtual joystick)
@@ -181,6 +182,16 @@ test('UI chrome uses inline SVG icons instead of emoji glyphs', () => {
   }
   assert.doesNotMatch(html.match(/<nav class="bottom-nav[\s\S]*?<\/nav>/)?.[0] || '', /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'bottom navigation must not rely on emoji fonts');
   assert.ok(html.includes('id="res-gems"') && html.includes('id="res-rocks"') && html.includes('id="res-foes"'), 'HUD counters are separate SVG chips');
+});
+
+test('platform UI: phase 1 impact feedback counters are exposed without changing simulation', async () => {
+  const page = bootPage();
+  assert.equal(page.topLevelError, null, page.topLevelError && `${page.topLevelError.message}\n${page.topLevelError.stack}`);
+  await page.settle();
+  const info = page.PlatformGame().inspect();
+  assert.equal(info.floatersSpawned, 0);
+  assert.equal(info.combo, 0);
+  assert.equal(info.hitStop, false);
 });
 
 test('platform UI: the side-scroller is the focused default play view', async () => {

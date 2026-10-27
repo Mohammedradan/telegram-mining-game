@@ -20,6 +20,9 @@
   let running = false, paused = false, starting = false, restoring = true, submitting = false, pending = null;
   let raf = 0, last = 0, accumulator = 0;
   let audio = null, muted = false, particles = [], shake = 0;
+  // المرحلة 1: مؤثرات عرض فقط — لا تدخل في R.step ولا في مسار الحركات المرسل للخادم.
+  let floaters = [], floatersSpawned = 0, combo = 0, comboUntil = 0, comboPeak = 0;
+  let frameTime = 0, hitStopUntil = 0, lastHitStop = -1e9;
   const keys = new Set(), pointers = new Map();
   // Preserve a quick jump/mine tap until one simulation step consumes it. Sources
   // are separate so cancelling a finger cannot erase a keyboard or another finger.
@@ -45,6 +48,44 @@
   function resetFeedback() {
     feedbackUntil = 0; observedCheckpoint = sim.checkpoint; observedMined = sim.mined;
     const box = el('platform-feedback'); if (box) box.hidden = true;
+    resetImpact();
+  }
+
+  function resetImpact() {
+    floaters = []; floatersSpawned = 0;
+    combo = 0; comboUntil = 0; comboPeak = 0;
+    hitStopUntil = 0; lastHitStop = -1e9;
+  }
+  function pushFloater(x, y, text, color, size = 12) {
+    if (floaters.length > 24) floaters.shift();
+    const life = reduced ? 45 : 52;
+    floaters.push({ x, y, text, color, size, life, maxLife: life, vy: reduced ? 0 : -0.9, scale: reduced ? 1 : 1.25 });
+    floatersSpawned++;
+  }
+  function bumpCombo() {
+    if (sim.tick > comboUntil) combo = 0;
+    combo += 1; comboUntil = sim.tick + 300; // 5 ثوانٍ تكفي للوصول للصخرة التالية
+    comboPeak = Math.max(comboPeak, combo);
+  }
+  // تجميد عرض قصير فقط: time هو طابع requestAnimationFrame نفسه، فيبقى
+  // عدد خطوات R.step كما هو تماماً (لا حتمية تنكسر ولا مكافأة تتغير).
+  function requestHitStop(ms) {
+    if (reduced || frameTime - lastHitStop < 90) return;
+    lastHitStop = frameTime;
+    hitStopUntil = Math.max(hitStopUntil, frameTime + Math.min(60, ms));
+  }
+  function spawnRockBurst(rock) {
+    if (reduced) return;
+    const cx = rock.x + rock.w / 2, cy = rock.y + rock.h / 2;
+    for (let i = 0; i < 18; i++) {
+      const ang = (i / 18) * Math.PI * 2 + Math.random() * 0.35;
+      const speed = 1.4 + Math.random() * 2.4;
+      particles.push({ x: cx, y: cy, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed - 1.1,
+        life: 26 + Math.random() * 16, color: i % 3 === 0 ? '#ffd166' : i % 3 === 1 ? '#9fb3b8' : '#56ebd3',
+        size: 2.6 + Math.random() * 3, glow: i % 3 === 2 });
+    }
+    particles.push({ x: cx, y: cy, vx: 0, vy: 0, life: 22, color: '#ffd16655', size: 26, ring: true });
+    doShake(0.32); haptic('heavy');
   }
   try { muted = localStorage.getItem('platform-muted') === 'true'; } catch (_) {}
 
@@ -66,7 +107,7 @@
   const storageKey = () => `platform-run:v1:${owner}`;
   const say = text => { const s = el('platform-status'); if (s) s.textContent = text; };
   const visible = () => !document.hidden && !el('platform-scene').hidden && el('play-panel-adventure').classList.contains('active') && el('tab-play').classList.contains('active');
-  const draw = () => renderer.draw(canvas, sim, { reduced, particles, shake });
+  const draw = () => renderer.draw(canvas, sim, { reduced, particles, shake, floaters });
 
   function clearInput() {
     keys.clear(); pointers.clear(); pulses.clear();
@@ -188,6 +229,17 @@
     }
     // low health pulse on hearts HUD
     if (heartsEl) heartsEl.style.animation = fullHearts === 1 && sim.player.hearts > 0 ? 'progressPulse 1s ease-in-out infinite' : '';
+    // المرحلة 1: شارة السلسلة وبطاقة المهمة (عرض فقط).
+    const comboEl = el('platform-combo');
+    if (comboEl) {
+      const live = sim.tick <= comboUntil && combo >= 2;
+      comboEl.hidden = !live;
+      if (live) comboEl.textContent = `×${combo}`;
+    }
+    const mg = el('mission-gems'), mr = el('mission-rocks'), mf = el('mission-fill');
+    if (mg) mg.textContent = `${Math.min(3, sim.collected)}/3`;
+    if (mr) mr.textContent = `${Math.min(1, sim.mined)}/1`;
+    if (mf) mf.style.width = `${Math.round((Math.min(3, sim.collected) / 3 * 0.6 + Math.min(1, sim.mined) * 0.4) * 100)}%`;
   }
 
   function overlay(title, text, resume = false) {
@@ -201,7 +253,7 @@
   function pause() {
     clearInput();
     if (!running || paused) return;
-    paused = true; cancelAnimationFrame(raf); raf = 0;
+    paused = true; cancelAnimationFrame(raf); raf = 0; hitStopUntil = 0;
     save(); audio?.suspend?.()?.catch(() => {});
     overlay('استراحة عند المصباح', 'الجولة متوقفة. لن تتقدم الفيزياء أو الوقت أثناء مغادرتك. تابع عندما تكون جاهزًا.', true);
     draw();
@@ -211,7 +263,7 @@
 
   function resume() {
     if (!running || !visible()) return;
-    paused = false; clearInput(); accumulator = 0; last = 0;
+    paused = false; clearInput(); accumulator = 0; last = 0; hitStopUntil = 0;
     el('platform-overlay').hidden = true; audioUnlock(); schedule(); canvas.focus({ preventScroll: true });
   }
 
@@ -221,7 +273,8 @@
     else inputs.push({ mask, frames: 1 });
   }
 
-  function consumeEvents() {
+  function consumeEvents(broken = []) {
+    for (const rock of broken) spawnRockBurst(rock);
     if (sim.mined > observedMined) feedback('تكسّر العِرق! جمعت بلورتين من المعدن.');
     if (sim.checkpoint !== observedCheckpoint) feedback('راية مفعّلة — ستعود إلى هنا إن أصابك خطر.');
     observedMined = sim.mined; observedCheckpoint = sim.checkpoint;
@@ -238,8 +291,29 @@
       else if (event.type === 'game_over') { doShake(0.5); haptic('hurt'); }
       else if (event.type === 'hit') haptic('light');
 
+      // أرقام الضرر/المكافأة وسلسلة التعدين — خارج المحرك الحتمي تماماً.
+      if (event.type === 'mine') {
+        pushFloater(event.x, event.y - 8, `-${Math.max(1, sim.player.miningPower || 1)}`, '#ffe08a');
+        bumpCombo();
+        if (combo >= 2) pushFloater(sim.player.x + (sim.player.w || 20) / 2, sim.player.y - 12, `×${combo}`, '#ffd166', 13);
+        requestHitStop(45);
+      } else if (event.type === 'collect') {
+        const fromRock = broken.length > 0;
+        pushFloater(event.x + 10, event.y - 6, fromRock ? '+2' : '+1', fromRock ? '#7dffd4' : '#b9a6ff');
+        bumpCombo();
+        if (combo >= 2) pushFloater(sim.player.x + (sim.player.w || 20) / 2, sim.player.y - 14, `×${combo}`, '#ffd166', 13);
+      } else if (event.type === 'hit') {
+        pushFloater(event.x, event.y - 8, `-${event.damage || 1}`, '#ff9b7a');
+        requestHitStop(35);
+      } else if (event.type === 'enemy_death') {
+        pushFloater(event.x, event.y - 12, '+1', '#ffd166');
+      } else if (event.type === 'hurt') {
+        combo = 0; comboUntil = 0;
+      }
+
       if (!reduced) {
         if (event.type === 'mine') {
+          particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: 7, color: '#fff6c9', size: 8, glow: true });
           for (let i = 0; i < 9; i++) particles.push({ x: event.x + (Math.random() - 0.5) * 6, y: event.y + (Math.random() - 0.5) * 4, vx: (Math.random() - 0.5) * 2.2, vy: -1.2 - Math.random() * 1.4, life: 22 + Math.random() * 8, color: Math.random() < 0.5 ? '#9fb3b8' : '#ffd27d', size: 2.2 + Math.random() * 2, glow: false });
           for (let i = 0; i < 3; i++) particles.push({ x: event.x, y: event.y, vx: (Math.random() - 0.5) * 1, vy: -0.6 - Math.random() * 0.8, life: 16, color: '#ffe8a0', size: 3.5, glow: true });
         } else if (event.type === 'mine_miss') {
@@ -272,6 +346,11 @@
         }
       }
     }
+    for (const f of floaters) {
+      f.y += f.vy; f.vy *= 0.93; f.life--;
+      if (f.scale > 1) f.scale = Math.max(1, f.scale - 0.05);
+    }
+    floaters = floaters.filter(f => f.life > 0);
     // cap particles
     if (particles.length > 96) particles = particles.slice(-96);
     for (const p of particles) {
@@ -293,6 +372,8 @@
     raf = 0;
     if (!running || paused) return;
     if (!visible()) { pause(); return; }
+    frameTime = time;
+    if (hitStopUntil > time) { last = time; draw(); schedule(); return; }
     if (!last) last = time;
     accumulator += Math.min(0.1, (time - last) / 1000); last = time;
     let count = 0;
@@ -312,7 +393,10 @@
       if (inputs.length >= 1000 && inputs[inputs.length - 1].mask !== mask) {
         pause(); say('وصلت إلى حد تسجيل الحركات؛ أعد بدء الجولة.'); return;
       }
-      record(mask); R.step(sim, mask); consumeEvents(); accumulator -= R.DT;
+      const hpBefore = sim.rocks.map(r => r.hp);
+      record(mask); R.step(sim, mask);
+      const broken = sim.rocks.filter((r, i) => hpBefore[i] > 0 && r.hp === 0);
+      consumeEvents(broken); accumulator -= R.DT;
       if (sim.tick % 120 === 0) save();
     }
     hud(); draw();
@@ -367,7 +451,7 @@
     });
     if (!running) {
       sim = R.create(currentHero, seedOf(ticket));
-      particles = []; shake = 0;
+      particles = []; shake = 0; resetImpact();
       hud(); draw();
     }
     // subtle haptic on hero switch
@@ -386,7 +470,7 @@
         if (ticket.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
         say(`الهدف: 3 بلورات وصخرة واحدة، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
-      sim = R.create(currentHero, seedOf(ticket)); inputs = []; particles = []; shake = 0; running = true; paused = false; save();
+      sim = R.create(currentHero, seedOf(ticket)); inputs = []; particles = []; shake = 0; resetImpact(); running = true; paused = false; save();
       resume();
     } catch (e) { say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`); }
     finally { starting = false; el('platform-start').disabled = Boolean(pending); }
@@ -575,6 +659,7 @@
       hearts: sim.player.hearts, running, paused, scheduled: Boolean(raf),
       ticket: ticket?.id, pending: Boolean(pending), hero: sim.player.hero,
       defeated: sim.defeated, reduced, zone: sim.zone,
+      combo, comboPeak, floaters: floaters.length, floatersSpawned, hitStop: hitStopUntil > frameTime,
     }),
   };
 

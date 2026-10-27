@@ -338,7 +338,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=3">
+  <link rel="stylesheet" href="/platform.css?v=4">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -499,9 +499,16 @@
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
+        <div id="platform-combo" class="mine-combo" aria-live="polite" hidden></div>
         <div id="platform-overlay" class="mine-overlay">
+          <div class="overlay-kicker"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg> جولة موثّقة · 150 ثانية</div>
           <h3 id="platform-title">منجم المنصّة</h3>
           <p id="platform-message">هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F · استخدم المهارة بـ Q.</p>
+          <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
+            <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span>اجمع 3 بلورات</span><b id="mission-gems">0/3</b></div>
+            <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>اكسر صخرة خام</span><b id="mission-rocks">0/1</b></div>
+            <div class="mission-progress"><i id="mission-fill"></i></div>
+          </div>
           <button id="platform-start" type="button">جولة جديدة</button>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
@@ -845,7 +852,7 @@
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
   <script src="/platform-rules.js?v=3"></script>
-  <script src="/platform-renderer.js?v=3"></script>
+  <script src="/platform-renderer.js?v=4"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -3044,6 +3051,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=4"></script>
+  <script src="/platform-game.js?v=5"></script>
 </body>
 </html>

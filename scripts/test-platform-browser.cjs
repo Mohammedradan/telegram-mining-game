@@ -33,6 +33,8 @@ async function main() {
       await page.evaluate(() => { const b = document.getElementById('platform-start'); b.click(); b.click(); b.click(); });
       await page.waitForFunction(() => window.PlatformGame.inspect().running);
       assert.equal(starts, 1, 'double-click starts exactly one request/loop');
+      assert.equal(await page.locator('#mission-gems').textContent(), '0/3', 'mission card starts empty');
+      assert.equal(await page.locator('#mission-rocks').textContent(), '0/1');
       if (viewport.width === 390) {
         await page.locator('#platform-mute').click();
         assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
@@ -116,6 +118,11 @@ async function main() {
     await page.keyboard.up('ArrowRight'); await page.keyboard.up('e'); await page.keyboard.up('Space');
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
     const final = await read(page); assert.equal(await page.evaluate(() => adv.running), false, 'platform Space cannot start a hidden legacy game'); report.throttledRound = { cpuRate: 3, wallSeconds: (Date.now() - winStart) / 1000, simulationSeconds: final.tick / 60 }; assert.equal(final.status, 'won', `throttled round: ${JSON.stringify({ tick: final.tick, x: final.x, hearts: final.hearts })}`); assert.ok(final.mined >= 1); assert.ok(final.gems >= 3);
+    await page.waitForFunction(() => document.getElementById('mission-gems').textContent === '3/3');
+    assert.equal(await page.locator('#mission-rocks').textContent(), '1/1', 'mission card reflects the broken rock');
+    assert.ok(final.floatersSpawned > 0, 'floating impact numbers spawned during the winning run');
+    assert.ok(final.comboPeak >= 1, 'mining combo was exercised');
+    report.feel = { floatersSpawned: final.floatersSpawned, comboPeak: final.comboPeak, missionComplete: true };
     await page.waitForFunction(() => !document.getElementById('platform-retry').hidden);
     assert.equal(committed.won, true); assert.ok(committed.gold > 0 && committed.gold <= 100);
     assert.equal((await read(page)).pending, true);

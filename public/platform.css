@@ -215,7 +215,21 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .subnav-icon{width:12px;height:12px}
 .nav-icon{width:20px;height:20px}
 .mine-resources{display:inline-flex;align-items:center;gap:8px}
-.res-chip{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.res-chip{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;direction:ltr;unicode-bidi:isolate}
 .res-chip .ui-icon{width:13px;height:13px;color:#ffdf8a}
 .res-chip:nth-child(2) .ui-icon{color:#e9b969}
 .res-chip:nth-child(3) .ui-icon{color:#ff9e9e}
+
+/* المرحلة 1 — أرقام المكافأة/الضرر الطائرة، سلسلة التعدين، وبطاقة المهمة */
+.mine-combo{position:absolute;top:8px;left:8px;z-index:3;direction:ltr;pointer-events:none;padding:4px 10px;border-radius:11px;background:rgba(8,20,30,.82);border:1px solid rgba(255,209,102,.55);color:#ffd166;font-weight:900;font-size:13px;box-shadow:0 3px 10px rgba(0,0,0,.4);animation:comboPop .18s ease-out}
+@keyframes comboPop{from{transform:scale(.82);opacity:.45}to{transform:scale(1);opacity:1}}
+.overlay-kicker{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;letter-spacing:.4px;color:#e9b969;background:rgba(244,191,98,.12);border:1px solid rgba(244,191,98,.35);border-radius:999px;padding:5px 12px}
+.overlay-kicker .ui-icon{width:13px;height:13px}
+.overlay-mission{width:min(330px,92%);display:flex;flex-direction:column;gap:7px;padding:10px 12px;border-radius:13px;background:rgba(8,20,30,.7);border:1px solid rgba(120,150,170,.28);text-align:start}
+.mission-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#d7e6e8}
+.mission-row .ui-icon{width:14px;height:14px;color:#ffd166}
+.mission-row b{margin-inline-start:auto;color:#ffdf8a;font-size:11px;direction:ltr;unicode-bidi:isolate}
+.mission-progress{height:6px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.mission-progress i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#f5bc60,#56ebd3);transition:width .25s ease}
+.mine-overlay #platform-start,.mine-overlay #platform-resume{min-width:176px;padding:12px 26px;font-size:13px}
+@media(prefers-reduced-motion:reduce){.mine-combo{animation:none}.mission-progress i{transition:none}}

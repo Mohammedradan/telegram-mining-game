@@ -452,6 +452,7 @@
   function draw(canvas, s, opts = {}) {
     const reduced = !!opts.reduced;
     const particles = opts.particles || [];
+    const floaters = opts.floaters || [];
     const shake = opts.shake || 0;
     const c = canvas.getContext('2d');
     const cssW = canvas.clientWidth || 480, cssH = canvas.clientHeight || 300;
@@ -950,6 +951,27 @@
         c.globalAlpha = alpha * 0.3;
         round(c, p.x - p.vx * 2, p.y - p.vy * 2, (p.size || 4) * 0.6, (p.size || 4) * 0.6, 1, p.color);
       }
+    }
+    c.globalAlpha = 1;
+
+    // ---- Floating impact numbers (cosmetic only; world coordinates) ----
+    for (const f of floaters) {
+      const alpha = Math.max(0, Math.min(1, (f.life / (f.maxLife || 1)) * 1.8));
+      c.globalAlpha = alpha;
+      c.save();
+      c.translate(f.x, f.y);
+      c.scale(f.scale || 1, f.scale || 1);
+      // الأرقام لاتينية: امنع وراثة direction:rtl من الصفحة وإلا انقلب "+1" إلى "1+".
+      c.direction = 'ltr';
+      c.font = `900 ${f.size || 12}px system-ui, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.lineWidth = 3;
+      c.strokeStyle = 'rgba(4,12,18,.9)';
+      c.strokeText(f.text, 0, 0);
+      c.fillStyle = f.color || '#fff';
+      c.fillText(f.text, 0, 0);
+      c.restore();
     }
     c.globalAlpha = 1;
 
