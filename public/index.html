@@ -338,7 +338,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=5">
+  <link rel="stylesheet" href="/platform.css?v=7">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -374,6 +374,15 @@
     <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5"/><path d="M12 14v4M8.5 20h7M10 18h4"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"/><path d="m18.5 16 .7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></symbol>
+    <symbol id="i-boots" viewBox="0 0 24 24"><path d="M7 3h5v9l5 3v4H4v-4l3-2V3Z"/><path d="M4 19h13M7 8h5"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M8 7h8l2 12H6L8 7Z"/><path d="M9 7V5a3 3 0 0 1 6 0v2M9 11h6"/></symbol>
+    <symbol id="i-magnet" viewBox="0 0 24 24"><path d="M5 4v8a7 7 0 0 0 14 0V4"/><path d="M5 8h5M14 8h5M5 4h5M14 4h5"/></symbol>
+    <symbol id="i-drill" viewBox="0 0 24 24"><path d="m4 20 8-8"/><path d="M11 13 9 7l8-4 2 8-8 2Z"/><path d="m17 9 4 4"/></symbol>
+    <symbol id="i-robot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M8 13h.01M16 13h.01M9 17h6M2 12v4M22 12v4"/></symbol>
+    <symbol id="i-luck" viewBox="0 0 24 24"><path d="M12 12c-3-1-5-4-4-7 3 0 5 2 5 5"/><path d="M12 12c1-3 4-5 7-4 0 3-2 5-5 5"/><path d="M12 12c3 1 5 4 4 7-3 0-5-2-5-5"/><path d="M12 12c-1 3-4 5-7 4 0-3 2-5 5-5"/><path d="M12 12v8"/></symbol>
+    <symbol id="i-armor" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   </svg>
 
 
@@ -477,6 +486,7 @@
         </div>
         <div class="mine-heading-actions">
           <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت"><svg class="ui-icon mute-icon mute-icon-on" aria-hidden="true"><use href="#i-sound"/></svg><svg class="ui-icon mute-icon mute-icon-off" aria-hidden="true"><use href="#i-muted"/></svg><span class="mute-label">صوت ✓</span></button>
+          <button id="open-workshop-heading" type="button" class="ws-mini-entry" aria-label="ورشة المعدّن"><svg class="ui-icon" aria-hidden="true"><use href="#i-drill"/></svg> ورشة</button>
         </div>
       </div>
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
@@ -512,6 +522,7 @@
             <div class="mission-progress"><i id="mission-fill"></i></div>
           </div>
           <button id="platform-start" type="button">جولة جديدة</button>
+          <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
       </div>
@@ -664,6 +675,7 @@
   <!-- TAB 2: UPGRADES / SHOP -->
   <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 py-2 px-1">
     <h2 class="text-lg font-bold text-slate-200 mb-1">ترقية المعدات والمعدنين</h2>
+    <button id="open-workshop-shop" type="button" class="ws-shop-entry">افتح ورشة المعدّن — معاينة الواجهة الجديدة</button>
 
     <!-- Upgrade 1: Click Power -->
     <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
@@ -860,6 +872,44 @@
       <span class="text-[10px] font-bold mt-0.5">الساحة</span>
     </button>
   </nav>
+
+  <!-- نموذج شاشة الورشة: معاينة بصرية عميلة فقط — المرحلة 3 ستربطها بالمعدات الخادمية -->
+  <div id="ws-overlay" class="ws-overlay" hidden aria-label="ورشة المعدّن">
+    <div class="ws-cave" aria-hidden="true"></div>
+    <div class="ws-top">
+      <div class="ws-chip ws-gold"><svg class="ui-icon" aria-hidden="true"><use href="#i-coin"/></svg><span id="ws-gold">0</span></div>
+      <div class="ws-chip ws-ores"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="ws-ore-total">0</span></div>
+      <div class="ws-top-actions">
+        <button id="ws-sound" class="ws-icon-btn" type="button" aria-label="الصوت" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="#i-sound"/></svg></button>
+        <button id="ws-music" class="ws-icon-btn" type="button" aria-label="الموسيقى" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="#i-music"/></svg></button>
+        <button id="ws-close" class="ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <div class="ws-stage">
+      <div class="ws-ring">
+        <div class="ws-orbit" aria-hidden="true"></div>
+        <div class="ws-glow" aria-hidden="true"></div>
+        <div class="ws-pedestal" aria-hidden="true"></div>
+        <canvas id="ws-hero" class="ws-hero-canvas" aria-hidden="true"></canvas>
+        <div id="ws-nodes" class="ws-nodes"></div>
+      </div>
+    </div>
+    <div class="ws-bottom">
+      <div id="ws-summary" class="ws-summary"></div>
+      <button id="ws-cta" class="ws-cta" type="button">ابدأ التعدين</button>
+      <p class="ws-note">معاينة بصرية — مستويات المعدات هنا تجريبية وستربط بالخادم في المرحلة 3.</p>
+    </div>
+    <div id="ws-modal" class="ws-modal" hidden>
+      <div class="ws-card">
+        <div id="ws-card-icon" class="ws-card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
+        <h3 id="ws-card-title">قوة المعول</h3>
+        <p id="ws-card-effect" class="ws-card-effect"></p>
+        <div class="ws-stats"><span>المستوى <b id="ws-card-level">0</b></span><span>التكلفة <b id="ws-card-cost">0</b></span></div>
+        <button id="ws-upgrade" class="ws-upgrade" type="button">ترقية (معاينة)</button>
+        <button id="ws-modal-close" class="ws-modal-close" type="button">إغلاق</button>
+      </div>
+    </div>
+  </div>
 
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
@@ -3082,6 +3132,176 @@
         alert('✅ تم نسخ رابط الدعوة بنجاح!');
       }
     }
+
+    // ============================================================
+    // ورشة المعدّن — معاينة بصرية فقط. لا API، لا قواعد، لا خادم.
+    // المستويات تُحفظ محلياً تحت مفتاح مستقل ولا تؤثر على الجولات.
+    // ============================================================
+    const WORKSHOP_ITEMS = [
+      { id: 'pickaxe', name: 'قوة المعول', icon: 'i-pickaxe', effect: 'تكسير الصخور بضربات أقل', base: 50 },
+      { id: 'boots',   name: 'حذاء المعدّن', icon: 'i-boots',  effect: 'حركة أسرع داخل المنجم', base: 60 },
+      { id: 'bag',     name: 'حقيبة الموارد', icon: 'i-bag',   effect: 'حمل كميات أكبر من الخامات', base: 70 },
+      { id: 'magnet',  name: 'المغناطيس', icon: 'i-magnet',    effect: 'جذب البلورات القريبة', base: 80 },
+      { id: 'drill',   name: 'الحفر الآلي', icon: 'i-drill',   effect: 'ضرر دوري للصخور', base: 90 },
+      { id: 'robot',   name: 'روبوت التعدين', icon: 'i-robot', effect: 'جمع الخامات أثناء الغياب', base: 100 },
+      { id: 'luck',    name: 'حظ المعدّن', icon: 'i-luck',     effect: 'فرصة أعلى للخامات النادرة', base: 110 },
+      { id: 'armor',   name: 'معدات الحماية', icon: 'i-armor', effect: 'دخول المناطق الخطرة', base: 120 },
+    ];
+    const WS_LEVEL_KEY = 'workshop-preview-levels';
+    let wsLevels = {};
+    try { wsLevels = JSON.parse(localStorage.getItem(WS_LEVEL_KEY) || '{}') || {}; } catch (_) { wsLevels = {}; }
+    let wsOpenFlag = false, wsRaf = 0, wsTickCount = 0, wsAudio = null, wsMusicTimer = 0;
+    let wsSoundOn = true, wsMusicOn = false, wsActiveItem = null;
+    const wsReduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+
+    function wsNodePos(i) {
+      const a = (-90 + i * 45) * Math.PI / 180;
+      return { x: 50 + 41 * Math.cos(a), y: 50 + 41 * Math.sin(a) };
+    }
+    function wsRenderNodes() {
+      const host = document.getElementById('ws-nodes');
+      if (!host) return;
+      host.innerHTML = WORKSHOP_ITEMS.map((it, i) => {
+        const pos = wsNodePos(i), lvl = Math.max(0, Number(wsLevels[it.id]) || 0);
+        return `<button class="ws-node" type="button" data-ws-item="${it.id}" style="left:${pos.x}%;top:${pos.y}%" aria-label="${it.name}" title="${it.name}"><svg class="ui-icon" aria-hidden="true"><use href="#${it.icon}"/></svg><span class="ws-node-lvl">${lvl}</span></button>`;
+      }).join('');
+    }
+    function wsRenderTop() {
+      const gold = document.getElementById('ws-gold');
+      if (gold) gold.textContent = fmt(Math.floor(state.gold || 0));
+      const ores = document.getElementById('ws-ore-total');
+      if (ores) ores.textContent = fmt(Object.values(state.ores || {}).reduce((a, v) => a + Math.max(0, Number(v) || 0), 0));
+      const summary = document.getElementById('ws-summary');
+      if (summary) {
+        const total = WORKSHOP_ITEMS.reduce((a, it) => a + (Number(wsLevels[it.id]) || 0), 0);
+        summary.innerHTML = `<span>المعدات المطوّرة <b>${total}</b></span><span>جاهزية المنجم <b>${Math.min(100, Math.round(total / (WORKSHOP_ITEMS.length * 5) * 100))}%</b></span>`;
+      }
+    }
+    function wsBeep(freq, dur = 0.12, vol = 0.04, force = false) {
+      if (!wsSoundOn && !force) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!wsAudio) wsAudio = new AC();
+        wsAudio.resume?.();
+        const osc = wsAudio.createOscillator(), gain = wsAudio.createGain();
+        osc.frequency.value = freq; osc.type = 'triangle';
+        gain.gain.setValueAtTime(vol, wsAudio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, wsAudio.currentTime + dur);
+        osc.connect(gain); gain.connect(wsAudio.destination);
+        osc.start(); osc.stop(wsAudio.currentTime + dur);
+      } catch (_) {}
+    }
+    const WS_NOTES = [392, 440, 494, 523, 494, 440];
+    function wsToggleMusic() {
+      wsMusicOn = !wsMusicOn;
+      document.getElementById('ws-music')?.setAttribute('aria-pressed', String(wsMusicOn));
+      if (wsMusicTimer) { clearInterval(wsMusicTimer); wsMusicTimer = 0; }
+      if (wsMusicOn) {
+        let i = 0;
+        wsMusicTimer = setInterval(() => { if (wsOpenFlag) wsBeep(WS_NOTES[i++ % WS_NOTES.length], 0.22, 0.02, true); }, 420);
+        wsBeep(523, 0.15, 0.03, true);
+      }
+    }
+    function wsDrawHero() {
+      const canvas = document.getElementById('ws-hero');
+      if (!canvas || !window.PlatformRenderer?.drawHero || !window.PlatformRules) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = canvas.clientWidth || 150, h = canvas.clientHeight || 150;
+      if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+        canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      }
+      const c = canvas.getContext('2d');
+      if (!c) return;
+      c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+      const scale = Math.min(w, h) / 58;
+      c.save(); c.translate(w / 2, h / 2 + 6 * scale); c.scale(scale, scale);
+      const base = window.PlatformRules.create('miner');
+      const hero = { ...base.player, x: -12, y: -20, facing: 1, pose: 'idle', attack: 0, invulnerable: 0, landTimer: 0, vy: 0, grounded: true };
+      window.PlatformRenderer.drawHero(c, hero, wsReduced ? 0 : wsTickCount, wsReduced);
+      c.restore();
+    }
+    function wsLoop() {
+      if (!wsOpenFlag) return;
+      if (!wsReduced) wsTickCount += 1;
+      wsDrawHero();
+      wsRaf = requestAnimationFrame(wsLoop);
+    }
+    function wsOpen() {
+      const overlay = document.getElementById('ws-overlay');
+      if (!overlay) return;
+      try { window.PlatformGame?.pause(); } catch (_) {}
+      wsOpenFlag = true; overlay.hidden = false;
+      wsRenderNodes(); wsRenderTop(); wsBeep(440, 0.1);
+      cancelAnimationFrame(wsRaf); wsRaf = requestAnimationFrame(wsLoop);
+    }
+    function wsClose() {
+      const overlay = document.getElementById('ws-overlay');
+      if (!overlay || overlay.hidden) return;
+      wsOpenFlag = false; overlay.hidden = true;
+      cancelAnimationFrame(wsRaf); wsRaf = 0;
+      if (wsMusicTimer) { clearInterval(wsMusicTimer); wsMusicTimer = 0; }
+      wsMusicOn = false;
+      document.getElementById('ws-music')?.setAttribute('aria-pressed', 'false');
+      document.getElementById('ws-modal').hidden = true;
+    }
+    function wsOpenItem(id) {
+      const item = WORKSHOP_ITEMS.find(x => x.id === id);
+      if (!item) return;
+      wsActiveItem = item;
+      const lvl = Math.max(0, Number(wsLevels[id]) || 0);
+      document.getElementById('ws-card-icon').innerHTML = `<svg class="ui-icon" aria-hidden="true"><use href="#${item.icon}"/></svg>`;
+      document.getElementById('ws-card-title').textContent = item.name;
+      document.getElementById('ws-card-effect').textContent = item.effect;
+      document.getElementById('ws-card-level').textContent = String(lvl);
+      document.getElementById('ws-card-cost').textContent = fmt(Math.floor(item.base * Math.pow(1.6, lvl)));
+      document.getElementById('ws-modal').hidden = false;
+      wsBeep(560, 0.08);
+    }
+    function wsUpgrade() {
+      if (!wsActiveItem) return;
+      const id = wsActiveItem.id;
+      wsLevels[id] = Math.min(20, (Number(wsLevels[id]) || 0) + 1);
+      try { localStorage.setItem(WS_LEVEL_KEY, JSON.stringify(wsLevels)); } catch (_) {}
+      wsRenderNodes(); wsRenderTop(); wsOpenItem(id);
+      wsBeep(720, 0.14);
+    }
+    function wsStart() {
+      wsClose();
+      try { switchTab('play'); switchPlayPanel('adventure'); } catch (_) {}
+      const start = document.getElementById('platform-start');
+      if (start && !start.disabled) start.click();
+    }
+    (function wsInit() {
+      for (const id of ['open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop']) {
+        document.getElementById(id)?.addEventListener('click', wsOpen);
+      }
+      document.getElementById('ws-close')?.addEventListener('click', wsClose);
+      document.getElementById('ws-cta')?.addEventListener('click', wsStart);
+      document.getElementById('ws-nodes')?.addEventListener('click', (e) => {
+        const node = e.target?.closest?.('[data-ws-item]');
+        if (node) wsOpenItem(node.getAttribute('data-ws-item'));
+      });
+      document.getElementById('ws-modal-close')?.addEventListener('click', () => { document.getElementById('ws-modal').hidden = true; });
+      document.getElementById('ws-modal')?.addEventListener('click', (e) => {
+        if (e.target?.id === 'ws-modal') document.getElementById('ws-modal').hidden = true;
+      });
+      document.getElementById('ws-upgrade')?.addEventListener('click', wsUpgrade);
+      document.getElementById('ws-sound')?.addEventListener('click', () => {
+        wsSoundOn = !wsSoundOn;
+        const btn = document.getElementById('ws-sound');
+        btn?.setAttribute('aria-pressed', String(wsSoundOn));
+        btn?.querySelector('use')?.setAttribute('href', wsSoundOn ? '#i-sound' : '#i-muted');
+        wsBeep(wsSoundOn ? 520 : 300, 0.1, 0.04, true);
+      });
+      document.getElementById('ws-music')?.addEventListener('click', wsToggleMusic);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !document.getElementById('ws-overlay').hidden) wsClose();
+      });
+    })();
+
+    window.openWorkshop = wsOpen;
+    window.closeWorkshop = wsClose;
 
     updateUI();
     updateArenaUI();

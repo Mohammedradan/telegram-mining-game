@@ -240,3 +240,61 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .ore-row span:nth-child(3){color:#94a3b8;font-size:10px;direction:ltr;unicode-bidi:isolate}
 .ore-sell{background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;border:1px solid #ffe2a2;border-radius:7px;padding:3px 10px;font-size:10px;cursor:pointer;flex-shrink:0}
 .ore-sell:active{transform:translateY(1px)}
+
+/* ============================================================
+   ورشة المعدّن — معاينة بصرية كاملة الشاشة (عميل فقط)
+   ============================================================ */
+.ws-overlay{position:fixed;inset:0;width:100%;height:100%;height:100dvh;z-index:80;display:flex;flex-direction:column;direction:rtl;color:#f4e6c8;font-family:'Tajawal',system-ui,-apple-system,sans-serif;background:radial-gradient(ellipse at 50% 12%,#2c3d55 0%,#162334 42%,#080f1a 100%);overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.7)}
+.ws-cave{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 10% 24%,rgba(56,189,248,.16),transparent 30%),radial-gradient(circle at 88% 18%,rgba(251,146,60,.13),transparent 28%),radial-gradient(ellipse at 50% -10%,rgba(129,140,248,.2),transparent 60%)}
+.ws-cave::before,.ws-cave::after{content:'';position:absolute;bottom:-6%;width:40%;height:34%;opacity:.55;clip-path:polygon(20% 100%,0 52%,28% 28%,55% 60%,80% 0,100% 100%)}
+.ws-cave::before{left:-9%;background:linear-gradient(135deg,rgba(56,189,248,.6),rgba(14,116,144,.05))}
+.ws-cave::after{right:-9%;transform:scaleX(-1);background:linear-gradient(135deg,rgba(167,139,250,.5),rgba(76,29,149,.05))}
+.ws-top{position:relative;z-index:2;display:flex;align-items:center;gap:6px;padding:10px 12px;flex-shrink:0;width:min(520px,100%);margin-inline:auto}
+.ws-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:12px;background:rgba(8,18,28,.78);border:1px solid rgba(255,209,102,.35);font-weight:900;font-size:13px;color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.ws-chip .ui-icon{width:16px;height:16px}
+.ws-ores{color:#a5f3fc;border-color:rgba(103,232,249,.35)}
+.ws-top-actions{margin-inline-start:auto;display:flex;gap:6px}
+.ws-icon-btn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(8,18,28,.78);border:1px solid rgba(148,163,184,.3);color:#e2e8f0;cursor:pointer;transition:all .15s}
+.ws-icon-btn .ui-icon{width:18px;height:18px}
+.ws-icon-btn[aria-pressed="false"]{opacity:.5}
+.ws-icon-btn:active{transform:scale(.94)}
+.ws-stage{position:relative;z-index:1;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px;width:min(520px,100%);margin-inline:auto}
+.ws-ring{position:relative;width:min(340px,90vw,calc(100dvh - 190px));aspect-ratio:1;max-height:100%;flex-shrink:0}
+.ws-orbit{position:absolute;inset:9%;border-radius:50%;border:1px dashed rgba(255,209,102,.22);box-shadow:inset 0 0 40px rgba(0,0,0,.35)}
+.ws-glow{position:absolute;inset:22%;border-radius:50%;background:radial-gradient(circle,rgba(255,196,92,.22),transparent 70%);filter:blur(8px);animation:wsPulse 3.5s ease-in-out infinite}
+@keyframes wsPulse{50%{opacity:.6;transform:scale(1.06)}}
+.ws-pedestal{position:absolute;left:50%;top:76%;transform:translateX(-50%);width:62%;height:14%;border-radius:50%;background:radial-gradient(ellipse,rgba(255,190,90,.28),transparent 70%)}
+.ws-hero-canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48%;height:48%;pointer-events:none}
+.ws-nodes{position:absolute;inset:0}
+.ws-node{position:absolute;transform:translate(-50%,-50%);width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#3b5266,#16222e);border:2px solid rgba(255,209,102,.55);color:#ffdf8a;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);transition:transform .15s,box-shadow .15s,border-color .15s}
+.ws-node .ui-icon{width:24px;height:24px}
+.ws-node:hover,.ws-node:focus-visible{transform:translate(-50%,-50%) scale(1.09);border-color:#ffd166;box-shadow:0 6px 18px rgba(255,190,80,.35)}
+.ws-node:active{transform:translate(-50%,-50%) scale(.96)}
+.ws-node-lvl{position:absolute;bottom:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#f5bc60;color:#302119;font-size:10px;font-weight:900;display:grid;place-items:center;border:1px solid #ffe2a2;direction:ltr}
+.ws-bottom{position:relative;z-index:2;flex-shrink:0;padding:8px 14px 12px;display:flex;flex-direction:column;gap:7px;width:min(520px,100%);margin-inline:auto}
+.ws-summary{display:flex;justify-content:space-between;font-size:11px;color:#b9c9d4}
+.ws-summary b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.ws-cta{width:100%;padding:13px;border-radius:15px;background:linear-gradient(135deg,#f5bc60,#e0821f);color:#2b1b0c;font-weight:900;font-size:17px;border:1px solid #ffe2a2;cursor:pointer;box-shadow:0 6px 20px rgba(224,130,31,.35),inset 0 1px 0 rgba(255,255,255,.4);transition:transform .12s,box-shadow .12s}
+.ws-cta:hover{transform:translateY(-2px);box-shadow:0 9px 26px rgba(224,130,31,.45)}
+.ws-cta:active{transform:translateY(1px)}
+.ws-note{text-align:center;font-size:9.5px;color:#8fa3b0;margin:0}
+.ws-modal{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:18px;background:rgba(4,10,16,.74);backdrop-filter:blur(3px)}
+.ws-card{width:min(320px,100%);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:9px;text-align:center;background:linear-gradient(160deg,#1d3040,#0e1a26);border:1px solid rgba(255,209,102,.4);box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.ws-card-icon{width:62px;height:62px;margin:0 auto;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#3b5266,#16222e);border:2px solid rgba(255,209,102,.55);color:#ffdf8a}
+.ws-card-icon .ui-icon{width:32px;height:32px}
+.ws-card h3{margin:0;font-size:17px;font-weight:900;color:#ffdf8a}
+.ws-card-effect{margin:0;font-size:11px;color:#cfe0e2;line-height:1.6}
+.ws-stats{display:flex;justify-content:space-between;font-size:11px;color:#b9c9d4;padding:8px 10px;border-radius:10px;background:rgba(8,18,28,.6);direction:rtl}
+.ws-stats b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.ws-upgrade{padding:10px;border-radius:12px;background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;font-size:13px;border:1px solid #ffe2a2;cursor:pointer}
+.ws-modal-close{padding:7px;border-radius:10px;background:transparent;color:#94a3b8;font-size:11px;border:1px solid rgba(148,163,184,.3);cursor:pointer}
+.ws-mini-entry{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:7px 10px;border-radius:9px;background:rgba(34,51,60,.9);border:1px solid #40505a;min-height:38px;color:#e8f1f5;cursor:pointer;font-weight:700}
+.ws-mini-entry .ui-icon{width:14px;height:14px;color:#ffd166}
+#open-workshop-overlay{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;box-shadow:0 4px 14px rgba(38,84,92,.3)}
+.ws-shop-entry{width:100%;padding:10px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#f3e8ff;font-weight:900;font-size:12px;border:1px solid rgba(196,181,253,.5);cursor:pointer}
+@media(max-width:360px){.ws-node{width:44px;height:44px}.ws-node .ui-icon{width:21px;height:21px}.ws-ring{width:min(300px,92vw,calc(100dvh - 190px))}.ws-cta{font-size:15px}}
+/* شاشة أفقية قصيرة: ضغط الأشرطة حتى لا تتداخل مع حلقة المعدات */
+@media(max-height:480px){.ws-top{padding:5px 10px}.ws-icon-btn{width:30px;height:30px}.ws-chip{font-size:11px;padding:4px 8px}.ws-bottom{padding:5px 12px 6px;gap:4px}.ws-cta{padding:8px;font-size:14px}.ws-note{display:none}.ws-summary{font-size:10px}.ws-ring{width:min(300px,92vw,calc(100dvh - 145px))}.ws-node{width:42px;height:42px}.ws-node .ui-icon{width:21px;height:21px}.ws-card{padding:10px;gap:6px}.ws-card-icon{width:44px;height:44px}.ws-card-icon .ui-icon{width:24px;height:24px}.ws-card h3{font-size:14px}.ws-card-effect{font-size:10px}}
+/* سطح المكتب: حلقة أكبر تستغل المساحة الرأسية */
+@media(min-width:900px) and (min-height:600px){.ws-ring{width:min(420px,calc(100dvh - 210px))}.ws-node{width:58px;height:58px}.ws-node .ui-icon{width:28px;height:28px}.ws-top,.ws-bottom{width:min(560px,100%)}}
+@media(prefers-reduced-motion:reduce){.ws-glow{animation:none}.ws-node,.ws-cta{transition:none}}

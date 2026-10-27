@@ -121,3 +121,24 @@ test('phase 1+2: impact feedback and ore economy are wired into the real UI', ()
   assert.equal(typeof rules.oreSummary, 'function');
   assert.equal(typeof rules.rewardBreakdown, 'function');
 });
+
+// ورشة المعدّن: نموذج بصري على العميل فقط — لا يلمس القواعد ولا الخادم.
+test('workshop prototype: client-only screen with eight equipment nodes and no server changes', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  assert.equal(require('../public/platform-rules').VERSION, 3, 'the preview must not bump the shared engine');
+  for (const id of ['ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'ws-upgrade',
+    'open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  for (const sym of ['i-boots', 'i-bag', 'i-magnet', 'i-drill', 'i-robot', 'i-luck', 'i-armor', 'i-music', 'i-close']) {
+    assert.match(html, new RegExp(`id="${sym}"`));
+  }
+  assert.match(css, /\.ws-overlay\{position:fixed;inset:0/, 'the workshop covers the whole viewport');
+  assert.match(css, /\.ws-node\{/);
+  assert.match(css, /\.ws-cta\{/);
+  assert.match(html, /WORKSHOP_ITEMS/);
+  assert.match(html, /workshop-preview-levels/);
+  assert.match(html, /window\.openWorkshop = wsOpen/);
+  assert.doesNotMatch(html, /\/api\/workshop/, 'the prototype adds no server endpoint');
+  assert.match(html, /معاينة بصرية/, 'the screen is clearly labelled as a preview');
+});

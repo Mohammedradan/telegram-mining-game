@@ -161,7 +161,8 @@ test('platform UI: the page wires the scene — assets and every element the con
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
     'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick',
     'platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill',
-    'mission-milestones', 'milestone-count', 'ore-storage', 'ore-list', 'sell-all-ore', 'ore-total']) {
+    'mission-milestones', 'milestone-count', 'ore-storage', 'ore-list', 'sell-all-ore', 'ore-total',
+    'ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'open-workshop-heading']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   // Action buttons only (no directional buttons 1 and 2 - replaced by virtual joystick)

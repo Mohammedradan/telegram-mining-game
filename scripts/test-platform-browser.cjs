@@ -179,6 +179,46 @@ async function main() {
     await zonePage.locator('#platform-pause').click();
     assert.deepEqual(errors, []);
     await zoneContext.ctx.close();
+    // ورشة المعدّن — معاينة بصرية تفاعلية على العميل فقط.
+    const wsContext = await context({ width: 390, height: 844 }, { reducedMotion: 'reduce' });
+    const wsPage = wsContext.page;
+    await wsPage.locator('#open-workshop-heading').click();
+    await wsPage.waitForFunction(() => !document.getElementById('ws-overlay').hidden);
+    assert.equal(await wsPage.locator('.ws-node').count(), 8, 'eight equipment nodes surround the miner');
+    assert.equal(await wsPage.locator('#ws-hero').isVisible(), true, 'the miner is drawn in the centre');
+    await wsPage.locator('[data-ws-item="pickaxe"]').click();
+    await wsPage.waitForFunction(() => !document.getElementById('ws-modal').hidden);
+    assert.equal(await wsPage.locator('#ws-card-title').textContent(), 'قوة المعول');
+    const lvlBefore = await wsPage.locator('#ws-card-level').textContent();
+    await wsPage.locator('#ws-upgrade').click();
+    const lvlAfter = await wsPage.locator('#ws-card-level').textContent();
+    assert.equal(Number(lvlAfter), Number(lvlBefore) + 1, 'the preview upgrade increments a local level');
+    await wsPage.locator('#ws-modal-close').click();
+    await wsPage.locator('#ws-close').click();
+    assert.equal(await wsPage.locator('#ws-overlay').isVisible(), false);
+    for (const entry of ['open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop']) {
+      await wsPage.evaluate(id => { window.closeWorkshop(); document.getElementById(id).click(); }, entry);
+      assert.equal(await wsPage.evaluate(() => !document.getElementById('ws-overlay').hidden), true, `${entry} opens the preview`);
+    }
+    await wsPage.locator('#ws-cta').click();
+    await wsPage.waitForFunction(() => window.PlatformGame.inspect().running);
+    assert.equal(await wsPage.locator('#ws-overlay').isVisible(), false, 'the CTA closes the preview and starts a run');
+    report.workshop = { nodes: 8, minerDrawn: true, upgrade: `${lvlBefore}→${lvlAfter}`, clientOnly: true, ctaStartsRun: true };
+    // The full-screen layout must not overlap on short landscape viewports.
+    const wsLand = await context({ width: 844, height: 390 }, { reducedMotion: 'reduce' });
+    const landPage = wsLand.page;
+    await landPage.evaluate(() => window.openWorkshop());
+    await landPage.waitForFunction(() => !document.getElementById('ws-overlay').hidden);
+    const overlayBox = await landPage.locator('#ws-overlay').boundingBox();
+    assert.equal(Math.round(overlayBox.width), 844, 'the workshop fills the landscape width');
+    const ringBox = await landPage.locator('.ws-ring').boundingBox();
+    const ctaBox = await landPage.locator('#ws-cta').boundingBox();
+    assert.ok(ringBox.y + ringBox.height <= ctaBox.y + 1, 'the equipment ring stays above the CTA');
+    assert.ok(ctaBox.y + ctaBox.height <= 390, 'the CTA stays inside the viewport');
+    report.workshop.landscape = true;
+    assert.deepEqual(errors, []);
+    await wsLand.ctx.close();
+    await wsContext.ctx.close();
     console.log(JSON.stringify(report, null, 2));
   } finally {
     await Promise.race([browser.close(), wait(3000)]);
