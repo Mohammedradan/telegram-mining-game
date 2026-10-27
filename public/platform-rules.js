@@ -4,7 +4,25 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 2;
+  const VERSION = 3;
+  // المرحلة 2: خامات تُجمع داخل الجولة + معالم تمنح أجزاءً من مكافأة الجولة نفسها.
+  // الأسعار ثابتة خادمياً (server.js يقرأ Rules.ORES) ولا تُرسل من العميل.
+  const ORES = Object.freeze({
+    copper:  { name: 'نحاس',   price: 2 },
+    iron:    { name: 'حديد',   price: 4 },
+    gold:    { name: 'ذهب خام', price: 8 },
+    crystal: { name: 'بلّور',  price: 12 },
+    lava:    { name: 'حمم',    price: 20 },
+  });
+  const ORE_ORDER = Object.keys(ORES);
+  const MILESTONE_GOLD = 12;
+  const MILESTONES = Object.freeze([
+    { id: 'first_rock', label: 'أول عِرق مكسور', ores: { copper: 2, iron: 1 }, check: s => s.mined >= 1 },
+    { id: 'three_gems', label: '3 بلورات',        ores: { copper: 2, crystal: 1 }, check: s => s.collected >= 3 },
+    { id: 'checkpoint', label: 'راية الأمان',      ores: { iron: 2 }, check: s => s.checkpoint !== 64 },
+    { id: 'guard',      label: 'حارس مهزوم',      ores: { gold: 1, iron: 1 }, check: s => s.defeated >= 1 },
+    { id: 'chest',      label: 'صندوق الكنز',     ores: { gold: 2, lava: 1 }, check: s => s.chestFound === true },
+  ]);
   const FPS = 60, DT = 1 / FPS, MAX_TICKS = 60 * 150;
   const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32 });
   const MAX_MASK = 63;
@@ -125,14 +143,29 @@
   ]);
   const zoneFor = seed => (seed === undefined || seed === null ? 0 : (Number(seed) >>> 0) % ZONES.length);
 
+  const emptyOres = () => Object.fromEntries(ORE_ORDER.map(k => [k, 0]));
+  const addOres = (target, bundle) => {
+    for (const [k, v] of Object.entries(bundle || {})) if (k in target) target[k] += v;
+  };
+
   function layoutFor(seed) {
-    if (seed === undefined || seed === null) return { rocks: LEVEL.rocks, gems: LEVEL.gems, enemies: LEVEL.enemies.map(e => ({ ...e, dir: 1 })) };
+    if (seed === undefined || seed === null) return {
+      rocks: LEVEL.rocks.map((r, i) => ({ ...r, ore: ORE_ORDER[i % ORE_ORDER.length], yield: 2 + i % 3 })),
+      gems: LEVEL.gems.map((g, i) => ({ ...g, chest: i === 4 })),
+      enemies: LEVEL.enemies.map(e => ({ ...e, dir: 1 })),
+    };
     const rnd = prng(Number(seed) >>> 0);
     const pick = ([a, b]) => Math.round(a + rnd() * (b - a));
+    // IMPORTANT: مواضع الصخور/البلورات/الأعداء تُستهلك بنفس الترتيب القديم تماماً،
+    // ثم تُسحب اختيارات الخامات والصندوق بعدها — فلا تتغير حلول الجولات المختبرة.
+    const rocks = LEVEL.rocks.map((r, i) => { const spans = ROCK_SPANS[i]; return { ...r, x: pick(spans[Math.floor(rnd() * spans.length)]) }; });
+    const gems = LEVEL.gems.map((g, i) => ({ ...g, x: pick(GEM_SPANS[i]) }));
+    const enemies = LEVEL.enemies.map(e => ({ ...e, x: pick([e.minX, e.maxX - e.w]), dir: rnd() < 0.5 ? -1 : 1 }));
+    const chestAt = Math.floor(rnd() * gems.length);
     return {
-      rocks: LEVEL.rocks.map((r, i) => { const spans = ROCK_SPANS[i]; return { ...r, x: pick(spans[Math.floor(rnd() * spans.length)]) }; }),
-      gems: LEVEL.gems.map((g, i) => ({ ...g, x: pick(GEM_SPANS[i]) })),
-      enemies: LEVEL.enemies.map(e => ({ ...e, x: pick([e.minX, e.maxX - e.w]), dir: rnd() < 0.5 ? -1 : 1 })),
+      rocks: rocks.map(r => ({ ...r, ore: ORE_ORDER[Math.floor(rnd() * ORE_ORDER.length)], yield: 2 + Math.floor(rnd() * 3) })),
+      gems: gems.map((g, i) => ({ ...g, chest: i === chestAt })),
+      enemies,
     };
   }
 
@@ -193,6 +226,9 @@
       mined: 0,
       defeated: 0,
       damage: 0,
+      milestones: [],
+      chestFound: false,
+      ores: emptyOres(),
       lastMask: 0,
       events: [],
     };
@@ -237,7 +273,13 @@
       if (rock) {
         rock.hp = Math.max(0, rock.hp - p.miningPower);
         s.events.push({ type: 'mine', x: rock.x + rock.w / 2, y: rock.y + 15 });
-        if (!rock.hp) { s.mined++; s.collected += 2; s.events.push({ type: 'collect', x: rock.x, y: rock.y }); }
+        if (!rock.hp) {
+          s.mined++; s.collected += 2;
+          const ore = ORES[rock.ore] ? rock.ore : 'copper', count = Math.max(1, Math.floor(rock.yield) || 2);
+          addOres(s.ores, { [ore]: count });
+          s.events.push({ type: 'ore', ore, count, x: rock.x + rock.w / 2, y: rock.y + 8 });
+          s.events.push({ type: 'collect', x: rock.x, y: rock.y });
+        }
       } else {
         s.events.push({ type: 'mine_miss', x: p.x + (p.facing > 0 ? p.w + 10 : -10), y: p.y + 15 });
       }
@@ -425,7 +467,13 @@
     if (p.x > 910 && p.x < 1000 && p.grounded) s.checkpoint = 920;
     if (p.x > 1700 && p.x < 1780 && p.grounded) s.checkpoint = 1710;
     for (const gem of s.gems) if (!gem.taken && overlap(p, { x: gem.x - 9, y: gem.y - 10, w: 18, h: 20 })) {
-      gem.taken = true; s.collected++; s.events.push({ type: 'collect', x: gem.x, y: gem.y });
+      gem.taken = true; s.collected++;
+      if (gem.chest && !s.chestFound) {
+        s.chestFound = true;
+        addOres(s.ores, { gold: 2, crystal: 1, lava: 1 });
+        s.events.push({ type: 'chest', x: gem.x, y: gem.y, ores: { gold: 2, crystal: 1, lava: 1 } });
+      } else addOres(s.ores, { copper: 1 });
+      s.events.push({ type: 'collect', x: gem.x, y: gem.y });
     }
     if (p.y > LEVEL.height + 50) {
       if (p.invulnerable) { p.x = s.checkpoint; p.y = 240; p.vx = p.vy = 0; }
@@ -448,8 +496,19 @@
       !p.grounded ? (p.vy < 0 ? 'jump' : 'fall') :
       direction ? 'run' : 'idle';
 
+    updateMilestones(s);
     s.lastMask = mask;
     return s;
+  }
+
+  function updateMilestones(s) {
+    for (const m of MILESTONES) {
+      if (s.milestones.includes(m.id) || !m.check(s)) continue;
+      s.milestones.push(m.id);
+      addOres(s.ores, m.ores);
+      s.events.push({ type: 'milestone', id: m.id, label: m.label, gold: MILESTONE_GOLD, ores: m.ores,
+        x: s.player.x + 12, y: s.player.y - 12 });
+    }
   }
 
   function replay(inputs, hero = 'miner', seed) {
@@ -467,7 +526,21 @@
   }
 
   const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
-  const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
+  // المكافأة الإجمالية لم تتغير عند الفوز: المعالم تفتح أجزاءً من نفس سقف الـ100،
+  // والخسارة تحتفظ بما فتحته فعلاً فقط. لا توجد مكافأة إضافية فوق السقف.
+  function rewardBreakdown(s) {
+    const potential = Math.min(100, 40 + s.collected * 4 + s.mined * 6);
+    const milestoneGold = Math.min(potential, (s.milestones?.length || 0) * MILESTONE_GOLD);
+    const finalGold = s.status === 'won' ? Math.max(0, potential - milestoneGold) : 0;
+    return { potential, milestoneGold, finalGold, total: milestoneGold + finalGold };
+  }
+  const rewardFor = s => rewardBreakdown(s).total;
+  const oreSummary = s => {
+    const out = emptyOres();
+    for (const k of ORE_ORDER) out[k] = Math.max(0, Math.floor(s.ores?.[k] || 0));
+    return out;
+  };
+  const milestoneList = () => MILESTONES.map(m => ({ id: m.id, label: m.label, gold: MILESTONE_GOLD, ores: { ...m.ores } }));
 
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, ZONES, zoneFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
+  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, ZONES, zoneFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor, rewardBreakdown, oreSummary, milestoneList, ORES, MILESTONES, MILESTONE_GOLD };
 });

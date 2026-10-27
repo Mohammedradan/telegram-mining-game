@@ -1079,3 +1079,52 @@ test('balances and session sequences survive a server restart', async () => {
   assert.equal(retry.body.state.gold, 950);
   assert.equal(retry.body.state.owned.click, 1);
 });
+
+// ---------------------------------------------------------------------------
+// المرحلة 2 — بيع الخامات بسعر خادمي ثابت وضمن السقف اليومي
+// ---------------------------------------------------------------------------
+const { ORE_PRICES, DAILY_GOLD_CAP } = require('../platform-api');
+
+test('sell_ore: only owned ores are sold at fixed prices, over-selling is clamped', async () => {
+  const id = uid('ore-sell');
+  await me(id);
+  const empty = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 5 }]);
+  assert.equal(empty.body.results[0].status, 'rejected');
+  assert.equal(empty.body.results[0].reason, 'insufficient');
+  await patchUser(`guest_${id}`, (u) => { u.state.ores = { ...u.state.ores, gold: 5, copper: 10 }; });
+  const sold = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 3 }], { from: 2 });
+  assert.equal(sold.body.results[0].status, 'ok');
+  assert.equal(sold.body.results[0].count, 3);
+  assert.equal(sold.body.results[0].gold, 3 * ORE_PRICES.gold);
+  assert.equal(sold.body.state.ores.gold, 2);
+  assert.equal(sold.body.state.ores.copper, 10);
+  assert.equal(sold.body.state.gold, 3 * ORE_PRICES.gold);
+  const oversell = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 999 }], { from: 3 });
+  assert.equal(oversell.body.results[0].count, 2, 'a client cannot sell more than it owns');
+  assert.equal(oversell.body.state.ores.gold, 0);
+});
+
+test('sell_ore: sale gold counts toward the daily cap and replayed ops are idempotent', async () => {
+  const id = uid('ore-cap');
+  await me(id);
+  const day = new Date().toISOString().slice(0, 10);
+  await patchUser(`guest_${id}`, (u) => {
+    u.state.ores = { ...u.state.ores, gold: 100 };
+    u.sync.platformDay = day; u.sync.platformGold = DAILY_GOLD_CAP - ORE_PRICES.gold;
+  });
+  const capped = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 100 }], { session: 'cap' });
+  assert.equal(capped.body.results[0].count, 1, 'only the remaining daily quota can be converted');
+  assert.equal(capped.body.results[0].gold, ORE_PRICES.gold);
+  const blocked = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 100 }], { session: 'cap', from: 2 });
+  assert.equal(blocked.body.results[0].status, 'rejected');
+  assert.equal(blocked.body.results[0].reason, 'daily_cap');
+
+  const other = uid('ore-dup');
+  await me(other);
+  await patchUser(`guest_${other}`, (u) => { u.state.ores = { ...u.state.ores, copper: 10 }; });
+  const first = await sendOps(other, [{ type: 'sell_ore', key: 'copper', count: 10 }], { session: 'dup' });
+  assert.equal(first.body.results[0].gold, 10 * ORE_PRICES.copper);
+  const again = await sendOps(other, [{ type: 'sell_ore', key: 'copper', count: 10 }], { session: 'dup' });
+  assert.equal(again.body.results[0].status, 'duplicate');
+  assert.equal(again.body.state.ores.copper, 0, 'ores are not refunded or re-sold');
+});

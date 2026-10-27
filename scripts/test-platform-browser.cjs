@@ -35,6 +35,7 @@ async function main() {
       assert.equal(starts, 1, 'double-click starts exactly one request/loop');
       assert.equal(await page.locator('#mission-gems').textContent(), '0/3', 'mission card starts empty');
       assert.equal(await page.locator('#mission-rocks').textContent(), '0/1');
+      assert.equal(await page.locator('#ore-storage').count(), 1, 'ore storage panel is shipped');
       if (viewport.width === 390) {
         await page.locator('#platform-mute').click();
         assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
@@ -122,8 +123,16 @@ async function main() {
     assert.equal(await page.locator('#mission-rocks').textContent(), '1/1', 'mission card reflects the broken rock');
     assert.ok(final.floatersSpawned > 0, 'floating impact numbers spawned during the winning run');
     assert.ok(final.comboPeak >= 1, 'mining combo was exercised');
-    report.feel = { floatersSpawned: final.floatersSpawned, comboPeak: final.comboPeak, missionComplete: true };
+    assert.ok(final.milestones >= 2, `winning run unlocks milestones, got ${final.milestones}`);
+    assert.ok(Object.values(final.ores).some(v => v > 0), 'winning run yields ores');
+    assert.equal(await page.locator('#milestone-count').textContent(), `${final.milestones}/5`);
+    assert.equal(await page.locator('#mission-milestones').textContent(), `${final.milestones}/5`);
     await page.waitForFunction(() => !document.getElementById('platform-retry').hidden);
+    assert.deepEqual(committed.ores, final.ores, 'server receipt credits exactly the replayed ores');
+    assert.equal(committed.milestoneGold + committed.finalGold, committed.gold, 'milestones and win split the same capped reward');
+    assert.ok(Array.isArray(committed.milestones) && committed.milestones.length === final.milestones);
+    report.feel = { floatersSpawned: final.floatersSpawned, comboPeak: final.comboPeak, missionComplete: true,
+      milestones: final.milestones, ores: final.ores, goldSplit: { milestone: committed.milestoneGold, final: committed.finalGold } };
     assert.equal(committed.won, true); assert.ok(committed.gold > 0 && committed.gold <= 100);
     assert.equal((await read(page)).pending, true);
     await page.reload();

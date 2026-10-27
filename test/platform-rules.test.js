@@ -235,3 +235,68 @@ test('platform zones: all four caves are reachable from server-style run ids, wi
   }
   assert.equal(layouts.size, found.size, 'each zone sample has its own layout');
 });
+
+// ---------------------------------------------------------------------------
+// المرحلة 2 — خامات ومعالم داخل الجولة الحتمية (V3)
+// ---------------------------------------------------------------------------
+test('phase 2: layout is deterministic and every rock/gem carries a seeded ore or chest', () => {
+  const seed = R.seedFromId('ore-fixture-2026');
+  const a = R.layoutFor(seed), b = R.layoutFor(seed);
+  assert.deepEqual(a, b);
+  assert.equal(a.rocks.length, 3);
+  for (const rock of a.rocks) {
+    assert.ok(R.ORES[rock.ore], 'ore type must be known to the price table');
+    assert.ok(rock.yield >= 2 && rock.yield <= 4);
+  }
+  assert.equal(a.gems.filter(g => g.chest).length, 1, 'exactly one chest per run');
+  assert.ok(Object.values(R.ORES).every(o => o.price > 0));
+});
+
+test('phase 2: replay reproduces ore wallet and milestones exactly, and the win reward is unchanged', () => {
+  const seed = R.seedFromId('ore-win-fixture');
+  const { state, inputs } = solution(seed);
+  assert.equal(state.status, 'won');
+  assert.equal(R.rewardFor(state), 98, 'win keeps the original 100-gold cap formula');
+  const replayed = R.replay(inputs, 'miner', seed);
+  assert.equal(replayed.ok, true);
+  assert.deepEqual(R.oreSummary(replayed.state), R.oreSummary(state), 'the server credits the same ores');
+  assert.deepEqual(replayed.state.milestones, state.milestones);
+  assert.ok(state.milestones.length >= 2, 'a legal winning run unlocks milestones');
+  const haul = R.oreSummary(state);
+  assert.ok(Object.values(haul).some(v => v > 0), 'the run yields real ores');
+  const breakdown = R.rewardBreakdown(state);
+  assert.equal(breakdown.total, 98);
+  assert.equal(breakdown.milestoneGold + breakdown.finalGold, 98);
+  assert.ok(breakdown.milestoneGold <= 100 && breakdown.finalGold <= 100);
+});
+
+test('phase 2: milestones unlock only part of the same cap, losses keep milestones but never exceed it', () => {
+  const s = R.create('miner', 12345);
+  assert.deepEqual(R.oreSummary(s), { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 });
+  assert.equal(R.rewardFor(s), 0, 'an untouched lost run pays nothing');
+  s.milestones = R.MILESTONES.map(m => m.id);
+  s.collected = 50; s.mined = 20; // potential clamps at 100
+  s.status = 'lost';
+  const lost = R.rewardBreakdown(s);
+  assert.equal(lost.potential, 100);
+  assert.equal(lost.milestoneGold, 5 * R.MILESTONE_GOLD);
+  assert.equal(lost.finalGold, 0);
+  assert.equal(lost.total, 60, 'no gold is created above the 100 cap');
+  s.status = 'won';
+  const won = R.rewardBreakdown(s);
+  assert.equal(won.total, 100);
+  assert.equal(won.finalGold, 40);
+  assert.equal(R.rewardFor(s), 100);
+});
+
+test('phase 2: ore and milestone events only fire once per achievement', () => {
+  const s = R.create('miner', 777);
+  s.mined = 1;
+  advance(s, 0, 1);
+  const fired = s.events.filter(e => e.type === 'milestone');
+  assert.ok(fired.some(e => e.id === 'first_rock'));
+  advance(s, 0, 5);
+  assert.equal(s.events.filter(e => e.type === 'milestone').length, 0, 'no repeated milestone in later ticks');
+  assert.equal(s.milestones.filter(id => id === 'first_rock').length, 1);
+  assert.equal(s.ores.copper, R.MILESTONES.find(m => m.id === 'first_rock').ores.copper);
+});

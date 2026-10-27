@@ -74,6 +74,16 @@
     lastHitStop = frameTime;
     hitStopUntil = Math.max(hitStopUntil, frameTime + Math.min(60, ms));
   }
+  function spawnBurst(x, y, color, count = 14) {
+    if (reduced) return;
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+      const speed = 1.2 + Math.random() * 2;
+      particles.push({ x, y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed - 0.8,
+        life: 22 + Math.random() * 14, color, size: 2.4 + Math.random() * 2.6, glow: true });
+    }
+    particles.push({ x, y, vx: 0, vy: 0, life: 18, color: `${color}55`, size: 22, ring: true });
+  }
   function spawnRockBurst(rock) {
     if (reduced) return;
     const cx = rock.x + rock.w / 2, cy = rock.y + rock.h / 2;
@@ -232,14 +242,18 @@
     // المرحلة 1: شارة السلسلة وبطاقة المهمة (عرض فقط).
     const comboEl = el('platform-combo');
     if (comboEl) {
-      const live = sim.tick <= comboUntil && combo >= 2;
+      const live = running && !paused && sim.tick <= comboUntil && combo >= 2;
       comboEl.hidden = !live;
       if (live) comboEl.textContent = `×${combo}`;
     }
     const mg = el('mission-gems'), mr = el('mission-rocks'), mf = el('mission-fill');
     if (mg) mg.textContent = `${Math.min(3, sim.collected)}/3`;
     if (mr) mr.textContent = `${Math.min(1, sim.mined)}/1`;
-    if (mf) mf.style.width = `${Math.round((Math.min(3, sim.collected) / 3 * 0.6 + Math.min(1, sim.mined) * 0.4) * 100)}%`;
+    const milestoneCount = sim.milestones?.length || 0, milestoneTotal = R.MILESTONES?.length || 5;
+    const mc = el('milestone-count'), mm = el('mission-milestones');
+    if (mc) mc.textContent = `${milestoneCount}/${milestoneTotal}`;
+    if (mm) mm.textContent = `${milestoneCount}/${milestoneTotal}`;
+    if (mf) mf.style.width = `${Math.round((Math.min(3, sim.collected) / 3 * 0.45 + Math.min(1, sim.mined) * 0.25 + (milestoneCount / milestoneTotal) * 0.30) * 100)}%`;
   }
 
   function overlay(title, text, resume = false) {
@@ -309,6 +323,18 @@
         pushFloater(event.x, event.y - 12, '+1', '#ffd166');
       } else if (event.type === 'hurt') {
         combo = 0; comboUntil = 0;
+      } else if (event.type === 'milestone') {
+        pushFloater(event.x, event.y - 18, `+${event.gold} ذهب`, '#ffd166', 13);
+        pushFloater(event.x, event.y - 34, event.label, '#7dffd4', 10);
+        feedback(`معلم: ${event.label} — +${event.gold} ذهب من مكافأة الجولة`);
+        spawnBurst(event.x, event.y, '#ffd166'); requestHitStop(30);
+      } else if (event.type === 'ore') {
+        const def = R.ORES?.[event.ore];
+        if (def) pushFloater(event.x, event.y - 6, `+${event.count} ${def.name}`, '#9fe8ff', 11);
+      } else if (event.type === 'chest') {
+        pushFloater(event.x, event.y - 10, 'صندوق!', '#ffd166', 13);
+        feedback('صندوق كنز — ذهب خام وبلّور وحمم أُضيفت لمخزنك بعد انتهاء الجولة.');
+        spawnBurst(event.x, event.y, '#ffd166', 18);
       }
 
       if (!reduced) {
@@ -419,7 +445,9 @@
       const result = await request('/api/platform/finish', pending);
       bridge.adopt(result.profile);
       el('platform-title').textContent = result.won ? '🏆 وصلت إلى قلب المنجم!' : 'انتهت الجولة — جرّب من جديد';
-      el('platform-message').textContent = `${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة ومحفوظة؛ +${result.gold} ذهب افتراضي. يمكنك بدء رحلة جديدة.`;
+      const oreLine = Object.entries(result.ores || {}).filter(([, v]) => v > 0)
+        .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
+      el('platform-message').textContent = `${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة: +${result.gold} ذهب (منها ${result.milestoneGold || 0} من المعالم) · ${result.milestones?.length || 0} معالم · خامات أُضيفت للمخزن: ${oreLine}.`;
       pending = null; ticket = null; shake = 0;
       try { localStorage.removeItem(storageKey()); } catch (_) {}
       say(`محفوظ على الخادم: ${result.score} نقطة · +${result.gold} ذهب افتراضي · +${result.xp} خبرة${result.duplicate ? ' — تأكيد سابق، بلا مكافأة مكررة' : ''}${result.reason === 'cooldown' ? ' — مهلة المكافأة: 20 ثانية بين جائزتي مغامرة' : ''}${result.reason === 'daily_cap' ? ' — وصلت سقف 10,000 ذهب اليومي من المناجم' : ''}`);
@@ -434,7 +462,9 @@
     if (!running) return;
     running = false; paused = false; clearInput(); cancelAnimationFrame(raf); raf = 0;
     const won = sim.status === 'won';
-    overlay(won ? '🏆 وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', `${sim.collected} بلورات · ${sim.mined} صخور · أعداء ${sim.defeated || 0} · ${Math.floor(sim.tick / R.FPS)} ثانية. ${won ? 'أحسنت! تجاوزت الحفر والأخطار وهزمت الوحوش.' : 'راقب ضربات الوحوش واقفز قبل الحفر. استخدم زر الهجوم (⚔️) أو المهارة (💥) للدفاع عن نفسك.'}`);
+    const oreText = Object.entries(R.oreSummary(sim)).filter(([, v]) => v > 0)
+      .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
+    overlay(won ? '🏆 وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', `${sim.collected} بلورات · ${sim.mined} صخور · أعداء ${sim.defeated || 0} · ${Math.floor(sim.tick / R.FPS)} ثانية. ${won ? 'أحسنت! تجاوزت الحفر والأخطار وهزمت الوحوش.' : 'راقب ضربات الوحوش واقفز قبل الحفر. استخدم زر الهجوم أو المهارة للدفاع عن نفسك.'} · ${sim.milestones?.length || 0} معالم · خامات: ${oreText}.`);
     hud(); draw();
     if (ticket) {
       pending = { id: ticket.id, inputs, hero: currentHero }; save(true); el('platform-start').disabled = true; submit();
@@ -660,6 +690,7 @@
       ticket: ticket?.id, pending: Boolean(pending), hero: sim.player.hero,
       defeated: sim.defeated, reduced, zone: sim.zone,
       combo, comboPeak, floaters: floaters.length, floatersSpawned, hitStop: hitStopUntil > frameTime,
+      milestones: sim.milestones?.length || 0, ores: R.oreSummary(sim),
     }),
   };
 

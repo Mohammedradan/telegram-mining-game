@@ -95,13 +95,17 @@ test('local styles are actually linked and platform touch controls preserve spat
   assert.match(html, /if \(panelId !== 'adventure'\) window\.PlatformGame\?\.pause\(\)/);
 });
 
-// المرحلة 1: مؤثرات الإحساس بالضربة على العميل فقط — المحرك الحتمي المشترك لا يتغير.
-test('phase 1: impact feedback is client-only and deterministic rules stay at VERSION 2', () => {
+// المرحلة 1: مؤثرات الإحساس بالضربة على العميل فقط. المرحلة 2 رفعت VERSION إلى 3
+// (خامات/معالم) لكن أضافت أحداثاً فقط ولم تلمس فيزياء step أو عدد خطواتها.
+test('phase 1+2: impact feedback and ore economy are wired into the real UI', () => {
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-renderer.js'), 'utf8');
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
-  assert.equal(require('../public/platform-rules').VERSION, 2, 'phase 1 must not change the shared engine');
-  for (const id of ['platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill']) {
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const rules = require('../public/platform-rules');
+  assert.equal(rules.VERSION, 3, 'phase 2 bumps the shared engine once');
+  for (const id of ['platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill',
+    'mission-milestones', 'milestone-count', 'ore-storage', 'ore-list', 'sell-all-ore', 'ore-total']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(game, /pushFloater\(/);
@@ -110,4 +114,10 @@ test('phase 1: impact feedback is client-only and deterministic rules stay at VE
   assert.match(renderer, /opts\.floaters/);
   assert.match(css, /\.mine-combo\{/);
   assert.match(css, /\.overlay-mission\{/);
+  assert.match(css, /\.ore-row\{/);
+  assert.match(server, /case 'sell_ore'/);
+  assert.match(server, /ores: Object\.fromEntries/);
+  assert.ok(Array.isArray(rules.MILESTONES) && rules.MILESTONES.length === 5);
+  assert.equal(typeof rules.oreSummary, 'function');
+  assert.equal(typeof rules.rewardBreakdown, 'function');
 });

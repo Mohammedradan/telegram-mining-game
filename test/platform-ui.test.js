@@ -160,7 +160,8 @@ test('platform UI: the page wires the scene — assets and every element the con
   }
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
     'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick',
-    'platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill']) {
+    'platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill',
+    'mission-milestones', 'milestone-count', 'ore-storage', 'ore-list', 'sell-all-ore', 'ore-total']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   // Action buttons only (no directional buttons 1 and 2 - replaced by virtual joystick)
@@ -192,6 +193,9 @@ test('platform UI: phase 1 impact feedback counters are exposed without changing
   assert.equal(info.floatersSpawned, 0);
   assert.equal(info.combo, 0);
   assert.equal(info.hitStop, false);
+  assert.equal(info.milestones, 0);
+  assert.equal(typeof info.ores, 'object');
+  assert.equal(info.ores.copper, 0);
 });
 
 test('platform UI: the side-scroller is the focused default play view', async () => {

@@ -338,7 +338,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=4">
+  <link rel="stylesheet" href="/platform.css?v=5">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -490,6 +490,7 @@
           <span class="res-chip" title="بلورات"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="res-gems">0</span>/3</span>
           <span class="res-chip" title="صخور مُعدّنة"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span id="res-rocks">0</span>/1</span>
           <span class="res-chip" title="أعداء مهزومون"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span id="res-foes">0</span></span>
+          <span class="res-chip" title="معالم الجولة"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg><span id="milestone-count">0/5</span></span>
         </span>
         <span id="platform-progress">0% · 150ث</span>
       </div>
@@ -507,6 +508,7 @@
           <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span>اجمع 3 بلورات</span><b id="mission-gems">0/3</b></div>
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>اكسر صخرة خام</span><b id="mission-rocks">0/1</b></div>
+            <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg><span>معالم مكتشفة</span><b id="mission-milestones">0/5</b></div>
             <div class="mission-progress"><i id="mission-fill"></i></div>
           </div>
           <button id="platform-start" type="button">جولة جديدة</button>
@@ -705,6 +707,17 @@
       </button>
     </div>
 
+    <!-- المرحلة 2: مخزن الخامات — يُمنح من جولات يعيد الخادم تشغيلها، ويُباع بسعر ثابت خادمياً -->
+    <section id="ore-storage" class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-3 flex flex-col gap-2">
+      <div class="flex justify-between items-center">
+        <h3 class="font-black text-sm text-amber-300">مخزن الخامات</h3>
+        <span id="ore-total" class="text-[10px] text-slate-400">0 ذهب</span>
+      </div>
+      <div id="ore-list" class="flex flex-col gap-1.5"></div>
+      <button id="sell-all-ore" onclick="sellAllOre()" class="bg-gradient-to-r from-amber-500 to-yellow-400 disabled:opacity-40 disabled:grayscale text-slate-950 font-black py-2 rounded-lg text-xs active:scale-95">بيع كل الخامات</button>
+      <p id="ore-hint" class="text-[10px] text-slate-500">الخامات تصل بعد انتهاء جولة يتحقق منها الخادم. ذهب البيع محسوب ضمن السقف اليومي.</p>
+    </section>
+
     <button onclick="resetGame()" class="mt-2 text-[11px] text-slate-500 hover:text-red-400 underline self-center">إعادة تعيين التقدم</button>
   </main>
 
@@ -851,7 +864,7 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=3"></script>
+  <script src="/platform-rules.js?v=4"></script>
   <script src="/platform-renderer.js?v=4"></script>
   <!-- Game Logic Script -->
   <script>
@@ -867,6 +880,7 @@
       owned: { click: 0, bot: 0, rig: 0 },
       costs: { click: 50, bot: 200, rig: 1000 },
       adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
+      ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
       boostUntil: 0,
       boostCooldownUntil: 0,
       dailyLastClaim: null,
@@ -887,7 +901,8 @@
           ...saved,
           costs: { ...DEFAULT_STATE.costs, ...(saved.costs || {}) },
           owned: { ...DEFAULT_STATE.owned, ...(saved.owned || {}) },
-          adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(saved.adventureUpgrades || {}) }
+          adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(saved.adventureUpgrades || {}) },
+          ores: { ...DEFAULT_STATE.ores, ...(saved.ores || {}) }
         };
         // ترحيل الحفظ القديم: إن لم يوجد totalEarned اعتبر الرصيد الحالي هو المجموع
         if (!saved.totalEarned) state.totalEarned = Math.max(saved.gold || 0, (state.clickPower - 1) * 50 + state.passiveIncome * 20);
@@ -1016,6 +1031,7 @@
       costs: { ...DEFAULT_STATE.costs, ...(srv.costs || {}) },
       owned: { ...DEFAULT_STATE.owned, ...(srv.owned || {}) },
       adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(srv.adventureUpgrades || {}) },
+      ores: { ...DEFAULT_STATE.ores, ...(srv.ores || {}) },
     });
 
     // إعادة تطبيق عملية غير مؤكدة محلياً فوق حالة الخادم (نفس قواعد الواجهة)
@@ -1777,6 +1793,19 @@
       // إحصائيات الدعوات
       document.getElementById('ref-count').innerText = fmt(profile?.referralCount || 0);
       document.getElementById('ref-earnings').innerText = fmt(profile?.referralEarnings || 0);
+
+      // المرحلة 2: مخزن الخامات — الأرقام من حالة الخادم الموثوقة فقط.
+      const oreList = document.getElementById('ore-list');
+      if (oreList) {
+        const rows = Object.entries(ORE_DEFS).filter(([k]) => Math.max(0, Math.floor(state.ores?.[k] || 0)) > 0);
+        const total = rows.reduce((sum, [k, def]) => sum + Math.floor(state.ores[k]) * def.price, 0);
+        oreList.innerHTML = rows.length ? rows.map(([k, def]) => {
+          const n = Math.floor(state.ores[k]);
+          return `<div class="ore-row"><span>${def.name}</span><b>×${fmt(n)}</b><span>${fmt(n * def.price)} ذهب</span><button onclick="sellOre('${k}', ${n})" class="ore-sell">بيع</button></div>`;
+        }).join('') : '<p class="text-[10px] text-slate-500 text-center py-2">لا خامات بعد — العب جولة منصّات لتجمعها.</p>';
+        document.getElementById('ore-total').innerText = `${fmt(total)} ذهب`;
+        document.getElementById('sell-all-ore').disabled = !rows.length || !serverMode;
+      }
 
       for (const type of ['click', 'bot', 'rig']) {
         document.getElementById(`cost-upgrade-${type}`).innerText = fmt(state.costs[type]);
@@ -2909,6 +2938,22 @@
     }
 
     // --- Upgrade Logic ---
+    // أسعار الخامات من نفس ملف القواعد المشترك (للعرض فقط؛ الخادم هو من يمنح الذهب).
+    const ORE_DEFS = (window.PlatformRules && window.PlatformRules.ORES) || { copper: { name: 'نحاس', price: 2 } };
+    function sellOre(key, count) {
+      if (!serverMode) { alert('بيع الخامات يحتاج اتصالاً بالخادم.'); return; }
+      const n = Math.max(1, Math.floor(count || 0));
+      if (!(key in ORE_DEFS) || !Number.isFinite(n)) return;
+      enqueueOp({ type: 'sell_ore', key, count: n });
+      haptic('success');
+    }
+    function sellAllOre() {
+      for (const key of Object.keys(ORE_DEFS)) {
+        const n = Math.max(0, Math.floor(state.ores?.[key] || 0));
+        if (n > 0) sellOre(key, n);
+      }
+    }
+
     const UPGRADES = {
       click: { apply: () => { state.clickPower += 1; },      growth: 1.5 },
       bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4 },
@@ -3051,6 +3096,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=5"></script>
+  <script src="/platform-game.js?v=6"></script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 const crypto = require('node:crypto');
 const Rules = require('./public/platform-rules');
+// أسعار صرف الخامات ثابتة خادمياً، مشتقة من نفس ملف القواعد المشترك مع العميل.
+const ORE_PRICES = Object.freeze(Object.fromEntries(Object.entries(Rules.ORES).map(([k, v]) => [k, v.price])));
 
 // سقف يومي صريح للذهب المكتسب من المنصات (بتوقيت UTC) فوق سقف الجولة والمهلة،
 // حتى لا يتحول التشغيل الآلي لجولات صحيحة إلى مزرعة ذهب لا نهائية.
@@ -47,7 +49,9 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };
       const duration = state.tick / Rules.FPS;
       if (now() - Number(run.started_at) + 1000 < duration * 1000) return { status: 409, error: 'الجولة أسرع من الزمن الحقيقي؛ أعد المحاولة بعد ثوانٍ' };
-      const potential = Rules.rewardFor(state);
+      const ores = Rules.oreSummary(state);
+      const breakdown = Rules.rewardBreakdown(state);
+      const potential = breakdown.total; // نفس سقف الـ100: المعالم تفتح أجزاءً منه، والفوز يدفع الباقي
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
       const a = user.state.adventure;
       const quota = dailyQuota(user.sync, tooSoon ? 0 : potential, now());
@@ -57,6 +61,9 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         user.sync.lastRewardAt.adventure = now();
       }
       user.state.gold += gold; user.state.totalEarned += gold;
+      // الخامات تُمنح من نتيجة إعادة التشغيل فقط — لا يُقبل أي رصيد خامات من العميل.
+      const wallet = user.state.ores || (user.state.ores = {});
+      for (const [k, v] of Object.entries(ores)) wallet[k] = Math.max(0, (Number(wallet[k]) || 0) + v);
       const xp = grantXp(user.state, state.status === 'won' ? 20 + state.collected : 0);
       a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
       if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
@@ -66,13 +73,16 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       for (const [key, value] of [['runs', 1], ['gems', state.collected], ['score', score], ['play_time', Math.floor(duration)]]) trackMission(user, key, value, now());
       user.revision++; user.updatedAt = now();
       const receipt = { id: run.id, won: state.status === 'won', gold, xp, score, gems: state.collected, mined: state.mined, duration,
+        ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
         dailyRemaining: quota.remaining, ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
         detail: { won: receipt.won, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, ticks: state.tick, hero: state.player.hero,
-          dailyRemaining: quota.remaining, ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);
+          dailyRemaining: quota.remaining, ores, milestones: state.milestones || [],
+          milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
+          ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);
       await store.putUser(user);
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform', goldDelta: gold, at: now(), detail: receipt }]);
       return { ...receipt, profile: profileOf(user, false, { race: await store.raceTotals(user.id) }) };
@@ -81,4 +91,4 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     res.json(result);
   }));
 }
-module.exports = { mountPlatform, dailyQuota, DAILY_GOLD_CAP };
+module.exports = { mountPlatform, dailyQuota, DAILY_GOLD_CAP, ORE_PRICES };

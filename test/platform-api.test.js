@@ -194,3 +194,22 @@ test('platform API: daily 10,000 gold cap is enforced across wins and reported i
   assert.equal((await store.getUser(owner)).state.gold, 50);
   assert.ok(R.rewardFor(state) > 50);
 });
+
+test('phase 2 API: finish credits verified ores, reports the reward split and never doubles on duplicate', async () => {
+  const name = 'ore-credit';
+  const payload = await historical(name);
+  const first = await post(name, 'finish', payload);
+  assert.equal(first.status, 200);
+  assert.equal(first.body.won, true);
+  const expectedOres = R.oreSummary(payload.state);
+  assert.deepEqual(first.body.ores, expectedOres, 'receipt ores come from replay, not the client');
+  assert.ok(Array.isArray(first.body.milestones) && first.body.milestones.length >= 2);
+  assert.equal(first.body.milestoneGold + first.body.finalGold, first.body.gold);
+  assert.equal(first.body.gold, R.rewardFor(payload.state));
+  const wallet = (await store.getUser(`guest_${user(name)}`)).state.ores;
+  assert.deepEqual(wallet, expectedOres);
+  const again = await post(name, 'finish', payload);
+  assert.equal(again.body.duplicate, true);
+  const wallet2 = (await store.getUser(`guest_${user(name)}`)).state.ores;
+  assert.deepEqual(wallet2, expectedOres, 'a duplicate receipt cannot mint ores twice');
+});

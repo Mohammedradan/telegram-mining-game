@@ -12,7 +12,7 @@ const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, de
 // محرك الساحة مشترك مع المتصفح (يُقدَّم ثابتاً من public/) حتى تكون محاكاة الخادم مطابقة لما عرضه العميل
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
-const { mountPlatform } = require('./platform-api');
+const { mountPlatform, dailyQuota, ORE_PRICES } = require('./platform-api');
 
 const app = express();
 app.disable('x-powered-by');
@@ -85,6 +85,7 @@ const defaultState = () => ({
   owned: { click: 0, bot: 0, rig: 0 },
   costs: { click: 50, bot: 200, rig: 1000 },
   adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
+  ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
   boostUntil: 0,
   boostCooldownUntil: 0,
   adventure: defaultAdventure(),
@@ -126,6 +127,8 @@ function sanitizeState(input, base = defaultState()) {
     adventureUpgrades: Object.fromEntries(
       Object.keys(ADV_UPGRADES_DEF).map((k) => [k, Math.floor(clampNum(au[k], 0, ADV_UPGRADES_DEF[k].max, base.adventureUpgrades?.[k] || 0))])
     ),
+    // الخامات تُمنح فقط من جولات يعيد الخادم تشغيلها؛ القائمة البيضاء تمنع حقن قيم من العميل.
+    ores: Object.fromEntries(Object.keys(ORE_PRICES).map((k) => [k, Math.floor(clampNum((s.ores || {})[k], 0, 1e9, base.ores?.[k] || 0))])),
     boostUntil: clampNum(s.boostUntil, 0, Date.now() + 24 * 3600e3, 0),
     boostCooldownUntil: clampNum(s.boostCooldownUntil, 0, Date.now() + 24 * 3600e3, 0),
     adventure: sanitizeAdventure(s.adventure, base.adventure),
@@ -222,6 +225,7 @@ function deriveStats(s) {
   s.passiveIncome = s.owned.bot * 5 + s.owned.rig * 25;
   for (const t of Object.keys(UPGRADES_DEF)) s.costs[t] = costFor(t, s.owned[t]);
   if (!s.adventure) s.adventure = defaultAdventure();
+  if (!s.ores || typeof s.ores !== 'object') s.ores = { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 };
   s.adventure.zones = zonesFor(s.adventure);
   s.level = levelFromXp(s.xp);
   return s;
@@ -233,7 +237,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -636,7 +640,7 @@ function parseOpsRequest(body) {
     const str = (v) => (typeof v === 'string' ? v.slice(0, 32) : '');
     ops.push({
       seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), id: str(raw.id), game: str(raw.game),
-      score: raw.score, mode: str(raw.mode), boss: raw.boss === true,
+      score: raw.score, mode: str(raw.mode), boss: raw.boss === true, count: raw.count,
       difficulty: str(raw.difficulty), gems: raw.gems, combo: raw.combo, duration: raw.duration, race: raw.race === true, ago: raw.ago,
       matchNo: raw.matchNo, moves: Array.isArray(raw.moves) ? raw.moves.slice(0, ArenaRules.CONFIG.maxRounds + 1).map((m) => str(m)) : undefined,
     });
@@ -780,6 +784,27 @@ function applyOps(user, session, ops, now, ctx = {}) {
         const claim = claimAchievement(user, op.id, ctx, now);
         Object.assign(r, claim);
         if (claim.status === 'ok') { goldDelta = claim.gold; detail = { id: claim.id, xp: claim.xp }; }
+        break;
+      }
+      case 'sell_ore': {
+        const price = ORE_PRICES[op.key];
+        if (!price) { r.status = 'invalid'; break; }
+        const wanted = Math.floor(clampNum(op.count, 0, 1e9, 0));
+        if (wanted < 1) { r.status = 'rejected'; r.reason = 'empty'; break; }
+        const available = Math.max(0, Math.floor(s.ores?.[op.key] || 0));
+        if (available < 1) { r.status = 'rejected'; r.reason = 'insufficient'; break; }
+        // السقف اليومي يشمل ذهب بيع الخامات: لا يمكن الالتفاف على dailyQuota بتحويل الخامات.
+        const quota = dailyQuota(sync, wanted * price, now);
+        const sold = Math.min(available, wanted, Math.floor(quota.gold / price));
+        if (sold < 1) { r.status = 'rejected'; r.reason = 'daily_cap'; r.dailyRemaining = quota.remaining; break; }
+        const gold = sold * price;
+        s.ores[op.key] = available - sold;
+        s.gold += gold; s.totalEarned += gold;
+        sync.platformGold = (Number(sync.platformGold) || 0) + gold;
+        goldDelta = gold;
+        Object.assign(r, { count: sold, gold, ore: op.key, capped: quota.capped && sold < wanted,
+          dailyRemaining: Math.max(0, quota.remaining + (wanted - sold) * price) });
+        detail = { ore: op.key, count: sold, gold, dailyRemaining: r.dailyRemaining };
         break;
       }
       default: r.status = 'invalid';
