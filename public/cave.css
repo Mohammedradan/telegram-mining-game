@@ -1,0 +1,205 @@
+/* مجموعة «الكهف» المشتركة: ميداليات ذهبية بحلقة تقدّم، أزرار معدنية، لوحات مؤطرة.
+   تستعملها شاشة التعدين (clicker.css) والورشة (platform.css). عرض فقط — بلا منطق لعبة.
+   الصور المرسومة تُحمَّل من /assets/cave؛ إن غابت تبقى الأيقونات الخطية الاحتياطية ظاهرة. */
+
+/* سبرايت الفن المتجهي: بعرض صفر لا display:none حتى تعمل التدرجات داخله في كل المتصفحات */
+.art-sprite { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+
+/* ---------- الميدالية ---------- */
+.cv-medal {
+  --sz: 58px;
+  position: relative;
+  display: block;
+  width: var(--sz);
+  height: var(--sz);
+  border-radius: 50%;
+  isolation: isolate;
+}
+/* الإطار الذهبي المشطوف */
+.cv-medal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(150deg, #fff6c0 0%, #f6c447 24%, #b06c10 50%, #f0b93c 76%, #fff1a6 100%);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, .6), 0 0 0 1.5px rgba(28, 14, 0, .92);
+  transition: box-shadow .25s ease;
+}
+.cv-medal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: inset 0 1.5px 1px rgba(255, 255, 255, .6), inset 0 -2px 2px rgba(84, 36, 0, .55);
+}
+.cv-plate {
+  position: absolute;
+  inset: 6%;
+  z-index: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 36%, #25387f 0%, #0e1739 68%, #070b20 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(62, 28, 0, .92), inset 0 4px 9px rgba(0, 0, 0, .6);
+}
+.cv-plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% -8%, rgba(255, 255, 255, .26), transparent 58%);
+}
+.cv-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; }
+.cv-fallback { position: absolute; inset: 28%; width: 44%; height: 44%; color: #ffd58a; }
+.cv-vec { position: absolute; inset: 4%; width: 92%; height: 92%; overflow: visible; }
+
+/* حلقة التقدّم حول الإطار: تمتلئ حسب --p (0..1) */
+.cv-ring {
+  position: absolute;
+  inset: -5px;
+  z-index: 3;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  transform: rotate(-90deg);
+  overflow: visible;
+  pointer-events: none;
+}
+.cv-ring circle { fill: none; stroke-width: 2.7; }
+.cv-ring-track { stroke: rgba(6, 4, 18, .66); }
+.cv-ring-bar {
+  stroke: #ffd24a;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--p, 0) * 100);
+  transition: stroke-dashoffset .3s ease, stroke .2s ease;
+}
+.cv-medal[data-state="ready"] .cv-ring-bar { stroke: #4ade80; filter: drop-shadow(0 0 3px rgba(74, 222, 128, .9)); }
+.cv-medal[data-state="ready"]::before { box-shadow: 0 5px 10px rgba(0, 0, 0, .6), 0 0 0 1.5px rgba(28, 14, 0, .92), 0 0 16px 4px rgba(74, 222, 128, .5); }
+/* ميدالية بلا تقدّم (الورشة): الحلقة تظهر فقط حين تُتاح ترقية */
+.cv-medal[data-state="plain"] .cv-ring { display: none; }
+.cv-medal[data-state="max"] .cv-ring-bar { stroke: #fff0a0; filter: drop-shadow(0 0 3px rgba(255, 220, 100, .9)); }
+.cv-medal[data-state="max"]::before { box-shadow: 0 5px 10px rgba(0, 0, 0, .6), 0 0 0 1.5px rgba(28, 14, 0, .92), 0 0 14px 3px rgba(255, 214, 90, .55); }
+
+/* شارة المستوى */
+.cv-lvl {
+  position: absolute;
+  z-index: 4;
+  bottom: -4px;
+  left: -4px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 18px;
+  text-align: center;
+  color: #ffe9a6;
+  background: linear-gradient(#2a3873, #0d1536);
+  border: 2px solid #f1b93a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .55);
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+/* سهم «ترقية متاحة» */
+.cv-up {
+  position: absolute;
+  z-index: 4;
+  top: -7px;
+  right: -5px;
+  display: none;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(#6af09a, #15a049);
+  border: 2px solid #ecffef;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .55), 0 0 10px rgba(74, 222, 128, .8);
+  animation: cv-bob 1.3s ease-in-out infinite;
+}
+.cv-up svg { width: 15px; height: 15px; fill: #fff; filter: drop-shadow(0 1px 0 rgba(6, 70, 30, .8)); }
+.cv-medal[data-state="ready"] .cv-up { display: grid; }
+.cv-medal[data-state="max"] .cv-lvl { color: #2b1500; background: linear-gradient(#fff3b0, #f3b93a); border-color: #fff6d6; }
+@keyframes cv-bob { 0%, 100% { transform: translateY(1px); } 50% { transform: translateY(-3px); } }
+
+/* ---------- أزرار معدنية ---------- */
+.cv-btn {
+  --c1: #ff8a76;
+  --c2: #e2301f;
+  --c3: #9d0f10;
+  --edge: #5b0808;
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 16px;
+  border: 3px solid transparent;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, var(--c1) 0%, var(--c2) 52%, var(--c3) 100%) padding-box,
+    linear-gradient(150deg, #fff0a8 0%, #e6a321 32%, #7d4309 62%, #f5c456 100%) border-box;
+  box-shadow: 0 4px 0 var(--edge), 0 9px 16px rgba(0, 0, 0, .5), inset 0 2px 0 rgba(255, 255, 255, .38), inset 0 -4px 8px rgba(0, 0, 0, .22);
+  color: #fff;
+  font-weight: 900;
+  line-height: 1.15;
+  cursor: pointer;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .42), 0 0 10px rgba(0, 0, 0, .25);
+  transition: transform .08s ease, box-shadow .08s ease, filter .2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.cv-btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge), 0 4px 8px rgba(0, 0, 0, .5), inset 0 2px 0 rgba(255, 255, 255, .3), inset 0 -3px 6px rgba(0, 0, 0, .25); }
+.cv-btn:disabled { filter: grayscale(.55) brightness(.82); cursor: default; }
+.cv-btn:focus-visible { outline: 3px solid rgba(253, 224, 71, .9); outline-offset: 3px; }
+.cv-btn-gold { --c1: #ffe98a; --c2: #f4b52a; --c3: #c47a0c; --edge: #6b3c05; color: #3a1e03; text-shadow: 0 1px 0 rgba(255, 255, 255, .5); }
+.cv-btn-violet { --c1: #e48bff; --c2: #a52fd6; --c3: #5d1d9b; --edge: #2f0f55; }
+.cv-btn-green { --c1: #7df0a4; --c2: #22b457; --c3: #0e7a36; --edge: #064a1f; }
+/* لمعة تعبر الزر الجاهز: transform داخل الزر فلا يتغير حجمه ولا يضيع هدف اللمس */
+.cv-btn.is-hot::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 36%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent);
+  transform: translateX(-170%) skewX(-18deg);
+  animation: cv-shine 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cv-shine { 0%, 55% { transform: translateX(-170%) skewX(-18deg); } 100% { transform: translateX(440%) skewX(-18deg); } }
+
+/* ---------- لوحة مؤطرة بإطار ذهبي (العدّادات والبطاقات) ---------- */
+.cv-frame {
+  position: relative;
+  border: 3px solid transparent;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(36, 24, 12, .94) 0%, rgba(11, 9, 22, .96) 100%) padding-box,
+    linear-gradient(150deg, #fff0a8 0%, #e0a021 30%, #7a4208 60%, #f2c050 100%) border-box;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .6), inset 0 0 16px rgba(255, 190, 70, .12);
+}
+/* مسامير الزوايا */
+.cv-frame::before, .cv-frame::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6c9, #c88416 60%, #6b3a06);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .6);
+  pointer-events: none;
+}
+.cv-frame::before { inset-inline-start: 6px; }
+.cv-frame::after { inset-inline-end: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cv-up, .cv-btn.is-hot::after { animation: none !important; }
+  .cv-ring-bar, .cv-medal::before { transition: none; }
+}

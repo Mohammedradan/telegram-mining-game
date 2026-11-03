@@ -1057,7 +1057,13 @@ function rateLimit(name, maxPerMinute) {
 app.set('trust proxy', CONFIG.trustProxyHops);
 app.use(securityHeaders({ production: IS_PRODUCTION }));
 app.use(express.json({ limit: '32kb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+// فن «الكهف» (صور المشهد والمعدّن والأيقونات) يُطلب دائماً برقم نسخة ?v= في الرابط، فيُخزَّن أسبوعاً دون إعادة تحقق؛
+// عند تغيير صورة يُرفع الرقم في index.html وcss وcave-art.js (يحرس ذلك اختبار في test/clicker-fx.test.js).
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (filePath.includes(`${path.sep}assets${path.sep}cave${path.sep}`)) res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+  },
+}));
 
 const asyncRoute = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => {
   console.error('خطأ API:', e);

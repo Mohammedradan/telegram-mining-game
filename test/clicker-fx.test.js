@@ -132,6 +132,44 @@ test('nextGoal ignores invalid prices and returns null when nothing is buyable',
   assert.equal(FX.nextGoal({ click: -5, bot: 40 }, 1).key, 'bot');
 });
 
+test('arcLift raises the middle medals on a shallow arc and keeps short rows flat', () => {
+  assert.deepEqual([0, 1, 2, 3].map((i) => +FX.arcLift(i, 4).toFixed(3)), [0.383, 0.924, 0.924, 0.383]);
+  assert.deepEqual([0, 1, 2].map((i) => +FX.arcLift(i, 3).toFixed(3)), [0.5, 1, 0.5]);
+  assert.equal(FX.arcLift(0, 2), 0);
+  assert.equal(FX.arcLift(0, 1), 0);
+  assert.ok(FX.arcLift(-4, 4) > 0 && FX.arcLift(99, 4) > 0, 'out-of-range indices clamp instead of going negative');
+  assert.equal(Number.isFinite(FX.arcLift(NaN, NaN)), true, 'garbage never yields NaN');
+});
+
+test('nodeView: progress is gold ÷ price, ready only when affordable, garbage prices give null', () => {
+  const v = { costs: { click: 50, bot: 200 }, owned: { click: 2 }, gold: 30 };
+  assert.deepEqual(FX.nodeView('click', v), { key: 'click', cost: 50, owned: 2, progress: 0.6, affordable: false, missing: 20, state: 'poor' });
+  assert.equal(FX.nodeView('click', { ...v, gold: 50 }).state, 'ready');
+  assert.equal(FX.nodeView('click', { ...v, gold: 5000 }).progress, 1, 'the ring never overfills');
+  assert.equal(FX.nodeView('bot', { ...v, gold: -3 }).progress, 0, 'a negative balance never shows negative progress');
+  assert.equal(FX.nodeView('bot', v).owned, 0, 'a missing count reads as zero');
+  assert.equal(FX.nodeView('rig', v), null, 'no price, no medal state');
+  assert.equal(FX.nodeView('click', { costs: { click: 'x' } }), null);
+  assert.equal(FX.nodeView('click', null), null);
+});
+
+test('sheetView projects the effect as base + owned × gain, the way UPGRADES.apply applies it', () => {
+  const click = FX.sheetView({ base: 1, gain: 1, unit: 'لكل نقرة' }, 'click', { costs: { click: 50 }, owned: { click: 3 }, gold: 60 });
+  assert.deepEqual(click, { key: 'click', cost: 50, owned: 3, progress: 1, affordable: true, missing: 0, state: 'ready', now: 4, next: 5, unit: 'لكل نقرة' });
+  const bot = FX.sheetView({ base: 0, gain: 5, unit: 'ذهب/ثانية' }, 'bot', { costs: { bot: 200 }, owned: {}, gold: 0 });
+  assert.deepEqual([bot.now, bot.next, bot.missing, bot.state], [0, 5, 200, 'poor']);
+  assert.equal(FX.sheetView({}, 'x', { costs: {}, gold: 1 }), null);
+  assert.equal(FX.sheetView(undefined, 'click', { costs: { click: 10 }, gold: 10 }).next, 0, 'a missing definition degrades to zeros');
+});
+
+test('hintTarget points at the first ready medal, and only until an upgrade window has been opened', () => {
+  const views = [{ key: 'click', state: 'poor' }, { key: 'bot', state: 'ready' }, null, { key: 'rig', state: 'ready' }];
+  assert.equal(FX.hintTarget(views, false), 'bot');
+  assert.equal(FX.hintTarget(views, true), '');
+  assert.equal(FX.hintTarget([{ key: 'a', state: 'poor' }], false), '');
+  assert.equal(FX.hintTarget(undefined, false), '');
+});
+
 // ============================== عدّاد الذهب ==============================
 test('gold counter: small deltas show instantly, big jumps are followed smoothly and always land exactly', () => {
   assert.equal(FX.needsTween(0, 1234), true);
@@ -215,6 +253,13 @@ test('particles start at the touch point, fly upward, use the right palette and 
   assert.ok(spread.some((p) => p.vy > 0) && spread.some((p) => p.vy < 0), 'a frenzy burst goes in every direction');
 });
 
+test('rock chips: four angular fragments in the stone palette', () => {
+  const list = FX.makeParticles('rock', 100, 100, {}, FX.makeRng(5));
+  assert.equal(list.length, 4);
+  assert.ok(list.every((p) => p.shape === 'rock' && ['#e9d5ff', '#c4b5fd', '#a78bfa', '#d8c4a0'].includes(p.color)));
+  assert.ok(list.every((p) => Number.isFinite(p.vx) && p.vy < 0 || Math.abs(p.vx) > 0), 'they fly out of the hit');
+});
+
 test('stepParticle applies gravity and drag, then expires', () => {
   const [p] = FX.makeParticles('tap', 0, 0, {}, FX.makeRng(11));
   const vy0 = p.vy, x0 = p.x, y0 = p.y;
@@ -267,6 +312,9 @@ test('sound: lazily creates the audio graph, rate-limits taps, and the mute choi
 });
 
 test('sound never throws without WebAudio, without storage, or with a broken storage', () => {
+  // the new window/CTA cues are as safe as the old ones
+  const quiet = FX.createSound(null, {});
+  for (const cue of ['open', 'close', 'go']) assert.doesNotThrow(() => quiet[cue]());
   const none = FX.createSound(undefined, {});
   none.tap(1, true); none.denied(); none.frenzy(); none.levelUp(); none.boost(); none.buy(); none.milestone(3); none.unlock(); none.setMuted(true);
   const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
@@ -276,33 +324,42 @@ test('sound never throws without WebAudio, without storage, or with a broken sto
 });
 
 // ============================== عقد «عرض فقط» ==============================
-test('ClickerFX is display-only: no network, no ops queue, no economy state, only its own two storage keys', () => {
+test('ClickerFX is display-only: no network, no ops queue, no economy state, only its own three storage keys', () => {
   const code = fxSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-  for (const forbidden of ['fetch(', 'XMLHttpRequest', 'enqueueOp', 'SYNC', 'applyOpLocally', 'state.gold', 'state.energy', 'totalEarned', 'sendBeacon', 'WebSocket', '/api/']) {
+  for (const forbidden of ['fetch(', 'XMLHttpRequest', 'enqueueOp', 'SYNC', 'applyOpLocally', 'state.gold', 'state.energy', 'totalEarned', 'sendBeacon', 'WebSocket', '/api/', '.apply(', '.apply?.(']) {
     assert.ok(!code.includes(forbidden), `clicker-fx.js must not reference ${forbidden}`);
   }
+  // it never calls an upgrade's apply(): buying goes through the page's buyUpgrade passed to init()
+  assert.doesNotMatch(code, /\bapply\s*\(/);
   const keys = [...code.matchAll(/(?:getItem|setItem)\(\s*([A-Za-z_'"]+)/g)].map((m) => m[1].replace(/['"]/g, ''));
-  assert.ok(keys.length >= 4 && keys.every((k) => ['MUTE_KEY', 'TAPPED_KEY'].includes(k)), `unexpected storage keys: ${keys}`);
+  assert.ok(keys.length >= 4 && keys.every((k) => ['MUTE_KEY', 'TAPPED_KEY', 'HINT_KEY'].includes(k)), `unexpected storage keys: ${keys}`);
+  assert.deepEqual([...new Set(keys)].sort(), ['HINT_KEY', 'MUTE_KEY', 'TAPPED_KEY']);
   assert.match(code, /const MUTE_KEY = 'mining-fx-muted'/);
+  assert.match(code, /const HINT_KEY = 'mining-fx-hint'/);
   // the page hands it the state; it only reads what the page passes to sync()/tap()
   assert.match(code, /function sync\(v\)/);
 });
 
 test('every public entry point is wrapped so a visual bug can never stop mining', () => {
   assert.match(fxSource, /const safe = \(fn\) => \(\.\.\.args\) => \{\s*try \{ return fn\(\.\.\.args\); \}/);
-  for (const name of ['init', 'tap', 'denied', 'sync', 'onTab']) assert.match(fxSource, new RegExp(`${name}: safe\\(${name}\\)`));
+  for (const name of ['init', 'tap', 'denied', 'sync', 'onTab', 'openSheet', 'closeSheet', 'buyOpen']) assert.match(fxSource, new RegExp(`${name}: safe\\(${name === 'buyOpen' ? 'onSheetBuy' : name}\\)`));
 });
 
 // ============================== بنية index.html ==============================
-test('index.html loads the stylesheet and the script (script first, so the page script can init it)', () => {
+test('index.html loads the stylesheets and the scripts (scripts first, so the page script can init them)', () => {
+  assert.match(html, /<link rel="stylesheet" href="\/cave\.css\?v=\d+">/);
   assert.match(html, /<link rel="stylesheet" href="\/clicker\.css\?v=\d+">/);
+  assert.ok(html.indexOf('/cave.css') < html.indexOf('/clicker.css'), 'the shared kit loads before the hub styles that build on it');
+  const artAt = html.indexOf('<script src="/cave-art.js?v=');
   const scriptAt = html.indexOf('<script src="/clicker-fx.js?v=');
-  assert.ok(scriptAt > 0, 'clicker-fx.js is linked');
+  assert.ok(artAt > 0 && scriptAt > artAt, 'cave-art.js is linked before clicker-fx.js (it builds the medallions)');
   const gameScript = html.indexOf('<script>\n', scriptAt);
-  assert.ok(scriptAt < gameScript, 'it loads before the inline game script');
-  assert.match(html, /window\.ClickerFX\?\.init\(\{ fmt, haptic, buy: buyUpgrade, goals: UPGRADES \}\);/);
+  assert.ok(scriptAt < gameScript, 'both load before the inline game script');
+  assert.match(html, /window\.ClickerFX\?\.init\(\{ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES \? wsOpen : null \}\);/);
   const init = html.indexOf('window.ClickerFX?.init(');
-  assert.ok(init > html.indexOf('const UPGRADES = {') && init > html.indexOf('function buyUpgrade('), 'init runs after the helpers it receives');
+  assert.ok(init > html.indexOf('const UPGRADES = {') && init > html.indexOf('function buyUpgrade(') && init > html.indexOf('function goToMine('), 'init runs after the helpers it receives');
+  // the cave scene layer exists and is the first thing in the body (it paints behind everything)
+  assert.match(html, /<body[^>]*>\s*<!--[^>]*-->\s*<div class="ck-scene" aria-hidden="true"><\/div>/);
 });
 
 test('every element clicker-fx.js looks up by id exists in the markup, and the classes it targets too', () => {
@@ -336,15 +393,34 @@ test('the mining screen, header, balance strip and energy bar contain no emoji (
   assert.equal(emoji.test(boostBlock), false, 'the boost button labels have no emoji');
 });
 
-test('the gem and the icons it needs are real SVG: facets in the markup, symbols in the sprite', () => {
-  assert.ok((html.match(/<polygon points="[^"]+" fill="url\(#ck-g-[a-f]\)"\/>/g) || []).length >= 7, 'a faceted gem');
+test('the cave art is real: scene, hero, ore and medal icons exist on disk, vector fallbacks are in the sprite, upgrades carry their effect metadata', () => {
+  const art = require('../public/cave-art');
+  const dir = path.join(root, 'public', 'assets', 'cave');
+  for (const f of ['cave-portrait.jpg', 'cave-wide.jpg', 'hero.webp', 'ore.webp']) {
+    const st = fs.statSync(path.join(dir, f));
+    assert.ok(st.size > 20_000 && st.size < 400_000, `${f} is a real, web-sized image (${st.size} bytes)`);
+  }
+  for (const id of art.PAINTED) {
+    const st = fs.statSync(path.join(dir, 'icons', `${id}.webp`));
+    assert.ok(st.size > 1000 && st.size < 30_000, `icon ${id} is small (${st.size} bytes)`);
+  }
   const symbols = new Set([...html.matchAll(/<symbol id="([^"]+)"/g)].map((m) => m[1]));
-  for (const id of ['i-flame', 'i-bolt', 'i-coin', 'i-sound', 'i-muted', 'i-pickaxe']) assert.ok(symbols.has(id), `sprite has ${id}`);
-  const goals = [...html.matchAll(/(click|bot|rig):\s+\{ apply:[^}]*\},\s+growth: [\d.]+, name: '([^']+)',\s+desc: '([^']+)',\s+icon: '([^']+)'/g)];
-  assert.deepEqual(goals.map((m) => m[1]), ['click', 'bot', 'rig'], 'all three upgrades carry goal-card metadata');
-  for (const [, key, , , icon] of goals) assert.ok(symbols.has(icon), `${key} uses a sprite icon that exists (${icon})`);
-  // the shop tab says the same thing the goal card says
-  for (const [, , name, desc] of goals) assert.ok(html.includes(name), `the shop shows "${name}"`);
+  for (const id of ['i-flame', 'i-bolt', 'i-sound', 'i-muted', 'i-pickaxe', 'i-close', 'a-robot', 'a-luck', 'a-coin']) assert.ok(symbols.has(id), `sprite has ${id}`);
+  // every medal the screens can ask for resolves to a painted file or a vector symbol that exists
+  const rules = require('../public/platform-rules');
+  for (const id of [...rules.EQUIPMENT_ORDER, 'click', 'bot', 'rig', 'workshop']) {
+    const r = art.resolve(id);
+    assert.ok(r.kind === 'painted' || (r.kind === 'vector' && symbols.has(r.symbol)), `${id} has art (${r.kind})`);
+  }
+  // the hero and ore shown by the hub are the files that exist
+  for (const f of ['/assets/cave/hero.webp', '/assets/cave/ore.webp']) assert.ok(html.includes(f), `${f} is used by the markup`);
+  const goals = [...html.matchAll(/(click|bot|rig):\s+\{ apply: \(\) => \{ state\.(clickPower|passiveIncome) \+= (\d+); \},\s+growth: [\d.]+, name: '([^']+)',\s+desc: '([^']+)',\s+icon: '([^']+)',\s+base: (\d+), gain: (\d+),\s+unit: '([^']+)'/g)];
+  assert.deepEqual(goals.map((m) => m[1]), ['click', 'bot', 'rig'], 'all three upgrades carry medal metadata');
+  for (const [, key, , applied, name, desc, icon, , gain, unit] of goals) {
+    assert.ok(symbols.has(icon), `${key} uses a sprite icon that exists (${icon})`);
+    assert.equal(gain, applied, `${key}: the effect shown in the window (+${gain}) is what apply() adds (+${applied})`);
+    assert.ok(html.includes(name) && desc.includes(gain) && unit, `${key} reads the same in the shop and in the window`);
+  }
   assert.ok(html.includes('+1 لكل نقرة') && html.includes('+5 ذهب/ثانية') && html.includes('+25 ذهب/ثانية'));
 });
 
@@ -365,14 +441,17 @@ test('the tap path keeps the sync accounting lines and hooks the effects around 
 });
 
 test('the boost button keeps its markup contract and shows its state through data-state, not through disabled styling', () => {
-  assert.match(html, /id="boost-btn" onclick="activateBoost\(\)" type="button" class="ck-boost" data-state="ready"/);
+  assert.match(html, /id="boost-btn" onclick="activateBoost\(\)" type="button" class="ck-boost cv-btn cv-btn-violet" data-state="ready"/);
   assert.match(html, /getElementById\('boost-btn'\) \|\| \{\}/);
   assert.ok(!/disabled:opacity-40/.test(html.slice(html.indexOf('id="boost-btn"'), html.indexOf('id="boost-btn"') + 400)), 'no more dimmed-when-disabled utility on the active boost');
   assert.match(html, /setBoost\('active', 'تعزيز ×2 فعّال'/);
   assert.match(html, /setBoost\('cooldown', 'جاهز بعد'/);
   assert.match(html, /setBoost\('ready', 'تعزيز ×2', '0:30'\)/);
-  assert.match(css, /\.ck-boost\[data-state="active"\]:disabled \{[^}]*opacity: 1;[^}]*filter: none;/);
-  assert.match(css, /\.ck-boost\[data-state="cooldown"\]:disabled \{[^}]*opacity: 1;[^}]*filter: none;/);
+  // the shared metallic button greys out when disabled; the active/cooldown states opt out and look "on"/"charging" instead
+  const cave = read('public', 'cave.css');
+  assert.match(cave, /\.cv-btn:disabled \{ filter: grayscale\(\.55\) brightness\(\.82\)/);
+  assert.match(css, /\.ck-boost\[data-state="active"\]:disabled \{[^}]*filter: none;/);
+  assert.match(css, /\.ck-boost\[data-state="cooldown"\]:disabled \{[^}]*filter: none;/);
 });
 
 test('local passive income uses the boosted rate, matching the header chip and the server settlement', () => {
@@ -399,36 +478,121 @@ test('the page keeps the legacy fallbacks: no ClickerFX means the old floating t
 
 // ============================== clicker.css ==============================
 test('clicker.css honours reduced motion, never animates the size of a tap target, and fits short screens', () => {
-  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  const reduced = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
   assert.ok(reduced.length > 100, 'a reduced-motion block exists');
-  for (const sel of ['.ck-bob', '.ck-rim', '.ck-aura', '.ck-twinkle', '.ck-boost::after', '#energy-bar::after']) assert.ok(reduced.includes(sel), `${sel} is switched off`);
+  for (const sel of ['.ck-bob', '.ck-hero', '.ck-glow', '.ck-ambience', '.ck-boost::after', '#energy-bar::after', 'body.ck-cave .ck-scene', '.ck-sheet-card']) assert.ok(reduced.includes(sel), `${sel} is switched off`);
   assert.match(reduced, /animation: none !important/);
   // buttons attract attention with a light sweep inside them, never by scaling (Playwright/AT need a stable target)
-  assert.doesNotMatch(css, /@keyframes ck-ready/);
-  assert.match(css, /@keyframes ck-shine/);
-  for (const sel of ['.ck-boost', '.ck-goal-buy', '.ck-btn', '.ck-sound']) {
-    const rule = css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.\[\]]/g, '\\$&')} \\{[^}]*\\}`));
+  assert.doesNotMatch(css + read('public', 'cave.css'), /@keyframes ck-ready/);
+  assert.match(read('public', 'cave.css'), /@keyframes cv-shine/);
+  for (const [file, sel] of [[css, '.ck-boost'], [css, '.ck-go'], [css, '.ck-btn'], [css, '.ck-sound'], [css, '.ck-node'], [read('public', 'cave.css'), '.cv-btn']]) {
+    const rule = file.match(new RegExp(`(?:^|\\n)${sel.replace(/[.\[\]]/g, '\\$&')} \\{[^}]*\\}`));
     assert.ok(rule, `${sel} rule`);
     assert.doesNotMatch(rule[0], /animation:/, `${sel} itself must not animate`);
   }
-  // sizes adapt to the viewport
-  assert.match(css, /--ck-size: clamp\(150px, min\(62vw, calc\(var\(--app-height, 100vh\) - 500px\)\), 264px\)/);
+  // sizes adapt to the field they live in (container units) with a viewport fallback
+  assert.match(css, /container-type: size/);
+  assert.match(css, /@supports \(width: 1cqw\) \{\s*\.ck-area \{ --ore: min\(60cqw, 94cqh\); --hero-h: min\(96cqh, 64cqw\); \}/);
+  assert.match(css, /--ore: min\(58vw, 250px\)/);
   assert.match(css, /@media \(orientation: landscape\) and \(max-height: 520px\)/);
-  assert.match(css, /@media \(max-height: 610px\) \{[^}]*\.ck-hint \{ display: none; \}/);
-  // glow via box-shadow: it must not enlarge the scrollable area
-  assert.match(css, /\.ck-aura \{[^}]*box-shadow:/);
-  assert.doesNotMatch(css.match(/\.ck-aura \{[^}]*\}/)[0], /width: 1[1-9]\d%/);
+  assert.match(css, /@media \(max-height: 640px\) \{[^}]*\.ck-hint \{ display: none; \}/);
+  assert.match(css, /@media \(max-height: 700px\) \{\s*body\.ck-cave \.app-header \{ display: none; \}/);
+  // decorative halos and shadows are clipped by the field so they never add a scrollbar to the tab
+  assert.match(css.match(/\.ck-area \{[^}]*\}/)[0], /overflow: clip/);
+  assert.doesNotMatch(css.match(/\.ck-area \{[^}]*\}/)[0], /overflow-clip-margin/, 'a clip margin would count as scrollable overflow');
   // overlays never catch touches
-  for (const sel of ['.ck-fx, .ck-layer', '.ck-streak, .ck-status', '.ck-banner', '.ck-heat']) assert.ok(css.includes(sel), sel);
-  assert.ok((css.match(/pointer-events: none/g) || []).length >= 8);
+  for (const sel of ['.ck-fx, .ck-layer', '.ck-streak, .ck-status', '.ck-banner', '.ck-pointer', '.ck-spark', '.ck-scene']) assert.ok(css.includes(sel), sel);
+  assert.ok((css.match(/pointer-events: none/g) || []).length >= 10);
+  // the scene is its own layer behind the UI and only exists while the mining tab is open
+  assert.match(css, /\.ck-scene \{\s*display: none;\s*position: fixed;\s*inset: 0;\s*z-index: -1;/);
+  assert.match(css, /body\.ck-cave \.ck-scene \{ display: block;/);
 });
 
 test('wiring: build script syntax-checks the module, a dedicated browser test exists and CI runs it', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.match(pkg.scripts.build, /node --check public\/clicker-fx\.js/);
+  assert.match(pkg.scripts.build, /node --check public\/cave-art\.js/);
+  // the build also verifies that every image a stylesheet paints exists (a typo there fails silently in the browser)
+  assert.match(read('scripts', 'check-build.cjs'), /Missing asset referenced by public\/\$\{file\}/);
   assert.equal(pkg.scripts['test:clicker'], 'node scripts/test-clicker-browser.cjs');
   assert.ok(fs.existsSync(path.join(root, 'scripts', 'test-clicker-browser.cjs')));
   const ci = read('.github', 'workflows', 'ci.yml');
   assert.match(ci, /npm run test:clicker/);
   assert.ok(ci.indexOf('npm run test:browser') < ci.indexOf('npm run test:clicker'), 'it runs after the platform E2E, on the same server');
+});
+
+// ============================== cave-art.js (الميداليات المشتركة) ==============================
+test('CaveArt resolves painted art, vector fallbacks and aliases, and builds medal markup that never trusts its input', () => {
+  const art = require('../public/cave-art');
+  assert.deepEqual([art.resolve('pickaxe').kind, art.resolve('click').key, art.resolve('rig').key, art.resolve('workshop').key], ['painted', 'pickaxe', 'drill', 'miner']);
+  assert.deepEqual([art.resolve('robot').kind, art.resolve('robot').symbol, art.resolve('luck').symbol], ['vector', 'a-robot', 'a-luck']);
+  assert.equal(art.resolve('bot').key, 'robot', 'the auto worker borrows the robot art');
+  assert.equal(art.resolve('nonsense').kind, 'none');
+  const painted = art.medalHTML({ id: 'boots', icon: 'i-boots', level: 3, progress: 0.456, state: 'ready' });
+  assert.match(painted, /class="cv-medal" data-state="ready" style="--p:0\.456"/);
+  assert.match(painted, /<svg class="ui-icon cv-fallback"[^>]*><use href="#i-boots"\/><\/svg><img class="cv-art" src="\/assets\/cave\/icons\/boots\.webp\?v=\d+"/, 'the line icon sits under the picture as a fallback');
+  assert.match(painted, /<span class="cv-lvl">3<\/span>/);
+  assert.doesNotMatch(painted, /loading="lazy"/, 'tiny icons load eagerly so the medals never flash empty when a screen opens');
+  const vector = art.medalHTML({ id: 'robot', icon: 'i-robot', level: 1, progress: 1, state: 'max' });
+  assert.match(vector, /<svg class="cv-vec"[^>]*><use href="#a-robot"\/><\/svg>/);
+  assert.doesNotMatch(vector, /<img/);
+  // garbage in: state falls back to poor, progress clamps, markup is escaped
+  const rough = art.medalHTML({ id: 'x"><script>', icon: '"><b>', level: '<i>', progress: 7, state: 'boom' });
+  assert.match(rough, /data-state="poor" style="--p:1\.000"/);
+  assert.doesNotMatch(rough, /<script|<b>|<i>/, 'no markup injection through ids, icons or levels');
+  assert.match(art.medalHTML({ id: 'bag', state: 'plain' }), /data-state="plain"/, 'the workshop medal has a ring-less state');
+  assert.match(art.medalHTML({ id: 'bag', progress: -3 }), /--p:0\.000/);
+  assert.doesNotMatch(art.medalHTML({ id: 'bag' }), /cv-lvl/, 'no badge without a level');
+  // a broken image removes itself so the line icon underneath shows
+  const listeners = [];
+  art.guardImages({ addEventListener: (type, fn, capture) => listeners.push([type, fn, capture]) });
+  assert.equal(listeners[0][0], 'error');
+  assert.equal(listeners[0][2], true, 'captured: image errors do not bubble');
+  let removed = 0;
+  listeners[0][1]({ target: { tagName: 'IMG', classList: { contains: (c) => c === 'cv-art' }, remove: () => { removed++; } } });
+  listeners[0][1]({ target: { tagName: 'IMG', classList: { contains: () => false }, remove: () => { removed++; } } });
+  listeners[0][1]({ target: { tagName: 'DIV', classList: { contains: () => true }, remove: () => { removed++; } } });
+  assert.equal(removed, 1, 'only failed medal art is removed');
+});
+
+test('the workshop and the hub share one medal builder: nodes keep their test hooks and gain painted art', () => {
+  const wsRender = html.slice(html.indexOf('function wsMedal('), html.indexOf('function wsRenderTop()'));
+  assert.match(wsRender, /window\.CaveArt/);
+  assert.match(wsRender, /medalHTML\(\{ id, icon, level: lvl, progress, state: mstate \}\)/);
+  assert.match(wsRender, /class="\$\{cls\}" type="button" data-ws-item="\$\{it\.id\}"/, 'data-ws-item and the ws-node/can-buy/is-max classes stay (E2E hooks)');
+  assert.doesNotMatch(wsRender, /state: state\b/, 'the local medal state never shadows the game state');
+  assert.match(html, /id="ws-hero" class="ws-hero-canvas" src="\/assets\/cave\/hero\.webp/);
+  assert.match(html, /id="ws-drone"/);
+  assert.match(html, /drone\.hidden = !\(WS_RULES && wsLevel\('robot'\) >= 1\)/, 'the drone shows once the robot is upgraded, like the old canvas companion');
+  const ws = read('public', 'platform.css');
+  assert.match(ws, /\.ws-node\{--sz:58px;/);
+  assert.match(ws, /\.ws-cave\{[^}]*cave-portrait\.jpg/);
+  assert.match(ws, /@media\(min-aspect-ratio:1\/1\)\{\.ws-cave\{[^}]*cave-wide\.jpg/);
+});
+
+test('cave art is cached for a week, which is only safe because every reference carries a version number', () => {
+  assert.match(read('server.js'), /assets\$\{path\.sep\}cave\$\{path\.sep\}[^\n]*max-age=604800, immutable/);
+  const sources = { 'index.html': html, 'clicker.css': css, 'platform.css': read('public', 'platform.css'), 'cave.css': read('public', 'cave.css'), 'cave-art.js': read('public', 'cave-art.js'), 'clicker-fx.js': fxSource };
+  let refs = 0;
+  for (const [name, text] of Object.entries(sources)) {
+    for (const m of text.matchAll(/\/assets\/cave\/[A-Za-z0-9_.\/-]*/g)) {
+      const after = text.slice(m.index + m[0].length, m.index + m[0].length + 4);
+      const directoryPrefix = m[0].endsWith('/'); // e.g. BASE = '/assets/cave/icons/' — the file name and ?v= are appended in code
+      assert.ok(directoryPrefix || after.startsWith('?v='), `${name}: ${m[0]} must carry ?v=<n> (immutable cache), saw "${after}"`);
+      refs++;
+    }
+  }
+  assert.ok(refs >= 10, `found the art references (${refs})`);
+  // the same number everywhere, so a bump is one search-and-replace
+  const versions = new Set();
+  for (const text of Object.values(sources)) for (const m of text.matchAll(/\/assets\/cave\/[A-Za-z0-9_.\/-]+\?v=(\d+)/g)) versions.add(m[1]);
+  assert.ok(versions.size <= 1, `art version numbers disagree: ${[...versions]}`);
+});
+
+test('the HUD wrapper around the gold counter adds no box outside the cave (other screens keep their exact layout)', () => {
+  assert.match(css, /\.ck-hud \{ display: contents; \}/, 'outside the cave the wrapper generates no box, so body gap and the platform rules that hide the strip behave as before');
+  assert.match(css, /body\.ck-cave \.ck-hud \{ display: flex;/);
+  assert.match(css, /body\.ck-cave \.ck-hud > \.balance-strip \{ flex: 1 1 auto;/, 'the strip only flexes inside the cave: a flex-grow on a body child would stretch it on every other tab');
+  assert.doesNotMatch(css.replace(/body\.ck-cave \.ck-hud > \.balance-strip[^}]*\}/, ''), /\.ck-hud > \.balance-strip/);
+  assert.match(html, /<div class="ck-hud">\s*<div class="balance-strip[^"]*">[\s\S]*?<button id="ck-sound"/, 'counter and sound toggle share the wrapper');
 });

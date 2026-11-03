@@ -247,60 +247,62 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 /* ============================================================
    ورشة المعدّن — معاينة بصرية كاملة الشاشة (عميل فقط)
    ============================================================ */
-.ws-overlay{position:fixed;inset:0;width:100%;height:100%;height:100dvh;z-index:80;display:flex;flex-direction:column;direction:rtl;color:#f4e6c8;font-family:'Tajawal',system-ui,-apple-system,sans-serif;background:radial-gradient(ellipse at 50% 12%,#2c3d55 0%,#162334 42%,#080f1a 100%);overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.7)}
-.ws-cave{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 10% 24%,rgba(56,189,248,.16),transparent 30%),radial-gradient(circle at 88% 18%,rgba(251,146,60,.13),transparent 28%),radial-gradient(ellipse at 50% -10%,rgba(129,140,248,.2),transparent 60%)}
-.ws-cave::before,.ws-cave::after{content:'';position:absolute;bottom:-6%;width:40%;height:34%;opacity:.55;clip-path:polygon(20% 100%,0 52%,28% 28%,55% 60%,80% 0,100% 100%)}
-.ws-cave::before{left:-9%;background:linear-gradient(135deg,rgba(56,189,248,.6),rgba(14,116,144,.05))}
-.ws-cave::after{right:-9%;transform:scaleX(-1);background:linear-gradient(135deg,rgba(167,139,250,.5),rgba(76,29,149,.05))}
+.ws-overlay{position:fixed;inset:0;width:100%;height:100%;height:100dvh;z-index:80;display:flex;flex-direction:column;direction:rtl;color:#f4e6c8;font-family:'Tajawal',system-ui,-apple-system,sans-serif;background:#060818;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.7)}
+.ws-cave{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,rgba(4,6,18,.3),rgba(4,6,18,0) 62%),linear-gradient(to bottom,rgba(4,6,18,.72) 0%,rgba(4,6,18,.1) 22%,rgba(4,6,18,0) 48%,rgba(4,6,18,.74) 100%),url("/assets/cave/cave-portrait.jpg?v=1") 50% 30%/cover no-repeat,#060818}
+@media(min-aspect-ratio:1/1){.ws-cave{background:radial-gradient(ellipse at 50% 50%,rgba(4,6,18,.28),rgba(4,6,18,0) 62%),linear-gradient(to bottom,rgba(4,6,18,.66) 0%,rgba(4,6,18,.06) 24%,rgba(4,6,18,0) 50%,rgba(4,6,18,.68) 100%),url("/assets/cave/cave-wide.jpg?v=1") 50% 58%/cover no-repeat,#060818}}
 .ws-top{position:relative;z-index:2;display:flex;align-items:center;gap:6px;padding:10px 12px;flex-shrink:0;width:min(520px,100%);margin-inline:auto}
-.ws-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:12px;background:rgba(8,18,28,.78);border:1px solid rgba(255,209,102,.35);font-weight:900;font-size:13px;color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.ws-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 13px 3px 10px;border-radius:14px;border:2.5px solid transparent;background:linear-gradient(180deg,rgba(40,26,12,.94),rgba(11,9,22,.96)) padding-box,linear-gradient(150deg,#fff0a8,#e0a021 30%,#7a4208 60%,#f2c050) border-box;box-shadow:0 4px 10px rgba(0,0,0,.55);font-weight:900;font-size:14px;color:#fff;text-shadow:0 2px 0 #7a4208;direction:ltr;unicode-bidi:isolate}
 .ws-chip .ui-icon{width:16px;height:16px}
-.ws-ores{color:#a5f3fc;border-color:rgba(103,232,249,.35)}
+.ws-chip .ck-coin-art{width:26px;height:26px}
+.ws-ores{color:#bff4ff;text-shadow:0 2px 0 #0b3a4d}
 .ws-top-actions{margin-inline-start:auto;display:flex;gap:6px}
-.ws-icon-btn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(8,18,28,.78);border:1px solid rgba(148,163,184,.3);color:#e2e8f0;cursor:pointer;transition:all .15s}
+.ws-icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#ffe9a6;border:2.5px solid transparent;background:radial-gradient(circle at 35% 28%,#2a3c84,#0d1536) padding-box,linear-gradient(150deg,#fff0a8,#e0a021 35%,#7a4208 65%,#f2c050) border-box;box-shadow:0 3px 8px rgba(0,0,0,.55);cursor:pointer;transition:transform .12s}
 .ws-icon-btn .ui-icon{width:18px;height:18px}
-.ws-icon-btn[aria-pressed="false"]{opacity:.5}
+.ws-icon-btn[aria-pressed="false"]{color:#8a93ad}
 .ws-icon-btn:active{transform:scale(.94)}
 .ws-stage{position:relative;z-index:1;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px;width:min(520px,100%);margin-inline:auto}
 .ws-ring{position:relative;width:min(340px,90vw,calc(100dvh - 190px));aspect-ratio:1;max-height:100%;flex-shrink:0}
-.ws-orbit{position:absolute;inset:9%;border-radius:50%;border:1px dashed rgba(255,209,102,.22);box-shadow:inset 0 0 40px rgba(0,0,0,.35)}
-.ws-glow{position:absolute;inset:22%;border-radius:50%;background:radial-gradient(circle,rgba(255,196,92,.22),transparent 70%);filter:blur(8px);animation:wsPulse 3.5s ease-in-out infinite}
+.ws-orbit{position:absolute;inset:7%;border-radius:50%;border:2px solid rgba(255,214,120,.2);box-shadow:inset 0 0 36px rgba(0,0,0,.45),0 0 22px rgba(255,190,80,.12)}
+.ws-glow{position:absolute;inset:20%;border-radius:50%;background:radial-gradient(circle,rgba(255,176,70,.34),transparent 70%);filter:blur(8px);animation:wsPulse 3.5s ease-in-out infinite}
 @keyframes wsPulse{50%{opacity:.6;transform:scale(1.06)}}
-.ws-pedestal{position:absolute;left:50%;top:76%;transform:translateX(-50%);width:62%;height:14%;border-radius:50%;background:radial-gradient(ellipse,rgba(255,190,90,.28),transparent 70%)}
-.ws-hero-canvas{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48%;height:48%;pointer-events:none}
+.ws-pedestal{position:absolute;left:50%;top:74%;transform:translateX(-50%);width:54%;height:13%;border-radius:50%;background:radial-gradient(ellipse at 50% 45%,rgba(255,196,110,.3),rgba(0,0,0,.55) 58%,transparent 74%)}
+.ws-hero-canvas{position:absolute;left:50%;top:51%;transform:translate(-50%,-50%);width:46%;height:52%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 8px 10px rgba(0,0,0,.6));-webkit-user-drag:none}
+.ws-drone{position:absolute;left:67%;top:28%;width:15%;aspect-ratio:1;pointer-events:none;filter:drop-shadow(0 6px 8px rgba(0,0,0,.55));animation:wsFloat 2.6s ease-in-out infinite}
+.ws-drone[hidden]{display:none}
+.ws-drone svg{width:100%;height:100%;overflow:visible}
+@keyframes wsFloat{50%{transform:translateY(-6px)}}
 .ws-nodes{position:absolute;inset:0}
-.ws-node{position:absolute;transform:translate(-50%,-50%);width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#3b5266,#16222e);border:2px solid rgba(255,209,102,.55);color:#ffdf8a;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);transition:transform .15s,box-shadow .15s,border-color .15s}
-.ws-node .ui-icon{width:24px;height:24px}
-.ws-node:hover,.ws-node:focus-visible{transform:translate(-50%,-50%) scale(1.09);border-color:#ffd166;box-shadow:0 6px 18px rgba(255,190,80,.35)}
-.ws-node:active{transform:translate(-50%,-50%) scale(.96)}
-.ws-node-lvl{position:absolute;bottom:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#f5bc60;color:#302119;font-size:10px;font-weight:900;display:grid;place-items:center;border:1px solid #ffe2a2;direction:ltr}
+.ws-node{--sz:58px;position:absolute;transform:translate(-50%,-50%);width:var(--sz);height:var(--sz);padding:0;border:0;border-radius:50%;background:none;cursor:pointer;transition:transform .15s}
+.ws-node .cv-medal{--sz:100%}
+.ws-node:hover,.ws-node:focus-visible{transform:translate(-50%,-50%) scale(1.09)}
+.ws-node:focus-visible{outline:3px solid rgba(253,224,71,.9);outline-offset:6px}
+.ws-node:active{transform:translate(-50%,-50%) scale(.95)}
 .ws-bottom{position:relative;z-index:2;flex-shrink:0;padding:8px 14px 12px;display:flex;flex-direction:column;gap:7px;width:min(520px,100%);margin-inline:auto}
-.ws-summary{display:flex;justify-content:space-between;font-size:11px;color:#b9c9d4}
+.ws-summary{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#d3dde4;padding:3px 10px;border-radius:10px;background:rgba(6,5,18,.55)}
 .ws-summary b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
-.ws-cta{width:100%;padding:13px;border-radius:15px;background:linear-gradient(135deg,#f5bc60,#e0821f);color:#2b1b0c;font-weight:900;font-size:17px;border:1px solid #ffe2a2;cursor:pointer;box-shadow:0 6px 20px rgba(224,130,31,.35),inset 0 1px 0 rgba(255,255,255,.4);transition:transform .12s,box-shadow .12s}
-.ws-cta:hover{transform:translateY(-2px);box-shadow:0 9px 26px rgba(224,130,31,.45)}
-.ws-cta:active{transform:translateY(1px)}
+.ws-cta{width:100%;min-height:56px;font-size:20px;letter-spacing:.2px}
+.ws-cta-icon{width:24px;height:24px;stroke-width:2.2;filter:drop-shadow(0 2px 0 rgba(0,0,0,.4))}
 .ws-note{text-align:center;font-size:9.5px;color:#8fa3b0;margin:0}
-.ws-modal{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:18px;background:rgba(4,10,16,.74);backdrop-filter:blur(3px)}
-.ws-card{width:min(320px,100%);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:9px;text-align:center;background:linear-gradient(160deg,#1d3040,#0e1a26);border:1px solid rgba(255,209,102,.4);box-shadow:0 20px 50px rgba(0,0,0,.6)}
-.ws-card-icon{width:62px;height:62px;margin:0 auto;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#3b5266,#16222e);border:2px solid rgba(255,209,102,.55);color:#ffdf8a}
-.ws-card-icon .ui-icon{width:32px;height:32px}
-.ws-card h3{margin:0;font-size:17px;font-weight:900;color:#ffdf8a}
+.ws-modal{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:60px 16px 16px;background:rgba(3,4,14,.74);backdrop-filter:blur(3px)}
+.ws-card{position:relative;width:min(340px,100%);padding:58px 16px 16px;display:flex;flex-direction:column;gap:9px;text-align:center;overflow:visible}
+.ws-card-icon{position:absolute;top:-48px;left:50%;transform:translateX(-50%);width:96px;height:96px}
+.ws-card-icon .cv-medal{--sz:96px}
+.ws-card h3{margin:0;font-size:19px;font-weight:900;color:#ffe08a;text-shadow:0 2px 0 rgba(90,40,0,.9),0 0 14px rgba(255,190,70,.35)}
 .ws-card-effect{margin:0;font-size:11px;color:#cfe0e2;line-height:1.6}
 .ws-stats{display:flex;justify-content:space-between;font-size:11px;color:#b9c9d4;padding:8px 10px;border-radius:10px;background:rgba(8,18,28,.6);direction:rtl}
 .ws-stats b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
-.ws-upgrade{padding:10px;border-radius:12px;background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;font-size:13px;border:1px solid #ffe2a2;cursor:pointer}
+.ws-upgrade{min-height:48px;font-size:16px}
 .ws-modal-close{padding:7px;border-radius:10px;background:transparent;color:#94a3b8;font-size:11px;border:1px solid rgba(148,163,184,.3);cursor:pointer}
 .ws-mini-entry{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:7px 10px;border-radius:9px;background:rgba(34,51,60,.9);border:1px solid #40505a;min-height:38px;color:#e8f1f5;cursor:pointer;font-weight:700}
 .ws-mini-entry .ui-icon{width:14px;height:14px;color:#ffd166}
 #open-workshop-overlay{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;box-shadow:0 4px 14px rgba(38,84,92,.3)}
 .ws-shop-entry{width:100%;padding:10px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#f3e8ff;font-weight:900;font-size:12px;border:1px solid rgba(196,181,253,.5);cursor:pointer}
-@media(max-width:360px){.ws-node{width:44px;height:44px}.ws-node .ui-icon{width:21px;height:21px}.ws-ring{width:min(300px,92vw,calc(100dvh - 190px))}.ws-cta{font-size:15px}}
+@media(max-width:360px){.ws-node{--sz:50px}.ws-ring{width:min(300px,92vw,calc(100dvh - 190px))}.ws-cta{font-size:16px}}
 /* شاشة أفقية قصيرة: ضغط الأشرطة حتى لا تتداخل مع حلقة المعدات */
-@media(max-height:480px){.ws-top{padding:5px 10px}.ws-icon-btn{width:30px;height:30px}.ws-chip{font-size:11px;padding:4px 8px}.ws-bottom{padding:5px 12px 6px;gap:4px}.ws-cta{padding:8px;font-size:14px}.ws-note{display:none}.ws-summary{font-size:10px}.ws-ring{width:min(300px,92vw,calc(100dvh - 145px))}.ws-node{width:42px;height:42px}.ws-node .ui-icon{width:21px;height:21px}.ws-card{padding:10px;gap:6px}.ws-card-icon{width:44px;height:44px}.ws-card-icon .ui-icon{width:24px;height:24px}.ws-card h3{font-size:14px}.ws-card-effect{font-size:10px}}
+@media(max-height:480px){.ws-top{padding:5px 10px}.ws-icon-btn{width:32px;height:32px}.ws-chip{font-size:12px;padding:2px 10px 2px 8px}.ws-chip .ck-coin-art{width:22px;height:22px}.ws-bottom{padding:5px 12px 6px;gap:4px}.ws-cta{min-height:44px;padding:4px 12px;font-size:16px}.ws-note{display:none}.ws-summary{font-size:10px;padding:2px 8px}.ws-ring{width:min(300px,92vw,calc(100dvh - 160px))}.ws-node{--sz:44px}.ws-card{padding:42px 12px 10px;gap:6px}.ws-card-icon{top:-34px;width:68px;height:68px}.ws-card-icon .cv-medal{--sz:68px}.ws-card h3{font-size:15px}.ws-card-effect{font-size:10px}.ws-modal{padding-top:40px}}
 /* سطح المكتب: حلقة أكبر تستغل المساحة الرأسية */
-@media(min-width:900px) and (min-height:600px){.ws-ring{width:min(420px,calc(100dvh - 210px))}.ws-node{width:58px;height:58px}.ws-node .ui-icon{width:28px;height:28px}.ws-top,.ws-bottom{width:min(560px,100%)}}
-@media(prefers-reduced-motion:reduce){.ws-glow{animation:none}.ws-node,.ws-cta{transition:none}}
+@media(min-width:900px) and (min-height:600px){.ws-ring{width:min(420px,calc(100dvh - 210px))}.ws-node{--sz:68px}.ws-top,.ws-bottom{width:min(560px,100%)}}
+@media(prefers-reduced-motion:reduce){.ws-glow,.ws-drone{animation:none}.ws-node,.ws-cta{transition:none}}
 
 /* ============================================================
    المرحلة 3 — معدات خادمية + خريطة المناجم
@@ -312,7 +314,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-select-label{font-size:9.5px;font-weight:700;color:#aebccb}
 .mine-select b{font-size:12.5px;color:#ffd166}
 .mine-select-hits{font-size:9.5px;font-weight:700;color:#9fe8d4}
-.ws-mine-btn{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:8px 10px;border-radius:13px;background:rgba(8,18,28,.78);border:1px solid rgba(255,209,102,.4);color:#f4e6c8;font-size:12px;font-weight:700;cursor:pointer;line-height:1.3}
+.ws-mine-btn{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:6px 10px;border-radius:14px;border:2.5px solid transparent;background:linear-gradient(180deg,rgba(40,26,12,.92),rgba(11,9,22,.94)) padding-box,linear-gradient(150deg,#fff0a8,#e0a021 30%,#7a4208 60%,#f2c050) border-box;color:#f4e6c8;font-size:12px;font-weight:700;cursor:pointer;line-height:1.3;box-shadow:0 4px 10px rgba(0,0,0,.5)}
 .ws-mine-btn .ui-icon{width:15px;height:15px;color:#ffd166}
 .ws-mine-btn b{color:#ffd166;font-size:13px}
 .ws-mine-label{font-size:10px;color:#aebccb}
@@ -324,9 +326,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .ws-ore-chip{display:inline-flex;align-items:center;gap:2px;padding:3px 7px;border-radius:9px;background:rgba(8,18,28,.72);border:1px solid rgba(148,163,184,.22);font-size:9.5px;color:#cfe0e2}
 .ws-ore-chip b{margin-inline-start:4px;color:#ffd166;direction:ltr;unicode-bidi:isolate}
 /* حالة عقد المعدات */
-.ws-node.can-buy{border-color:#7dffd4;box-shadow:0 0 0 2px rgba(125,255,212,.22),0 4px 14px rgba(125,255,212,.28)}
-.ws-node.is-max{border-color:#ffd166;background:radial-gradient(circle at 35% 30%,#5b4a2a,#2a2112)}
-.ws-node.is-max .ws-node-lvl{background:#7dffd4;border-color:#d5fff2}
+.ws-node.can-buy{z-index:1}
+.ws-node.is-max{z-index:0}
 /* بطاقة الترقية */
 .ws-level{direction:ltr;unicode-bidi:isolate}
 .ws-card-max{color:#8fa3b0;font-weight:700}
@@ -337,6 +338,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .ws-cost{display:inline-flex;align-items:center;gap:3px;padding:5px 9px;border-radius:10px;background:rgba(8,18,28,.65);border:1px solid rgba(148,163,184,.25);font-size:11px;color:#dbe6ea}
 .ws-cost:empty{display:none}
 .ws-cost .ui-icon{width:14px;height:14px;color:#ffd166}
+.ws-cost .ws-cost-coin{width:20px;height:20px;flex:none}
 .ws-cost b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
 .ws-cost.lack{border-color:rgba(255,107,107,.65);color:#ffb4b4}
 .ws-cost.lack b{color:#ff8f8f}

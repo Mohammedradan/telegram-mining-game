@@ -33,4 +33,17 @@ for (const [, reference] of html.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
   localAssets++;
 }
 
-console.log(`Build checks passed: ${checkedFiles} JavaScript files, ${inlineScripts} inline scripts and ${localAssets} local asset references.`);
+// Images the stylesheets paint (the cave scene, hero art…) must exist too: a typo there fails silently in the browser.
+let cssAssets = 0;
+for (const file of fs.readdirSync(path.join(root, 'public'))) {
+  if (!file.endsWith('.css')) continue;
+  const css = fs.readFileSync(path.join(root, 'public', file), 'utf8');
+  for (const [, reference] of css.matchAll(/url\(\s*["']?(\/[^"')#?]+)/g)) {
+    if (!fs.existsSync(path.join(root, 'public', reference.replace(/^\//, '')))) {
+      throw new Error(`Missing asset referenced by public/${file}: ${reference}`);
+    }
+    cssAssets++;
+  }
+}
+
+console.log(`Build checks passed: ${checkedFiles} JavaScript files, ${inlineScripts} inline scripts, ${localAssets} local asset references and ${cssAssets} stylesheet images.`);

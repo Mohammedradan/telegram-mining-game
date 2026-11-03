@@ -169,5 +169,5 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(html, /platform-rules\.js\?v=6/);
   assert.match(html, /platform-game\.js\?v=7/);
   assert.match(html, /platform-renderer\.js\?v=5/);
-  assert.match(html, /platform\.css\?v=8/);
+  assert.match(html, /platform\.css\?v=9/);
 });

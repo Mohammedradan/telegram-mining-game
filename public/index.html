@@ -311,11 +311,15 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=8">
+  <link rel="stylesheet" href="/platform.css?v=9">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
-  <link rel="stylesheet" href="/clicker.css?v=1">
+  <link rel="stylesheet" href="/cave.css?v=1">
+  <link rel="stylesheet" href="/clicker.css?v=2">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
+
+  <!-- مشهد الكهف خلف الواجهة: يظهر فقط مع تبويب التعدين (clicker.css) -->
+  <div class="ck-scene" aria-hidden="true"></div>
 
   <!-- أيقونات متجهية موحّدة: واجهة المنجم لا تعتمد على خطوط الإيموجي -->
   <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
@@ -361,6 +365,90 @@
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   </svg>
 
+  <!-- فنّ الكهف المتجهي: رسومات ملوّنة بتدرجات (بخلاف أيقونات الواجهة الخطية). الروبوت والنبتة بديلان متجهيان إلى أن تتوفر لوحتاهما المرسومتان -->
+  <svg id="art-sprite" class="art-sprite" xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="ag-steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1f5f9"/><stop offset=".45" stop-color="#a5b4c8"/><stop offset="1" stop-color="#4b5a72"/></linearGradient>
+      <linearGradient id="ag-steel-d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b9ab3"/><stop offset="1" stop-color="#3a475c"/></linearGradient>
+      <linearGradient id="ag-helm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#c2670a"/></linearGradient>
+      <radialGradient id="ag-eye" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#f0fdff"/><stop offset=".4" stop-color="#22d3ee"/><stop offset="1" stop-color="#0e7490"/></radialGradient>
+      <radialGradient id="ag-ball" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#fff1f1"/><stop offset=".4" stop-color="#fb7185"/><stop offset="1" stop-color="#9f1239"/></radialGradient>
+      <radialGradient id="ag-leaf" cx=".5" cy=".95" r=".95"><stop offset="0" stop-color="#047857"/><stop offset=".55" stop-color="#22c55e"/><stop offset="1" stop-color="#bbf7d0"/></radialGradient>
+      <radialGradient id="ag-gold" cx=".34" cy=".28" r=".85"><stop offset="0" stop-color="#fffbe0"/><stop offset=".3" stop-color="#fde047"/><stop offset=".68" stop-color="#f59e0b"/><stop offset="1" stop-color="#92400e"/></radialGradient>
+      <linearGradient id="ag-rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff7c2"/><stop offset=".45" stop-color="#e8a317"/><stop offset="1" stop-color="#7c3d06"/></linearGradient>
+      <radialGradient id="ag-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fde68a" stop-opacity=".55"/><stop offset="1" stop-color="#fde68a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="ag-glow-c" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#67e8f9" stop-opacity=".5"/><stop offset="1" stop-color="#67e8f9" stop-opacity="0"/></radialGradient>
+      <radialGradient id="ag-glow-g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#86efac" stop-opacity=".5"/><stop offset="1" stop-color="#86efac" stop-opacity="0"/></radialGradient>
+      <path id="ag-leaf-shape" d="M0 0C-3 -3-14 -8-14 -17C-14 -24-6 -26 0 -19C6 -26 14 -24 14 -17C14 -8 3 -3 0 0Z"/>
+    </defs>
+
+    <!-- روبوت التعدين: خوذة صفراء ومصباح وعينان فيروزيتان -->
+    <symbol id="a-robot" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="url(#ag-glow-c)"/>
+      <rect x="31" y="6" width="2" height="8" fill="#64748b"/>
+      <circle cx="32" cy="6" r="3.6" fill="url(#ag-ball)" stroke="#7f1d1d" stroke-width=".9"/>
+      <path d="M15 27c0-10 7-16 17-16s17 6 17 16z" fill="url(#ag-helm)" stroke="#8a4a08" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M32 11.5v15" stroke="#b45309" stroke-width="1.6" opacity=".55"/>
+      <circle cx="32" cy="19" r="7.4" fill="#fde047" opacity=".3"/>
+      <circle cx="32" cy="19" r="4.6" fill="#fffbe0" stroke="#f59e0b" stroke-width="1.6"/>
+      <rect x="11.5" y="26" width="41" height="4.6" rx="2.3" fill="#f59e0b" stroke="#8a4a08" stroke-width="1.2"/>
+      <rect x="8.8" y="34" width="5.6" height="11" rx="2.2" fill="url(#ag-steel-d)" stroke="#1e293b" stroke-width="1.2"/>
+      <rect x="49.6" y="34" width="5.6" height="11" rx="2.2" fill="url(#ag-steel-d)" stroke="#1e293b" stroke-width="1.2"/>
+      <rect x="14" y="30.6" width="36" height="20" rx="6" fill="url(#ag-steel)" stroke="#1e293b" stroke-width="1.5"/>
+      <path d="M19 33.4h26" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="18" y="35" width="28" height="11" rx="4.5" fill="#0a1124" stroke="#334155" stroke-width="1"/>
+      <circle cx="26" cy="40.5" r="5" fill="#22d3ee" opacity=".28"/>
+      <circle cx="38" cy="40.5" r="5" fill="#22d3ee" opacity=".28"/>
+      <circle cx="26" cy="40.5" r="3.5" fill="url(#ag-eye)"/>
+      <circle cx="38" cy="40.5" r="3.5" fill="url(#ag-eye)"/>
+      <circle cx="25" cy="39.4" r="1" fill="#fff"/>
+      <circle cx="37" cy="39.4" r="1" fill="#fff"/>
+      <path d="M27 48.4h10" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="27" y="50.6" width="10" height="3.4" fill="#475569"/>
+      <path d="M12.5 63c0-6.4 5-9.2 11.5-9.2h16c6.5 0 11.5 2.8 11.5 9.2z" fill="url(#ag-steel)" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="32" cy="58.6" r="2.1" fill="#22d3ee" stroke="#0e7490" stroke-width=".8"/>
+    </symbol>
+
+    <!-- حظ المعدّن: نبتة رباعية الأوراق وقطعة ذهب وبريق -->
+    <symbol id="a-luck" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="url(#ag-glow-g)"/>
+      <path d="M32 33C31 44 35 51 41 56" fill="none" stroke="#14532d" stroke-width="4.6" stroke-linecap="round"/>
+      <path d="M32 33C31 44 35 51 41 56" fill="none" stroke="#22c55e" stroke-width="2.6" stroke-linecap="round"/>
+      <g transform="translate(32 33)" stroke="#064e3b" stroke-width="1.3" stroke-linejoin="round">
+        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(45)"/>
+        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(135)"/>
+        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(225)"/>
+        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(315)"/>
+      </g>
+      <g transform="translate(32 33)" fill="none" stroke="#a7f3d0" stroke-opacity=".7" stroke-width="1" stroke-linecap="round">
+        <path d="M0 -3 0 -16" transform="rotate(45)"/><path d="M0 -3 0 -16" transform="rotate(135)"/><path d="M0 -3 0 -16" transform="rotate(225)"/><path d="M0 -3 0 -16" transform="rotate(315)"/>
+      </g>
+      <g transform="translate(32 33)" fill="#fff" opacity=".5">
+        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(45)"/>
+        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(135)"/>
+        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(225)"/>
+        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(315)"/>
+      </g>
+      <circle cx="32" cy="33" r="2.6" fill="#fde047" stroke="#92400e" stroke-width=".9"/>
+      <circle cx="48" cy="49" r="9" fill="url(#ag-gold)" stroke="#8a4a08" stroke-width="1.5"/>
+      <circle cx="48" cy="49" r="6" fill="none" stroke="#b45309" stroke-width="1"/>
+      <path d="m48 44.6 1.3 2.8 3 .4-2.2 2.1.6 3L48 51.4l-2.7 1.5.6-3-2.2-2.1 3-.4z" fill="#b45309"/>
+      <path d="m51 8 1.4 3.6L56 13l-3.6 1.4L51 18l-1.4-3.6L46 13l3.6-1.4z" fill="#fef08a"/>
+      <path d="m13 12 1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1z" fill="#fef9c3"/>
+    </symbol>
+
+    <!-- عملة ذهبية للعدّاد -->
+    <symbol id="a-coin" viewBox="0 0 48 48">
+      <circle cx="24" cy="25.5" r="21" fill="#5a2d04" opacity=".5"/>
+      <circle cx="24" cy="24" r="21.5" fill="url(#ag-rim)"/>
+      <circle cx="24" cy="24" r="17.4" fill="url(#ag-gold)" stroke="#8a4a08" stroke-width="1.4"/>
+      <circle cx="24" cy="24" r="13.6" fill="none" stroke="#b45309" stroke-opacity=".7" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+      <path d="M24 14.6 29 22l-5 11.4L19 22z" fill="#fff7c2" stroke="#b45309" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M19 22h10M24 14.6V33" stroke="#d98a12" stroke-width=".9" opacity=".8"/>
+      <path d="M10.4 15.6A15 15 0 0 1 21 9" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </svg>
+
 
   <!-- Header Info -->
   <header class="app-header flex justify-between items-center bg-slate-900/80 border border-slate-800 px-3 py-2 rounded-2xl backdrop-blur-md">
@@ -387,13 +475,20 @@
   </header>
 
   <!-- Total Balance Display -->
-  <div class="balance-strip flex items-center justify-center gap-2 rounded-xl bg-slate-950/30 px-3 py-1.5">
-    <svg class="ui-icon ck-coin-icon" aria-hidden="true"><use href="#i-coin"/></svg>
-    <div class="leading-none">
-      <div class="text-slate-400 text-[9px] font-semibold mb-1">إجمالي الذهب</div>
-      <span id="gold-counter" class="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">0</span>
+  <div class="ck-hud">
+    <div class="balance-strip flex items-center justify-center gap-2 rounded-xl bg-slate-950/30 px-3 py-1.5">
+      <svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg>
+      <div class="leading-none">
+        <div class="text-slate-400 text-[9px] font-semibold mb-1">إجمالي الذهب</div>
+        <span id="gold-counter" class="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">0</span>
+      </div>
+      <div id="sync-status" class="sr-only" aria-live="polite">💾 حفظ محلي — جارٍ الاتصال بالخادم…</div>
     </div>
-    <div id="sync-status" class="sr-only" aria-live="polite">💾 حفظ محلي — جارٍ الاتصال بالخادم…</div>
+    <!-- كتم صوت المؤثرات: يظهر بجانب العدّاد في مشهد الكهف فقط -->
+    <button id="ck-sound" class="ck-sound" type="button" aria-pressed="false" aria-label="كتم أو تشغيل صوت النقر">
+      <svg class="ui-icon ck-ico-on" aria-hidden="true"><use href="#i-sound"/></svg>
+      <svg class="ui-icon ck-ico-off" aria-hidden="true"><use href="#i-muted"/></svg>
+    </button>
   </div>
 
   <!-- TAB 0: INTERACTIVE ADVENTURE GAME (الشاشة الرئيسية) -->
@@ -601,87 +696,68 @@
     </section>
   </main>
 
-  <!-- TAB 1: MINING (QUICK CLICK) — شاشة نقر تفاعلية: إمالة ثلاثية الأبعاد نحو اللمس، أرقام وجسيمات، سلسلة نقرات،
-       تعزيز حيّ وهدف ترقية. العرض كله من public/clicker-fx.js؛ الذهب والطاقة والعمليات تبقى من handleMine/buyUpgrade/activateBoost. -->
+  <!-- TAB 1: MINING (QUICK CLICK) — مركز الكهف: ميداليات ترقية بحلقات تقدّم حول مدخل المنجم، صخرة خام تُنقر فتتفتت شرراً،
+       معدّن يتفاعل، وزر «إلى المنجم». العرض كله من public/clicker-fx.js؛ الذهب والطاقة والعمليات تبقى من handleMine/buyUpgrade/activateBoost. -->
   <main id="tab-mining" class="tab-content flex-col items-center relative flex-1 ck-tab">
     <div id="ck-stage" class="ck-stage" data-boost="0" data-frenzy="0" data-fresh="1">
       <div class="ck-ambience" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-      <button id="ck-sound" class="ck-sound" type="button" aria-pressed="false" aria-label="كتم أو تشغيل صوت النقر">
-        <svg class="ui-icon ck-ico-on" aria-hidden="true"><use href="#i-sound"/></svg>
-        <svg class="ui-icon ck-ico-off" aria-hidden="true"><use href="#i-muted"/></svg>
-      </button>
+      <!-- ميداليات الترقية (تُبنى من clicker-fx.js): حلقة التقدّم = رصيدك ÷ سعر الترقية، وتخضرّ مع سهم حين تتاح -->
+      <div id="ck-nodes" class="ck-nodes" role="group" aria-label="ترقيات التعدين"></div>
 
       <div id="click-area" class="ck-area">
-        <div class="ck-aura" aria-hidden="true"></div>
-        <!-- حلقة الحرارة: تمتلئ بالنقر المتواصل (عرض فقط) -->
-        <svg class="ck-heat" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
-          <defs>
-            <linearGradient id="ck-heat-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde047"/><stop offset=".55" stop-color="#fb923c"/><stop offset="1" stop-color="#f43f5e"/></linearGradient>
-          </defs>
-          <circle class="ck-heat-track" cx="100" cy="100" r="96"/>
-          <circle class="ck-heat-bar" cx="100" cy="100" r="96"/>
-        </svg>
-        <div id="ck-streak" class="ck-streak" aria-hidden="true" data-tier="1"><svg class="ui-icon"><use href="#i-flame"/></svg><span>سلسلة</span><b id="ck-streak-n">0</b></div>
-
+        <div class="ck-ground" aria-hidden="true"></div>
+        <img id="ck-hero" class="ck-hero" src="/assets/cave/hero.webp?v=1" alt="" width="421" height="560" draggable="false" decoding="async">
         <button id="mine-btn" type="button" aria-label="تعدين" aria-describedby="tap-hint" class="mining-btn ck-btn">
-          <span class="ck-bob"><span id="ck-coin" class="ck-coin">
-            <span class="ck-rim"></span>
-            <span class="ck-face">
-              <span class="ck-twinkle t1"></span><span class="ck-twinkle t2"></span><span class="ck-twinkle t3"></span>
-              <!-- جوهرة SVG مرسومة بالأوجه: لا تعتمد على خط إيموجي (كان يظهر مربعاً فارغاً على بعض الأجهزة) -->
-              <svg id="ck-gem" class="ck-gem" viewBox="0 0 100 92" aria-hidden="true" focusable="false">
-                <defs>
-                  <linearGradient id="ck-g-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0fdff"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient>
-                  <linearGradient id="ck-g-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bae6fd"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
-                  <linearGradient id="ck-g-c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0369a1"/></linearGradient>
-                  <linearGradient id="ck-g-d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7dd3fc"/><stop offset="1" stop-color="#0284c7"/></linearGradient>
-                  <linearGradient id="ck-g-e" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0ea5e9"/><stop offset="1" stop-color="#075985"/></linearGradient>
-                  <linearGradient id="ck-g-f" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
-                </defs>
-                <g stroke="rgba(7,40,70,.55)" stroke-width="1.4" stroke-linejoin="round">
-                  <polygon points="5,33 27,8 33,33" fill="url(#ck-g-b)"/>
-                  <polygon points="27,8 73,8 67,33 33,33" fill="url(#ck-g-a)"/>
-                  <polygon points="73,8 95,33 67,33" fill="url(#ck-g-c)"/>
-                  <polygon points="5,33 33,33 50,88" fill="url(#ck-g-d)"/>
-                  <polygon points="33,33 50,33 50,88" fill="url(#ck-g-f)"/>
-                  <polygon points="50,33 67,33 50,88" fill="url(#ck-g-c)"/>
-                  <polygon points="67,33 95,33 50,88" fill="url(#ck-g-e)"/>
-                </g>
-                <polygon points="31,11 46,11 38,25" fill="#fff" opacity=".75"/>
-                <polygon points="9,35 26,35 40,72" fill="#fff" opacity=".12"/>
-              </svg>
-            </span>
-            <span class="ck-gloss" aria-hidden="true"><i id="ck-gloss"></i></span>
+          <span class="ck-bob"><span id="ck-ore" class="ck-ore">
+            <span class="ck-glow" aria-hidden="true"></span>
+            <img class="ck-ore-img" src="/assets/cave/ore.webp?v=1" alt="" width="520" height="520" draggable="false" decoding="async">
           </span></span>
         </button>
-
+        <div id="ck-streak" class="ck-streak" aria-hidden="true" data-tier="1"><svg class="ui-icon"><use href="#i-flame"/></svg><span>سلسلة</span><b id="ck-streak-n">0</b></div>
         <div id="ck-status" class="ck-status" aria-hidden="true" data-kind=""><svg class="ui-icon"><use id="ck-status-icon" href="#i-bolt"/></svg><span id="ck-status-text"></span></div>
         <div id="ck-banner" class="ck-banner" aria-hidden="true"></div>
       </div>
 
-      <p id="tap-hint" class="ck-hint">اضغط على الجوهرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
+      <p id="tap-hint" class="ck-hint">اضغط على الصخرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
 
-      <button id="boost-btn" onclick="activateBoost()" type="button" class="ck-boost" data-state="ready">
-        <i class="ck-boost-fill" aria-hidden="true"></i>
-        <svg class="ui-icon ck-boost-icon" aria-hidden="true"><use href="#i-bolt"/></svg>
-        <span class="ck-boost-label">تعزيز ×2</span>
-        <span class="ck-boost-time">0:30</span>
-      </button>
-
-      <!-- الهدف التالي: أرخص ترقية مع تقدّم رصيدك نحوها؛ الشراء بنفس buyUpgrade (عملية خادمية عادية) -->
-      <div id="ck-goal" class="ck-goal" data-ready="0" hidden>
-        <span class="ck-goal-icon" aria-hidden="true"><svg class="ui-icon"><use id="ck-goal-icon" href="#i-pickaxe"/></svg></span>
-        <span class="ck-goal-body">
-          <span class="ck-goal-title"><span id="ck-goal-name">فأس فولاذي</span><small id="ck-goal-owned"></small></span>
-          <span class="ck-goal-meta"><span id="ck-goal-desc">+1 لكل نقرة</span><span id="ck-goal-have" dir="ltr"></span></span>
-          <span class="ck-goal-bar" aria-hidden="true"><i id="ck-goal-fill"></i></span>
-        </span>
-        <button id="ck-goal-buy" class="ck-goal-buy" type="button" disabled aria-label="شراء الترقية التالية"><svg class="ui-icon" aria-hidden="true"><use href="#i-coin"/></svg><b id="ck-goal-cost">50</b></button>
+      <div class="ck-actions">
+        <!-- «إلى المنجم»: ينقل إلى جولة المنصّات (150 ثانية) ويبدأها إن لم تكن هناك جولة موقوفة -->
+        <button id="ck-go" type="button" class="ck-go cv-btn is-hot" aria-label="إلى المنجم — ابدأ جولة تعدين مدتها 150 ثانية">
+          <svg class="ui-icon ck-go-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
+          <span class="ck-go-text"><b>إلى المنجم</b><small>جولة 150 ثانية</small></span>
+        </button>
+        <button id="boost-btn" onclick="activateBoost()" type="button" class="ck-boost cv-btn cv-btn-violet" data-state="ready">
+          <i class="ck-boost-fill" aria-hidden="true"></i>
+          <svg class="ui-icon ck-boost-icon" aria-hidden="true"><use href="#i-bolt"/></svg>
+          <span class="ck-boost-label">تعزيز ×2</span>
+          <span class="ck-boost-time">0:30</span>
+        </button>
       </div>
 
       <div id="ck-live" class="sr-only" aria-live="polite"></div>
     </div>
   </main>
+
+  <!-- نافذة الترقية: تُفتح من ميدالية؛ الشراء بنفس buyUpgrade (عملية خادمية عادية) -->
+  <div id="ck-sheet" class="ck-sheet" hidden>
+    <div class="ck-sheet-card cv-frame" role="dialog" aria-modal="true" aria-labelledby="ck-sheet-title">
+      <button id="ck-sheet-close" class="ck-sheet-x" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <div id="ck-sheet-art" class="ck-sheet-art" aria-hidden="true"></div>
+      <h3 id="ck-sheet-title" class="ck-sheet-title">فأس فولاذي</h3>
+      <p id="ck-sheet-desc" class="ck-sheet-desc">+1 لكل نقرة</p>
+      <div class="ck-sheet-stats">
+        <div><small>المستوى</small><b id="ck-sheet-owned">0</b></div>
+        <div><small>الحالي</small><b id="ck-sheet-now">1</b></div>
+        <div class="is-next"><small>التالي</small><b id="ck-sheet-next">2</b></div>
+      </div>
+      <div class="ck-sheet-cost" id="ck-sheet-costbox">
+        <svg class="ck-sheet-coin" aria-hidden="true"><use href="#a-coin"/></svg>
+        <b id="ck-sheet-cost">50</b>
+        <span id="ck-sheet-have" class="ck-sheet-have"></span>
+      </div>
+      <button id="ck-sheet-buy" class="cv-btn cv-btn-gold ck-sheet-buy" type="button">ترقية</button>
+    </div>
+  </div>
 
   <!-- TAB 2: UPGRADES / SHOP -->
   <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 py-2 px-1">
@@ -893,7 +969,7 @@
   <div id="ws-overlay" class="ws-overlay" hidden aria-label="ورشة المعدّن">
     <div class="ws-cave" aria-hidden="true"></div>
     <div class="ws-top">
-      <div class="ws-chip ws-gold"><svg class="ui-icon" aria-hidden="true"><use href="#i-coin"/></svg><span id="ws-gold">0</span></div>
+      <div class="ws-chip ws-gold"><svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><span id="ws-gold">0</span></div>
       <div class="ws-chip ws-ores"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="ws-ore-total">0</span></div>
       <div class="ws-top-actions">
         <button id="ws-sound" class="ws-icon-btn" type="button" aria-label="الصوت" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="#i-sound"/></svg></button>
@@ -907,28 +983,30 @@
         <div class="ws-orbit" aria-hidden="true"></div>
         <div class="ws-glow" aria-hidden="true"></div>
         <div class="ws-pedestal" aria-hidden="true"></div>
-        <canvas id="ws-hero" class="ws-hero-canvas" aria-hidden="true"></canvas>
+        <img id="ws-hero" class="ws-hero-canvas" src="/assets/cave/hero.webp?v=1" alt="" width="421" height="560" draggable="false" decoding="async">
+        <!-- مسيّرة الروبوت تظهر بجانب المعدّن عند ترقية «روبوت التعدين» -->
+        <span id="ws-drone" class="ws-drone" aria-hidden="true" hidden><svg viewBox="0 0 64 64" focusable="false"><use href="#a-robot"/></svg></span>
         <div id="ws-nodes" class="ws-nodes"></div>
       </div>
     </div>
     <div class="ws-bottom">
       <div id="ws-summary" class="ws-summary"></div>
       <button id="ws-mine" class="ws-mine-btn" type="button" aria-haspopup="dialog" aria-label="اختيار المنجم"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span class="ws-mine-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="ws-mine-hits" data-mine-hits></span></button>
-      <button id="ws-cta" class="ws-cta" type="button">ابدأ التعدين</button>
+      <button id="ws-cta" class="ws-cta cv-btn is-hot" type="button"><svg class="ui-icon ws-cta-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>ابدأ التعدين</span></button>
       <p id="ws-note" class="ws-note" aria-live="polite">تُشترى المعدات بالذهب والخامات ويتحقق الخادم من كل ترقية. تسري من جولتك القادمة.</p>
     </div>
     <div id="ws-modal" class="ws-modal" hidden>
-      <div class="ws-card">
-        <div id="ws-card-icon" class="ws-card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
+      <div class="ws-card cv-frame">
+        <div id="ws-card-icon" class="ws-card-icon" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
         <h3 id="ws-card-title">قوة المعول</h3>
         <p id="ws-card-effect" class="ws-card-effect"></p>
         <div class="ws-stats"><span>المستوى <b class="ws-level"><span id="ws-card-level">0</span><span class="ws-card-max">/5</span></b></span></div>
         <div class="ws-effects"><p id="ws-card-now"></p><p id="ws-card-next"></p></div>
         <div class="ws-costs" aria-label="تكلفة الترقية">
-          <span class="ws-cost" id="ws-cost-gold"><svg class="ui-icon" aria-hidden="true"><use href="#i-coin"/></svg><b id="ws-card-cost">0</b></span>
+          <span class="ws-cost" id="ws-cost-gold"><svg class="ws-cost-coin" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><b id="ws-card-cost">0</b></span>
           <span class="ws-cost" id="ws-cost-ore"></span>
         </div>
-        <button id="ws-upgrade" class="ws-upgrade" type="button">ترقية</button>
+        <button id="ws-upgrade" class="ws-upgrade cv-btn cv-btn-gold" type="button">ترقية</button>
         <button id="ws-modal-close" class="ws-modal-close" type="button">إغلاق</button>
       </div>
     </div>
@@ -951,7 +1029,8 @@
   <script src="/platform-rules.js?v=6"></script>
   <script src="/platform-renderer.js?v=5"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
-  <script src="/clicker-fx.js?v=1"></script>
+  <script src="/cave-art.js?v=1"></script>
+  <script src="/clicker-fx.js?v=2"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -1948,6 +2027,7 @@
         gold: state.gold, energy: state.energy, maxEnergy: state.maxEnergy, clickPower: state.clickPower,
         boostUntil: state.boostUntil || 0, boostCooldownUntil: state.boostCooldownUntil || 0,
         costs: state.costs, owned: state.owned, passive: passiveGain(), level, levelSource: prog ? 'server' : 'local', now,
+        workshop: workshopHint(),
       });
     }
 
@@ -1969,8 +2049,9 @@
     function handleMine(e) {
       // موضع اللمس في إحداثيات الشاشة؛ من لوحة المفاتيح (بلا إحداثيات) يكون مركز الجوهرة
       const rect = clickArea.getBoundingClientRect();
-      const cx = e.clientX ?? (rect.left + rect.width / 2);
-      const cy = e.clientY ?? (rect.top + rect.height / 2);
+      const focus = (document.getElementById('ck-ore') || clickArea).getBoundingClientRect(); // مركز الصخرة لا مركز الساحة كلها
+      const cx = e.clientX ?? (focus.left + focus.width / 2);
+      const cy = e.clientY ?? (focus.top + focus.height / 2);
       if (state.energy < state.clickPower) { haptic('error'); window.ClickerFX?.denied({ x: cx, y: cy }); return; }
 
       const gain = clickGain(); // ×2 أثناء التعزيز كما يعرض الزر
@@ -3090,11 +3171,11 @@
       }
     }
 
-    // name/desc/icon تعرضها بطاقة «الهدف التالي» في تبويب التعدين؛ المنطق (apply/growth) لم يتغير
+    // name/desc/icon وbase/gain/unit تعرضها ميداليات ونافذة الترقية في تبويب التعدين (عرض فقط)؛ المنطق (apply/growth) لم يتغير
     const UPGRADES = {
-      click: { apply: () => { state.clickPower += 1; },      growth: 1.5, name: 'فأس فولاذي',        desc: '+1 لكل نقرة',   icon: 'i-pickaxe' },
-      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4, name: 'عامل آلي',          desc: '+5 ذهب/ثانية',  icon: 'i-robot' },
-      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3, name: 'منصة تعدين عملاقة', desc: '+25 ذهب/ثانية', icon: 'i-drill' }
+      click: { apply: () => { state.clickPower += 1; },      growth: 1.5, name: 'فأس فولاذي',        desc: '+1 لكل نقرة',   icon: 'i-pickaxe', base: 1, gain: 1,  unit: 'لكل نقرة' },
+      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4, name: 'عامل آلي',          desc: '+5 ذهب/ثانية',  icon: 'i-robot',   base: 0, gain: 5,  unit: 'ذهب/ثانية' },
+      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3, name: 'منصة تعدين عملاقة', desc: '+25 ذهب/ثانية', icon: 'i-drill',   base: 0, gain: 25, unit: 'ذهب/ثانية' }
     };
 
     function buyUpgrade(type) {
@@ -3229,9 +3310,8 @@
     // ============================================================
     const WS_RULES = window.PlatformRules; // ملف القواعد المشترك؛ غيابه يعطّل الورشة والخريطة فقط ولا يُسقط بقية اللعبة
     const WORKSHOP_ITEMS = WS_RULES ? WS_RULES.EQUIPMENT_ORDER.map((id) => ({ id, ...WS_RULES.EQUIPMENT[id] })) : [];
-    let wsOpenFlag = false, wsRaf = 0, wsTickCount = 0, wsAudio = null, wsMusicTimer = 0;
+    let wsOpenFlag = false, wsAudio = null, wsMusicTimer = 0;
     let wsSoundOn = true, wsMusicOn = false, wsActiveItem = null;
-    const wsReduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
     const WS_DEFAULT_NOTE = 'تُشترى المعدات بالذهب والخامات ويتحقق الخادم من كل ترقية. تسري من جولتك القادمة.';
     const wsLevel = (id) => Math.max(0, Math.min(WS_RULES.MAX_EQUIP_LEVEL, Math.floor(Number(state.equipment?.[id]) || 0)));
     const hitsWord = (n) => (n === 1 ? 'ضربة واحدة' : n === 2 ? 'ضربتان' : n <= 10 ? `${n} ضربات` : `${n} ضربة`);
@@ -3249,14 +3329,27 @@
       const a = (-90 + i * 45) * Math.PI / 180;
       return { x: 50 + 41 * Math.cos(a), y: 50 + 41 * Math.sin(a) };
     }
+    // ميدالية المعدة: حلقة التقدّم = رصيد الذهب ÷ سعر الترقية، وتخضرّ مع سهم حين يكفي الذهب والخامات، وتكتمل ذهبياً عند المستوى الأقصى
+    function wsMedal(id, icon, lvl, a) {
+      const mstate = a.max ? 'max' : a.ok ? 'ready' : 'poor';
+      const progress = a.max ? 1 : a.cost ? Math.min(1, (Number(state.gold) || 0) / Math.max(1, a.cost.gold)) : 0;
+      const art = window.CaveArt;
+      if (art?.medalHTML) return art.medalHTML({ id, icon, level: lvl, progress, state: mstate });
+      return `<svg class="ui-icon" aria-hidden="true"><use href="#${icon}"/></svg><span class="ws-node-lvl">${lvl}</span>`;
+    }
+    function wsRenderHero() {
+      const drone = document.getElementById('ws-drone');
+      if (drone) drone.hidden = !(WS_RULES && wsLevel('robot') >= 1);
+    }
     function wsRenderNodes() {
       const host = document.getElementById('ws-nodes');
       if (!host) return;
       host.innerHTML = WORKSHOP_ITEMS.map((it, i) => {
         const pos = wsNodePos(i), lvl = wsLevel(it.id), a = wsAfford(it.id);
         const cls = ['ws-node', a.max ? 'is-max' : '', a.ok ? 'can-buy' : ''].filter(Boolean).join(' ');
-        return `<button class="${cls}" type="button" data-ws-item="${it.id}" style="left:${pos.x}%;top:${pos.y}%" aria-label="${it.name} — المستوى ${lvl}" title="${it.name}"><svg class="ui-icon" aria-hidden="true"><use href="#${it.icon}"/></svg><span class="ws-node-lvl">${lvl}</span></button>`;
+        return `<button class="${cls}" type="button" data-ws-item="${it.id}" style="left:${pos.x}%;top:${pos.y}%" aria-label="${it.name} — المستوى ${lvl}${a.ok ? ' — ترقية متاحة' : ''}" title="${it.name}">${wsMedal(it.id, it.icon, lvl, a)}</button>`;
       }).join('');
+      wsRenderHero();
     }
     function wsRenderTop() {
       const gold = document.getElementById('ws-gold');
@@ -3305,46 +3398,18 @@
         wsBeep(523, 0.15, 0.03, true);
       }
     }
-    function wsDrawHero() {
-      const canvas = document.getElementById('ws-hero');
-      if (!canvas || !window.PlatformRenderer?.drawHero || !window.PlatformRules) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = canvas.clientWidth || 150, h = canvas.clientHeight || 150;
-      if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-        canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
-      }
-      const c = canvas.getContext('2d');
-      if (!c) return;
-      c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
-      const scale = Math.min(w, h) / 58;
-      c.save(); c.translate(w / 2, h / 2 + 6 * scale); c.scale(scale, scale);
-      // البطل بمعداته الحالية: الروبوت يظهر بجانبه عند ترقيته
-      const base = window.PlatformRules.create('miner', undefined, { zone: 0, loadout: state.equipment });
-      const hero = { ...base.player, x: -12, y: -20, facing: 1, pose: 'idle', attack: 0, invulnerable: 0, landTimer: 0, vy: 0, grounded: true };
-      window.PlatformRenderer.drawHero(c, hero, wsReduced ? 0 : wsTickCount, wsReduced);
-      if (hero.robot && window.PlatformRenderer.drawDrone) window.PlatformRenderer.drawDrone(c, hero, wsReduced ? 0 : wsTickCount, wsReduced);
-      c.restore();
-    }
-    function wsLoop() {
-      if (!wsOpenFlag) return;
-      if (!wsReduced) wsTickCount += 1;
-      wsDrawHero();
-      wsRaf = requestAnimationFrame(wsLoop);
-    }
     function wsOpen() {
       const overlay = document.getElementById('ws-overlay');
       if (!overlay) return;
       try { window.PlatformGame?.pause(); } catch (_) {}
       wsOpenFlag = true; overlay.hidden = false; wsNote('');
       wsRenderNodes(); wsRenderTop(); wsBeep(440, 0.1);
-      cancelAnimationFrame(wsRaf); wsRaf = requestAnimationFrame(wsLoop);
       document.getElementById('ws-close')?.focus({ preventScroll: true });
     }
     function wsClose() {
       const overlay = document.getElementById('ws-overlay');
       if (!overlay || overlay.hidden) return;
       wsOpenFlag = false; overlay.hidden = true;
-      cancelAnimationFrame(wsRaf); wsRaf = 0;
       if (wsMusicTimer) { clearInterval(wsMusicTimer); wsMusicTimer = 0; }
       wsMusicOn = false;
       document.getElementById('ws-music')?.setAttribute('aria-pressed', 'false');
@@ -3356,7 +3421,7 @@
       if (!item) return;
       wsActiveItem = item;
       const lvl = wsLevel(id), a = wsAfford(id);
-      document.getElementById('ws-card-icon').innerHTML = `<svg class="ui-icon" aria-hidden="true"><use href="#${item.icon}"/></svg>`;
+      document.getElementById('ws-card-icon').innerHTML = wsMedal(item.id, item.icon, lvl, a);
       document.getElementById('ws-card-title').textContent = item.name;
       document.getElementById('ws-card-effect').textContent = item.blurb;
       document.getElementById('ws-card-level').textContent = String(lvl);
@@ -3400,6 +3465,21 @@
       try { switchTab('play'); switchPlayPanel('adventure'); } catch (_) {}
       const start = document.getElementById('platform-start');
       if (start && !start.disabled) start.click();
+    }
+    // «إلى المنجم» في تبويب التعدين: ينتقل إلى جولة المنصّات ويبدأها، إلا إن كانت هناك جولة موقوفة فيقرر اللاعب (متابعة أو إعادة)
+    function goToMine() {
+      try { switchTab('play'); switchPlayPanel('adventure'); } catch (_) {}
+      const resume = document.getElementById('platform-resume');
+      const start = document.getElementById('platform-start');
+      if (resume && !resume.hidden) return;
+      if (start && !start.disabled) start.click();
+    }
+    // ميدالية الورشة في تبويب التعدين: هل تكفي الأرصدة الآن لترقية أي معدة؟ (للعرض فقط — الخادم هو الحكم)
+    function workshopHint() {
+      try {
+        if (!serverMode || !WS_RULES) return null;
+        return { ready: WORKSHOP_ITEMS.some((it) => wsAfford(it.id).ok) };
+      } catch (_) { return null; }
     }
 
     // ============================================================
@@ -3500,7 +3580,7 @@
     window.closeMines = minesClose;
 
     // مؤثرات تبويب التعدين (عرض فقط): إن غاب الملف أو تعطّل يبقى المسار القديم
-    window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES });
+    window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null });
     updateUI();
     updateArenaUI();
     updateAdventureUI();

@@ -256,18 +256,20 @@ test('keyboard activation has no coordinates and still mines (falls back to the 
   assert.deepEqual(page.log.errors, []);
 });
 
-test('updateUI feeds the effects: energy states, live boost button, goal card and level-up celebration', async () => {
+test('updateUI feeds the effects: medal states, energy states, live boost button and level-up celebration', async () => {
   const page = bootPage({ me: meResponse });
   await page.settle();
   showMiningTab(page);
   const { state, profile } = page.dbg();
-  // goal card: the cheapest upgrade is the pickaxe (50) and 1,234 gold covers it
+  // medals: 1,234 gold covers all three upgrades (50 / 200 / 1,000); the workshop has gold but no ores yet, so it is not ready
   page.ctx.updateUI();
-  assert.equal(page.byId('ck-goal').hidden, false);
-  assert.equal(page.byId('ck-goal-name').textContent, 'فأس فولاذي');
-  assert.equal(page.byId('ck-goal').dataset.ready, '1');
-  assert.equal(page.byId('ck-goal-buy').disabled, false);
-  assert.equal(page.byId('ck-goal-cost').textContent, '50');
+  const fxState = page.ctx.ClickerFX.inspect();
+  assert.deepEqual({ ...fxState.nodes }, { click: 'ready', bot: 'ready', rig: 'ready', workshop: 'poor' }); // spread: the VM's objects have another realm's prototype
+  assert.equal(fxState.hint, 'click', 'the first-run pointer targets the first ready medal');
+  assert.equal(page.byId('ck-nodes').children.filter((c) => c.dataset && c.dataset.ckItem).length, 4, 'three upgrades and the workshop');
+  state.gold = 120; page.ctx.updateUI();
+  assert.deepEqual({ ...page.ctx.ClickerFX.inspect().nodes }, { click: 'ready', bot: 'poor', rig: 'poor', workshop: 'poor' });
+  state.gold = 1234; page.ctx.updateUI();
   // energy states
   assert.equal(page.byId('energy-container').dataset.level, 'full');
   state.energy = 100; page.ctx.updateUI();
@@ -312,6 +314,93 @@ test('switching tabs clears the effects and re-syncs on return', async () => {
   const away = page.ctx.ClickerFX.inspect();
   assert.deepEqual([away.streak, away.heat, away.particles], [0, 0, 0]);
   page.ctx.ClickerFX.onTab('mining');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the upgrade window shows the effect, buys through buyUpgrade (a normal server op) and keeps the economy exact', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const fx = page.ctx.ClickerFX;
+  const { state, SYNC } = page.dbg();
+  page.ctx.updateUI();
+  fx.openSheet('click');
+  assert.equal(fx.inspect().sheet, 'click');
+  assert.equal(page.byId('ck-sheet').hidden, false);
+  assert.equal(page.byId('ck-sheet-title').textContent, 'فأس فولاذي');
+  assert.equal(page.byId('ck-sheet-owned').textContent, '0');
+  assert.match(page.byId('ck-sheet-now').textContent, /^1 لكل نقرة$/);
+  assert.match(page.byId('ck-sheet-next').textContent, /^2 لكل نقرة$/);
+  assert.equal(page.byId('ck-sheet-cost').textContent, '50');
+  assert.equal(page.byId('ck-sheet-buy').disabled, false);
+  assert.equal(fx.inspect().hinted, true, 'opening any window retires the first-run pointer');
+  const [gold0, power0, pending0] = [state.gold, state.clickPower, SYNC.pending.length];
+  fx.buyOpen();
+  assert.equal(state.gold, gold0 - 50, 'exactly the listed price is charged');
+  assert.equal(state.owned.click, 1);
+  assert.equal(state.clickPower, power0 + 1, 'the effect shown in the window is the effect applied');
+  assert.equal(SYNC.pending.length, pending0 + 1);
+  assert.ok(SYNC.pending.some((op) => op.type === 'buy' && op.item === 'click'), 'a normal buy op is queued for the server');
+  assert.equal(page.byId('ck-sheet-owned').textContent, '1', 'the window re-renders in place');
+  assert.match(page.byId('ck-sheet-now').textContent, /^2 لكل نقرة$/);
+  // not enough gold: the button is disabled, says why, and a forced buy changes nothing
+  state.gold = 10; page.ctx.updateUI();
+  assert.equal(page.byId('ck-sheet-buy').disabled, true);
+  assert.equal(page.byId('ck-sheet-buy').textContent, 'الذهب غير كافٍ');
+  assert.match(page.byId('ck-sheet-have').textContent, /ينقصك/);
+  const owned = state.owned.click;
+  fx.buyOpen();
+  assert.equal(state.owned.click, owned, 'a refused purchase buys nothing');
+  assert.equal(state.gold, 10);
+  fx.closeSheet();
+  assert.equal(fx.inspect().sheet, '');
+  assert.equal(page.byId('ck-sheet').hidden, true);
+  // leaving the tab closes it too
+  fx.openSheet('bot');
+  assert.equal(fx.inspect().sheet, 'bot');
+  fx.onTab('shop');
+  assert.equal(fx.inspect().sheet, '');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the workshop medal opens the workshop instead of a window, and the CTA starts a round unless a paused one waits', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const fx = page.ctx.ClickerFX;
+  let opened = 0;
+  page.ctx.openWorkshop = () => { opened++; };
+  fx.openSheet('workshop'); // goes through opts.workshop (the real wsOpen), not through the sheet
+  assert.equal(fx.inspect().sheet, '', 'no upgrade window for the workshop medal');
+  const start = page.byId('platform-start'), resume = page.byId('platform-resume');
+  let starts = 0;
+  start.click = () => { starts++; };
+  resume.hidden = true;
+  page.ctx.goToMine();
+  assert.equal(starts, 1, 'no paused round: the CTA starts one');
+  resume.hidden = false;
+  page.ctx.goToMine();
+  assert.equal(starts, 1, 'a paused round: the player chooses (resume or restart)');
+  resume.hidden = true; start.disabled = true;
+  page.ctx.goToMine();
+  assert.equal(starts, 1, 'a disabled start button is never clicked');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the cave scene follows the mining tab: on when it opens, off when anything else opens', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  const classes = new Set();
+  const body = page.ctx.document.body;
+  body.classList.toggle = (name, force) => { if (force === undefined ? !classes.has(name) : force) classes.add(name); else classes.delete(name); };
+  body.classList.contains = (name) => classes.has(name);
+  const fx = page.ctx.ClickerFX;
+  fx.onTab('mining');
+  assert.equal(classes.has('ck-cave'), true);
+  assert.equal(fx.inspect().scene, true);
+  fx.onTab('play');
+  assert.equal(classes.has('ck-cave'), false);
+  assert.equal(fx.inspect().scene, false);
   assert.deepEqual(page.log.errors, []);
 });
 
