@@ -314,7 +314,7 @@
   <link rel="stylesheet" href="/platform.css?v=9">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
-  <link rel="stylesheet" href="/clicker.css?v=2">
+  <link rel="stylesheet" href="/clicker.css?v=5">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -365,7 +365,7 @@
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   </svg>
 
-  <!-- فنّ الكهف المتجهي: رسومات ملوّنة بتدرجات (بخلاف أيقونات الواجهة الخطية). الروبوت والنبتة بديلان متجهيان إلى أن تتوفر لوحتاهما المرسومتان -->
+  <!-- فنّ الكهف المتجهي: رسومات ملوّنة بتدرجات (بخلاف أيقونات الواجهة الخطية). الروبوت هنا طائرة الورشة المساعدة؛ أيقونتا الروبوت والنبتة في الميداليات مرسومتان (ملفات WebP) -->
   <svg id="art-sprite" class="art-sprite" xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id="ag-steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1f5f9"/><stop offset=".45" stop-color="#a5b4c8"/><stop offset="1" stop-color="#4b5a72"/></linearGradient>
@@ -373,13 +373,10 @@
       <linearGradient id="ag-helm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#c2670a"/></linearGradient>
       <radialGradient id="ag-eye" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#f0fdff"/><stop offset=".4" stop-color="#22d3ee"/><stop offset="1" stop-color="#0e7490"/></radialGradient>
       <radialGradient id="ag-ball" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#fff1f1"/><stop offset=".4" stop-color="#fb7185"/><stop offset="1" stop-color="#9f1239"/></radialGradient>
-      <radialGradient id="ag-leaf" cx=".5" cy=".95" r=".95"><stop offset="0" stop-color="#047857"/><stop offset=".55" stop-color="#22c55e"/><stop offset="1" stop-color="#bbf7d0"/></radialGradient>
       <radialGradient id="ag-gold" cx=".34" cy=".28" r=".85"><stop offset="0" stop-color="#fffbe0"/><stop offset=".3" stop-color="#fde047"/><stop offset=".68" stop-color="#f59e0b"/><stop offset="1" stop-color="#92400e"/></radialGradient>
       <linearGradient id="ag-rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff7c2"/><stop offset=".45" stop-color="#e8a317"/><stop offset="1" stop-color="#7c3d06"/></linearGradient>
       <radialGradient id="ag-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fde68a" stop-opacity=".55"/><stop offset="1" stop-color="#fde68a" stop-opacity="0"/></radialGradient>
       <radialGradient id="ag-glow-c" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#67e8f9" stop-opacity=".5"/><stop offset="1" stop-color="#67e8f9" stop-opacity="0"/></radialGradient>
-      <radialGradient id="ag-glow-g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#86efac" stop-opacity=".5"/><stop offset="1" stop-color="#86efac" stop-opacity="0"/></radialGradient>
-      <path id="ag-leaf-shape" d="M0 0C-3 -3-14 -8-14 -17C-14 -24-6 -26 0 -19C6 -26 14 -24 14 -17C14 -8 3 -3 0 0Z"/>
     </defs>
 
     <!-- روبوت التعدين: خوذة صفراء ومصباح وعينان فيروزيتان -->
@@ -407,34 +404,6 @@
       <rect x="27" y="50.6" width="10" height="3.4" fill="#475569"/>
       <path d="M12.5 63c0-6.4 5-9.2 11.5-9.2h16c6.5 0 11.5 2.8 11.5 9.2z" fill="url(#ag-steel)" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round"/>
       <circle cx="32" cy="58.6" r="2.1" fill="#22d3ee" stroke="#0e7490" stroke-width=".8"/>
-    </symbol>
-
-    <!-- حظ المعدّن: نبتة رباعية الأوراق وقطعة ذهب وبريق -->
-    <symbol id="a-luck" viewBox="0 0 64 64">
-      <circle cx="32" cy="32" r="30" fill="url(#ag-glow-g)"/>
-      <path d="M32 33C31 44 35 51 41 56" fill="none" stroke="#14532d" stroke-width="4.6" stroke-linecap="round"/>
-      <path d="M32 33C31 44 35 51 41 56" fill="none" stroke="#22c55e" stroke-width="2.6" stroke-linecap="round"/>
-      <g transform="translate(32 33)" stroke="#064e3b" stroke-width="1.3" stroke-linejoin="round">
-        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(45)"/>
-        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(135)"/>
-        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(225)"/>
-        <use href="#ag-leaf-shape" fill="url(#ag-leaf)" transform="rotate(315)"/>
-      </g>
-      <g transform="translate(32 33)" fill="none" stroke="#a7f3d0" stroke-opacity=".7" stroke-width="1" stroke-linecap="round">
-        <path d="M0 -3 0 -16" transform="rotate(45)"/><path d="M0 -3 0 -16" transform="rotate(135)"/><path d="M0 -3 0 -16" transform="rotate(225)"/><path d="M0 -3 0 -16" transform="rotate(315)"/>
-      </g>
-      <g transform="translate(32 33)" fill="#fff" opacity=".5">
-        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(45)"/>
-        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(135)"/>
-        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(225)"/>
-        <ellipse cx="-5" cy="-19" rx="3.2" ry="1.5" transform="rotate(-28 -5 -19) rotate(315)"/>
-      </g>
-      <circle cx="32" cy="33" r="2.6" fill="#fde047" stroke="#92400e" stroke-width=".9"/>
-      <circle cx="48" cy="49" r="9" fill="url(#ag-gold)" stroke="#8a4a08" stroke-width="1.5"/>
-      <circle cx="48" cy="49" r="6" fill="none" stroke="#b45309" stroke-width="1"/>
-      <path d="m48 44.6 1.3 2.8 3 .4-2.2 2.1.6 3L48 51.4l-2.7 1.5.6-3-2.2-2.1 3-.4z" fill="#b45309"/>
-      <path d="m51 8 1.4 3.6L56 13l-3.6 1.4L51 18l-1.4-3.6L46 13l3.6-1.4z" fill="#fef08a"/>
-      <path d="m13 12 1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1z" fill="#fef9c3"/>
     </symbol>
 
     <!-- عملة ذهبية للعدّاد -->
@@ -705,20 +674,27 @@
       <div id="ck-nodes" class="ck-nodes" role="group" aria-label="ترقيات التعدين"></div>
 
       <div id="click-area" class="ck-area">
-        <div class="ck-ground" aria-hidden="true"></div>
-        <img id="ck-hero" class="ck-hero" src="/assets/cave/hero.webp?v=1" alt="" width="421" height="560" draggable="false" decoding="async">
-        <button id="mine-btn" type="button" aria-label="تعدين" aria-describedby="tap-hint" class="mining-btn ck-btn">
-          <span class="ck-bob"><span id="ck-ore" class="ck-ore">
-            <span class="ck-glow" aria-hidden="true"></span>
-            <img class="ck-ore-img" src="/assets/cave/ore.webp?v=1" alt="" width="520" height="520" draggable="false" decoding="async">
-          </span></span>
-        </button>
+        <!-- موقع الحفر: المعدّن يمشي بعصا التحكم (أو الأسهم) ويحفر الصخرة؛ المس الصخرة يعدّن أيضاً. المواضع يضبطها public/dig-site.js بـtransform،
+             وبدونه يبقى المعدّن والصخرة في مكانيهما الافتراضيين من CSS والنقر على الصخرة يعدّن كما كان -->
+        <div id="ck-world" class="ck-world">
+          <div id="ck-miner" class="ck-miner" data-pose="idle" data-face="1" data-act="idle" aria-hidden="true"><span class="ck-flip"><span id="ck-hero" class="ck-hero"></span></span></div>
+          <button id="mine-btn" type="button" aria-label="تعدين" aria-describedby="tap-hint" class="mining-btn ck-btn">
+            <span class="ck-bob"><span id="ck-ore" class="ck-ore" data-stage="0">
+              <span class="ck-glow" aria-hidden="true"></span>
+              <span class="ck-ore-img"></span>
+            </span></span>
+            <span id="ck-rockhp" class="ck-rockhp" aria-hidden="true"><i></i></span>
+          </button>
+        </div>
         <div id="ck-streak" class="ck-streak" aria-hidden="true" data-tier="1"><svg class="ui-icon"><use href="#i-flame"/></svg><span>سلسلة</span><b id="ck-streak-n">0</b></div>
         <div id="ck-status" class="ck-status" aria-hidden="true" data-kind=""><svg class="ui-icon"><use id="ck-status-icon" href="#i-bolt"/></svg><span id="ck-status-text"></span></div>
         <div id="ck-banner" class="ck-banner" aria-hidden="true"></div>
+        <!-- عصا التحكم (اسحب) وزر الحفر (اضغط مطوّلاً): يظهران حين يعمل dig-site.js فقط؛ الأسهم/WASD والمسافة تؤدي الدور نفسه على الحاسوب -->
+        <div id="ck-pad" class="ck-pad" role="group" aria-label="عصا تحكم المعدّن: اسحبها ليمشي" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"><span id="ck-stick" class="ck-stick"></span></div>
+        <button id="ck-dig" type="button" class="ck-dig cv-btn is-hot" aria-label="احفر: اضغط مطوّلاً ليحفر المعدّن الصخرة" aria-keyshortcuts="Space"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>احفر</span></button>
       </div>
 
-      <p id="tap-hint" class="ck-hint">اضغط على الصخرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
+      <p id="tap-hint" class="ck-hint"><span class="ck-hint-dig">حرّك العصا نحو الصخرة ليحفر المعدّن، أو </span>المس الصخرة — <span id="tap-cost">1</span> طاقة لكل ضربة</p>
 
       <div class="ck-actions">
         <!-- «إلى المنجم»: ينقل إلى جولة المنصّات (150 ثانية) ويبدأها إن لم تكن هناك جولة موقوفة -->
@@ -1029,8 +1005,10 @@
   <script src="/platform-rules.js?v=6"></script>
   <script src="/platform-renderer.js?v=5"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
-  <script src="/cave-art.js?v=1"></script>
-  <script src="/clicker-fx.js?v=2"></script>
+  <script src="/cave-art.js?v=2"></script>
+  <script src="/clicker-fx.js?v=3"></script>
+  <!-- موقع الحفر: المعدّن يمشي ويحفر بعصا التحكم؛ كل ضربة = handleMine واحد (الاقتصاد لم يتغير) -->
+  <script src="/dig-site.js?v=3"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -2052,7 +2030,7 @@
       const focus = (document.getElementById('ck-ore') || clickArea).getBoundingClientRect(); // مركز الصخرة لا مركز الساحة كلها
       const cx = e.clientX ?? (focus.left + focus.width / 2);
       const cy = e.clientY ?? (focus.top + focus.height / 2);
-      if (state.energy < state.clickPower) { haptic('error'); window.ClickerFX?.denied({ x: cx, y: cy }); return; }
+      if (state.energy < state.clickPower) { haptic('error'); window.ClickerFX?.denied({ x: cx, y: cy }); return false; }
 
       const gain = clickGain(); // ×2 أثناء التعزيز كما يعرض الزر
       state.energy -= state.clickPower;
@@ -2069,6 +2047,9 @@
       else createFloatingText(`+${gain}`, cx - rect.left, cy - rect.top);
       updateUI();
       save();
+      // موقع الحفر: لمسة مباشرة على الصخرة تُصيبها ويمشي إليها المعدّن؛ ضربات المعدّن نفسه (dig) تُحتسب لها بعد القبول لا هنا
+      if (!e.dig) window.DigSite?.onTap?.({ x: cx, y: cy });
+      return true;
     }
 
     function createFloatingText(text, x, y) {
@@ -3253,6 +3234,7 @@
 
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
       window.ClickerFX?.onTab?.(tabId); // يُفرغ المؤثرات العالقة عند المغادرة ويُنعش العرض عند الدخول
+      window.DigSite?.onTab?.(tabId);   // يوقف المعدّن عند المغادرة ويعيد قياس الساحة عند الدخول
       if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
@@ -3581,6 +3563,8 @@
 
     // مؤثرات تبويب التعدين (عرض فقط): إن غاب الملف أو تعطّل يبقى المسار القديم
     window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null });
+    // موقع الحفر: كل ضربة للمعدّن تمرّ من handleMine نفسه (طاقة + ذهب + عملية mine)؛ يعيد false حين ترفضها قلة الطاقة
+    window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic });
     updateUI();
     updateArenaUI();
     updateAdventureUI();

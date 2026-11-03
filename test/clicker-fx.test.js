@@ -393,10 +393,10 @@ test('the mining screen, header, balance strip and energy bar contain no emoji (
   assert.equal(emoji.test(boostBlock), false, 'the boost button labels have no emoji');
 });
 
-test('the cave art is real: scene, hero, ore and medal icons exist on disk, vector fallbacks are in the sprite, upgrades carry their effect metadata', () => {
+test('the cave art is real: scene, hero and ore sprite sheets and medal icons exist on disk, the drone symbol is in the sprite, upgrades carry their effect metadata', () => {
   const art = require('../public/cave-art');
   const dir = path.join(root, 'public', 'assets', 'cave');
-  for (const f of ['cave-portrait.jpg', 'cave-wide.jpg', 'hero.webp', 'ore.webp']) {
+  for (const f of ['cave-portrait.jpg', 'cave-wide.jpg', 'hero.webp', 'hero-sheet.webp', 'ore-sheet.webp']) {
     const st = fs.statSync(path.join(dir, f));
     assert.ok(st.size > 20_000 && st.size < 400_000, `${f} is a real, web-sized image (${st.size} bytes)`);
   }
@@ -405,15 +405,20 @@ test('the cave art is real: scene, hero, ore and medal icons exist on disk, vect
     assert.ok(st.size > 1000 && st.size < 30_000, `icon ${id} is small (${st.size} bytes)`);
   }
   const symbols = new Set([...html.matchAll(/<symbol id="([^"]+)"/g)].map((m) => m[1]));
-  for (const id of ['i-flame', 'i-bolt', 'i-sound', 'i-muted', 'i-pickaxe', 'i-close', 'a-robot', 'a-luck', 'a-coin']) assert.ok(symbols.has(id), `sprite has ${id}`);
+  for (const id of ['i-flame', 'i-bolt', 'i-sound', 'i-muted', 'i-pickaxe', 'i-close', 'a-robot', 'a-coin']) assert.ok(symbols.has(id), `sprite has ${id}`);
+  assert.ok(!symbols.has('a-luck'), 'the painted clover replaced the vector one');
+  assert.ok(art.PAINTED.includes('robot') && art.PAINTED.includes('luck'), 'robot and clover medals are painted now');
+  assert.equal(art.resolve('luck').kind, 'painted');
   // every medal the screens can ask for resolves to a painted file or a vector symbol that exists
   const rules = require('../public/platform-rules');
   for (const id of [...rules.EQUIPMENT_ORDER, 'click', 'bot', 'rig', 'workshop']) {
     const r = art.resolve(id);
     assert.ok(r.kind === 'painted' || (r.kind === 'vector' && symbols.has(r.symbol)), `${id} has art (${r.kind})`);
   }
-  // the hero and ore shown by the hub are the files that exist
-  for (const f of ['/assets/cave/hero.webp', '/assets/cave/ore.webp']) assert.ok(html.includes(f), `${f} is used by the markup`);
+  // the workshop hero is a plain image; the hub's miner and rock are sprite sheets painted by the stylesheet
+  assert.ok(html.includes('/assets/cave/hero.webp'), 'the workshop shows the idle miner');
+  for (const f of ['/assets/cave/hero-sheet.webp', '/assets/cave/ore-sheet.webp']) assert.ok(css.includes(f), `${f} is painted by clicker.css`);
+  assert.ok(!fs.existsSync(path.join(dir, 'ore.webp')), 'the single-frame ore image was replaced by the sheet');
   const goals = [...html.matchAll(/(click|bot|rig):\s+\{ apply: \(\) => \{ state\.(clickPower|passiveIncome) \+= (\d+); \},\s+growth: [\d.]+, name: '([^']+)',\s+desc: '([^']+)',\s+icon: '([^']+)',\s+base: (\d+), gain: (\d+),\s+unit: '([^']+)'/g)];
   assert.deepEqual(goals.map((m) => m[1]), ['click', 'bot', 'rig'], 'all three upgrades carry medal metadata');
   for (const [, key, , applied, name, desc, icon, , gain, unit] of goals) {
@@ -429,12 +434,15 @@ test('the tap path keeps the sync accounting lines and hooks the effects around 
   assert.match(handle, /SYNC\.clicks \+= 1;\s+if \(boostActive\(\)\) SYNC\.boostedClicks \+= 1;/);
   assert.match(handle, /const gain = clickGain\(\);/);
   // refused tap: error haptic, effects notified, nothing credited
-  assert.match(handle, /if \(state\.energy < state\.clickPower\) \{ haptic\('error'\); window\.ClickerFX\?\.denied\(\{ x: cx, y: cy \}\); return; \}/);
+  assert.match(handle, /if \(state\.energy < state\.clickPower\) \{ haptic\('error'\); window\.ClickerFX\?\.denied\(\{ x: cx, y: cy \}\); return false; \}/, 'a refusal is reported to the dig site as false');
   assert.match(handle, /window\.ClickerFX\?\.active\) window\.ClickerFX\.tap\(\{ x: cx, y: cy, gain, boosted: boostActive\(\) \}\);\s+else createFloatingText/);
   // the effects are called AFTER the economy changed and BEFORE updateUI/save, never instead of them
   assert.ok(handle.indexOf('SYNC.clicks += 1') < handle.indexOf('ClickerFX.tap('));
   assert.ok(handle.indexOf('ClickerFX.tap(') < handle.indexOf('updateUI();'));
   assert.ok(handle.indexOf('updateUI();') < handle.indexOf('save();'));
+  // the dig site is told about direct touches only (its own swings damage the rock after they are accepted) and the result is a boolean
+  assert.match(handle, /save\(\);[^]*if \(!e\.dig\) window\.DigSite\?\.onTap\?\.\(\{ x: cx, y: cy \}\);\s+return true;\s+\}\s*$/);
+  assert.ok(handle.indexOf('save();') < handle.indexOf('DigSite?.onTap'), 'the rock reacts after the economy was settled');
   // pointer + keyboard wiring
   assert.match(html, /btn\.addEventListener\('pointerdown', \(e\) => \{\s+if \(e\.pointerType === 'mouse' && e\.button !== 0\) return;/);
   assert.match(html, /btn\.addEventListener\('keydown', \(e\) => \{\s+if \(\(e\.key === ' ' \|\| e\.key === 'Enter'\) && !e\.repeat\) \{ e\.preventDefault\(\); handleMine\(e\); \}/);
@@ -480,7 +488,7 @@ test('the page keeps the legacy fallbacks: no ClickerFX means the old floating t
 test('clicker.css honours reduced motion, never animates the size of a tap target, and fits short screens', () => {
   const reduced = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
   assert.ok(reduced.length > 100, 'a reduced-motion block exists');
-  for (const sel of ['.ck-bob', '.ck-hero', '.ck-glow', '.ck-ambience', '.ck-boost::after', '#energy-bar::after', 'body.ck-cave .ck-scene', '.ck-sheet-card']) assert.ok(reduced.includes(sel), `${sel} is switched off`);
+  for (const sel of ['.ck-bob', '.ck-hero', '.ck-stick', '.ck-glow', '.ck-ambience', '.ck-boost::after', '#energy-bar::after', 'body.ck-cave .ck-scene', '.ck-sheet-card']) assert.ok(reduced.includes(sel), `${sel} is switched off`);
   assert.match(reduced, /animation: none !important/);
   // buttons attract attention with a light sweep inside them, never by scaling (Playwright/AT need a stable target)
   assert.doesNotMatch(css + read('public', 'cave.css'), /@keyframes ck-ready/);
@@ -492,8 +500,9 @@ test('clicker.css honours reduced motion, never animates the size of a tap targe
   }
   // sizes adapt to the field they live in (container units) with a viewport fallback
   assert.match(css, /container-type: size/);
-  assert.match(css, /@supports \(width: 1cqw\) \{\s*\.ck-area \{ --ore: min\(60cqw, 94cqh\); --hero-h: min\(96cqh, 64cqw\); \}/);
-  assert.match(css, /--ore: min\(58vw, 250px\)/);
+  assert.match(css, /@supports \(width: 1cqw\) \{\s*\.ck-area \{\s*--miner-h: min\(50cqh, 46cqw\);\s*--rock-w: min\(35cqw, 52cqh\);/);
+  assert.match(css, /--miner-h: min\(46vw, 190px\)/);
+  assert.match(css, /--rock-w: min\(40vw, 170px\)/);
   assert.match(css, /@media \(orientation: landscape\) and \(max-height: 520px\)/);
   assert.match(css, /@media \(max-height: 640px\) \{[^}]*\.ck-hint \{ display: none; \}/);
   assert.match(css, /@media \(max-height: 700px\) \{\s*body\.ck-cave \.app-header \{ display: none; \}/);
@@ -525,7 +534,9 @@ test('wiring: build script syntax-checks the module, a dedicated browser test ex
 test('CaveArt resolves painted art, vector fallbacks and aliases, and builds medal markup that never trusts its input', () => {
   const art = require('../public/cave-art');
   assert.deepEqual([art.resolve('pickaxe').kind, art.resolve('click').key, art.resolve('rig').key, art.resolve('workshop').key], ['painted', 'pickaxe', 'drill', 'miner']);
-  assert.deepEqual([art.resolve('robot').kind, art.resolve('robot').symbol, art.resolve('luck').symbol], ['vector', 'a-robot', 'a-luck']);
+  assert.deepEqual([art.resolve('robot').kind, art.resolve('robot').key, art.resolve('luck').kind, art.resolve('luck').key], ['painted', 'robot', 'painted', 'luck']);
+  assert.match(art.resolve('robot').src, /^\/assets\/cave\/icons\/robot\.webp\?v=\d+$/);
+  assert.deepEqual(Object.keys(art.VECTOR), [], 'every medal is painted; the vector table is only a hook for future art');
   assert.equal(art.resolve('bot').key, 'robot', 'the auto worker borrows the robot art');
   assert.equal(art.resolve('nonsense').kind, 'none');
   const painted = art.medalHTML({ id: 'boots', icon: 'i-boots', level: 3, progress: 0.456, state: 'ready' });
@@ -533,9 +544,9 @@ test('CaveArt resolves painted art, vector fallbacks and aliases, and builds med
   assert.match(painted, /<svg class="ui-icon cv-fallback"[^>]*><use href="#i-boots"\/><\/svg><img class="cv-art" src="\/assets\/cave\/icons\/boots\.webp\?v=\d+"/, 'the line icon sits under the picture as a fallback');
   assert.match(painted, /<span class="cv-lvl">3<\/span>/);
   assert.doesNotMatch(painted, /loading="lazy"/, 'tiny icons load eagerly so the medals never flash empty when a screen opens');
-  const vector = art.medalHTML({ id: 'robot', icon: 'i-robot', level: 1, progress: 1, state: 'max' });
-  assert.match(vector, /<svg class="cv-vec"[^>]*><use href="#a-robot"\/><\/svg>/);
-  assert.doesNotMatch(vector, /<img/);
+  const robot = art.medalHTML({ id: 'robot', icon: 'i-robot', level: 1, progress: 1, state: 'max' });
+  assert.match(robot, /<img class="cv-art" src="\/assets\/cave\/icons\/robot\.webp\?v=\d+"/);
+  assert.match(robot, /<svg class="ui-icon cv-fallback"[^>]*><use href="#i-robot"\/><\/svg>/, 'the line icon stays underneath as a fallback');
   // garbage in: state falls back to poor, progress clamps, markup is escaped
   const rough = art.medalHTML({ id: 'x"><script>', icon: '"><b>', level: '<i>', progress: 7, state: 'boom' });
   assert.match(rough, /data-state="poor" style="--p:1\.000"/);

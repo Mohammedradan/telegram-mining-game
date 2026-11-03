@@ -10,9 +10,9 @@
   const BASE = '/assets/cave/icons/';
   const VERSION = 1;
   // الفن المرسوم الموجود كملفات (المعرّف = اسم الملف)
-  const PAINTED = Object.freeze(['pickaxe', 'boots', 'bag', 'magnet', 'drill', 'armor', 'miner']);
-  // رسومات متجهية في سبرايت #art-sprite لما لا يتوفر له ملف مرسوم بعد
-  const VECTOR = Object.freeze({ robot: 'a-robot', luck: 'a-luck' });
+  const PAINTED = Object.freeze(['pickaxe', 'boots', 'bag', 'magnet', 'drill', 'armor', 'miner', 'robot', 'luck']);
+  // رسومات متجهية في سبرايت #art-sprite لما لا يتوفر له ملف مرسوم بعد (فارغ الآن: كل الميداليات مرسومة)
+  const VECTOR = Object.freeze({});
   // ترقيات النقر تستعير فنّ المعدات المقابلة؛ وميدالية الورشة تعرض وجه المعدّن
   const ALIAS = Object.freeze({ click: 'pickaxe', bot: 'robot', rig: 'drill', workshop: 'miner' });
 

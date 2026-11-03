@@ -2,6 +2,7 @@
    لا تغيّر الذهب ولا الطاقة ولا أي عملية خادمية: منطق اللعبة في index.html (handleMine / buyUpgrade / activateBoost)
    يحسم النتيجة أولاً ثم يستدعي هذه الدوال لعرضها: صخرة خام تميل نحو اللمس وتتفتت شرراً ومعدّن يتفاعل، سلسلة نقرات وتوهّج حرارة،
    شريط طاقة بحالات، زر تعزيز حيّ، ميداليات ترقية بحلقات تقدّم مع نافذة ترقية، زر «إلى المنجم»، وصوت اختياري.
+   موقع الحفر (public/dig-site.js) يستعمل burst/cue/touched هنا ليظهر تفتّت الصخرة وصوتها؛ كل ضربة منه تمرّ عبر handleMine → tap كأي نقرة.
    إن غاب هذا الملف أو تعطّل يبقى التعدين يعمل بالمسار القديم (أرقام طائرة فقط).
    النماذج الصافية (createHeat / energyView / boostView / nodeView / sheetView / …) تُختبر في Node بلا DOM. */
 (function (root, factory) {
@@ -23,6 +24,9 @@
   const ASSET_V = 1; // يطابق ?v= في clicker.css
   const SCENE_PORTRAIT = `/assets/cave/cave-portrait.jpg?v=${ASSET_V}`;
   const SCENE_WIDE = `/assets/cave/cave-wide.jpg?v=${ASSET_V}`;
+  // ورقتا السبرايت (المعدّن 3×2 والصخرة 3×1) تُرسمان بـbackground في clicker.css بالرابط نفسه، فيُعاد استعمال التنزيل من الذاكرة
+  const HERO_SHEET = `/assets/cave/hero-sheet.webp?v=${ASSET_V}`;
+  const ORE_SHEET = `/assets/cave/ore-sheet.webp?v=${ASSET_V}`;
   const WIDE_QUERY = '(min-width: 1024px) and (min-aspect-ratio: 1/1), (orientation: landscape) and (max-height: 520px)';
 
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
@@ -267,6 +271,8 @@
       open() { tone(660, 0.07, { type: 'triangle', vol: 0.045 }); tone(990, 0.1, { type: 'sine', vol: 0.03, delay: 0.05 }); },
       close() { tone(520, 0.07, { type: 'triangle', vol: 0.03 }); },
       go() { arpeggio([392, 523, 659], 0.07, { type: 'triangle', vol: 0.05 }); },
+      // تفتّت الصخرة: ثقل هابط ثم فتات
+      crumble() { tone(190, 0.2, { type: 'sawtooth', vol: 0.05, slide: -120 }); tone(330, 0.12, { type: 'triangle', vol: 0.035, slide: -200, delay: 0.03 }); tone(95, 0.26, { type: 'square', vol: 0.03, slide: -45, delay: 0.06 }); },
     };
   }
 
@@ -472,7 +478,7 @@
 
   // المعدّن يميل نحو الصخرة مع كل ضربة (بخاصيتي rotate/translate المستقلتين فلا تتعارضان مع حركة التنفس)
   function heroHit() {
-    if (!els.hero || reduced) return;
+    if (!els.hero || reduced || (els.stage.dataset && els.stage.dataset.dig === '1')) return; // موقع الحفر يحرّك المعدّن بنفسه (إطارات ضربة حقيقية)
     const now = clock();
     if (now - lastHeroAt < 70) return;
     lastHeroAt = now;
@@ -593,6 +599,19 @@
     tapped = true;
     els.stage.dataset.fresh = '0';
     try { root.localStorage.setItem(TAPPED_KEY, '1'); } catch (e) { /* التخزين غير متاح */ }
+  }
+
+  // موقع الحفر يطلق جسيمات احتفالية في إحداثيات الشاشة (تفتّت الصخرة…) دون المرور بنقرة
+  function burst(kind, x, y, o) {
+    if (!api.active || !els) return;
+    emit(KINDS[kind] ? kind : 'tap', num(x), num(y), o || {});
+  }
+
+  // أصوات مسمّاة يستدعيها موقع الحفر (قائمة بيضاء: لا يصل إلا إلى crumble)
+  const CUES = ['crumble'];
+  function cue(name) {
+    if (!api.active || !sound || !CUES.includes(name) || typeof sound[name] !== 'function') return;
+    sound[name]();
   }
 
   // نقرة مقبولة: يستدعيها handleMine بعد أن خصم الطاقة وأضاف الذهب
@@ -955,13 +974,20 @@
     else { setScene(false); closeSheet(true); clearTransient(); }
   }
 
-  // تنزيل خلفية الكهف في وقت الخمول كي لا يرى اللاعب وميضاً عند أول فتح للتبويب
+  // تنزيل خلفية الكهف وورقتي السبرايت في وقت الخمول كي لا يرى اللاعب وميضاً عند أول فتح للتبويب.
+  // المعدّن والصخرة صارا background لا <img>، فلا يصل حدث error إلا عبر هذه الصور: الفشل يفعّل رسوماً بديلة بسيطة (CSS) تُبقي الصخرة ظاهرة وقابلة للمس
   function preloadScene() {
     try {
       const wide = !!(root.matchMedia && root.matchMedia(WIDE_QUERY).matches);
       const url = wide ? SCENE_WIDE : SCENE_PORTRAIT;
       const idle = root.requestIdleCallback ? (fn) => root.requestIdleCallback(fn, { timeout: 4000 }) : (fn) => root.setTimeout(fn, 1500);
-      idle(() => { try { const im = new root.Image(); im.src = url; } catch (e) { /* لا شيء */ } });
+      idle(() => {
+        const load = (src, onFail) => { try { const im = new root.Image(); if (onFail) im.onerror = onFail; im.src = src; } catch (e) { /* لا شيء */ } };
+        const fail = (cls) => () => { if (els && els.stage && els.stage.classList) els.stage.classList.add(cls); };
+        load(url);
+        load(ORE_SHEET, fail('no-ore-art'));
+        load(HERO_SHEET, fail('no-hero-art'));
+      });
     } catch (e) { /* لا شيء */ }
   }
 
@@ -1004,7 +1030,6 @@
     els.btn.addEventListener('pointermove', onHover);
     els.btn.addEventListener('pointerleave', () => { if (clock() - lastTapAt > 120) release(); });
     els.btn.addEventListener('keyup', release);
-    if (els.oreImg && els.oreImg.addEventListener) els.oreImg.addEventListener('error', () => { if (els.ore.classList) els.ore.classList.add('no-art'); });
     if (els.go) els.go.addEventListener('click', () => {
       if (!api.active || typeof opts.mine !== 'function') return;
       opts.haptic('medium');
@@ -1049,9 +1074,9 @@
   };
 
   Object.assign(api, {
-    VERSION: 2, REGEN_PER_SEC,
+    VERSION: 3, REGEN_PER_SEC,
     createHeat, streakTier, energyView, boostView, nextGoal, arcLift, nodeView, sheetView, hintTarget, needsTween, followValue, tiltFor, makeRng, makeParticles, stepParticle, createSound,
-    init: safe(init), tap: safe(tap), denied: safe(denied), sync: safe(sync), onTab: safe(onTab), openSheet: safe(openSheet), closeSheet: safe(closeSheet), buyOpen: safe(onSheetBuy), inspect,
+    init: safe(init), tap: safe(tap), denied: safe(denied), burst: safe(burst), cue: safe(cue), touched: safe(() => { if (api.active && els) markTapped(); }), sync: safe(sync), onTab: safe(onTab), openSheet: safe(openSheet), closeSheet: safe(closeSheet), buyOpen: safe(onSheetBuy), inspect,
   });
   return api;
 });

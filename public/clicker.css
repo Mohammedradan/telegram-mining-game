@@ -241,10 +241,14 @@ body.ck-cave .ck-sound { display: grid; }
   text-shadow: 0 2px 0 #052e16, 1px 0 0 #052e16, -1px 0 0 #052e16, 0 -1px 0 #052e16, 0 0 12px rgba(0, 0, 0, .9);
 }
 
-/* ---------- ساحة التعدين: المعدّن والصخرة ---------- */
+/* ---------- ساحة التعدين: موقع حفر صغير يمشي فيه المعدّن ----------
+   public/dig-site.js يضع المعدّن (#ck-miner) والصخرة (#mine-btn) بـtransform بالبكسل داخل .ck-world؛ القيم هنا هي الافتراضية قبل التشغيل وبدونه.
+   الأحجام بوحدات الحاوية (الساحة تتقلص بحسب الشاشة) والعصا وزر الحفر يطفوان على زاويتيها السفليتين. */
 .ck-area {
-  --ore: min(58vw, 250px);
-  --hero-h: min(60vw, 250px);
+  --miner-h: min(46vw, 190px);
+  --rock-w: min(40vw, 170px);
+  --pad: 84px;
+  --dig: 68px;
   position: relative;
   z-index: 1;
   flex: 1 1 0;
@@ -255,62 +259,91 @@ body.ck-cave .ck-sound { display: grid; }
   overflow: clip;
 }
 @supports (width: 1cqw) {
-  .ck-area { --ore: min(60cqw, 94cqh); --hero-h: min(96cqh, 64cqw); }
+  .ck-area {
+    --miner-h: min(50cqh, 46cqw);
+    --rock-w: min(35cqw, 52cqh);
+    --pad: clamp(68px, min(27cqw, 38cqh), 96px);
+    --dig: clamp(58px, min(22cqw, 31cqh), 78px);
+  }
 }
-.ck-ground {
+/* العالم: طبقة معزولة (أولوية الرسم بين المعدّن والصخرة بحسب العمق y) تحت اللُصيقات والتحكم */
+.ck-world { position: absolute; inset: 0; z-index: 1; isolation: isolate; pointer-events: none; }
+
+.ck-miner {
   position: absolute;
-  left: 4%;
-  right: 0;
-  bottom: 0;
-  height: 20%;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, .32) 45%, transparent 72%);
+  left: 26%;
+  top: 80%;
+  width: calc(var(--miner-h) * .92);
+  height: var(--miner-h);
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  will-change: transform;
   pointer-events: none;
 }
+/* ظل تحت القدمين (إهليلج متدرج: أرخص من drop-shadow ولا يتبع الإطار) */
+.ck-miner::before, .ck-btn::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -2%;
+  width: 74%;
+  height: 10%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, .3) 48%, transparent 72%);
+  pointer-events: none;
+}
+.ck-flip { position: absolute; inset: 0; display: block; }
+.ck-miner[data-face="-1"] .ck-flip { transform: scaleX(-1); }
+/* ورقة المعدّن 3×2: idle/walk1/walk2 فوق، raise/strike/cheer تحت؛ كل الإطارات بالمقاس وخط القدمين نفسيهما */
 .ck-hero {
   position: absolute;
-  left: 0;
-  bottom: 6%;
-  z-index: 1;
-  height: var(--hero-h);
-  width: auto;
-  max-width: 56%;
-  object-fit: contain;
-  object-position: 50% 100%;
-  pointer-events: none;
+  inset: 0;
+  display: block;
   transform-origin: 50% 100%;
-  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, .55));
+  background: url("/assets/cave/hero-sheet.webp?v=1") 0 0 / 300% 200% no-repeat;
   animation: ck-breath 3.6s ease-in-out infinite;
-  -webkit-user-drag: none;
 }
+.ck-miner[data-pose="walk1"] .ck-hero { background-position: 50% 0; }
+.ck-miner[data-pose="walk2"] .ck-hero { background-position: 100% 0; }
+.ck-miner[data-pose="raise"] .ck-hero { background-position: 0 100%; }
+.ck-miner[data-pose="strike"] .ck-hero { background-position: 50% 100%; }
+.ck-miner[data-pose="cheer"] .ck-hero { background-position: 100% 100%; }
+.ck-miner[data-act="walk"] .ck-hero { animation: ck-step .26s ease-in-out infinite; }
+.ck-miner[data-act="swing"] .ck-hero { animation: none; }
 @keyframes ck-breath { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.028); } }
+@keyframes ck-step { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3.5%); } }
 
-/* زر التعدين يملأ الساحة كلها: اللمس على المعدّن أو الصخرة يعدّن؛ الصخرة وحدها تميل وتنضغط */
+/* زر الصخرة: هو الهدف الوحيد للمس في العالم (المعدّن لا يعترض اللمس)؛ منطقة اللمس أوسع من الرسم قليلاً */
 .ck-btn {
   position: absolute;
-  inset: 0;
+  left: 60%;
+  top: 80%;
   z-index: 2;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: var(--rock-w);
+  height: calc(var(--rock-w) * .898);
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+  transform: translate(-50%, -100%);
+  transform-origin: 50% 100%;
+  will-change: transform;
   cursor: pointer;
   outline: none;
+  pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
+.ck-btn::after { content: ""; position: absolute; inset: -9%; }
+.ck-btn::before { width: 82%; bottom: -3%; }
 #mine-btn.mining-btn { transition: none; }
-#mine-btn.mining-btn:active { transform: none; }
+#mine-btn.mining-btn:active { transform: translate(-50%, -100%); }
 .ck-bob {
   position: absolute;
-  right: 0;
-  bottom: 6%;
+  inset: 0;
   display: block;
-  width: var(--ore);
-  height: var(--ore);
   animation: ck-bob 4s ease-in-out infinite;
   will-change: transform;
 }
@@ -325,17 +358,51 @@ body.ck-cave .ck-sound { display: grid; }
   will-change: transform;
 }
 .ck-ore.is-down { transition-duration: .07s; transition-timing-function: ease-out; }
+/* ورقة الصخرة 3×1: سليمة ثم شقوق ثم شقوق عميقة تتناثر منها الشظايا (data-stage يضبطه dig-site.js من صحتها) */
 .ck-ore-img {
   position: relative;
   z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
   pointer-events: none;
-  filter: drop-shadow(0 10px 10px rgba(0, 0, 0, .55));
-  -webkit-user-drag: none;
+  background: url("/assets/cave/ore-sheet.webp?v=1") 0 0 / 300% 100% no-repeat;
 }
+.ck-ore[data-stage="1"] .ck-ore-img { background-position: 50% 0; }
+.ck-ore[data-stage="2"] .ck-ore-img { background-position: 100% 0; }
+/* الصخرة المتفتتة تبقى لحظة في مكانها وتخبو بينما تظهر الجديدة فوراً (لا تضيع نقرات) */
+.ck-ghost {
+  position: absolute;
+  width: var(--rock-w);
+  height: calc(var(--rock-w) * .898);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  background: url("/assets/cave/ore-sheet.webp?v=1") 100% 0 / 300% 100% no-repeat;
+}
+/* شريط صحة الصخرة: يظهر بعد أول ضربة */
+.ck-rockhp {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  top: -9px;
+  z-index: 2;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(6, 5, 18, .74);
+  border: 1px solid rgba(253, 224, 71, .7);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .18s ease, transform .18s ease;
+  pointer-events: none;
+}
+.ck-rockhp.is-on { opacity: 1; transform: none; }
+.ck-rockhp i { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #fbbf24, #f97316); transition: width .12s linear; }
+/* رسوم بديلة إن تعذّر تحميل ورقتَي الفن: الصخرة والمعدّن يبقيان ظاهرين وقابلين للعب */
+.ck-stage.no-ore-art .ck-ore-img, .ck-stage.no-ore-art .ck-ghost { background: radial-gradient(ellipse at 38% 30%, #9a8bb8 0, #5a4a78 42%, #251a3d 100%); border-radius: 46% 54% 44% 56% / 52% 48% 52% 48%; box-shadow: inset 0 -8px 0 rgba(0, 0, 0, .25), 0 0 0 2px rgba(251, 191, 36, .4); }
+.ck-stage.no-hero-art .ck-hero { background: radial-gradient(circle at 50% 16%, #f59e0b 0 13%, transparent 14%) 0 0 / 100% 100% no-repeat, linear-gradient(#3b6aa8, #2a4a80) 50% 100% / 44% 66% no-repeat; border-radius: 14px; }
+
 /* توهّج العروق: هالة حول الصخرة تقوى مع حرارة النقر المتواصل وتتلوّن بالتعزيز والحمّى */
 .ck-glow {
   position: absolute;
@@ -369,6 +436,77 @@ body.ck-cave .ck-sound { display: grid; }
   box-shadow: 0 0 0 4px rgba(253, 224, 71, .85), 0 0 0 9px rgba(251, 191, 36, .28);
   pointer-events: none;
 }
+
+/* ---------- عصا التحكم وزر الحفر (تظهران حين يعمل dig-site.js: data-dig على الساحة) ---------- */
+.ck-pad, .ck-dig {
+  display: none;
+  position: absolute;
+  bottom: 4px;
+  z-index: 6;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.ck-stage[data-dig="1"] .ck-pad { display: grid; }
+.ck-stage[data-dig="1"] .ck-dig { display: inline-flex; }
+/* الجزء الخاص بالعصا من التلميح يظهر فقط حين يعمل موقع الحفر (وإلا يبقى «المس الصخرة…») */
+.ck-hint-dig { display: none; }
+.ck-stage[data-dig="1"] .ck-hint-dig { display: inline; }
+.ck-pad {
+  left: 6px;
+  width: var(--pad);
+  height: var(--pad);
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, rgba(52, 66, 130, .5), rgba(8, 10, 30, .74) 72%);
+  border: 3px solid rgba(240, 185, 60, .8);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .55), inset 0 0 16px rgba(0, 0, 0, .55), inset 0 2px 0 rgba(255, 255, 255, .12);
+  cursor: grab;
+}
+.ck-pad.is-on { border-color: #ffe08a; cursor: grabbing; }
+.ck-pad::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='%23f0b93c' fill-opacity='.72'%3E%3Cpath d='M50 6 60 21H40z'/%3E%3Cpath d='M50 94 60 79H40z'/%3E%3Cpath d='M6 50 21 40V60z'/%3E%3Cpath d='M94 50 79 40V60z'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+.ck-stick {
+  position: relative;
+  z-index: 1;
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 28%, #fff4b8, #f0b93c 52%, #8a4a08 100%);
+  border: 2px solid rgba(90, 40, 0, .75);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .6), inset 0 2px 0 rgba(255, 255, 255, .55);
+  transform: translate(var(--sx, 0px), var(--sy, 0px));
+  transition: transform .12s ease-out;
+  will-change: transform;
+  pointer-events: none;
+}
+.ck-pad.is-on .ck-stick { transition: none; }
+/* قبل أول لمسة تتمايل العصا لتدعو إلى السحب */
+.ck-stage[data-fresh="1"] .ck-pad:not(.is-on) .ck-stick { animation: ck-stickhint 2.4s ease-in-out infinite; }
+@keyframes ck-stickhint { 0%, 100% { translate: 0 0; } 30% { translate: 38% 0; } 60% { translate: -24% 0; } }
+.ck-dig {
+  right: 6px;
+  width: var(--dig);
+  height: var(--dig);
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+}
+.ck-dig .ui-icon { width: 26px; height: 26px; stroke-width: 2.2; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .4)); }
+.ck-dig.is-down { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge), 0 4px 8px rgba(0, 0, 0, .5), inset 0 2px 0 rgba(255, 255, 255, .3), inset 0 -3px 6px rgba(0, 0, 0, .25); }
+/* اللُصيقات في وضع الحفر: الحالة تحت السلسلة (أسفل الساحة تغطيه الأزرار) واللافتة قرب الوسط */
+.ck-stage[data-dig="1"] .ck-status { top: 32px; bottom: auto; transform: translate(-50%, -6px) scale(.92); }
+.ck-stage[data-dig="1"] .ck-status.is-on { transform: translate(-50%, 0) scale(1); }
+.ck-stage[data-dig="1"] .ck-banner { top: 36%; }
 
 /* ---------- لُصيقات على الساحة ---------- */
 .ck-streak, .ck-status {
@@ -441,7 +579,7 @@ body.ck-cave .ck-sound { display: grid; }
   margin: 0;
   max-width: 340px;
   padding: 2px 12px;
-  border-radius: 999px;
+  border-radius: 14px;
   font-size: 12px;
   line-height: 1.5;
   color: #e6dcc0;
@@ -720,8 +858,6 @@ body.ck-cave .ck-sound { display: grid; }
   .ck-go-icon { width: 22px; height: 22px; }
 }
 @media (max-height: 590px) {
-  .ck-hero { display: none; }
-  .ck-bob { right: 50%; transform: translateX(50%); animation: none; }
   .ck-node-tag { display: none; }
   .ck-nodes { --arc: 4px; }
 }
@@ -747,8 +883,6 @@ body.ck-cave .ck-sound { display: grid; }
   @supports (height: 100dvh) { .ck-node { --ck-node: clamp(40px, calc(var(--app-height, 100dvh) * .13), 52px); } }
   .ck-node-tag { display: inline-flex; font-size: 9.5px; line-height: 14px; min-width: 36px; }
   .ck-area { grid-column: 2; grid-row: 1; min-height: 0; }
-  .ck-hero { display: block; }
-  .ck-bob { right: 0; transform: none; animation: ck-bob 4s ease-in-out infinite; }
   .ck-hint { display: none; }
   .ck-actions { grid-column: 3; grid-row: 1; grid-template-columns: 1fr; align-content: center; gap: 8px; padding: 0; }
   .ck-boost, .ck-go { min-height: 46px; }
@@ -774,7 +908,7 @@ body.ck-cave .ck-sound { display: grid; }
 /* حركة أقل: بلا إمالة ولا غبار ولا تأرجح — تبقى الألوان والأرقام */
 @media (prefers-reduced-motion: reduce) {
   .ck-ambience, .ck-stage[data-fresh="1"] .ck-bob::before { display: none !important; }
-  .ck-bob, .ck-hero, .ck-glow, .ck-boost-icon, .ck-boost::after, #energy-bar::after, #energy-counter, #nav-shop::after, .ck-status .ui-icon, .ck-pointer svg, body.ck-cave .ck-scene, .ck-sheet-card { animation: none !important; }
+  .ck-bob, .ck-hero, .ck-stick, .ck-glow, .ck-boost-icon, .ck-boost::after, #energy-bar::after, #energy-counter, #nav-shop::after, .ck-status .ui-icon, .ck-pointer svg, body.ck-cave .ck-scene, .ck-sheet-card { animation: none !important; }
   .ck-ore { transition-duration: .01ms !important; }
   .ck-streak, .ck-status, .ck-banner { transition-duration: .01ms !important; }
 }

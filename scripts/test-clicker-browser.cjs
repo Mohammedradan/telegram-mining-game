@@ -1,8 +1,9 @@
 // Real-Chromium E2E for the interactive mining hub ("the cave"). Run against a LOCAL development server:
 //   CHROMIUM_PATH=/path/to/chromium TEST_APP_URL=http://127.0.0.1:3000 npm run test:clicker
-// It drives real touch/keyboard input and checks that the visual layer (cave scene, tilt, floating numbers, particles, streak/heat,
-// energy states, live boost button, upgrade medals + window, "to the mine" button, sound toggle) never changes the economy:
-// gold/energy/ops accounting stays exactly what the game logic decides, and the server agrees once the ops queue drains.
+// It drives real touch/mouse/keyboard input and checks that the visual layer (cave scene, tilt, floating numbers, particles, streak/heat,
+// energy states, live boost button, upgrade medals + window, "to the mine" button, sound toggle) and the dig site (the miner walks with
+// the stick and digs the rock) never change the economy: gold/energy/ops accounting stays exactly what the game logic decides
+// (every swing that hits the rock is one ordinary tap), and the server agrees once the ops queue drains.
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -16,7 +17,7 @@ async function main() {
   if (!executablePath) throw new Error('Set CHROMIUM_PATH to an installed Chromium executable');
   const browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const errors = [];
-  const report = { layout: {}, scene: {}, taps: {}, energy: {}, boost: {}, upgrades: {}, cta: {}, sound: {}, keyboard: {}, level: {}, reducedMotion: {}, viewports: [], errors };
+  const report = { layout: {}, scene: {}, taps: {}, energy: {}, boost: {}, upgrades: {}, cta: {}, sound: {}, keyboard: {}, level: {}, dig: {}, reducedMotion: {}, viewports: [], errors };
 
   async function open(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, reducedMotion: 'no-preference', ...extras });
@@ -62,8 +63,8 @@ async function main() {
     });
     assert.equal(geo.scrollFits, true, 'the mining tab needs no scrolling on a phone');
     assert.equal(geo.hScroll, false, 'no horizontal overflow');
-    assert.ok(geo.ore.w >= 200 && geo.ore.l >= 0 && geo.ore.r <= 390, `the rock is big and inside the viewport (${Math.round(geo.ore.w)}px)`);
-    assert.ok(geo.hero.h >= 150 && geo.hero.l >= 0, 'the miner stands beside the rock on a tall phone');
+    assert.ok(geo.ore.w >= 110 && geo.ore.l >= 0 && geo.ore.r <= 390, `the rock is big and inside the viewport (${Math.round(geo.ore.w)}px)`);
+    assert.ok(geo.hero.h >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${Math.round(geo.hero.h)}px)`);
     assert.deepEqual(geo.medals, ['click', 'bot', 'rig', 'workshop'], 'three upgrade medals and the workshop medal');
     assert.ok(geo.balance.b <= geo.nodes.t + 1, 'the gold counter sits above the medals');
     assert.ok(geo.nodes.b <= geo.area.t + 1 && geo.area.b <= geo.actions.t + 1 && geo.actions.b <= geo.energy.t + 1 && geo.energy.b <= geo.nav.t + 1, 'medals, field, buttons, energy and nav stack without overlap');
@@ -87,9 +88,14 @@ async function main() {
     assert.match(scene.bg, /cave-portrait\.jpg/, 'a portrait phone gets the portrait scene');
     assert.ok(scene.res.includes('cave-portrait.jpg'), `the scene picture was really requested (${scene.res})`);
     assert.ok(scene.imgs.every(([, ok]) => ok), `every painted image loaded: ${JSON.stringify(scene.imgs)}`);
-    assert.ok(['hero.webp', 'ore.webp'].every((f) => scene.imgs.some(([n]) => n === f)), 'miner and ore are painted');
     assert.ok(scene.art >= 3, `the medals carry painted art (${scene.art})`);
-    report.scene.phone = { picture: 'portrait', images: scene.imgs.length };
+    // the miner and the rock are sprite sheets painted by the stylesheet: they were requested and neither fallback class was needed
+    assert.ok(['hero-sheet.webp', 'ore-sheet.webp'].every((f) => scene.res.includes(f)), `the miner and ore sheets were requested (${scene.res})`);
+    const sheets = await page.evaluate(() => ({ cls: document.getElementById('ck-stage').className, hero: getComputedStyle(document.getElementById('ck-hero')).backgroundImage, ore: getComputedStyle(document.querySelector('.ck-ore-img')).backgroundImage }));
+    assert.doesNotMatch(sheets.cls, /no-hero-art|no-ore-art/, 'the sprite sheets loaded: no drawn stand-ins');
+    assert.match(sheets.hero, /hero-sheet\.webp/);
+    assert.match(sheets.ore, /ore-sheet\.webp/);
+    report.scene.phone = { picture: 'portrait', images: scene.imgs.length, sheets: true };
 
     // 2) tilt follows the touch point (right edge presses the right side in, top edge presses the top in)
     const tilt = await page.evaluate(`(() => { const tap = ${TAP}; const read = () => { const c = document.getElementById('ck-ore'); return [parseFloat(c.style.getPropertyValue('--ry')), parseFloat(c.style.getPropertyValue('--rx')), c.classList.contains('is-down'), parseFloat(c.style.getPropertyValue('--sc'))]; };
@@ -117,7 +123,7 @@ async function main() {
         heat: parseFloat(q('.ck-glow').style.getPropertyValue('--heat')), floats: document.querySelectorAll('#ck-layer .ck-num').length, rings: document.querySelectorAll('#ck-layer .ck-ring').length, sparks: document.querySelectorAll('#ck-layer .ck-spark').length };
       const sb = q('#ck-streak').getBoundingClientRect();
       const topEl = document.elementFromPoint(sb.left + sb.width / 2, sb.top + sb.height / 2);
-      return { ...out, passThrough: !!topEl && q('#mine-btn').contains(topEl), counter: q('#gold-counter').textContent, gold: Math.floor(state.gold) }; })()`);
+      return { ...out, passThrough: !!topEl && !q('#ck-streak').contains(topEl) && getComputedStyle(q('#ck-streak')).pointerEvents === 'none', counter: q('#gold-counter').textContent, gold: Math.floor(state.gold) }; })()`);
     assert.ok(Math.abs(burst.dGold - burst.N * burst.p) < 1e-6, `each tap credits exactly clickPower gold (the effects add nothing): ${burst.dGold}`);
     assert.ok(Math.abs(burst.dEnergy - burst.N * burst.p) < 1e-6, `each tap spends exactly clickPower energy: ${burst.dEnergy}`);
     assert.ok(burst.fx.streak >= 12 && burst.streakOn && Number(burst.streakN) >= 12, `the streak badge counts the taps: ${JSON.stringify({ streak: burst.fx.streak, on: burst.streakOn, n: burst.streakN })}`);
@@ -140,20 +146,22 @@ async function main() {
     assert.ok(painted.lit > 50, `the canvas paints the particles (${JSON.stringify(painted)})`);
     report.taps.burst = { floats: burst.floats, particles: burst.fx.particles, litPixels: painted.lit };
 
-    // real CDP touch taps register too: on the rock AND on the miner; a tap on the scenery between medals does not mine
+    // real CDP touch taps register too: on the rock; a tap on the miner or on the scenery between medals does not mine
+    await page.evaluate(() => { DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.26, y: 0.8 }); }); // a whole rock at its usual spot: four taps cannot break it
+    await wait(60);
     const oreBox = await page.locator('#ck-ore').boundingBox();
     const heroBox = await page.locator('#ck-hero').boundingBox();
     const g1 = await page.evaluate(() => state.gold);
     for (let i = 0; i < 4; i++) { await page.touchscreen.tap(oreBox.x + oreBox.width * (0.35 + i * 0.1), oreBox.y + oreBox.height * 0.5); await wait(30); }
     const g2 = await page.evaluate(() => state.gold);
     assert.ok(g2 - g1 >= 3.99, 'real touch taps on the rock credit gold');
-    await page.touchscreen.tap(heroBox.x + heroBox.width * 0.4, heroBox.y + heroBox.height * 0.6);
+    await page.touchscreen.tap(heroBox.x + heroBox.width * 0.3, heroBox.y + heroBox.height * 0.6);
     const g3 = await page.evaluate(() => state.gold);
-    assert.ok(g3 - g2 >= 0.99, 'a tap on the miner mines too');
+    assert.equal(g3, g2, 'a stray tap on the miner is scenery: it costs no energy (he is steered with the stick)');
     const nodesBox = await page.locator('#ck-nodes').boundingBox();
     await page.touchscreen.tap(nodesBox.x + 4, nodesBox.y + 4); // the corner of the medal row: empty scenery
     assert.equal(await page.evaluate(() => state.gold), g3, 'scenery between the medals never mines');
-    report.taps.realTouch = { rock: true, miner: true, sceneryIgnored: true };
+    report.taps.realTouch = { rock: true, minerIsScenery: true, sceneryIgnored: true };
 
     // 4) frenzy: 26 quick taps light the whole screen up, then everything fades after a pause
     await wait(1200); await settle(page);
@@ -234,6 +242,8 @@ async function main() {
     assert.ok(before.p > 0 && before.p < 1, `its ring is only partly filled (${before.p})`);
     assert.equal(before.tag, '1,000', 'the price tag shows the price');
     await page.evaluate(`(() => { const tap = ${TAP}; while (state.gold < 50) tap({}); })()`);
+    // the ring colour eases over 0.2 s (a CSS transition): wait for it to land instead of racing the first frame
+    await page.waitForFunction(() => /74, 222, 128/.test(getComputedStyle(document.querySelector('[data-ck-item="click"] .cv-ring-bar')).stroke), null, { timeout: 5000 });
     const ready = await page.evaluate(() => { const q = (s) => document.querySelector(s); const n = q('[data-ck-item="click"]'), m = n.querySelector('.cv-medal'), ptr = q('.ck-pointer');
       const up = getComputedStyle(m.querySelector('.cv-up')).display, bar = getComputedStyle(m.querySelector('.cv-ring-bar')).stroke;
       const nb = n.getBoundingClientRect(), pr = ptr.querySelector('svg').getBoundingClientRect();
@@ -397,6 +407,240 @@ async function main() {
     assert.match(level.xp, /^0\/999 XP$/, 'the XP numbers sit on the level label row');
     report.level = { celebration: true };
 
+
+    // ---------------------------------------------------------------- 15) the dig site: the miner walks with the stick and digs the rock
+    // Every swing that hits the rock is one ordinary tap (handleMine): 1 energy, the current tap power in gold, one queued `mine` click.
+    await page.evaluate(() => { switchTab('mining'); state.energy = state.maxEnergy; updateUI(); DigSite.debug.setStick(0, 0); DigSite.debug.setDig(false); DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.26, y: 0.8 }); });
+    await settle(page);
+    await page.waitForFunction(() => window.DigSite && DigSite.inspect().active && !DigSite.inspect().paused);
+    const overlaps = (a, b) => a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1;
+    const site = await page.evaluate(() => { const cs = (s) => getComputedStyle(document.querySelector(s));
+      return { stage: document.getElementById('ck-stage').dataset.dig, pad: cs('#ck-pad').display, dig: cs('#ck-dig').display, touch: [cs('#ck-pad').touchAction, cs('#ck-dig').touchAction], hint: document.getElementById('tap-hint').textContent,
+        padLabel: document.getElementById('ck-pad').getAttribute('aria-label'), digLabel: document.getElementById('ck-dig').getAttribute('aria-label'), minerHidden: document.getElementById('ck-miner').getAttribute('aria-hidden'), insp: DigSite.inspect() }; });
+    const padB = await rectOf(page, '#ck-pad'), digB = await rectOf(page, '#ck-dig'), areaB = await rectOf(page, '#click-area'), oreB0 = await rectOf(page, '#ck-ore');
+    assert.equal(site.stage, '1', 'the dig site switched the field to its interactive layout');
+    assert.deepEqual([site.pad, site.dig], ['grid', 'flex'], 'the stick and the dig button are shown (an absolutely placed inline-flex computes to flex)');
+    assert.deepEqual(site.touch, ['none', 'none'], 'dragging the stick never scrolls or zooms the page');
+    assert.ok(padB.w >= 64 && padB.h >= 64 && digB.w >= 56 && digB.h >= 56, `finger-sized controls (stick ${Math.round(padB.w)}px, button ${Math.round(digB.w)}px)`);
+    for (const [name, b] of [['stick', padB], ['dig button', digB]]) assert.ok(b.l >= areaB.l - 1 && b.r <= areaB.r + 1 && b.t >= areaB.t - 1 && b.b <= areaB.b + 1, `the ${name} sits inside the field`);
+    assert.equal(overlaps(padB, digB), false, 'the two controls do not overlap');
+    const overlapArea = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+    assert.ok(overlapArea(oreB0, padB) + overlapArea(oreB0, digB) <= 0.06 * oreB0.w * oreB0.h, 'the controls leave the rock free (at most a sliver of its box)');
+    assert.match(site.hint, /العصا/, 'the hint tells how to play');
+    assert.ok(site.padLabel && site.digLabel, 'both controls have accessible names');
+    assert.equal(site.minerHidden, 'true', 'the miner is decoration for assistive tech');
+    assert.equal(site.insp.rock.hp, 12);
+
+    // 15a) a real touch drag on the stick: the miner walks where it points, the knob follows the finger, nothing digs until he reaches the rock
+    const cdp = await ctx.newCDPSession(page);
+    const touch = (type, ...points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([x, y], i) => ({ x, y, id: i + 1 })) });
+    const pc = [padB.l + padB.w / 2, padB.t + padB.h / 2];
+    const m0 = await page.evaluate(() => DigSite.inspect());
+    await touch('touchStart', pc);
+    for (const dx of [-10, -22, -34]) await touch('touchMove', [pc[0] + dx, pc[1]]);
+    await page.waitForFunction((x) => DigSite.inspect().miner.x < x - 0.05, m0.miner.x, { timeout: 15000 });
+    const left = await page.evaluate(() => ({ i: DigSite.inspect(), sx: parseFloat(document.getElementById('ck-stick').style.getPropertyValue('--sx')), on: document.getElementById('ck-pad').classList.contains('is-on'), act: document.getElementById('ck-miner').dataset.act, face: document.getElementById('ck-miner').dataset.face, y: scrollY }));
+    assert.equal(left.i.miner.face, -1, 'he turned left');
+    assert.equal(left.face, '-1', 'the picture is mirrored');
+    assert.equal(left.act, 'walk');
+    assert.ok(left.sx < -10, `the knob follows the finger (${left.sx}px)`);
+    assert.equal(left.on, true);
+    assert.equal(left.i.stats.swings, m0.stats.swings, 'walking away from the rock digs nothing');
+    assert.equal(left.y, 0, 'the page did not scroll under the finger');
+    // …now toward the rock: he walks over and digs by himself, at a pace the economy already allows (about four swings a second at most)
+    for (const dx of [10, 24, 36]) await touch('touchMove', [pc[0] + dx, pc[1]]);
+    await page.waitForFunction((n) => DigSite.inspect().stats.swings >= n + 3, m0.stats.swings, { timeout: 25000 });
+    const r0 = await page.evaluate(() => { const i = DigSite.inspect(); return { s: i.stats.swings, c: i.clock, face: i.miner.face, reach: i.inReach }; });
+    await wait(1500);
+    const r1 = await page.evaluate(() => { const i = DigSite.inspect(); return { s: i.stats.swings, c: i.clock, g: state.gold, e: state.energy }; });
+    const perSecond = (r1.s - r0.s) / ((r1.c - r0.c) / 1000);
+    assert.equal(r0.face, 1);
+    assert.ok(r0.reach, 'he stopped at the rock instead of walking through it');
+    assert.ok(r1.s > r0.s && perSecond <= 4.3, `he keeps digging at no more than ~4 swings/s (${perSecond.toFixed(2)}/s)`);
+    await touch('touchEnd');
+    const released = await page.evaluate(() => ({ stick: DigSite.inspect().stick, sx: document.getElementById('ck-stick').style.getPropertyValue('--sx'), on: document.getElementById('ck-pad').classList.contains('is-on') }));
+    assert.deepEqual([released.stick, released.sx, released.on], [{ x: 0, y: 0 }, '0px', false], 'letting go re-centres the stick');
+    await wait(900); // the swing in progress ends; no new one starts
+    const stopS = await page.evaluate(() => DigSite.inspect().stats.swings);
+    await wait(700);
+    assert.equal(await page.evaluate(() => DigSite.inspect().stats.swings), stopS, 'without the stick he stops digging');
+    report.dig.touchStick = { walksLeft: true, digsAtRock: true, swingsPerSecond: Number(perSecond.toFixed(2)), reCentres: true };
+    await settle(page);
+    const srv1 = await page.evaluate(() => api('/api/me'));
+    assert.equal(Math.floor(srv1.state.gold), Math.floor(await page.evaluate(() => state.gold)), 'the server counted the swings exactly like taps: its gold equals the screen');
+
+    // 15b) exact accounting, deterministic: N accepted swings = N x tap power of energy, N x gain of gold, N queued clicks, N health points
+    const acc = await page.evaluate(() => {
+      DigSite.debug.setStick(0, 0); DigSite.debug.setDig(false);
+      DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.3, y: 0.8 });
+      const g0 = state.gold, e0 = state.energy, c0 = SYNC.clicks + SYNC.pending.reduce((n, op) => n + (op.type === 'mine' ? op.clicks : 0), 0), s0 = DigSite.inspect().stats.swings, gain = clickGain(), p = state.clickPower;
+      DigSite.debug.setDig(true);
+      DigSite.debug.step(0.05, 50);
+      DigSite.debug.setDig(false);
+      DigSite.debug.step(0.05, 10);
+      const i = DigSite.inspect(), swings = i.stats.swings - s0;
+      return { swings, dGold: state.gold - g0, dEnergy: e0 - state.energy, dClicks: SYNC.clicks + SYNC.pending.reduce((n, op) => n + (op.type === 'mine' ? op.clicks : 0), 0) - c0, gain, p, hp: i.rock.hp, boosted: boostActive() };
+    });
+    assert.ok(acc.swings >= 5 && acc.swings < 12, `a stretch of digging (${acc.swings} swings)`);
+    assert.ok(Math.abs(acc.dGold - acc.swings * acc.gain) < 1e-6, `every swing credits exactly the tap gain (${acc.dGold} = ${acc.swings} x ${acc.gain})`);
+    assert.ok(Math.abs(acc.dEnergy - acc.swings * acc.p) < 1e-6, `every swing spends exactly the tap power of energy (${acc.dEnergy})`);
+    assert.equal(acc.dClicks, acc.swings, 'every swing is one click queued for the server');
+    assert.equal(acc.hp, 12 - acc.swings, 'and exactly one health point of the rock');
+    report.dig.accounting = { swings: acc.swings, gold: acc.dGold, energy: acc.dEnergy };
+
+    // 15c) breaking the rock: crumble burst, ghost of the old rock, a whole new rock out of reach, the miner cheers; none of it touches the economy
+    const broke = await page.evaluate(() => {
+      DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 2); DigSite.debug.place({ x: 0.3, y: 0.8 });
+      const g0 = state.gold, s0 = DigSite.inspect().stats, before = DigSite.inspect().rock;
+      DigSite.debug.setDig(true);
+      let guard = 0; while (DigSite.inspect().stats.breaks === s0.breaks && guard++ < 200) DigSite.debug.step(0.05);
+      DigSite.debug.setDig(false);
+      const i = DigSite.inspect(), q = (sel) => document.querySelector(sel);
+      return { swings: i.stats.swings - s0.swings, dGold: state.gold - g0, gain: clickGain(), breaks: i.stats.breaks - s0.breaks, before, after: i.rock, reach: i.inReach, ghosts: document.querySelectorAll('#ck-world .ck-ghost').length, particles: ClickerFX.inspect().particles,
+        pose: i.miner.pose, stage: q('#ck-ore').dataset.stage, hpOn: q('#ck-rockhp').classList.contains('is-on'), hpWidth: q('#ck-rockhp i').style.width, cheering: i.cheering };
+    });
+    assert.deepEqual([broke.breaks, broke.swings], [1, 2], 'two swings broke a two-health rock');
+    assert.ok(Math.abs(broke.dGold - 2 * broke.gain) < 1e-6, 'and paid exactly two taps, no break bonus');
+    assert.equal(broke.after.hp, 12, 'a whole new rock appeared');
+    assert.ok(Math.hypot(broke.after.x - broke.before.x, broke.after.y - broke.before.y) > 0.02 || broke.after.hp !== broke.before.hp, 'in another place');
+    assert.equal(broke.reach, false, 'out of the miner\'s reach: he has to walk over');
+    assert.equal(broke.ghosts, 1, 'the old rock fades out as a ghost');
+    assert.ok(broke.particles > 10, `a crumble burst (${broke.particles} particles)`);
+    assert.equal(broke.pose, 'cheer');
+    assert.equal(broke.cheering, true);
+    assert.equal(broke.stage, '0', 'the new rock has no cracks');
+    assert.equal(broke.hpOn, false, 'its health bar is hidden until it is hit');
+    await page.waitForFunction(() => document.querySelectorAll('#ck-world .ck-ghost').length === 0, null, { timeout: 4000 });
+    report.dig.break = { ghost: true, particles: broke.particles };
+
+    // 15d) real mouse: hold the dig button and he walks to the rock by himself and carries on to the next rock
+    await page.evaluate(() => { DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 3); DigSite.debug.place({ x: 0.26, y: 0.8 }); });
+    await settle(page);
+    const hold0 = await page.evaluate(() => ({ i: DigSite.inspect(), g: state.gold }));
+    const db = await rectOf(page, '#ck-dig');
+    await page.mouse.move(db.l + db.w / 2, db.t + db.h / 2);
+    await page.mouse.down();
+    assert.equal(await page.evaluate(() => [DigSite.inspect().digHeld, document.getElementById('ck-dig').classList.contains('is-down')].join()), 'true,true', 'the button looks pressed and the miner knows');
+    await page.waitForFunction((n) => DigSite.inspect().stats.breaks > n, hold0.i.stats.breaks, { timeout: 30000 });
+    await page.waitForFunction((n) => DigSite.inspect().stats.swings > n + 3, hold0.i.stats.swings + 3, { timeout: 30000 }); // …and keeps digging the next rock
+    await page.mouse.up();
+    assert.equal(await page.evaluate(() => DigSite.inspect().digHeld), false);
+    await wait(1000);
+    const hold1 = await page.evaluate(() => ({ i: DigSite.inspect(), g: state.gold }));
+    assert.ok(hold1.g > hold0.g, 'holding the button earned gold');
+    await settle(page);
+    const srv2 = await page.evaluate(() => api('/api/me'));
+    assert.equal(Math.floor(srv2.state.gold), Math.floor(await page.evaluate(() => state.gold)), 'server and screen still agree after the long hold');
+    report.dig.holdButton = { breaks: hold1.i.stats.breaks - hold0.i.stats.breaks, swings: hold1.i.stats.swings - hold0.i.stats.swings };
+
+    // 15e) a direct tap on the rock still mines at once; the miner then walks over and swings for show, charging nothing more
+    await page.evaluate(() => { DigSite.debug.setStick(0, 0); DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.26, y: 0.8 }); });
+    await settle(page);
+    await wait(80);
+    const tapBox = await page.locator('#ck-ore').boundingBox();
+    const t0 = await page.evaluate(() => ({ g: state.gold, e: state.energy, taps: DigSite.inspect().stats.taps, hp: DigSite.inspect().rock.hp, x: DigSite.inspect().miner.x }));
+    await page.touchscreen.tap(tapBox.x + tapBox.width / 2, tapBox.y + tapBox.height / 2);
+    const t1 = await page.evaluate(() => ({ g: state.gold, e: state.energy, taps: DigSite.inspect().stats.taps, hp: DigSite.inspect().rock.hp, gain: clickGain(), p: state.clickPower, approaching: DigSite.inspect().approaching }));
+    assert.ok(Math.abs(t1.g - t0.g - t1.gain) < 1e-6, 'a tap on the rock pays exactly the tap gain');
+    assert.ok(t0.e - t1.e <= t1.p + 1e-6 && t0.e - t1.e >= t1.p - 1.5, `and costs the tap power of energy (energy also refills 3/s between the two reads: ${t0.e - t1.e} vs ${t1.p})`);
+    assert.deepEqual([t1.taps - t0.taps, t0.hp - t1.hp], [1, 1], 'and chips one health point off the rock');
+    assert.equal(t1.approaching, true);
+    await page.waitForFunction((x) => DigSite.inspect().miner.x > x + 0.03 || DigSite.inspect().inReach, t0.x, { timeout: 15000 });
+    await page.waitForFunction(() => DigSite.inspect().inReach && ['raise', 'strike'].includes(document.getElementById('ck-miner').dataset.pose), null, { timeout: 15000, polling: 30 });
+    await wait(900);
+    const t2 = await page.evaluate(() => ({ g: state.gold, hp: DigSite.inspect().rock.hp, swings: DigSite.inspect().stats.swings }));
+    assert.equal(t2.g, t1.g, 'the show swing did not charge a second time');
+    assert.equal(t2.hp, t1.hp, 'nor did it hurt the rock a second time');
+    report.dig.tapOnRock = { paysLikeATap: true, minerWalksOver: true };
+
+    // 15f) keyboard: arrows walk, space digs while held, the page does not scroll, and nothing is hijacked from a focused control
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); DigSite.debug.setRock({ x: 0.7, y: 0.76 }, 12); DigSite.debug.place({ x: 0.3, y: 0.8 }); });
+    await settle(page);
+    const k0x = (await page.evaluate(() => DigSite.inspect().miner.x));
+    await page.keyboard.down('ArrowLeft');
+    await page.waitForFunction((x) => DigSite.inspect().miner.x < x - 0.04 && DigSite.inspect().miner.moving, k0x, { timeout: 15000 });
+    await page.keyboard.up('ArrowLeft');
+    await wait(150);
+    const dg_k1 = await page.evaluate(() => ({ x: DigSite.inspect().miner.x, face: DigSite.inspect().miner.face, y: scrollY, keys: DigSite.inspect().keys }));
+    assert.equal(dg_k1.face, -1);
+    assert.equal(dg_k1.y, 0, 'arrow keys steer the miner instead of scrolling the page');
+    assert.deepEqual(dg_k1.keys, { l: false, r: false, u: false, d: false }, 'released keys are released');
+    await page.waitForFunction(() => !DigSite.inspect().miner.moving, null, { timeout: 5000 });
+    const s0 = await page.evaluate(() => ({ swings: DigSite.inspect().stats.swings, x: DigSite.inspect().miner.x }));
+    await page.keyboard.down('KeyD');
+    await page.waitForFunction((n) => DigSite.inspect().stats.swings > n + 1, s0.swings, { timeout: 30000 });   // D walks right into the rock and he digs by himself
+    await page.keyboard.up('KeyD');
+    assert.ok((await page.evaluate(() => DigSite.inspect().miner.x)) > s0.x, 'D walks right');
+    await wait(900);
+    const sp0 = await page.evaluate(() => DigSite.inspect().stats.swings);
+    await page.keyboard.down('Space');
+    await page.waitForFunction((n) => DigSite.inspect().stats.swings > n + 1, sp0, { timeout: 30000 });
+    assert.equal(await page.evaluate(() => DigSite.inspect().digHeld), true, 'space is the dig button');
+    await page.keyboard.up('Space');
+    await wait(900);
+    assert.equal(await page.evaluate(() => DigSite.inspect().digHeld), false);
+    // a focused button keeps its own space/enter: pressing space on the rock mines once and does not start digging
+    await page.focus('#mine-btn');
+    const f0 = await page.evaluate(() => ({ g: state.gold, taps: DigSite.inspect().stats.taps }));
+    await page.keyboard.press('Space');
+    const f1 = await page.evaluate(() => ({ g: state.gold, taps: DigSite.inspect().stats.taps, held: DigSite.inspect().digHeld, gain: clickGain() }));
+    assert.ok(Math.abs(f1.g - f0.g - f1.gain) < 1e-6 && f1.taps === f0.taps + 1 && f1.held === false, 'space on the focused rock is one ordinary tap');
+    report.dig.keyboard = { arrows: true, wasd: true, space: true, noScroll: true };
+
+    // 15g) no energy: swings are refused (nothing is paid, nothing is queued), the miner waits and carries on by himself once energy is back
+    await settle(page);
+    const dry = await page.evaluate(() => {
+      document.activeElement && document.activeElement.blur();
+      DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.4, y: 0.8 });
+      state.energy = 0; updateUI();
+      const queued = () => SYNC.clicks + SYNC.pending.length;
+      const g0 = state.gold, c0 = queued(), a = DigSite.inspect().stats;
+      DigSite.debug.setDig(true);
+      DigSite.debug.step(0.05, 40);
+      const mid = DigSite.inspect().stats, level = document.getElementById('energy-container').dataset.level, deny = [...document.querySelectorAll('#ck-layer .ck-num.is-deny')].length;
+      const out = { refused: mid.refused - a.refused, swings: mid.swings - a.swings, dGold: state.gold - g0, dQueued: queued() - c0, level, deny, hp: DigSite.inspect().rock.hp };
+      state.energy = state.maxEnergy; updateUI();
+      DigSite.debug.step(0.05, 40);
+      out.resumed = DigSite.inspect().stats.swings - mid.swings;
+      DigSite.debug.setDig(false);
+      DigSite.debug.step(0.05, 10);
+      return out;
+    });
+    assert.ok(dry.refused >= 2 && dry.refused <= 4, `it tried a few times, not every frame (${dry.refused} refusals in two seconds)`);
+    assert.deepEqual([dry.swings, dry.dGold, dry.dQueued, dry.hp], [0, 0, 0, 12], 'a refused swing pays nothing, queues nothing and does not hurt the rock');
+    assert.equal(dry.level, 'empty');
+    assert.ok(dry.deny >= 1, 'the red "no energy" notice appears over the rock');
+    assert.ok(dry.resumed >= 3, `with energy back he digs again without a new touch (${dry.resumed} swings)`);
+    report.dig.noEnergy = { refused: dry.refused, resumes: true };
+
+    // 15h) windows and other tabs pause him: the stick is released, keys are ignored behind a window, and returning is clean
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); DigSite.debug.setRock({ x: 0.75, y: 0.7 }, 12); DigSite.debug.place({ x: 0.3, y: 0.8 }); ClickerFX.openSheet('click'); });
+    await page.waitForFunction(() => !document.getElementById('ck-sheet').hidden);
+    const p0 = await page.evaluate(() => DigSite.inspect().miner.x);
+    await page.keyboard.down('ArrowRight');
+    await wait(400);
+    const paused = await page.evaluate(() => ({ x: DigSite.inspect().miner.x, paused: DigSite.inspect().paused, keys: DigSite.inspect().keys }));
+    await page.keyboard.up('ArrowRight');
+    assert.equal(paused.paused, true);
+    assert.equal(paused.x, p0, 'behind an open window the miner does not move');
+    assert.equal(paused.keys.r, false);
+    await page.evaluate(() => ClickerFX.closeSheet());
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); });
+    await page.keyboard.down('ArrowRight');
+    await page.waitForFunction((x) => DigSite.inspect().miner.x > x + 0.03, p0, { timeout: 15000 });
+    await page.keyboard.up('ArrowRight');
+    await page.evaluate(() => { DigSite.debug.setRock({ x: 0.75, y: 0.7 }, 12); switchTab('shop'); });
+    const away2 = await page.evaluate(() => ({ paused: DigSite.inspect().paused, ghosts: document.querySelectorAll('#ck-world .ck-ghost').length, shown: getComputedStyle(document.getElementById('ck-pad')).display }));
+    assert.equal(away2.paused, true, 'other tabs pause the dig site (no animation frames are spent there)');
+    assert.equal(away2.ghosts, 0);
+    await page.keyboard.press('ArrowLeft');
+    await page.evaluate(() => switchTab('mining'));
+    await page.waitForFunction(() => !DigSite.inspect().paused);
+    const back = await page.evaluate(() => { const i = DigSite.inspect(); const m = document.getElementById('ck-miner').style.transform; return { m, x: i.miner.x, size: i.size }; });
+    assert.match(back.m, /translate3d\(/, 'coming back re-places the miner');
+    assert.ok(back.size.W > 100 && back.size.H > 60, 'and re-measures the field');
+    report.dig.pause = { window: true, tab: true };
+
     await ctx.close();
 
     // ---------------------------------------------------------------- reduced motion: no tilt / particles / floating flight
@@ -412,7 +656,19 @@ async function main() {
     assert.equal(parseFloat(rmRes.ry), 0, 'no tilt with reduced motion');
     assert.ok(rmRes.floats > 0, 'the gain is still shown');
     assert.deepEqual([rmRes.bob, rmRes.glow, rmRes.hero, rmRes.scene], ['none', 'none', 'none', 'none'], 'idle bobbing, glow breathing, miner breathing and the scene fade are off');
-    report.reducedMotion = { tilt: false, particles: 0, gainShown: true };
+    // the dig site honours it too: the miner still walks and digs and the rock still breaks, without pop-in, ghost or crumble particles
+    const rmDig = await rm.page.evaluate(() => {
+      DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 2); DigSite.debug.place({ x: 0.3, y: 0.8 });
+      const g0 = state.gold, b0 = DigSite.inspect().stats.breaks, gain = clickGain();
+      DigSite.debug.setDig(true);
+      let guard = 0; while (DigSite.inspect().stats.breaks === b0 && guard++ < 200) DigSite.debug.step(0.05);
+      DigSite.debug.setDig(false);
+      return { broke: DigSite.inspect().stats.breaks - b0, paid: (state.gold - g0) / gain, ghosts: document.querySelectorAll('#ck-world .ck-ghost').length, particles: ClickerFX.inspect().particles, popping: document.querySelector('#mine-btn .ck-bob').getAnimations().length,
+        stickTransition: getComputedStyle(document.getElementById('ck-stick')).transitionDuration, hero: getComputedStyle(document.getElementById('ck-hero')).animationName };
+    });
+    assert.deepEqual([rmDig.broke, rmDig.paid, rmDig.ghosts, rmDig.particles, rmDig.popping], [1, 2, 0, 0, 0], `reduced motion: digging works, no ghost, no particles, no pop-in (${JSON.stringify(rmDig)})`);
+    assert.equal(rmDig.hero, 'none');
+    report.reducedMotion = { tilt: false, particles: 0, gainShown: true, digWorks: true };
     await rm.ctx.close();
 
     // ---------------------------------------------------------------- other screens: nothing overflows, everything reachable
@@ -428,7 +684,7 @@ async function main() {
       assert.equal(m.fits, true, `${tag}: the tab needs no scrolling`);
       assert.equal(m.h, false, `${tag}: no horizontal overflow`);
       for (const k of ['ore', 'nodes', 'boost', 'go']) assert.ok(m[k].t >= 0 && m[k].b <= m.vh + 0.5 && m[k].l >= 0 && m[k].r <= m.vw + 0.5, `${tag}: ${k} is fully on screen`);
-      assert.ok(m.ore.w >= 140, `${tag}: the rock stays tappable (${Math.round(m.ore.w)}px)`);
+      assert.ok(m.ore.w >= 84, `${tag}: the rock stays tappable (${Math.round(m.ore.w)}px)`);
       assert.ok(m.boost.h >= 40 && m.go.h >= 40, `${tag}: both buttons keep a finger-sized height`);
       assert.equal(m.display, 'block');
       const wantWide = viewport.width / viewport.height >= 1 && (viewport.width >= 1024 || viewport.height <= 520);
@@ -439,6 +695,29 @@ async function main() {
       const box = await v.page.locator('#ck-ore').boundingBox();
       await v.page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
       assert.ok((await v.page.evaluate(() => state.gold)) - g0 >= 0.99, `${tag}: a real tap mines`);
+      // the dig site fits: finger-sized controls inside the field, clear of each other, and a rock that respawns anywhere is never hidden under them
+      const dg = await v.page.evaluate(() => {
+        const R = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+        const inter = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+        const area = R('#click-area'), pad = R('#ck-pad'), dig = R('#ck-dig'), miner = R('#ck-hero');
+        let worst = 0, outside = 0, covered = 0;
+        for (let i = 0; i < 30; i++) {
+          DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 1); DigSite.debug.place({ x: 0.26, y: 0.8 }); DigSite.onTap({}); DigSite.debug.step(0.001); // a fresh respawn each time
+          const o = R('#mine-btn');
+          worst = Math.max(worst, (inter(o, pad) + inter(o, dig)) / (o.w * o.h));
+          if (o.l < area.l - 1 || o.r > area.r + 1 || o.t < area.t - 1 || o.b > area.b + 1) outside++;
+          const top = document.elementFromPoint((o.l + o.r) / 2, (o.t + o.b) / 2);
+          if (!top || !document.getElementById('mine-btn').contains(top)) covered++;
+        }
+        DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.26, y: 0.8 });
+        return { area, pad, dig, miner, worst, outside, covered, spec: DigSite.inspect().size };
+      });
+      assert.ok(dg.pad.w >= 56 && dg.dig.w >= 50, `${tag}: finger-sized controls (stick ${Math.round(dg.pad.w)}px, button ${Math.round(dg.dig.w)}px)`);
+      for (const k of ['pad', 'dig']) assert.ok(dg[k].l >= dg.area.l - 1 && dg[k].r <= dg.area.r + 1 && dg[k].t >= dg.area.t - 1 && dg[k].b <= dg.area.b + 1, `${tag}: the ${k} control is inside the field`);
+      assert.equal(overlaps(dg.pad, dg.dig), false, `${tag}: the stick and the dig button do not overlap`);
+      assert.ok(dg.miner.h >= 70, `${tag}: the miner is big enough to read (${Math.round(dg.miner.h)}px)`);
+      assert.deepEqual([dg.outside, dg.covered], [0, 0], `${tag}: a respawned rock stays inside the field and its centre is never under a control`);
+      assert.ok(dg.worst <= 0.1, `${tag}: a respawned rock overlaps the controls by at most a sliver (${(dg.worst * 100).toFixed(1)}%)`);
       // the upgrade window fits on every screen, big medal included
       await v.page.evaluate(() => ClickerFX.openSheet('click'));
       const sh = await v.page.evaluate(() => { const c = document.querySelector('.ck-sheet-card').getBoundingClientRect(), a = document.getElementById('ck-sheet-art').getBoundingClientRect(), b = document.getElementById('ck-sheet-buy').getBoundingClientRect();
