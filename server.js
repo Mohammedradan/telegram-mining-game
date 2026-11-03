@@ -13,6 +13,8 @@ const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, de
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
 const { mountPlatform, dailyQuota, ORE_PRICES } = require('./platform-api');
+// قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
+const PlatformRules = require('./public/platform-rules');
 
 const app = express();
 app.disable('x-powered-by');
@@ -86,6 +88,9 @@ const defaultState = () => ({
   costs: { click: 50, bot: 200, rig: 1000 },
   adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
   ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
+  // المرحلة 3: معدات المناجم الدائمة (0..5) وعدد انتصارات كل منجم. تُكتب من الخادم فقط (buy_equip / ختم الجولة).
+  equipment: defaultEquipment(),
+  mines: defaultMines(),
   boostUntil: 0,
   boostCooldownUntil: 0,
   adventure: defaultAdventure(),
@@ -94,6 +99,8 @@ const defaultState = () => ({
 });
 // إحصاءات المغامرة الموثوقة (تُحدَّث من جولات يتحقق منها الخادم فقط) — المناطق مشتقة منها
 const ADV_STAT_KEYS = ['runs', 'gems', 'maxCombo', 'bestScore', 'bestSurvival', 'bossWins', 'rewardEarned', 'playSec'];
+function defaultEquipment() { return Object.fromEntries(PlatformRules.EQUIPMENT_ORDER.map((k) => [k, 0])); }
+function defaultMines() { return { wins: PlatformRules.MINES.map(() => 0) }; }
 function defaultAdventure() { return { runs: 0, gems: 0, maxCombo: 0, bestScore: 0, bestSurvival: 0, bossWins: 0, rewardEarned: 0, playSec: 0, zones: 1 }; }
 
 const clampNum = (v, min, max, fallback) => {
@@ -129,6 +136,8 @@ function sanitizeState(input, base = defaultState()) {
     ),
     // الخامات تُمنح فقط من جولات يعيد الخادم تشغيلها؛ القائمة البيضاء تمنع حقن قيم من العميل.
     ores: Object.fromEntries(Object.keys(ORE_PRICES).map((k) => [k, Math.floor(clampNum((s.ores || {})[k], 0, 1e9, base.ores?.[k] || 0))])),
+    equipment: Object.fromEntries(PlatformRules.EQUIPMENT_ORDER.map((k) => [k, Math.floor(clampNum((s.equipment || {})[k], 0, PlatformRules.MAX_EQUIP_LEVEL, base.equipment?.[k] || 0))])),
+    mines: { wins: PlatformRules.MINES.map((_, i) => Math.floor(clampNum((s.mines?.wins || [])[i], 0, 1e6, base.mines?.wins?.[i] || 0))) },
     boostUntil: clampNum(s.boostUntil, 0, Date.now() + 24 * 3600e3, 0),
     boostCooldownUntil: clampNum(s.boostCooldownUntil, 0, Date.now() + 24 * 3600e3, 0),
     adventure: sanitizeAdventure(s.adventure, base.adventure),
@@ -226,6 +235,8 @@ function deriveStats(s) {
   for (const t of Object.keys(UPGRADES_DEF)) s.costs[t] = costFor(t, s.owned[t]);
   if (!s.adventure) s.adventure = defaultAdventure();
   if (!s.ores || typeof s.ores !== 'object') s.ores = { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 };
+  if (!s.equipment || typeof s.equipment !== 'object') s.equipment = defaultEquipment();
+  if (!s.mines || typeof s.mines !== 'object') s.mines = defaultMines();
   s.adventure.zones = zonesFor(s.adventure);
   s.level = levelFromXp(s.xp);
   return s;
@@ -237,7 +248,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore', 'buy_equip']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -721,6 +732,26 @@ function applyOps(user, session, ops, now, ctx = {}) {
         r.xp = grantXp(s, cost / XP_RULES.costPerXp);
         trackMission(user, 'buy', 1, now);
         goldDelta = -cost; detail = { key: op.key, level: lvl + 1 };
+        break;
+      }
+      case 'buy_equip': {
+        // معدات المناجم (المرحلة 3): ذهب + خام «سلّم» ثابت. التكلفة من القواعد المشتركة؛ الأثر يسري من الجولة التالية فقط
+        // (لقطة الجولة الجارية ثابتة). الأسعار والمستويات لا تأتي من العميل أبداً.
+        if (!PlatformRules.EQUIPMENT[op.key]) { r.status = 'invalid'; break; }
+        const eq = s.equipment || (s.equipment = defaultEquipment());
+        const lvl = Math.max(0, Math.floor(Number(eq[op.key]) || 0));
+        const cost = PlatformRules.equipCost(op.key, lvl);
+        if (!cost) { r.status = 'rejected'; r.reason = 'max'; break; }
+        r.cost = cost.gold; r.ores = cost.ores;
+        const lacksOre = Object.entries(cost.ores).some(([ore, n]) => (Number(s.ores?.[ore]) || 0) < n);
+        if (s.gold < cost.gold || lacksOre) { r.status = 'rejected'; r.reason = 'insufficient'; flagged = true; break; }
+        s.gold -= cost.gold;
+        for (const [ore, n] of Object.entries(cost.ores)) s.ores[ore] = Math.max(0, Math.floor(s.ores[ore]) - n);
+        eq[op.key] = lvl + 1;
+        r.level = lvl + 1;
+        r.xp = grantXp(s, cost.gold / XP_RULES.costPerXp);
+        trackMission(user, 'buy', 1, now);
+        goldDelta = -cost.gold; detail = { key: op.key, level: lvl + 1, ores: cost.ores };
         break;
       }
       case 'boost': {

@@ -25,6 +25,8 @@ const runFromRow = (row) => {
     status: String(row.status),
     result_json: raw == null || typeof raw === 'string' ? raw : JSON.stringify(raw),
     started_at: Number(row.started_at),
+    // لقطة إعداد الجولة (المنجم + مستويات المعدات) المثبّتة عند البدء؛ null في جولات ما قبل المرحلة 3 = الإعداد الافتراضي
+    config_json: row.config_json == null || typeof row.config_json === 'string' ? (row.config_json ?? null) : JSON.stringify(row.config_json),
   };
 };
 
@@ -65,6 +67,11 @@ const USER_SCHEMA_UPGRADES = [
   { column: 'sync_json', sqlite: "TEXT NOT NULL DEFAULT '{}'", pg: "JSONB NOT NULL DEFAULT '{}'::jsonb" },
 ];
 
+// أعمدة أُضيفت لاحقاً إلى platform_runs (قواعد قديمة تُرقّى دون لمس جولاتها)
+const PLATFORM_RUN_UPGRADES = [
+  { column: 'config_json', sqlite: 'TEXT' },
+];
+
 const SCHEMA_SQLITE = `
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, state_json TEXT NOT NULL,
@@ -89,7 +96,7 @@ CREATE TABLE IF NOT EXISTS op_ledger (
 CREATE TABLE IF NOT EXISTS platform_runs (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
   status TEXT NOT NULL, result_json TEXT, started_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL, config_json TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
@@ -122,8 +129,9 @@ CREATE TABLE IF NOT EXISTS op_ledger (
 CREATE TABLE IF NOT EXISTS platform_runs (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
   status TEXT NOT NULL, result_json TEXT, started_at BIGINT NOT NULL,
-  updated_at BIGINT NOT NULL
+  updated_at BIGINT NOT NULL, config_json TEXT
 );
+ALTER TABLE platform_runs ADD COLUMN IF NOT EXISTS config_json TEXT;
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
 `;
@@ -141,6 +149,10 @@ function createSqliteStore(file) {
   const existing = new Set(conn.prepare('PRAGMA table_info(users)').all().map((c) => c.name));
   for (const { column, sqlite } of USER_SCHEMA_UPGRADES) {
     if (!existing.has(column)) conn.exec(`ALTER TABLE users ADD COLUMN ${column} ${sqlite}`);
+  }
+  const runColumns = new Set(conn.prepare('PRAGMA table_info(platform_runs)').all().map((c) => c.name));
+  for (const { column, sqlite } of PLATFORM_RUN_UPGRADES) {
+    if (!runColumns.has(column)) conn.exec(`ALTER TABLE platform_runs ADD COLUMN ${column} ${sqlite}`);
   }
   const upsert = conn.prepare(`
     INSERT INTO users (${USER_COLUMNS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -222,13 +234,14 @@ function createSqliteStore(file) {
       return runFromRow(conn.prepare(`SELECT * FROM platform_runs WHERE user_id = ? AND status = 'playing' ORDER BY started_at DESC LIMIT 1`).get(String(userId)));
     },
     async getPlatformRun(id) { return runFromRow(conn.prepare('SELECT * FROM platform_runs WHERE id = ?').get(String(id))); },
-    // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) لا يُلمس — إعادة الحفظ لا تُعيد شباب الجولة
+    // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) وconfig_json (لقطة المنجم والمعدات) لا يُلمسان
     async savePlatformRun(run) {
-      conn.prepare(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+      conn.prepare(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at, config_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET status = excluded.status, result_json = excluded.result_json, updated_at = excluded.updated_at`)
         .run(String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
-          run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now());
+          run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now(),
+          run.config_json == null ? null : String(run.config_json));
     },
     async getPending(id) { return conn.prepare('SELECT count FROM pending_referrals WHERE id = ?').get(String(id))?.count || 0; },
     async addPending(id) {
@@ -340,13 +353,14 @@ function createPgStore(url) {
       return runFromRow((await q(`SELECT * FROM platform_runs WHERE user_id = $1 AND status = 'playing' ORDER BY started_at DESC LIMIT 1`, [String(userId)])).rows[0]);
     },
     async getPlatformRun(id) { return runFromRow((await q('SELECT * FROM platform_runs WHERE id = $1', [String(id)])).rows[0]); },
-    // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) لا يُلمس — إعادة الحفظ لا تُعيد شباب الجولة
+    // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) وconfig_json (لقطة المنجم والمعدات) لا يُلمسان
     async savePlatformRun(run) {
-      await q(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      await q(`INSERT INTO platform_runs (id, user_id, version, status, result_json, started_at, updated_at, config_json)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT(id) DO UPDATE SET status = EXCLUDED.status, result_json = EXCLUDED.result_json, updated_at = EXCLUDED.updated_at`,
       [String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
-        run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now()]);
+        run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now(),
+        run.config_json == null ? null : String(run.config_json)]);
     },
     async close() { await pool.end(); },
   };

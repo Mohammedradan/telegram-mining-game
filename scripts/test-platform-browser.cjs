@@ -166,15 +166,15 @@ async function main() {
     report.networkRecovery = true; report.keyboardWin = true; report.regressionSmoke = true;
     assert.deepEqual(errors, []);
     await ctx.close();
-    // The cosmetic run zones shipped with the v2 engine must reach the browser HUD.
+    // The mine themes (V4: six mines, selected by the player; mine 0 by default) must reach the browser HUD.
     const zoneContext = await context({ width: 390, height: 844 });
     const zonePage = zoneContext.page;
-    assert.equal(await zonePage.evaluate(() => window.PlatformRules.ZONES.length), 4, 'four cave themes are shipped');
+    assert.equal(await zonePage.evaluate(() => window.PlatformRules.ZONES.length), 6, 'six mine themes are shipped');
     await zonePage.locator('#platform-start').click();
     await zonePage.waitForFunction(() => window.PlatformGame.inspect().running);
     const zoneState = await read(zonePage);
-    assert.ok(zoneState.zone >= 0 && zoneState.zone < 4, 'the run has a valid zone');
-    assert.match(await zonePage.locator('#platform-progress').textContent(), /كهف|مناجم|الأعماق/, 'HUD shows the cave name');
+    assert.equal(zoneState.zone, 0, 'a new account starts in the first mine');
+    assert.match(await zonePage.locator('#platform-progress').textContent(), /المنجم الحجري/, 'HUD shows the mine name');
     report.cosmeticZones = { zone: zoneState.zone, name: await zonePage.evaluate(i => window.PlatformRules.ZONES[i].name, zoneState.zone) };
     await zonePage.locator('#platform-pause').click();
     assert.deepEqual(errors, []);

@@ -209,31 +209,21 @@ test('platform balance: each hero has a distinct, measurable advantage', () => {
   R.step(melee, R.INPUT.ATTACK); assert.equal(melee.defeated, 0);
 });
 
-// من فرع devin/1792351084-gameplay-overhaul (PR #25): أربعة كهوف تجميلية حسب بذرة الجولة.
-test('platform zones: all four caves are reachable from server-style run ids, with own colours, layout and a winnable route', () => {
-  const names = ['كهف البلّور الأزرق', 'مناجم الحمم', 'كهف الزمرّد', 'الأعماق البنفسجية'];
-  assert.deepEqual(R.ZONES.map(z => z.name), names);
-  const found = new Map();
-  for (let i = 0; i < 200 && found.size < R.ZONES.length; i++) {
-    const seed = R.seedFromId(`zone-run-${i}`); // نفس صيغة معرّف الجولة في platform-api.js
-    const zone = R.zoneFor(seed);
-    if (!found.has(zone)) found.set(zone, seed);
+// المرحلة 3: الكهوف صارت ستة مناجم حقيقية تُختار عبر config (اختبارها التفصيلي في test/platform-mines.test.js).
+test('platform zones: each mine has its own palette and the cosmetic zone no longer depends on the run seed', () => {
+  assert.equal(R.ZONES.length, 6);
+  assert.deepEqual(R.ZONES.map(z => z.name), R.MINES.map(m => m.name));
+  for (const [i, zone] of R.ZONES.entries()) {
+    for (const key of ['sky', 'far', 'mid', 'columns', 'glow', 'crystal']) assert.ok(zone[key], `zone ${i} has ${key} colours`);
   }
-  assert.equal(found.size, R.ZONES.length, 'every cosmetic zone is reachable from run ids');
-  const layouts = new Set();
-  for (const [zone, seed] of found) {
-    const s = R.create('miner', seed);
-    assert.equal(s.zone, zone);
-    assert.equal(R.ZONES[s.zone].name, names[zone]);
-    for (const key of ['sky', 'far', 'mid', 'columns', 'glow', 'crystal']) {
-      assert.ok(R.ZONES[zone][key], `zone ${zone} has ${key} colours`);
-    }
-    layouts.add(JSON.stringify(s.rocks.map(r => r.x)));
-    const { state, inputs } = solution(seed);
-    assert.equal(state.status, 'won', `zone ${names[zone]} layout is winnable`);
-    assert.deepEqual(R.replay(inputs, 'miner', seed).state, state, 'the zone never changes verified physics');
+  const seed = R.seedFromId('zone-run-0');
+  assert.equal(R.create('miner', seed).zone, 0, 'no config = first mine, whatever the seed');
+  for (let zone = 0; zone < 6; zone++) {
+    const { state, inputs } = solution(seed, 'miner', { zone });
+    assert.equal(state.zone, zone);
+    assert.equal(state.status, 'won', `${R.MINES[zone].name} is winnable`);
+    assert.deepEqual(R.replay(inputs, 'miner', seed, { zone }).state, state, 'the mine never changes verified physics');
   }
-  assert.equal(layouts.size, found.size, 'each zone sample has its own layout');
 });
 
 // ---------------------------------------------------------------------------
@@ -298,5 +288,5 @@ test('phase 2: ore and milestone events only fire once per achievement', () => {
   advance(s, 0, 5);
   assert.equal(s.events.filter(e => e.type === 'milestone').length, 0, 'no repeated milestone in later ticks');
   assert.equal(s.milestones.filter(id => id === 'first_rock').length, 1);
-  assert.equal(s.ores.copper, R.MILESTONES.find(m => m.id === 'first_rock').ores.copper);
+  assert.equal(s.ores.copper, R.milestoneOres(0, 'first_rock').copper);
 });

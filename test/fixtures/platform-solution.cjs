@@ -1,7 +1,8 @@
 // A reproducible legal controller, not an injected score or physics override.
+// `config` = { zone, loadout } selects the mine and the equipment the run is verified under (default: mine 0, no gear).
 const R = require('../../public/platform-rules');
-module.exports = function solution(seed, hero = 'miner') {
-  const state = R.create(hero, seed), inputs = [];
+module.exports = function solution(seed, hero = 'miner', config) {
+  const state = R.create(hero, seed, config), inputs = [];
   for (let i = 0; i < R.MAX_TICKS && state.status === 'playing'; i++) {
     const p = state.player;
     let mask = R.INPUT.RIGHT;
