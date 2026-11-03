@@ -122,22 +122,52 @@ test('phase 1+2: impact feedback and ore economy are wired into the real UI', ()
   assert.equal(typeof rules.rewardBreakdown, 'function');
 });
 
-// ورشة المعدّن: نموذج بصري على العميل فقط — لا يلمس القواعد ولا الخادم.
-test('workshop prototype: client-only screen with eight equipment nodes and no server changes', () => {
+// المرحلة 3: الورشة صارت مدعومة بالخادم (بدل المعاينة) + خريطة المناجم + عرض الصلابة في المشهد.
+test('phase 3 UI: the workshop is server-backed, the mines map is wired in and the scene shows rock hardness', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
-  for (const id of ['ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'ws-upgrade',
-    'open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop']) {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-renderer.js'), 'utf8');
+  assert.equal(require('../public/platform-rules').VERSION, 4);
+  for (const id of ['ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'ws-upgrade', 'ws-note', 'ws-ore-row', 'ws-mine',
+    'ws-card-now', 'ws-card-next', 'ws-cost-gold', 'ws-cost-ore', 'open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop',
+    'mine-select', 'mines-overlay', 'mines-list', 'mines-close']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
-  for (const sym of ['i-boots', 'i-bag', 'i-magnet', 'i-drill', 'i-robot', 'i-luck', 'i-armor', 'i-music', 'i-close']) {
+  for (const sym of ['i-boots', 'i-bag', 'i-magnet', 'i-drill', 'i-robot', 'i-luck', 'i-armor', 'i-music', 'i-close', 'i-check']) {
     assert.match(html, new RegExp(`id="${sym}"`));
   }
   assert.match(css, /\.ws-overlay\{position:fixed;inset:0/, 'the workshop covers the whole viewport');
-  assert.match(css, /\.ws-node\{/);
-  assert.match(css, /\.ws-cta\{/);
-  assert.match(html, /WORKSHOP_ITEMS/);
-  assert.match(html, /workshop-preview-levels/);
+  assert.match(css, /\.mines-overlay\{position:fixed;inset:0/, 'the mines map covers the whole viewport');
+  for (const rule of ['.ws-node{', '.ws-node.can-buy{', '.ws-cta{', '.ws-cost{', '.ws-cost.lack{', '.mine-card{', '.mine-card.locked{', '.mine-pick{', '.overlay-row{', '.ore-dot{']) {
+    assert.ok(css.includes(rule), `${rule} is styled`);
+  }
+  assert.match(css, /\.mine-overlay::before,\.mine-overlay::after\{content:'';flex:1 0 0/, 'the start overlay centres short content without clipping tall content');
+  // الورشة تقرأ الأسعار والتأثيرات من القواعد المشتركة وترسل عملية خادمية، لا مستويات محلية
+  assert.match(html, /WORKSHOP_ITEMS = WS_RULES \? WS_RULES\.EQUIPMENT_ORDER/, 'items come from the shared rules; a missing rules file only disables the workshop');
+  assert.match(html, /enqueueOp\(\{ type: 'buy_equip', key: id \}\)/);
+  assert.match(html, /function noteEquipResults\(/);
+  assert.doesNotMatch(html, /workshop-preview-levels|wsLevels/, 'no client-only levels remain');
+  assert.doesNotMatch(html, /معاينة بصرية/, 'the screen is no longer a preview');
+  assert.doesNotMatch(html, /\/api\/workshop/, 'equipment goes through the existing ops endpoint');
   assert.match(html, /window\.openWorkshop = wsOpen/);
-  assert.doesNotMatch(html, /\/api\/workshop/, 'the prototype adds no server endpoint');
-  assert.match(html, /معاينة بصرية/, 'the screen is clearly labelled as a preview');
+  assert.match(html, /window\.openMines = minesOpen/);
+  assert.ok(html.indexOf('id="mine-select"') > html.indexOf('id="platform-overlay"'), 'the selector lives in the start overlay');
+  // المتحكم: المنجم المختار يُرسل عند البدء، واللقطة المخزنة تُستخدم في الاستعادة والتشغيل
+  assert.match(game, /request\('\/api\/platform\/start', \{ zone: selectedZone \}\)/);
+  assert.match(game, /request\('\/api\/platform\/start', \{ resume: true \}\)/);
+  assert.match(game, /R\.create\(currentHero, seedOf\(ticket\), configFor\(ticket\)\)/);
+  assert.match(game, /R\.replay\(stored\.inputs, currentHero, seedOf\(stored\.ticket\), storedConfig\)/);
+  assert.match(game, /event\.type === 'robot_mine'/);
+  assert.match(game, /new CustomEvent\('platform-config-change'/, 'mine/hero changes notify the screens');
+  assert.match(html, /addEventListener\('platform-config-change'/);
+  assert.doesNotMatch(game, /[\u{1F3C6}\u{1F480}]/u, 'result titles use no emoji');
+  // الرسم: صلابة الصخر بنسبة maxHp وشريط للصخور الصلبة والمخاطر من حالة المنجم
+  assert.match(renderer, /rock\.maxHp/);
+  assert.match(renderer, /s\.hazards \|\| R\.LEVEL\.hazards/);
+  assert.match(renderer, /drawDrone\(c, s\.player/);
+  // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
+  assert.match(html, /platform-rules\.js\?v=6/);
+  assert.match(html, /platform-game\.js\?v=7/);
+  assert.match(html, /platform-renderer\.js\?v=5/);
+  assert.match(html, /platform\.css\?v=8/);
 });

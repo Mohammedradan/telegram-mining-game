@@ -408,3 +408,32 @@ test('an arena match in the pending queue is replayed optimistically and the ser
     assert.equal(h.e.SYNC.pending.length, 0);
   });
 });
+
+// المرحلة 3: ترقية المعدات تُعرض فوراً بنفس جدول الأسعار المشترك، والخادم هو الذي يصحّح عند الاختلاف.
+test('phase 3: buy_equip is applied optimistically with the shared price table, ignored when unaffordable and re-applied over server state', () => {
+  const h = harness();
+  h.ctx.window = { PlatformRules: require('../public/platform-rules') };
+  h.e.loadSyncQueue();
+  const fresh = () => ({ ...h.ctx.state, gold: 1000, ores: { copper: 10, iron: 0, gold: 0, crystal: 0, lava: 0 }, equipment: { pickaxe: 0, boots: 0 } });
+  const s = fresh();
+  h.e.applyOpLocally(s, { type: 'buy_equip', key: 'pickaxe' });
+  assert.equal(s.gold, 950); assert.equal(s.ores.copper, 4); assert.equal(s.equipment.pickaxe, 1);
+  h.e.applyOpLocally(s, { type: 'buy_equip', key: 'pickaxe' }); // level 2 needs 80 gold + 6 IRON: none owned
+  assert.equal(s.equipment.pickaxe, 1, 'missing ore blocks the local preview too'); assert.equal(s.gold, 950);
+  const poor = { ...fresh(), gold: 49 };
+  h.e.applyOpLocally(poor, { type: 'buy_equip', key: 'pickaxe' });
+  assert.equal(poor.equipment.pickaxe, 0); assert.equal(poor.gold, 49);
+  h.e.applyOpLocally(fresh(), { type: 'buy_equip', key: 'laser' }); // unknown item: harmless
+  // the server snapshot still shows level 0 + 1000 gold: the pending op is layered on top until acknowledged
+  h.e.SYNC.pending = [{ seq: 1, type: 'buy_equip', key: 'boots' }];
+  h.e.adoptServerState({ revision: 3, state: serverState({ gold: 1000, ores: { copper: 10, iron: 0, gold: 0, crystal: 0, lava: 0 }, equipment: { pickaxe: 2 }, mines: { wins: [1, 0, 0, 0, 0, 0] } }) });
+  const adopted = h.ctx.state;
+  assert.equal(adopted.equipment.pickaxe, 2, 'server equipment is authoritative');
+  assert.equal(adopted.equipment.boots, 1, 'the unacknowledged purchase is shown');
+  assert.equal(adopted.gold, 940); assert.equal(adopted.ores.copper, 4);
+  assert.deepEqual(plain(adopted.mines.wins), [1, 0, 0, 0, 0, 0]);
+  // once the server answers without the op, the authoritative state wins (a refused purchase is reverted)
+  h.e.SYNC.pending = [];
+  h.e.adoptServerState({ revision: 4, state: serverState({ gold: 1000, ores: { copper: 10 }, equipment: { pickaxe: 2 } }) });
+  assert.ok(!h.ctx.state.equipment.boots, 'the refused purchase disappears'); assert.equal(h.ctx.state.gold, 1000);
+});

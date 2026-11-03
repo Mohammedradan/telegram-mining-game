@@ -338,7 +338,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=7">
+  <link rel="stylesheet" href="/platform.css?v=8">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -522,7 +522,10 @@
             <div class="mission-progress"><i id="mission-fill"></i></div>
           </div>
           <button id="platform-start" type="button">جولة جديدة</button>
-          <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
+          <div class="overlay-row">
+            <button id="mine-select" type="button" class="mine-select" aria-haspopup="dialog" aria-label="اختيار المنجم"><span class="mine-select-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="mine-select-hits" data-mine-hits></span></button>
+            <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
+          </div>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
       </div>
@@ -675,7 +678,7 @@
   <!-- TAB 2: UPGRADES / SHOP -->
   <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 py-2 px-1">
     <h2 class="text-lg font-bold text-slate-200 mb-1">ترقية المعدات والمعدنين</h2>
-    <button id="open-workshop-shop" type="button" class="ws-shop-entry">افتح ورشة المعدّن — معاينة الواجهة الجديدة</button>
+    <button id="open-workshop-shop" type="button" class="ws-shop-entry">ورشة المعدّن — ترقيات المعدات الدائمة</button>
 
     <!-- Upgrade 1: Click Power -->
     <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
@@ -873,7 +876,7 @@
     </button>
   </nav>
 
-  <!-- نموذج شاشة الورشة: معاينة بصرية عميلة فقط — المرحلة 3 ستربطها بالمعدات الخادمية -->
+  <!-- ورشة المعدّن (المرحلة 3): معدات دائمة بسعر ذهب + خام، يتحقق الخادم من كل ترقية وتسري من الجولة التالية -->
   <div id="ws-overlay" class="ws-overlay" hidden aria-label="ورشة المعدّن">
     <div class="ws-cave" aria-hidden="true"></div>
     <div class="ws-top">
@@ -885,6 +888,7 @@
         <button id="ws-close" class="ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
       </div>
     </div>
+    <div id="ws-ore-row" class="ws-ore-row" aria-label="مخزن الخامات"></div>
     <div class="ws-stage">
       <div class="ws-ring">
         <div class="ws-orbit" aria-hidden="true"></div>
@@ -896,26 +900,43 @@
     </div>
     <div class="ws-bottom">
       <div id="ws-summary" class="ws-summary"></div>
+      <button id="ws-mine" class="ws-mine-btn" type="button" aria-haspopup="dialog" aria-label="اختيار المنجم"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span class="ws-mine-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="ws-mine-hits" data-mine-hits></span></button>
       <button id="ws-cta" class="ws-cta" type="button">ابدأ التعدين</button>
-      <p class="ws-note">معاينة بصرية — مستويات المعدات هنا تجريبية وستربط بالخادم في المرحلة 3.</p>
+      <p id="ws-note" class="ws-note" aria-live="polite">تُشترى المعدات بالذهب والخامات ويتحقق الخادم من كل ترقية. تسري من جولتك القادمة.</p>
     </div>
     <div id="ws-modal" class="ws-modal" hidden>
       <div class="ws-card">
         <div id="ws-card-icon" class="ws-card-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
         <h3 id="ws-card-title">قوة المعول</h3>
         <p id="ws-card-effect" class="ws-card-effect"></p>
-        <div class="ws-stats"><span>المستوى <b id="ws-card-level">0</b></span><span>التكلفة <b id="ws-card-cost">0</b></span></div>
-        <button id="ws-upgrade" class="ws-upgrade" type="button">ترقية (معاينة)</button>
+        <div class="ws-stats"><span>المستوى <b class="ws-level"><span id="ws-card-level">0</span><span class="ws-card-max">/5</span></b></span></div>
+        <div class="ws-effects"><p id="ws-card-now"></p><p id="ws-card-next"></p></div>
+        <div class="ws-costs" aria-label="تكلفة الترقية">
+          <span class="ws-cost" id="ws-cost-gold"><svg class="ui-icon" aria-hidden="true"><use href="#i-coin"/></svg><b id="ws-card-cost">0</b></span>
+          <span class="ws-cost" id="ws-cost-ore"></span>
+        </div>
+        <button id="ws-upgrade" class="ws-upgrade" type="button">ترقية</button>
         <button id="ws-modal-close" class="ws-modal-close" type="button">إغلاق</button>
       </div>
     </div>
   </div>
 
+  <!-- خريطة المناجم (المرحلة 3): ستة مناجم تُفتح بالفوز بالسابق وبمعدات كافية؛ يتحقق الخادم من الفتح عند بدء الجولة -->
+  <div id="mines-overlay" class="mines-overlay" hidden role="dialog" aria-modal="true" aria-label="خريطة المناجم">
+    <div class="ws-cave" aria-hidden="true"></div>
+    <div class="mines-top">
+      <h2>خريطة المناجم</h2>
+      <button id="mines-close" class="ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </div>
+    <p class="mines-hint">كل منجم أصلب وأغنى بخاماته. افتح التالي بالفوز في السابق وبترقية معداتك في الورشة.</p>
+    <div id="mines-list" class="mines-list"></div>
+  </div>
+
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=5"></script>
-  <script src="/platform-renderer.js?v=4"></script>
+  <script src="/platform-rules.js?v=6"></script>
+  <script src="/platform-renderer.js?v=5"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -931,6 +952,8 @@
       costs: { click: 50, bot: 200, rig: 1000 },
       adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
       ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
+      equipment: { pickaxe: 0, boots: 0, bag: 0, magnet: 0, drill: 0, robot: 0, luck: 0, armor: 0 }, // معدات المناجم (خادمية)
+      mines: { wins: [0, 0, 0, 0, 0, 0] },                                                        // انتصارات كل منجم (خادمية)
       boostUntil: 0,
       boostCooldownUntil: 0,
       dailyLastClaim: null,
@@ -938,7 +961,8 @@
       lastSeen: Date.now()
     };
 
-    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades } };
+    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades },
+      ores: { ...DEFAULT_STATE.ores }, equipment: { ...DEFAULT_STATE.equipment }, mines: { wins: [...DEFAULT_STATE.mines.wins] } };
 
     let localOfflineGain = 0;
 
@@ -952,7 +976,9 @@
           costs: { ...DEFAULT_STATE.costs, ...(saved.costs || {}) },
           owned: { ...DEFAULT_STATE.owned, ...(saved.owned || {}) },
           adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(saved.adventureUpgrades || {}) },
-          ores: { ...DEFAULT_STATE.ores, ...(saved.ores || {}) }
+          ores: { ...DEFAULT_STATE.ores, ...(saved.ores || {}) },
+          equipment: { ...DEFAULT_STATE.equipment, ...(saved.equipment || {}) },
+          mines: { wins: DEFAULT_STATE.mines.wins.map((v, i) => Number(saved.mines?.wins?.[i]) || v) }
         };
         // ترحيل الحفظ القديم: إن لم يوجد totalEarned اعتبر الرصيد الحالي هو المجموع
         if (!saved.totalEarned) state.totalEarned = Math.max(saved.gold || 0, (state.clickPower - 1) * 50 + state.passiveIncome * 20);
@@ -1082,6 +1108,8 @@
       owned: { ...DEFAULT_STATE.owned, ...(srv.owned || {}) },
       adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(srv.adventureUpgrades || {}) },
       ores: { ...DEFAULT_STATE.ores, ...(srv.ores || {}) },
+      equipment: { ...DEFAULT_STATE.equipment, ...(srv.equipment || {}) },
+      mines: { wins: (DEFAULT_STATE.mines?.wins || [0, 0, 0, 0, 0, 0]).map((v, i) => Number(srv.mines?.wins?.[i]) || v) },
     });
 
     // إعادة تطبيق عملية غير مؤكدة محلياً فوق حالة الخادم (نفس قواعد الواجهة)
@@ -1111,6 +1139,13 @@
         if (s.gold < cost) return;
         s.gold -= cost;
         s.adventureUpgrades[op.key] = lvl + 1;
+      } else if (op.type === 'buy_equip') {
+        const lvl = Math.max(0, Math.floor(Number(s.equipment?.[op.key]) || 0));
+        const cost = window.PlatformRules?.equipCost?.(op.key, lvl);
+        if (!cost || !(s.gold >= cost.gold) || Object.entries(cost.ores).some(([k, n]) => (Number(s.ores?.[k]) || 0) < n)) return;
+        s.gold -= cost.gold;
+        for (const [k, n] of Object.entries(cost.ores)) s.ores[k] = (Number(s.ores[k]) || 0) - n;
+        s.equipment = { ...(s.equipment || {}), [op.key]: lvl + 1 };
       } else if (op.type === 'boost') {
         const now = Date.now();
         if (now < (s.boostUntil || 0) || now < (s.boostCooldownUntil || 0)) return;
@@ -1148,6 +1183,7 @@
       if (typeof ADV !== 'undefined') ADV.playerW = 78 + (state.adventureUpgrades?.cart || 0) * 8;
       updateUI();
       if (typeof updateAdvUpgradesUI === 'function') updateAdvUpgradesUI();
+      if (typeof wsRefresh === 'function') wsRefresh();
       save();
     }
 
@@ -1193,6 +1229,7 @@
         }
         adoptServerState(data);
         const results = data.results || [];
+        if (typeof noteEquipResults === 'function') noteEquipResults(results.filter((r) => r.type === 'buy_equip'));
         const refused = results.filter((r) => r.status === 'rejected' || r.status === 'clamped');
         const runs = results.filter((r) => r.type === 'run');
         const missionsDone = results.filter((r) => r.type === 'mission' && r.status === 'ok');
@@ -3134,25 +3171,27 @@
     }
 
     // ============================================================
-    // ورشة المعدّن — معاينة بصرية فقط. لا API، لا قواعد، لا خادم.
-    // المستويات تُحفظ محلياً تحت مفتاح مستقل ولا تؤثر على الجولات.
+    // ورشة المعدّن (المرحلة 3): معدات دائمة بسعر ذهب + خام، مدعومة بالخادم.
+    // الأسعار والتأثيرات من public/platform-rules.js نفسه؛ الخادم يعيد حسابها ويرفض أي عملية لا تطابق رصيدك،
+    // والأثر يسري من الجولة التالية (لقطة الجولة الجارية ثابتة).
     // ============================================================
-    const WORKSHOP_ITEMS = [
-      { id: 'pickaxe', name: 'قوة المعول', icon: 'i-pickaxe', effect: 'تكسير الصخور بضربات أقل', base: 50 },
-      { id: 'boots',   name: 'حذاء المعدّن', icon: 'i-boots',  effect: 'حركة أسرع داخل المنجم', base: 60 },
-      { id: 'bag',     name: 'حقيبة الموارد', icon: 'i-bag',   effect: 'حمل كميات أكبر من الخامات', base: 70 },
-      { id: 'magnet',  name: 'المغناطيس', icon: 'i-magnet',    effect: 'جذب البلورات القريبة', base: 80 },
-      { id: 'drill',   name: 'الحفر الآلي', icon: 'i-drill',   effect: 'ضرر دوري للصخور', base: 90 },
-      { id: 'robot',   name: 'روبوت التعدين', icon: 'i-robot', effect: 'جمع الخامات أثناء الغياب', base: 100 },
-      { id: 'luck',    name: 'حظ المعدّن', icon: 'i-luck',     effect: 'فرصة أعلى للخامات النادرة', base: 110 },
-      { id: 'armor',   name: 'معدات الحماية', icon: 'i-armor', effect: 'دخول المناطق الخطرة', base: 120 },
-    ];
-    const WS_LEVEL_KEY = 'workshop-preview-levels';
-    let wsLevels = {};
-    try { wsLevels = JSON.parse(localStorage.getItem(WS_LEVEL_KEY) || '{}') || {}; } catch (_) { wsLevels = {}; }
+    const WS_RULES = window.PlatformRules; // ملف القواعد المشترك؛ غيابه يعطّل الورشة والخريطة فقط ولا يُسقط بقية اللعبة
+    const WORKSHOP_ITEMS = WS_RULES ? WS_RULES.EQUIPMENT_ORDER.map((id) => ({ id, ...WS_RULES.EQUIPMENT[id] })) : [];
     let wsOpenFlag = false, wsRaf = 0, wsTickCount = 0, wsAudio = null, wsMusicTimer = 0;
     let wsSoundOn = true, wsMusicOn = false, wsActiveItem = null;
     const wsReduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    const WS_DEFAULT_NOTE = 'تُشترى المعدات بالذهب والخامات ويتحقق الخادم من كل ترقية. تسري من جولتك القادمة.';
+    const wsLevel = (id) => Math.max(0, Math.min(WS_RULES.MAX_EQUIP_LEVEL, Math.floor(Number(state.equipment?.[id]) || 0)));
+    const hitsWord = (n) => (n === 1 ? 'ضربة واحدة' : n === 2 ? 'ضربتان' : n <= 10 ? `${n} ضربات` : `${n} ضربة`);
+    const wsNote = (text) => { const n = document.getElementById('ws-note'); if (n) n.textContent = text || WS_DEFAULT_NOTE; };
+    // هل تكفي الأرصدة الحالية للترقية التالية؟ (للعرض فقط — الخادم هو الحكم)
+    function wsAfford(id) {
+      const cost = WS_RULES.equipCost(id, wsLevel(id));
+      if (!cost) return { max: true, ok: false, cost: null, goldOk: false, lacking: [] };
+      const goldOk = (Number(state.gold) || 0) >= cost.gold;
+      const lacking = Object.entries(cost.ores).filter(([k, n]) => (Number(state.ores?.[k]) || 0) < n).map(([k]) => k);
+      return { max: false, ok: goldOk && !lacking.length, cost, goldOk, lacking };
+    }
 
     function wsNodePos(i) {
       const a = (-90 + i * 45) * Math.PI / 180;
@@ -3162,8 +3201,9 @@
       const host = document.getElementById('ws-nodes');
       if (!host) return;
       host.innerHTML = WORKSHOP_ITEMS.map((it, i) => {
-        const pos = wsNodePos(i), lvl = Math.max(0, Number(wsLevels[it.id]) || 0);
-        return `<button class="ws-node" type="button" data-ws-item="${it.id}" style="left:${pos.x}%;top:${pos.y}%" aria-label="${it.name}" title="${it.name}"><svg class="ui-icon" aria-hidden="true"><use href="#${it.icon}"/></svg><span class="ws-node-lvl">${lvl}</span></button>`;
+        const pos = wsNodePos(i), lvl = wsLevel(it.id), a = wsAfford(it.id);
+        const cls = ['ws-node', a.max ? 'is-max' : '', a.ok ? 'can-buy' : ''].filter(Boolean).join(' ');
+        return `<button class="${cls}" type="button" data-ws-item="${it.id}" style="left:${pos.x}%;top:${pos.y}%" aria-label="${it.name} — المستوى ${lvl}" title="${it.name}"><svg class="ui-icon" aria-hidden="true"><use href="#${it.icon}"/></svg><span class="ws-node-lvl">${lvl}</span></button>`;
       }).join('');
     }
     function wsRenderTop() {
@@ -3171,11 +3211,21 @@
       if (gold) gold.textContent = fmt(Math.floor(state.gold || 0));
       const ores = document.getElementById('ws-ore-total');
       if (ores) ores.textContent = fmt(Object.values(state.ores || {}).reduce((a, v) => a + Math.max(0, Number(v) || 0), 0));
+      const row = document.getElementById('ws-ore-row');
+      if (row) row.innerHTML = Object.entries(WS_RULES.ORES).map(([k, d]) => `<span class="ws-ore-chip" title="${d.name}"><i class="ore-dot ore-${k}"></i>${d.name}<b>${fmt(Math.max(0, Number(state.ores?.[k]) || 0))}</b></span>`).join('');
       const summary = document.getElementById('ws-summary');
       if (summary) {
-        const total = WORKSHOP_ITEMS.reduce((a, it) => a + (Number(wsLevels[it.id]) || 0), 0);
-        summary.innerHTML = `<span>المعدات المطوّرة <b>${total}</b></span><span>جاهزية المنجم <b>${Math.min(100, Math.round(total / (WORKSHOP_ITEMS.length * 5) * 100))}%</b></span>`;
+        const total = WORKSHOP_ITEMS.reduce((a, it) => a + wsLevel(it.id), 0);
+        const zone = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
+        const hits = WS_RULES.hitsToBreak(hero, zone, state.equipment);
+        summary.innerHTML = `<span>المعدات المطوّرة <b>${total}/${WORKSHOP_ITEMS.length * WS_RULES.MAX_EQUIP_LEVEL}</b></span><span>كسر صخرة المنجم <b>${hitsWord(hits)}</b></span>`;
       }
+      minesLabels();
+    }
+    function wsRefresh() {
+      if (!wsOpenFlag) return;
+      wsRenderNodes(); wsRenderTop();
+      if (wsActiveItem && !document.getElementById('ws-modal').hidden) wsOpenItem(wsActiveItem.id, false);
     }
     function wsBeep(freq, dur = 0.12, vol = 0.04, force = false) {
       if (!wsSoundOn && !force) return;
@@ -3216,9 +3266,11 @@
       c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
       const scale = Math.min(w, h) / 58;
       c.save(); c.translate(w / 2, h / 2 + 6 * scale); c.scale(scale, scale);
-      const base = window.PlatformRules.create('miner');
+      // البطل بمعداته الحالية: الروبوت يظهر بجانبه عند ترقيته
+      const base = window.PlatformRules.create('miner', undefined, { zone: 0, loadout: state.equipment });
       const hero = { ...base.player, x: -12, y: -20, facing: 1, pose: 'idle', attack: 0, invulnerable: 0, landTimer: 0, vy: 0, grounded: true };
       window.PlatformRenderer.drawHero(c, hero, wsReduced ? 0 : wsTickCount, wsReduced);
+      if (hero.robot && window.PlatformRenderer.drawDrone) window.PlatformRenderer.drawDrone(c, hero, wsReduced ? 0 : wsTickCount, wsReduced);
       c.restore();
     }
     function wsLoop() {
@@ -3231,9 +3283,10 @@
       const overlay = document.getElementById('ws-overlay');
       if (!overlay) return;
       try { window.PlatformGame?.pause(); } catch (_) {}
-      wsOpenFlag = true; overlay.hidden = false;
+      wsOpenFlag = true; overlay.hidden = false; wsNote('');
       wsRenderNodes(); wsRenderTop(); wsBeep(440, 0.1);
       cancelAnimationFrame(wsRaf); wsRaf = requestAnimationFrame(wsLoop);
+      document.getElementById('ws-close')?.focus({ preventScroll: true });
     }
     function wsClose() {
       const overlay = document.getElementById('ws-overlay');
@@ -3244,27 +3297,51 @@
       wsMusicOn = false;
       document.getElementById('ws-music')?.setAttribute('aria-pressed', 'false');
       document.getElementById('ws-modal').hidden = true;
+      try { window.PlatformGame?.refresh?.(); } catch (_) {} // مشهد الانتظار يعكس المعدات الجديدة
     }
-    function wsOpenItem(id) {
+    function wsOpenItem(id, sound = true) {
       const item = WORKSHOP_ITEMS.find(x => x.id === id);
       if (!item) return;
       wsActiveItem = item;
-      const lvl = Math.max(0, Number(wsLevels[id]) || 0);
+      const lvl = wsLevel(id), a = wsAfford(id);
       document.getElementById('ws-card-icon').innerHTML = `<svg class="ui-icon" aria-hidden="true"><use href="#${item.icon}"/></svg>`;
       document.getElementById('ws-card-title').textContent = item.name;
-      document.getElementById('ws-card-effect').textContent = item.effect;
+      document.getElementById('ws-card-effect').textContent = item.blurb;
       document.getElementById('ws-card-level').textContent = String(lvl);
-      document.getElementById('ws-card-cost').textContent = fmt(Math.floor(item.base * Math.pow(1.6, lvl)));
+      document.getElementById('ws-card-now').textContent = `الحالي: ${WS_RULES.effectText(id, lvl)}`;
+      document.getElementById('ws-card-next').textContent = a.max ? 'وصلت إلى المستوى الأقصى.' : `التالي: ${WS_RULES.effectText(id, lvl + 1)}`;
+      const goldChip = document.getElementById('ws-cost-gold'), oreChip = document.getElementById('ws-cost-ore');
+      document.getElementById('ws-card-cost').textContent = a.cost ? fmt(a.cost.gold) : '—';
+      goldChip.classList.toggle('lack', Boolean(a.cost) && !a.goldOk);
+      oreChip.innerHTML = a.cost ? Object.entries(a.cost.ores).map(([k, n]) => `<i class="ore-dot ore-${k}"></i>${WS_RULES.ORES[k].name} <b>${fmt(Math.floor(Number(state.ores?.[k]) || 0))}/${n}</b>`).join(' ') : '';
+      oreChip.classList.toggle('lack', a.lacking.length > 0);
+      const btn = document.getElementById('ws-upgrade');
+      btn.disabled = a.max || !a.ok || !serverMode;
+      btn.textContent = !serverMode ? 'تتطلب الترقية اتصالاً بالخادم' : a.max ? 'المستوى الأقصى'
+        : !a.goldOk ? 'الذهب غير كافٍ' : a.lacking.length ? `ينقصك ${a.lacking.map((k) => WS_RULES.ORES[k].name).join(' و')}` : 'ترقية';
       document.getElementById('ws-modal').hidden = false;
-      wsBeep(560, 0.08);
+      if (sound) wsBeep(560, 0.08);
     }
     function wsUpgrade() {
       if (!wsActiveItem) return;
-      const id = wsActiveItem.id;
-      wsLevels[id] = Math.min(20, (Number(wsLevels[id]) || 0) + 1);
-      try { localStorage.setItem(WS_LEVEL_KEY, JSON.stringify(wsLevels)); } catch (_) {}
-      wsRenderNodes(); wsRenderTop(); wsOpenItem(id);
+      const id = wsActiveItem.id, a = wsAfford(id);
+      if (!serverMode || a.max || !a.ok) { wsBeep(200, 0.12, 0.04); haptic('error'); return; }
+      // عرض فوري بنفس القواعد؛ الخادم يؤكد أو يصحّح عند أول مزامنة (adoptServerState يعيد البناء من حالته)
+      applyOpLocally(state, { type: 'buy_equip', key: id });
+      enqueueOp({ type: 'buy_equip', key: id });
+      haptic('success'); updateUI(); save();
+      wsRenderNodes(); wsRenderTop(); wsOpenItem(id, false);
+      wsNote(`${wsActiveItem.name}: المستوى ${wsLevel(id)} — بانتظار تأكيد الخادم…`);
       wsBeep(720, 0.14);
+    }
+    // حكم الخادم على ترقيات المعدات (يُستدعى من مزامنة العمليات)
+    function noteEquipResults(results) {
+      if (!results.length) return;
+      const refused = results.find((r) => r.status === 'rejected');
+      const ok = results.filter((r) => r.status === 'ok');
+      if (refused) wsNote(refused.reason === 'max' ? 'هذه المعدة في مستواها الأقصى.' : 'رفض الخادم ترقية لا يغطيها رصيدك الحقيقي — صُحّحت الأرصدة.');
+      else if (ok.length) { const last = ok[ok.length - 1]; wsNote(`ترقية مؤكدة من الخادم: المستوى ${last.level} — تسري من جولتك القادمة.`); }
+      wsRefresh();
     }
     function wsStart() {
       wsClose();
@@ -3272,10 +3349,72 @@
       const start = document.getElementById('platform-start');
       if (start && !start.disabled) start.click();
     }
+
+    // ============================================================
+    // خريطة المناجم: اختيار المنجم المفتوح. الخادم يعيد التحقق من الفتح عند بدء الجولة.
+    // ============================================================
+    let minesOpenFlag = false, minesOpener = null;
+    function minesLabels() {
+      const z = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
+      const mine = WS_RULES.MINES[z] || WS_RULES.MINES[0];
+      const hits = WS_RULES.hitsToBreak(hero, z, state.equipment);
+      document.querySelectorAll('[data-mine-name]').forEach((n) => { n.textContent = mine.name; });
+      document.querySelectorAll('[data-mine-hits]').forEach((n) => { n.textContent = `الصخرة: ${hitsWord(hits)}`; });
+    }
+    function minesRender() {
+      const host = document.getElementById('mines-list');
+      if (!host) return;
+      const selected = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
+      host.innerHTML = WS_RULES.MINES.map((m, i) => {
+        const st = WS_RULES.mineStatus(i, state.mines, state.equipment), zone = WS_RULES.ZONES[i];
+        const hits = WS_RULES.hitsToBreak(hero, i, state.equipment);
+        const ores = [...new Set(Object.values(m.tier))].map((o) => `<span class="mine-ore"><i class="ore-dot ore-${o}"></i>${WS_RULES.ORES[o].name}</span>`).join('');
+        const needs = st.unlocked ? '' : `<ul class="mine-needs">${st.needs.map((n) => `<li class="${n.ok ? 'ok' : 'no'}"><svg class="ui-icon" aria-hidden="true"><use href="#${n.ok ? 'i-check' : 'i-close'}"/></svg>${n.label}</li>`).join('')}</ul>`;
+        const label = i === selected ? 'المنجم الحالي' : st.unlocked ? 'اختيار' : 'مقفل';
+        const cls = ['mine-card', i === selected ? 'selected' : '', st.unlocked ? '' : 'locked'].filter(Boolean).join(' ');
+        return `<article class="${cls}" data-mine-card="${i}" style="--mine-a:${zone.sky[2]};--mine-b:${zone.glow}">
+          <div class="mine-card-art" aria-hidden="true"><span>${i + 1}</span></div>
+          <div class="mine-card-body">
+            <h3>${m.name}</h3><p>${m.blurb}</p>
+            <div class="mine-meta"><span>الصخرة: ${hitsWord(hits)}</span><span>انتصارات: <b>${st.wins}</b></span></div>
+            <div class="mine-ores">${ores}</div>${needs}
+          </div>
+          <button type="button" class="mine-pick" data-mine-pick="${i}" ${st.unlocked && i !== selected ? '' : 'disabled'}>${label}</button>
+        </article>`;
+      }).join('');
+    }
+    function minesOpen() {
+      const overlay = document.getElementById('mines-overlay');
+      if (!overlay) return;
+      try { window.PlatformGame?.pause(); } catch (_) {}
+      minesOpener = document.activeElement; // يعود التركيز إلى الزر الذي فتح الخريطة عند الإغلاق
+      minesOpenFlag = true; overlay.hidden = false; minesRender();
+      document.getElementById('mines-close')?.focus({ preventScroll: true });
+    }
+    function minesClose() {
+      const overlay = document.getElementById('mines-overlay');
+      if (!overlay || overlay.hidden) return;
+      minesOpenFlag = false; overlay.hidden = true;
+      try { minesOpener?.focus?.({ preventScroll: true }); } catch (_) {}
+      minesOpener = null;
+    }
     (function wsInit() {
+      if (!WS_RULES) return;
       for (const id of ['open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop']) {
         document.getElementById(id)?.addEventListener('click', wsOpen);
       }
+      for (const id of ['mine-select', 'ws-mine']) document.getElementById(id)?.addEventListener('click', minesOpen);
+      document.getElementById('mines-close')?.addEventListener('click', minesClose);
+      document.getElementById('mines-list')?.addEventListener('click', (e) => {
+        const pick = e.target?.closest?.('[data-mine-pick]');
+        if (!pick || pick.disabled) return;
+        const z = Number(pick.getAttribute('data-mine-pick'));
+        const st = WS_RULES.mineStatus(z, state.mines, state.equipment);
+        if (!st?.unlocked) return;
+        window.PlatformGame?.setZone?.(z);
+        minesClose(); minesLabels(); wsBeep(620, 0.1);
+      });
+      window.addEventListener('platform-config-change', () => { minesLabels(); if (minesOpenFlag) minesRender(); if (wsOpenFlag) wsRenderTop(); });
       document.getElementById('ws-close')?.addEventListener('click', wsClose);
       document.getElementById('ws-cta')?.addEventListener('click', wsStart);
       document.getElementById('ws-nodes')?.addEventListener('click', (e) => {
@@ -3296,12 +3435,17 @@
       });
       document.getElementById('ws-music')?.addEventListener('click', wsToggleMusic);
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !document.getElementById('ws-overlay').hidden) wsClose();
+        if (e.key !== 'Escape') return;
+        if (minesOpenFlag) minesClose();
+        else if (!document.getElementById('ws-overlay').hidden) wsClose();
       });
+      minesLabels();
     })();
 
     window.openWorkshop = wsOpen;
     window.closeWorkshop = wsClose;
+    window.openMines = minesOpen;
+    window.closeMines = minesClose;
 
     updateUI();
     updateArenaUI();
@@ -3316,6 +3460,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=6"></script>
+  <script src="/platform-game.js?v=7"></script>
 </body>
 </html>

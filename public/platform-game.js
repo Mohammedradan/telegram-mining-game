@@ -15,13 +15,25 @@
     if (savedHero && R.CHARACTERS?.[savedHero]) currentHero = savedHero;
   } catch (_) {}
 
-  let sim = R.create(currentHero), inputs = [], ticket = null, owner = null;
+  // المرحلة 3: المنجم المختار (تفضيل محلي) ومعدات اللاعب (من حالته الخادمية المعروضة). الخادم هو من يثبّت
+  // لقطة المنجم والمعدات في تذكرة الجولة ويعيد التشغيل بها؛ هنا نعرضها ونحاكيها بنفس القواعد المشتركة.
+  let selectedZone = 0;
+  try {
+    const savedZone = Number(localStorage.getItem('platform-zone'));
+    if (Number.isInteger(savedZone) && savedZone >= 0 && savedZone < (R.MINES?.length || 1)) selectedZone = savedZone;
+  } catch (_) {}
+  const liveLoadout = () => {
+    try { return R.normalizeLoadout(typeof state !== 'undefined' && state ? state.equipment : null); } catch (_) { return R.normalizeLoadout(null); }
+  };
+  const configFor = (t) => (t?.config ? R.normalizeConfig(t.config) : R.normalizeConfig({ zone: selectedZone, loadout: liveLoadout() }));
+
+  let sim = R.create(currentHero, undefined, configFor(null)), inputs = [], ticket = null, owner = null;
   const seedOf = (t) => (t?.id ? R.seedFromId(t.id) : undefined);
   let running = false, paused = false, starting = false, restoring = true, submitting = false, pending = null;
   let raf = 0, last = 0, accumulator = 0;
   let audio = null, muted = false, particles = [], shake = 0;
   // المرحلة 1: مؤثرات عرض فقط — لا تدخل في R.step ولا في مسار الحركات المرسل للخادم.
-  let floaters = [], floatersSpawned = 0, combo = 0, comboUntil = 0, comboPeak = 0;
+  let floaters = [], floatersSpawned = 0, combo = 0, comboUntil = 0, comboPeak = 0, beams = [];
   let frameTime = 0, hitStopUntil = 0, lastHitStop = -1e9;
   const keys = new Set(), pointers = new Map();
   // Preserve a quick jump/mine tap until one simulation step consumes it. Sources
@@ -52,7 +64,7 @@
   }
 
   function resetImpact() {
-    floaters = []; floatersSpawned = 0;
+    floaters = []; floatersSpawned = 0; beams = [];
     combo = 0; comboUntil = 0; comboPeak = 0;
     hitStopUntil = 0; lastHitStop = -1e9;
   }
@@ -117,7 +129,7 @@
   const storageKey = () => `platform-run:v1:${owner}`;
   const say = text => { const s = el('platform-status'); if (s) s.textContent = text; };
   const visible = () => !document.hidden && !el('platform-scene').hidden && el('play-panel-adventure').classList.contains('active') && el('tab-play').classList.contains('active');
-  const draw = () => renderer.draw(canvas, sim, { reduced, particles, shake, floaters });
+  const draw = () => renderer.draw(canvas, sim, { reduced, particles, shake, floaters, beams });
 
   function clearInput() {
     keys.clear(); pointers.clear(); pulses.clear();
@@ -147,6 +159,7 @@
         land: { freq: 90, dur: 0.12, type: 'triangle', slide: 70 },
         mine: { freq: 160, dur: 0.11, type: 'triangle', slide: 220 },
         mine_miss: { freq: 120, dur: 0.08, type: 'triangle', slide: 90 },
+        robot_mine: { freq: 300, dur: 0.09, type: 'square', slide: 420 },
         attack: { freq: 520, dur: 0.12, type: 'sawtooth', slide: 380 },
         hit: { freq: 720, dur: 0.10, type: 'sawtooth', slide: 480 },
         enemy_death: { freq: 280, dur: 0.22, type: 'triangle', slide: 120 },
@@ -206,7 +219,7 @@
     const fullHearts = Math.max(0, sim.player.hearts);
     const emptyHearts = Math.max(0, (sim.player.maxHearts || 3) - fullHearts);
     const heartsEl = el('platform-hearts');
-    if (heartsEl) heartsEl.textContent = fullHearts > 0 ? '♥ '.repeat(fullHearts) + '♡ '.repeat(emptyHearts) : 'انتهت القلوب 💀';
+    if (heartsEl) heartsEl.textContent = fullHearts > 0 ? '♥ '.repeat(fullHearts) + '♡ '.repeat(emptyHearts) : 'انتهت القلوب';
     const resEl = el('platform-resources');
     if (resEl) {
       // عدّادات منفصلة مع أيقونات SVG: لا تُستبدل بنية الشريط في كل إطار.
@@ -254,6 +267,12 @@
     if (mc) mc.textContent = `${milestoneCount}/${milestoneTotal}`;
     if (mm) mm.textContent = `${milestoneCount}/${milestoneTotal}`;
     if (mf) mf.style.width = `${Math.round((Math.min(3, sim.collected) / 3 * 0.45 + Math.min(1, sim.mined) * 0.25 + (milestoneCount / milestoneTotal) * 0.30) * 100)}%`;
+  }
+
+  // المناجم المفتوحة لحالة اللاعب (الشروط من القواعد المشتركة؛ الخادم يعيد التحقق عند بدء الجولة)
+  function unlockedMines(st) {
+    const src = st || (typeof state !== 'undefined' ? state : null) || {};
+    return R.MINES.map((_, i) => i).filter(i => R.mineUnlocked(i, src.mines, src.equipment));
   }
 
   function overlay(title, text, resume = false) {
@@ -306,8 +325,13 @@
       else if (event.type === 'hit') haptic('light');
 
       // أرقام الضرر/المكافأة وسلسلة التعدين — خارج المحرك الحتمي تماماً.
-      if (event.type === 'mine') {
-        pushFloater(event.x, event.y - 8, `-${Math.max(1, sim.player.miningPower || 1)}`, '#ffe08a');
+      if (event.type === 'robot_mine') {
+        pushFloater(event.x, event.y - 8, `-${Math.max(1, event.damage || 1)}`, '#7dffd4', 11);
+        const drone = renderer.dronePos ? renderer.dronePos(sim.player, sim.tick, reduced) : { x: sim.player.x, y: sim.player.y };
+        beams.push({ x1: drone.x, y1: drone.y, x2: event.x, y2: event.y, life: 8 });
+        if (!reduced) for (let i = 0; i < 6; i++) particles.push({ x: event.x + (Math.random() - 0.5) * 6, y: event.y + (Math.random() - 0.5) * 4, vx: (Math.random() - 0.5) * 2, vy: -1 - Math.random() * 1.2, life: 20, color: '#7dffd4', size: 2.4, glow: true });
+      } else if (event.type === 'mine') {
+        pushFloater(event.x, event.y - 8, `-${Math.max(1, event.damage || sim.player.miningPower || 1)}`, '#ffe08a');
         bumpCombo();
         if (combo >= 2) pushFloater(sim.player.x + (sim.player.w || 20) / 2, sim.player.y - 12, `×${combo}`, '#ffd166', 13);
         requestHitStop(45);
@@ -377,6 +401,8 @@
       if (f.scale > 1) f.scale = Math.max(1, f.scale - 0.05);
     }
     floaters = floaters.filter(f => f.life > 0);
+    for (const b of beams) b.life--;
+    beams = beams.filter(b => b.life > 0);
     // cap particles
     if (particles.length > 96) particles = particles.slice(-96);
     for (const p of particles) {
@@ -443,11 +469,15 @@
     try {
       await bridge.flush();
       const result = await request('/api/platform/finish', pending);
+      const unlockedBefore = unlockedMines();
       bridge.adopt(result.profile);
-      el('platform-title').textContent = result.won ? '🏆 وصلت إلى قلب المنجم!' : 'انتهت الجولة — جرّب من جديد';
+      const opened = unlockedMines(result.profile?.state).filter(z => !unlockedBefore.includes(z));
+      el('platform-title').textContent = result.won ? 'وصلت إلى قلب المنجم!' : 'انتهت الجولة — جرّب من جديد';
       const oreLine = Object.entries(result.ores || {}).filter(([, v]) => v > 0)
         .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
-      el('platform-message').textContent = `${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة: +${result.gold} ذهب (منها ${result.milestoneGold || 0} من المعالم) · ${result.milestones?.length || 0} معالم · خامات أُضيفت للمخزن: ${oreLine}.`;
+      const mineName = R.MINES[result.zone || 0]?.name;
+      const unlockLine = opened.length ? ` فُتح منجم جديد: ${opened.map(z => R.MINES[z].name).join('، ')}.` : '';
+      el('platform-message').textContent = `${mineName ? `${mineName} · ` : ''}${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة: +${result.gold} ذهب (منها ${result.milestoneGold || 0} من المعالم) · ${result.milestones?.length || 0} معالم · خامات أُضيفت للمخزن: ${oreLine}.${unlockLine}`;
       pending = null; ticket = null; shake = 0;
       try { localStorage.removeItem(storageKey()); } catch (_) {}
       say(`محفوظ على الخادم: ${result.score} نقطة · +${result.gold} ذهب افتراضي · +${result.xp} خبرة${result.duplicate ? ' — تأكيد سابق، بلا مكافأة مكررة' : ''}${result.reason === 'cooldown' ? ' — مهلة المكافأة: 20 ثانية بين جائزتي مغامرة' : ''}${result.reason === 'daily_cap' ? ' — وصلت سقف 10,000 ذهب اليومي من المناجم' : ''}`);
@@ -464,7 +494,7 @@
     const won = sim.status === 'won';
     const oreText = Object.entries(R.oreSummary(sim)).filter(([, v]) => v > 0)
       .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
-    overlay(won ? '🏆 وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', `${sim.collected} بلورات · ${sim.mined} صخور · أعداء ${sim.defeated || 0} · ${Math.floor(sim.tick / R.FPS)} ثانية. ${won ? 'أحسنت! تجاوزت الحفر والأخطار وهزمت الوحوش.' : 'راقب ضربات الوحوش واقفز قبل الحفر. استخدم زر الهجوم أو المهارة للدفاع عن نفسك.'} · ${sim.milestones?.length || 0} معالم · خامات: ${oreText}.`);
+    overlay(won ? 'وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', `${sim.collected} بلورات · ${sim.mined} صخور · أعداء ${sim.defeated || 0} · ${Math.floor(sim.tick / R.FPS)} ثانية. ${won ? 'أحسنت! تجاوزت الحفر والأخطار وهزمت الوحوش.' : 'راقب ضربات الوحوش واقفز قبل الحفر. استخدم زر الهجوم أو المهارة للدفاع عن نفسك.'} · ${sim.milestones?.length || 0} معالم · خامات: ${oreText}.`);
     hud(); draw();
     if (ticket) {
       pending = { id: ticket.id, inputs, hero: currentHero }; save(true); el('platform-start').disabled = true; submit();
@@ -479,13 +509,27 @@
       btn.classList.toggle('active', btn.dataset.hero === currentHero);
       btn.setAttribute('aria-selected', String(btn.dataset.hero === currentHero));
     });
-    if (!running) {
-      sim = R.create(currentHero, seedOf(ticket));
-      particles = []; shake = 0; resetImpact();
-      hud(); draw();
-    }
+    refreshPreview();
+    window.dispatchEvent(new CustomEvent('platform-config-change', { detail: { hero: heroId } })); // ضربات الكسر تتبع قوة الشخصية
     // subtle haptic on hero switch
     haptic('light');
+  }
+
+  // يعيد بناء مشهد الانتظار بعد تغيّر البطل أو المنجم أو المعدات (لا يلمس جولة جارية ولا نتيجة معلّقة).
+  function refreshPreview() {
+    if (running || pending || starting || restoring) return;
+    sim = R.create(currentHero, seedOf(ticket), configFor(ticket));
+    particles = []; shake = 0; resetImpact();
+    hud(); draw();
+  }
+  function setZone(zone, announce = true) {
+    const z = Number(zone);
+    if (!Number.isInteger(z) || z < 0 || z >= (R.MINES?.length || 1) || z === selectedZone) return false;
+    selectedZone = z;
+    try { localStorage.setItem('platform-zone', String(z)); } catch (_) {}
+    refreshPreview();
+    if (announce) window.dispatchEvent(new CustomEvent('platform-config-change', { detail: { zone: z } }));
+    return true;
   }
 
   async function start() {
@@ -496,13 +540,20 @@
     try {
       await bridge.ready(); owner = bridge.user();
       if (owner) {
-        ticket = await request('/api/platform/start');
-        if (ticket.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
-        say(`الهدف: 3 بلورات وصخرة واحدة، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
+        // التذكرة الحالية (جولة موقوفة مثلاً) لا تُستبدل إلا بعد نجاح الطلب والتحقق من نسخة المستوى
+        const issued = await request('/api/platform/start', { zone: selectedZone });
+        if (issued.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
+        ticket = issued;
+        const mine = R.MINES[ticket.config?.zone ?? selectedZone];
+        say(`${mine ? `${mine.name}: ` : ''}الهدف 3 بلورات وصخرة واحدة، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
-      sim = R.create(currentHero, seedOf(ticket)); inputs = []; particles = []; shake = 0; resetImpact(); running = true; paused = false; save();
+      sim = R.create(currentHero, seedOf(ticket), configFor(ticket)); inputs = []; particles = []; shake = 0; resetImpact(); running = true; paused = false; save();
       resume();
-    } catch (e) { say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`); }
+    } catch (e) {
+      // منجم مقفل (حساب آخر/تقدّم أقدم): نرجع للمنجم الأول بدل أن يبقى اللاعب عالقاً عند الخطأ نفسه
+      if (/مقفل/.test(e.message || '') && selectedZone !== 0) setZone(0);
+      say(`تعذّر بدء الجولة: ${e.message}. جرّب مجددًا عند الاتصال.`);
+    }
     finally { starting = false; el('platform-start').disabled = Boolean(pending); }
   }
 
@@ -516,7 +567,8 @@
     document.querySelectorAll('.mine-hero-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.hero === currentHero);
     });
-    const replay = stored.inputs?.length ? R.replay(stored.inputs, currentHero, seedOf(stored.ticket)) : { ok: true, state: R.create(currentHero, seedOf(stored.ticket)) };
+    const storedConfig = configFor(stored.ticket); // لقطة المنجم والمعدات المثبّتة في التذكرة، لا الحالية
+    const replay = stored.inputs?.length ? R.replay(stored.inputs, currentHero, seedOf(stored.ticket), storedConfig) : { ok: true, state: R.create(currentHero, seedOf(stored.ticket), storedConfig) };
     if (!replay.ok) { say('ملف جولة غير صالح؛ يمكنك البدء مجددًا.'); return; }
     ticket = stored.ticket; inputs = stored.inputs || []; sim = replay.state;
     resetFeedback(); hud(); draw();
@@ -526,7 +578,7 @@
       submit();
     } else if (sim.status === 'playing') {
       try {
-        const current = await request('/api/platform/start');
+        const current = await request('/api/platform/start', { resume: true }); // استئناف: لا يستبدل الجولة بتغيّر المعدات
         if (current.id !== ticket.id) { ticket = null; say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.'); return; }
         running = true; paused = false; pause();
       } catch (_) { running = true; paused = false; pause(); say('تعذّر الاتصال؛ جولتك محفوظة محليًا ويمكنك متابعتها. ستُرسل النتيجة عند عودة الشبكة قبل انتهاء التذكرة.'); }
@@ -668,7 +720,7 @@
 
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
-    pause, setHero,
+    pause, setHero, setZone, refresh: refreshPreview, getZone: () => selectedZone, getHero: () => currentHero, unlockedMines,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
     showLegacy: () => {
       pause();
@@ -691,11 +743,20 @@
       defeated: sim.defeated, reduced, zone: sim.zone,
       combo, comboPeak, floaters: floaters.length, floatersSpawned, hitStop: hitStopUntil > frameTime,
       milestones: sim.milestones?.length || 0, ores: R.oreSummary(sim),
+      config: { zone: sim.zone, loadout: { ...sim.loadout } }, selectedZone,
+      miningPower: sim.player.miningPower, speed: sim.player.speed, maxHearts: sim.player.maxHearts,
+      rockMaxHp: sim.rocks[0]?.maxHp, robot: Boolean(sim.player.robot), beams: beams.length,
     }),
   };
 
   el('platform-start').disabled = true;
   // Initialize HUD immediately
   hud(); draw();
-  restore().catch(() => say('تعذّر استرجاع الجولة؛ يمكنك بدء رحلة جديدة.')).finally(() => { restoring = false; el('platform-start').disabled = Boolean(pending); });
+  // الواجهة تعرض المنجم المحفوظ فور جاهزية المتحكم، ومشهد الانتظار يُبنى بمعدات الحساب الفعلية بعد الاستعادة
+  window.dispatchEvent(new CustomEvent('platform-config-change', { detail: { init: true } }));
+  restore().catch(() => say('تعذّر استرجاع الجولة؛ يمكنك بدء رحلة جديدة.')).finally(() => {
+    restoring = false; el('platform-start').disabled = Boolean(pending);
+    refreshPreview();
+    window.dispatchEvent(new CustomEvent('platform-config-change', { detail: { ready: true } }));
+  });
 })();

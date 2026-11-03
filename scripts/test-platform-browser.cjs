@@ -163,6 +163,43 @@ async function main() {
     await page.waitForFunction(() => !document.getElementById('platform-start').disabled);
     assert.equal((await read(page)).pending, false, 'a stale receipt cannot lock the start button or create a pending reward');
     assert.equal(await page.locator('#platform-discard').isVisible(), false, 'stale receipts are ignored, not retried');
+    // ---- المرحلة 3: فوز حقيقي ← خريطة المناجم ← شراء من الورشة (الخادم) ← الجولة التالية بلقطة جديدة ----
+    const wallet = await page.evaluate(() => ({ gold: state.gold, copper: state.ores.copper, wins: state.mines.wins, pickaxe: state.equipment.pickaxe }));
+    assert.ok(wallet.gold >= 50 && wallet.copper >= 6, `the winning round paid for a first pickaxe: ${JSON.stringify(wallet)}`);
+    assert.equal(wallet.wins[0], 1, 'the verified win opened the next mine');
+    assert.equal(wallet.pickaxe, 0);
+    await page.evaluate(() => window.openMines());
+    assert.equal(await page.locator('.mine-card').count(), 6, 'six mines on the map');
+    assert.equal(await page.locator('.mine-card.selected h3').textContent(), 'المنجم الحجري');
+    assert.equal(await page.locator('[data-mine-pick="1"]').isEnabled(), true, 'winning mine 1 opens mine 2');
+    assert.equal(await page.locator('[data-mine-pick="2"]').isEnabled(), false, 'the gold caves still need a win and a pickaxe');
+    assert.match(await page.locator('[data-mine-card="2"] .mine-needs').textContent(), /مناجم الحديد[\s\S]*قوة المعول مستوى 1/);
+    await page.locator('[data-mine-pick="1"]').click();
+    assert.equal(await page.evaluate(() => window.PlatformGame.getZone()), 1);
+    assert.equal(await page.evaluate(() => document.getElementById('mines-overlay').hidden), true, 'picking a mine closes the map');
+    assert.match(await page.locator('#mine-select').textContent(), /مناجم الحديد/);
+    await page.evaluate(() => window.openWorkshop());
+    await page.locator('[data-ws-item="pickaxe"]').click();
+    assert.equal(await page.locator('#ws-upgrade').isEnabled(), true, 'gold and copper are enough');
+    await page.locator('#ws-upgrade').click();
+    await page.waitForFunction(() => /ترقية مؤكدة/.test(document.getElementById('ws-note').textContent), null, { timeout: 20000 });
+    const profile = await page.evaluate(async () => (await window.PlatformBridge.request('/api/me')).state);
+    assert.equal(profile.equipment.pickaxe, 1, 'the server stored the purchase');
+    assert.equal(profile.gold, wallet.gold - 50); assert.equal(profile.ores.copper, wallet.copper - 6);
+    assert.equal(await page.locator('#ws-card-level').textContent(), '1');
+    await page.locator('#ws-modal-close').click();
+    await page.locator('#ws-cta').click();
+    await page.waitForFunction(() => window.PlatformGame.inspect().running);
+    const geared = await read(page);
+    assert.deepEqual([geared.config.zone, geared.config.loadout.pickaxe], [1, 1], 'the new run carries the chosen mine and the bought gear');
+    assert.equal(geared.miningPower, 4, 'pickaxe level 1 adds one point of mining power');
+    assert.equal(geared.rockMaxHp, 6, 'iron mine rocks are harder');
+    assert.match(await page.locator('#platform-progress').textContent(), /مناجم الحديد/, 'HUD shows the chosen mine');
+    await page.reload();
+    await page.waitForFunction(() => window.PlatformGame?.inspect().paused);
+    const resumed = await read(page);
+    assert.deepEqual([resumed.config.zone, resumed.config.loadout.pickaxe, resumed.selectedZone], [1, 1, 1], 'reload resumes the same snapshot and remembers the mine');
+    report.mines = { cards: 6, picked: 'مناجم الحديد', pickaxeBought: true, snapshot: resumed.config, miningPower: resumed.miningPower, rockMaxHp: resumed.rockMaxHp };
     report.networkRecovery = true; report.keyboardWin = true; report.regressionSmoke = true;
     assert.deepEqual(errors, []);
     await ctx.close();
@@ -175,6 +212,18 @@ async function main() {
     const zoneState = await read(zonePage);
     assert.equal(zoneState.zone, 0, 'a new account starts in the first mine');
     assert.match(await zonePage.locator('#platform-progress').textContent(), /المنجم الحجري/, 'HUD shows the mine name');
+    await zonePage.evaluate(() => window.openMines()); // opening the map also pauses the run
+    assert.equal(await zonePage.locator('[data-mine-pick="1"]').isDisabled(), true, 'a new account cannot pick the iron mine');
+    await zonePage.evaluate(() => window.closeMines());
+    await zonePage.evaluate(() => { window.PlatformGame.setZone(4); }); // forced: the UI would never offer this
+    assert.equal(await zonePage.evaluate(() => window.PlatformGame.getZone()), 4);
+    const zoneStarts = [];
+    zonePage.on('response', r => { if (r.url().endsWith('/api/platform/start')) zoneStarts.push(r.status()); });
+    await zonePage.evaluate(() => document.getElementById('platform-start').click());
+    await zonePage.waitForFunction(() => /مقفل/.test(document.getElementById('platform-status').textContent), null, { timeout: 15000 });
+    assert.deepEqual(zoneStarts.slice(-1), [403], 'the server refuses a locked mine');
+    assert.equal(await zonePage.evaluate(() => window.PlatformGame.getZone()), 0, 'the client falls back to the first mine');
+    report.lockedMine = { status: 403, fallbackZone: 0 };
     report.cosmeticZones = { zone: zoneState.zone, name: await zonePage.evaluate(i => window.PlatformRules.ZONES[i].name, zoneState.zone) };
     await zonePage.locator('#platform-pause').click();
     assert.deepEqual(errors, []);
@@ -190,9 +239,12 @@ async function main() {
     await wsPage.waitForFunction(() => !document.getElementById('ws-modal').hidden);
     assert.equal(await wsPage.locator('#ws-card-title').textContent(), 'قوة المعول');
     const lvlBefore = await wsPage.locator('#ws-card-level').textContent();
-    await wsPage.locator('#ws-upgrade').click();
-    const lvlAfter = await wsPage.locator('#ws-card-level').textContent();
-    assert.equal(Number(lvlAfter), Number(lvlBefore) + 1, 'the preview upgrade increments a local level');
+    assert.equal(lvlBefore, '0');
+    assert.equal(await wsPage.locator('#ws-upgrade').isDisabled(), true, 'a new account cannot afford the first upgrade');
+    assert.match(await wsPage.locator('#ws-upgrade').textContent(), /الذهب غير كافٍ/);
+    assert.match(await wsPage.locator('#ws-card-next').textContent(), /\+1 قوة تعدين/);
+    assert.equal(await wsPage.locator('.ws-node.can-buy').count(), 0, 'no node is highlighted as affordable');
+    assert.equal(await wsPage.locator('#ws-ore-row .ws-ore-chip').count(), 5, 'the five ore balances are listed');
     await wsPage.locator('#ws-modal-close').click();
     await wsPage.locator('#ws-close').click();
     assert.equal(await wsPage.locator('#ws-overlay').isVisible(), false);
@@ -203,7 +255,7 @@ async function main() {
     await wsPage.locator('#ws-cta').click();
     await wsPage.waitForFunction(() => window.PlatformGame.inspect().running);
     assert.equal(await wsPage.locator('#ws-overlay').isVisible(), false, 'the CTA closes the preview and starts a run');
-    report.workshop = { nodes: 8, minerDrawn: true, upgrade: `${lvlBefore}→${lvlAfter}`, clientOnly: true, ctaStartsRun: true };
+    report.workshop = { nodes: 8, minerDrawn: true, gatedByBalance: true, serverBacked: true, ctaStartsRun: true };
     // The full-screen layout must not overlap on short landscape viewports.
     const wsLand = await context({ width: 844, height: 390 }, { reducedMotion: 'reduce' });
     const landPage = wsLand.page;
@@ -216,6 +268,25 @@ async function main() {
     assert.ok(ringBox.y + ringBox.height <= ctaBox.y + 1, 'the equipment ring stays above the CTA');
     assert.ok(ctaBox.y + ctaBox.height <= 390, 'the CTA stays inside the viewport');
     report.workshop.landscape = true;
+    // the mines map fills the short landscape screen and its list scrolls instead of clipping
+    await landPage.evaluate(() => { window.closeWorkshop(); window.openMines(); });
+    await landPage.waitForFunction(() => !document.getElementById('mines-overlay').hidden);
+    const minesBox = await landPage.locator('#mines-overlay').boundingBox();
+    assert.equal(Math.round(minesBox.height), 390, 'the mines map fills the landscape height');
+    const firstCard = await landPage.locator('.mine-card').first().boundingBox();
+    assert.ok(firstCard.y >= 0 && firstCard.y < 390, 'the first mine card is on screen');
+    const scrolls = await landPage.evaluate(() => { const l = document.getElementById('mines-list'); return l.scrollHeight > l.clientHeight; });
+    assert.equal(scrolls, true, 'six mines need a scrollable list on a short screen');
+    await landPage.evaluate(() => window.closeMines());
+    // the start overlay never clips its top on short screens and every button stays reachable
+    const reach = await landPage.evaluate(() => {
+      const ov = document.getElementById('platform-overlay'), kicker = ov.querySelector('.overlay-kicker');
+      ov.scrollTop = 0; const topOk = kicker.getBoundingClientRect().top >= ov.getBoundingClientRect().top;
+      ov.scrollTop = ov.scrollHeight; const b = document.getElementById('open-workshop-overlay').getBoundingClientRect();
+      return { topOk, bottomOk: b.bottom <= ov.getBoundingClientRect().bottom + 1 };
+    });
+    assert.deepEqual(reach, { topOk: true, bottomOk: true });
+    report.workshop.minesMapLandscape = true;
     assert.deepEqual(errors, []);
     await wsLand.ctx.close();
     await wsContext.ctx.close();

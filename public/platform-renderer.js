@@ -8,6 +8,9 @@
     far: '#0a1a28', mid: '#0d2233', columns: '#143040', glow: '#3ee6b3', crystal: '#39a9a4',
   };
 
+  // لون عرق الخام داخل الصخرة: يتعرّف اللاعب على نوع الغنيمة قبل كسرها (المحرك يحدد الخام من البذرة والمنجم والحظ)
+  const ORE_TINT = { copper: '#d68a5a', iron: '#b3bec6', gold: '#ffd166', crystal: '#56ebd3', lava: '#ff7a45' };
+
   const round = (c, x, y, w, h, r, color) => {
     c.fillStyle = color;
     c.beginPath();
@@ -92,6 +95,25 @@
   }
 
   // ---- Enemies ----
+  // دورية المساعد الآلي: يحوم خلف البطل ولا يدخل في أي حساب فيزيائي (رسم فقط)
+  function dronePos(p, tick, reduced) {
+    const bob = reduced ? 0 : Math.sin(tick * 0.09) * 3;
+    return { x: p.x + p.w / 2 - (p.facing || 1) * 24, y: p.y - 8 + bob };
+  }
+  function drawDrone(c, p, tick, reduced) {
+    const d = dronePos(p, tick, reduced);
+    c.save(); c.translate(d.x, d.y);
+    round(c, -8, -5, 16, 10, 4, '#9fb3b8');
+    round(c, -6, -3, 12, 4, 2, '#cfe0e3');
+    c.fillStyle = '#56ebd3'; c.beginPath(); c.arc((p.facing || 1) * 3, 1, 2.2, 0, Math.PI * 2); c.fill();
+    // rotor
+    c.strokeStyle = '#6b7a80'; c.lineWidth = 2; c.lineCap = 'round';
+    const spin = reduced ? 0 : Math.sin(tick * 1.4) * 7;
+    c.beginPath(); c.moveTo(-spin, -8); c.lineTo(spin, -8); c.stroke();
+    c.beginPath(); c.moveTo(0, -8); c.lineTo(0, -5); c.stroke();
+    c.restore();
+  }
+
   function drawEnemy(c, enemy, tick, reduced) {
     if (enemy.dead) return;
     c.save();
@@ -744,33 +766,38 @@
     }
 
     // ---- Rocks / Ores (with HP stages and ore veins) ----
+    // V4: صلابة الصخر تختلف بين المناجم (3..24)، فالمراحل تُحسب بنسبة الصحة لا بقيمة مطلقة؛
+    // منجم 0 (3 نقاط) يطابق الرسم القديم تماماً.
     for (const rock of s.rocks) {
       if (rock.hp <= 0 || rock.x < camera - 60 || rock.x > camera + w) continue;
-      const hpRatio = rock.hp / 3;
-      const baseColor = rock.hp === 3 ? '#5b6e6c' : rock.hp === 2 ? '#4d5d5b' : '#3d4b49';
-      const edgeColor = rock.hp === 3 ? '#8aa69b' : rock.hp === 2 ? '#7a9690' : '#6a8680';
+      const maxHp = Math.max(1, rock.maxHp || 3);
+      const hpRatio = rock.hp / maxHp;
+      const stage = hpRatio > 2 / 3 + 1e-9 ? 3 : hpRatio > 1 / 3 + 1e-9 ? 2 : 1;
+      const tint = ORE_TINT[rock.ore] || '#56ebd3';
+      const baseColor = stage === 3 ? '#5b6e6c' : stage === 2 ? '#4d5d5b' : '#3d4b49';
+      const edgeColor = stage === 3 ? '#8aa69b' : stage === 2 ? '#7a9690' : '#6a8680';
       round(c, rock.x, rock.y, rock.w, rock.h, 10, baseColor);
       strokeRound(c, rock.x, rock.y, rock.w, rock.h, 10, edgeColor, 2);
       // inner bevel
       round(c, rock.x + 2, rock.y + 2, rock.w - 4, rock.h - 8, 8, '#6b807c');
       c.globalAlpha = 0.25; round(c, rock.x + 3, rock.y + 3, rock.w - 6, 10, 6, '#9ab8b0'); c.globalAlpha = 1;
-      // embedded crystal with glow pulse when low HP
-      const pulse = rock.hp === 1 && !reduced ? 0.7 + Math.sin(s.tick * 0.2) * 0.3 : 1;
+      // embedded crystal (tinted by the ore inside) with glow pulse when low HP
+      const pulse = stage === 1 && !reduced ? 0.7 + Math.sin(s.tick * 0.2) * 0.3 : 1;
       c.globalAlpha = pulse;
-      crystal(c, rock.x + 22, rock.y + 25, 0.72, '#56ebd3', true);
+      crystal(c, rock.x + 22, rock.y + 25, 0.72, tint, true);
       c.globalAlpha = 1;
       // ore vein shimmer
-      if (rock.hp >= 2) oreVein(c, rock.x + 6, rock.y + 8, 8, 3, '#c49a6c');
-      if (rock.hp === 3) oreVein(c, rock.x + 30, rock.y + 14, 6, 2, '#8ec5b0');
+      if (stage >= 2) oreVein(c, rock.x + 6, rock.y + 8, 8, 3, tint);
+      if (stage === 3) oreVein(c, rock.x + 30, rock.y + 14, 6, 2, tint);
       // damage cracks with glow
-      if (rock.hp < 3) {
-        c.strokeStyle = hpRatio === 2/3 ? '#ffd875' : '#ff9955';
+      if (stage < 3) {
+        c.strokeStyle = stage === 2 ? '#ffd875' : '#ff9955';
         c.lineWidth = 2; c.lineCap = 'round';
-        if (!reduced && rock.hp === 1) { c.shadowColor = '#ff6b35'; c.shadowBlur = 4; }
+        if (!reduced && stage === 1) { c.shadowColor = '#ff6b35'; c.shadowBlur = 4; }
         c.beginPath(); c.moveTo(rock.x + 24, rock.y + 4); c.lineTo(rock.x + 16, rock.y + 18); c.lineTo(rock.x + 28, rock.y + 30); c.stroke();
         c.shadowBlur = 0;
       }
-      if (rock.hp === 1) {
+      if (stage === 1) {
         c.strokeStyle = '#ff5535'; c.lineWidth = 2;
         if (!reduced) { c.shadowColor = '#ff3333'; c.shadowBlur = 6; }
         c.beginPath(); c.moveTo(rock.x + 35, rock.y + 10); c.lineTo(rock.x + 26, rock.y + 25); c.lineTo(rock.x + 36, rock.y + 42); c.stroke();
@@ -778,10 +805,17 @@
         // debris falling
         if (!reduced) { c.fillStyle = '#6a7674'; c.fillRect(rock.x + 18, rock.y + rock.h - 2, 3, 4); c.fillRect(rock.x + 32, rock.y + rock.h - 1, 2, 3); }
       }
-      // HP pips above rock
-      for (let hi = 0; hi < rock.hp; hi++) {
-        c.fillStyle = hi < rock.hp ? '#56ebd3' : '#2a3a38';
-        c.beginPath(); c.arc(rock.x + 10 + hi * 8, rock.y - 5, 2.5, 0, Math.PI * 2); c.fill();
+      if (maxHp <= 5) {
+        // HP pips above rock (soft rocks, as before)
+        for (let hi = 0; hi < rock.hp; hi++) {
+          c.fillStyle = '#56ebd3';
+          c.beginPath(); c.arc(rock.x + 10 + hi * 8, rock.y - 5, 2.5, 0, Math.PI * 2); c.fill();
+        }
+      } else {
+        // hard rocks: a compact bar instead of dozens of pips
+        const barW = rock.w - 8;
+        round(c, rock.x + 4, rock.y - 9, barW, 5, 2.5, '#1c2a28');
+        round(c, rock.x + 5, rock.y - 8, Math.max(2, (barW - 2) * hpRatio), 3, 1.5, stage === 3 ? '#56ebd3' : stage === 2 ? '#ffd875' : '#ff7a55');
       }
     }
 
@@ -809,7 +843,7 @@
     }
 
     // ---- Hazards ----
-    for (const h of R.LEVEL.hazards) {
+    for (const h of (s.hazards || R.LEVEL.hazards)) {
       if (h.x < camera - 70 || h.x > camera + w + 20) continue;
       const active = R.activeHazard(h, s.tick);
       // base plate
@@ -934,6 +968,16 @@
 
     // ---- Hero ----
     drawHero(c, s.player, s.tick, reduced);
+    // ---- Mining robot companion (V4 equipment) ----
+    if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
+    for (const beam of (opts.beams || [])) {
+      c.globalAlpha = Math.max(0, Math.min(1, beam.life / 8));
+      c.strokeStyle = '#7dffd4'; c.lineWidth = 2.5; c.lineCap = 'round';
+      if (!reduced) { c.shadowColor = '#7dffd4'; c.shadowBlur = 8; }
+      c.beginPath(); c.moveTo(beam.x1, beam.y1); c.lineTo(beam.x2, beam.y2); c.stroke();
+      c.shadowBlur = 0;
+    }
+    c.globalAlpha = 1;
 
     // ---- Particles with glow ----
     for (const p of particles) {
@@ -1000,5 +1044,5 @@
     // invulnerability shimmer on hero is handled in drawHero
   }
 
-  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy };
+  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
