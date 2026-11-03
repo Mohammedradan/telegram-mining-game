@@ -40,7 +40,7 @@ function makeElement(id = '') {
   return e;
 }
 
-function bootPage({ me }) {
+function bootPage({ me, source = script }) {
   const elements = new Map();
   const byId = (id) => { if (!ids.has(id)) return null; if (!elements.has(id)) elements.set(id, makeElement(id)); return elements.get(id); };
   const timers = [];
@@ -76,7 +76,7 @@ function bootPage({ me }) {
   vm.createContext(ctx);
   let topLevelError = null;
   try {
-    vm.runInContext(`${script}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' });
+    vm.runInContext(`${source}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' });
   } catch (e) { topLevelError = e; }
   const settle = async () => {
     for (let i = 0; i < 12; i++) {
@@ -205,4 +205,130 @@ test('the weekly missions card is rendered from the server payload: progress, cl
   list.children[0].children[0].children[1].onclick();
   assert.equal(page.dbg().state.gold, before + 500);
   assert.equal(page.dbg().SYNC.pending.filter((op) => op.type === 'weekly_mission').length, 1);
+});
+
+
+// ===== تبويب التعدين التفاعلي (public/clicker-fx.js) داخل الصفحة الكاملة =====
+// المؤثرات عرض فقط: الذهب والطاقة وطابور العمليات يحسمها منطق الصفحة، والمؤثرات تراقب وتعرض.
+const fxSource = fs.readFileSync(path.join(__dirname, '..', 'public', 'clicker-fx.js'), 'utf8');
+const showMiningTab = (page) => { page.byId('tab-mining').classList.contains = (c) => c === 'active'; };
+
+test('with the clicker effects loaded a tap credits exactly what the game logic decides, and the effects only watch', async () => {
+  const page = bootPage({ me: meResponse });
+  assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
+  await page.settle();
+  const fx = page.ctx.ClickerFX;
+  assert.equal(fx.active, true, 'the effects initialise against the real markup');
+  const s0 = page.dbg();
+  const [gold0, energy0, clicks0, power] = [s0.state.gold, s0.state.energy, s0.SYNC.clicks, s0.state.clickPower];
+  for (let i = 0; i < 5; i++) page.ctx.handleMine({ clientX: 150, clientY: 160 });
+  const s1 = page.dbg();
+  assert.equal(s1.state.gold - gold0, 5 * power, 'five taps, five times clickPower');
+  assert.equal(energy0 - s1.state.energy, 5 * power);
+  assert.equal(s1.SYNC.clicks - clicks0, 5, 'five clicks queued for the server');
+  assert.equal(fx.inspect().streak, 5, 'the effects counted the same taps');
+  assert.ok(fx.inspect().particles > 0, 'particles were emitted');
+  assert.ok(fx.inspect().heat > 0.1);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('a tap without energy is refused: nothing credited, nothing queued, the streak untouched', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  page.ctx.handleMine({ clientX: 10, clientY: 10 });
+  const live = page.dbg();
+  live.state.energy = 0;
+  const [gold, clicks, streak] = [live.state.gold, live.SYNC.clicks, page.ctx.ClickerFX.inspect().streak];
+  page.ctx.handleMine({ clientX: 10, clientY: 10 });
+  const after = page.dbg();
+  assert.equal(after.state.gold, gold);
+  assert.equal(after.SYNC.clicks, clicks);
+  assert.equal(page.ctx.ClickerFX.inspect().streak, streak);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('keyboard activation has no coordinates and still mines (falls back to the coin centre)', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  const g0 = page.dbg().state.gold;
+  page.ctx.handleMine({ key: 'Enter' }); // KeyboardEvent: no clientX/clientY
+  assert.equal(page.dbg().state.gold - g0, page.dbg().state.clickPower);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('updateUI feeds the effects: energy states, live boost button, goal card and level-up celebration', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const { state, profile } = page.dbg();
+  // goal card: the cheapest upgrade is the pickaxe (50) and 1,234 gold covers it
+  page.ctx.updateUI();
+  assert.equal(page.byId('ck-goal').hidden, false);
+  assert.equal(page.byId('ck-goal-name').textContent, 'فأس فولاذي');
+  assert.equal(page.byId('ck-goal').dataset.ready, '1');
+  assert.equal(page.byId('ck-goal-buy').disabled, false);
+  assert.equal(page.byId('ck-goal-cost').textContent, '50');
+  // energy states
+  assert.equal(page.byId('energy-container').dataset.level, 'full');
+  state.energy = 100; page.ctx.updateUI();
+  assert.equal(page.byId('energy-container').dataset.level, 'low');
+  assert.match(page.byId('ck-status-text').textContent, /100 نقرة/);
+  state.energy = 0; page.ctx.updateUI();
+  assert.equal(page.byId('energy-container').dataset.level, 'empty');
+  assert.match(page.byId('ck-status-text').textContent, /الطاقة تتجدد/);
+  state.energy = state.maxEnergy;
+  // boost: active shows a countdown, disables the button and lights the stage; the harness has no inner label so the whole text is the fallback
+  state.boostUntil = Date.now() + 20_000; state.boostCooldownUntil = Date.now() + 300_000;
+  page.ctx.updateUI();
+  const boost = page.byId('boost-btn');
+  assert.equal(boost.dataset.state, 'active');
+  assert.equal(boost.disabled, true);
+  assert.match(boost.innerText, /تعزيز ×2 فعّال \(0:(19|20)\)/);
+  assert.equal(page.byId('ck-stage').dataset.boost, '1');
+  state.boostUntil = 0; page.ctx.updateUI();
+  assert.equal(boost.dataset.state, 'cooldown');
+  assert.match(boost.innerText, /جاهز بعد \((5:00|4:5\d)\)/);
+  assert.equal(page.byId('ck-stage').dataset.boost, '0');
+  state.boostCooldownUntil = 0; page.ctx.updateUI();
+  assert.equal(boost.dataset.state, 'ready');
+  assert.equal(boost.disabled, false);
+  // level: the first sync only records it; a later rise of the same source celebrates
+  assert.doesNotMatch(page.byId('ck-banner').textContent, /المستوى/, 'no level banner without a level change (the banner only shows the boost one)');
+  profile.progress = { ...profile.progress, level: profile.progress.level + 1 };
+  page.ctx.updateUI();
+  assert.match(page.byId('ck-banner').textContent, new RegExp(`ارتقيت إلى المستوى ${profile.progress.level}`));
+  assert.match(page.byId('ck-live').textContent, new RegExp(String(profile.progress.level)));
+  assert.equal(page.byId('xp-text').textContent, `${profile.progress.current}/${profile.progress.needed} XP`);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('switching tabs clears the effects and re-syncs on return', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  for (let i = 0; i < 6; i++) page.ctx.handleMine({ clientX: 150, clientY: 160 });
+  assert.equal(page.ctx.ClickerFX.inspect().streak, 6);
+  page.ctx.ClickerFX.onTab('shop');
+  const away = page.ctx.ClickerFX.inspect();
+  assert.deepEqual([away.streak, away.heat, away.particles], [0, 0, 0]);
+  page.ctx.ClickerFX.onTab('mining');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('without clicker-fx.js the game still mines: legacy floating number, direct gold counter, classic boost label', async () => {
+  const legacy = script.replace(fxSource, '');
+  assert.notEqual(legacy, script, 'the module was really removed from the boot script');
+  const page = bootPage({ me: meResponse, source: legacy });
+  assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
+  await page.settle();
+  assert.equal(page.ctx.ClickerFX, undefined);
+  const g0 = page.dbg().state.gold;
+  const kids0 = page.byId('click-area').children.length;
+  page.ctx.handleMine({ clientX: 120, clientY: 120 });
+  const s = page.dbg();
+  assert.equal(s.state.gold - g0, s.state.clickPower);
+  assert.equal(page.byId('gold-counter').innerText, Math.floor(s.state.gold).toLocaleString('en-US'));
+  assert.equal(page.byId('click-area').children.length, kids0 + 1, 'the old floating number is created');
+  assert.match(page.byId('boost-btn').innerText, /تعزيز ×2 \(0:30\)/);
+  assert.deepEqual(page.log.errors, []);
 });

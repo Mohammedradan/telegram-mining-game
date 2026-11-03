@@ -289,33 +289,6 @@
     .mining-btn { transition: transform 0.05s ease-out; }
     .mining-btn:active { transform: scale(0.92); }
 
-    @keyframes mining-swing {
-      0%, 100% { transform: rotate(-5deg); }
-      50% { transform: rotate(5deg); }
-    }
-    
-    @keyframes pickaxe-swing {
-      0%, 100% { transform: rotate(-20deg); }
-      50% { transform: rotate(20deg); }
-    }
-    
-    .animate-mining-swing {
-      animation: mining-swing 1s ease-in-out infinite;
-    }
-    
-    .animate-pickaxe-swing {
-      animation: pickaxe-swing 0.5s ease-in-out infinite;
-    }
-    
-    @keyframes sparkle {
-      0%, 100% { opacity: 0.3; transform: scale(0.8); }
-      50% { opacity: 1; transform: scale(1.2); }
-    }
-    
-    .animate-sparkle {
-      animation: sparkle 0.8s ease-in-out infinite;
-    }
-
     .floating-text {
       position: absolute;
       animation: floatUp 0.8s ease-out forwards;
@@ -339,6 +312,8 @@
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
   <link rel="stylesheet" href="/platform.css?v=8">
+  <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
+  <link rel="stylesheet" href="/clicker.css?v=1">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -357,6 +332,7 @@
       <path d="m13 18 4.5-4.5M11 18l-4.5-4.5"/>
     </symbol>
     <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5 5.5 13.5h5.2L9.5 21.5l9-12h-5.2l.2-7Z" fill="currentColor" fill-opacity=".22"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2.8c1.2 3 5.2 5.4 5.2 10a5.2 5.2 0 0 1-10.4 0c0-2 1-3.5 2-4.6.4 1.5 1.2 2.4 2.2 2.8C10.2 8.6 10.4 5.6 12 2.8Z" fill="currentColor" fill-opacity=".22"/></symbol>
     <symbol id="i-sound" viewBox="0 0 24 24">
       <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4.2 4.2 0 0 1 0 6M18.6 6.4a7.7 7.7 0 0 1 0 11.2"/>
     </symbol>
@@ -402,7 +378,7 @@
     </div>
 
     <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/50 text-right">
-      <div class="text-[10px] text-slate-400">المستوى</div>
+      <div class="ck-level-top"><span class="text-[10px] text-slate-400">المستوى</span><span id="xp-text" class="ck-xp-text"></span></div>
       <div id="level-badge" class="font-black text-amber-400 text-sm">1 (مبتدئ)</div>
       <div id="xp-bar" class="h-1 mt-1 rounded-full bg-slate-700/80 overflow-hidden" title="نقاط الخبرة — تُمنح من الخادم على نشاط موثوق" style="display:none">
         <div id="xp-fill" class="h-full bg-amber-400 rounded-full" style="width:0%"></div>
@@ -412,7 +388,7 @@
 
   <!-- Total Balance Display -->
   <div class="balance-strip flex items-center justify-center gap-2 rounded-xl bg-slate-950/30 px-3 py-1.5">
-    <span class="text-2xl text-amber-400">🪙</span>
+    <svg class="ui-icon ck-coin-icon" aria-hidden="true"><use href="#i-coin"/></svg>
     <div class="leading-none">
       <div class="text-slate-400 text-[9px] font-semibold mb-1">إجمالي الذهب</div>
       <span id="gold-counter" class="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">0</span>
@@ -625,54 +601,86 @@
     </section>
   </main>
 
-  <!-- TAB 1: MINING (QUICK CLICK) -->
-  <main id="tab-mining" class="tab-content flex-col items-center justify-center relative my-auto">
-    <div id="click-area" class="relative flex items-center justify-center">
-      <!-- شخصيات تعدين على الجوانب -->
-      <div class="absolute -left-16 top-1/2 -translate-y-1/2 miner-character-left">
-        <div class="relative w-20 h-24">
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-amber-600 to-amber-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg">
-            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-amber-400 rounded-full shadow-md"></div>
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md"></div>
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-amber-300 rounded-full opacity-50 animate-pulse"></div>
-          </div>
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-amber-900 rounded-full shadow-inner"></div>
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-400 rounded-full animate-sparkle"></div>
-        </div>
-      </div>
-      
-      <div class="absolute -right-16 top-1/2 -translate-y-1/2 miner-character-right">
-        <div class="relative w-20 h-24">
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-blue-600 to-blue-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 0.5s;">
-            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-blue-400 rounded-full shadow-md"></div>
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 0.5s;"></div>
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-blue-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 0.5s;"></div>
-          </div>
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-blue-900 rounded-full shadow-inner"></div>
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-400 rounded-full animate-sparkle" style="animation-delay: 0.5s;"></div>
-        </div>
-      </div>
-      
-      <div class="absolute -top-20 left-1/2 -translate-x-1/2 miner-character-top">
-        <div class="relative w-20 h-24">
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-green-600 to-green-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 1s;">
-            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-green-400 rounded-full shadow-md"></div>
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 1s;"></div>
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-green-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 1s;"></div>
-          </div>
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-green-900 rounded-full shadow-inner"></div>
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-green-400 rounded-full animate-sparkle" style="animation-delay: 1s;"></div>
-        </div>
-      </div>
-      
-      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none z-10">
-        <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-[0_0_50px_rgba(245,158,11,0.4)] border-4 border-yellow-200/40 pointer-events-none">
-          <span class="text-7xl sm:text-8xl drop-shadow-2xl">💎</span>
-        </div>
+  <!-- TAB 1: MINING (QUICK CLICK) — شاشة نقر تفاعلية: إمالة ثلاثية الأبعاد نحو اللمس، أرقام وجسيمات، سلسلة نقرات،
+       تعزيز حيّ وهدف ترقية. العرض كله من public/clicker-fx.js؛ الذهب والطاقة والعمليات تبقى من handleMine/buyUpgrade/activateBoost. -->
+  <main id="tab-mining" class="tab-content flex-col items-center relative flex-1 ck-tab">
+    <div id="ck-stage" class="ck-stage" data-boost="0" data-frenzy="0" data-fresh="1">
+      <div class="ck-ambience" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <button id="ck-sound" class="ck-sound" type="button" aria-pressed="false" aria-label="كتم أو تشغيل صوت النقر">
+        <svg class="ui-icon ck-ico-on" aria-hidden="true"><use href="#i-sound"/></svg>
+        <svg class="ui-icon ck-ico-off" aria-hidden="true"><use href="#i-muted"/></svg>
       </button>
+
+      <div id="click-area" class="ck-area">
+        <div class="ck-aura" aria-hidden="true"></div>
+        <!-- حلقة الحرارة: تمتلئ بالنقر المتواصل (عرض فقط) -->
+        <svg class="ck-heat" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="ck-heat-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde047"/><stop offset=".55" stop-color="#fb923c"/><stop offset="1" stop-color="#f43f5e"/></linearGradient>
+          </defs>
+          <circle class="ck-heat-track" cx="100" cy="100" r="96"/>
+          <circle class="ck-heat-bar" cx="100" cy="100" r="96"/>
+        </svg>
+        <div id="ck-streak" class="ck-streak" aria-hidden="true" data-tier="1"><svg class="ui-icon"><use href="#i-flame"/></svg><span>سلسلة</span><b id="ck-streak-n">0</b></div>
+
+        <button id="mine-btn" type="button" aria-label="تعدين" aria-describedby="tap-hint" class="mining-btn ck-btn">
+          <span class="ck-bob"><span id="ck-coin" class="ck-coin">
+            <span class="ck-rim"></span>
+            <span class="ck-face">
+              <span class="ck-twinkle t1"></span><span class="ck-twinkle t2"></span><span class="ck-twinkle t3"></span>
+              <!-- جوهرة SVG مرسومة بالأوجه: لا تعتمد على خط إيموجي (كان يظهر مربعاً فارغاً على بعض الأجهزة) -->
+              <svg id="ck-gem" class="ck-gem" viewBox="0 0 100 92" aria-hidden="true" focusable="false">
+                <defs>
+                  <linearGradient id="ck-g-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0fdff"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient>
+                  <linearGradient id="ck-g-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bae6fd"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+                  <linearGradient id="ck-g-c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0369a1"/></linearGradient>
+                  <linearGradient id="ck-g-d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7dd3fc"/><stop offset="1" stop-color="#0284c7"/></linearGradient>
+                  <linearGradient id="ck-g-e" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0ea5e9"/><stop offset="1" stop-color="#075985"/></linearGradient>
+                  <linearGradient id="ck-g-f" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+                </defs>
+                <g stroke="rgba(7,40,70,.55)" stroke-width="1.4" stroke-linejoin="round">
+                  <polygon points="5,33 27,8 33,33" fill="url(#ck-g-b)"/>
+                  <polygon points="27,8 73,8 67,33 33,33" fill="url(#ck-g-a)"/>
+                  <polygon points="73,8 95,33 67,33" fill="url(#ck-g-c)"/>
+                  <polygon points="5,33 33,33 50,88" fill="url(#ck-g-d)"/>
+                  <polygon points="33,33 50,33 50,88" fill="url(#ck-g-f)"/>
+                  <polygon points="50,33 67,33 50,88" fill="url(#ck-g-c)"/>
+                  <polygon points="67,33 95,33 50,88" fill="url(#ck-g-e)"/>
+                </g>
+                <polygon points="31,11 46,11 38,25" fill="#fff" opacity=".75"/>
+                <polygon points="9,35 26,35 40,72" fill="#fff" opacity=".12"/>
+              </svg>
+            </span>
+            <span class="ck-gloss" aria-hidden="true"><i id="ck-gloss"></i></span>
+          </span></span>
+        </button>
+
+        <div id="ck-status" class="ck-status" aria-hidden="true" data-kind=""><svg class="ui-icon"><use id="ck-status-icon" href="#i-bolt"/></svg><span id="ck-status-text"></span></div>
+        <div id="ck-banner" class="ck-banner" aria-hidden="true"></div>
+      </div>
+
+      <p id="tap-hint" class="ck-hint">اضغط على الجوهرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
+
+      <button id="boost-btn" onclick="activateBoost()" type="button" class="ck-boost" data-state="ready">
+        <i class="ck-boost-fill" aria-hidden="true"></i>
+        <svg class="ui-icon ck-boost-icon" aria-hidden="true"><use href="#i-bolt"/></svg>
+        <span class="ck-boost-label">تعزيز ×2</span>
+        <span class="ck-boost-time">0:30</span>
+      </button>
+
+      <!-- الهدف التالي: أرخص ترقية مع تقدّم رصيدك نحوها؛ الشراء بنفس buyUpgrade (عملية خادمية عادية) -->
+      <div id="ck-goal" class="ck-goal" data-ready="0" hidden>
+        <span class="ck-goal-icon" aria-hidden="true"><svg class="ui-icon"><use id="ck-goal-icon" href="#i-pickaxe"/></svg></span>
+        <span class="ck-goal-body">
+          <span class="ck-goal-title"><span id="ck-goal-name">فأس فولاذي</span><small id="ck-goal-owned"></small></span>
+          <span class="ck-goal-meta"><span id="ck-goal-desc">+1 لكل نقرة</span><span id="ck-goal-have" dir="ltr"></span></span>
+          <span class="ck-goal-bar" aria-hidden="true"><i id="ck-goal-fill"></i></span>
+        </span>
+        <button id="ck-goal-buy" class="ck-goal-buy" type="button" disabled aria-label="شراء الترقية التالية"><svg class="ui-icon" aria-hidden="true"><use href="#i-coin"/></svg><b id="ck-goal-cost">50</b></button>
+      </div>
+
+      <div id="ck-live" class="sr-only" aria-live="polite"></div>
     </div>
-    <p id="tap-hint" class="text-xs text-slate-500 mt-3">اضغط على الجوهرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
-    <button id="boost-btn" onclick="activateBoost()" class="mt-3 w-full max-w-xs bg-gradient-to-r from-fuchsia-500 to-purple-600 disabled:opacity-40 disabled:grayscale font-black py-2.5 rounded-xl text-xs shadow-lg shadow-fuchsia-500/20 active:scale-95">🚀 تعزيز ×2</button>
   </main>
 
   <!-- TAB 2: UPGRADES / SHOP -->
@@ -840,10 +848,11 @@
   <!-- Energy Section (Only on Mining Tab) -->
   <div id="energy-container" class="w-full mb-3" style="display:none">
     <div class="flex justify-between items-center text-xs font-bold text-slate-400 mb-1 px-1">
-      <span class="flex items-center gap-1">⚡ الطاقة</span>
+      <span class="flex items-center gap-1"><svg class="ui-icon ck-energy-icon" aria-hidden="true"><use href="#i-bolt"/></svg> الطاقة <small id="ck-regen" class="ck-regen">+3/ث</small></span>
       <span><span id="energy-counter">1000</span> / <span id="max-energy">1000</span></span>
     </div>
-    <div class="w-full h-3 bg-slate-800/90 rounded-full border border-slate-700/50 overflow-hidden p-[1px]">
+    <div id="energy-track" class="ck-energy-track" role="progressbar" aria-label="الطاقة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+      <i id="energy-ghost" class="ck-energy-ghost" aria-hidden="true"></i>
       <div id="energy-bar" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 rounded-full transition-all duration-200" style="width: 100%;"></div>
     </div>
   </div>
@@ -875,6 +884,10 @@
       <span class="text-[10px] font-bold mt-0.5">الساحة</span>
     </button>
   </nav>
+
+  <!-- طبقة مؤثرات التعدين الأمامية: جسيمات وأرقام طائرة فوق الواجهة كلها (لا تلتقط اللمس) -->
+  <canvas id="ck-fx" class="ck-fx" aria-hidden="true"></canvas>
+  <div id="ck-layer" class="ck-layer" aria-hidden="true"></div>
 
   <!-- ورشة المعدّن (المرحلة 3): معدات دائمة بسعر ذهب + خام، يتحقق الخادم من كل ترقية وتسري من الجولة التالية -->
   <div id="ws-overlay" class="ws-overlay" hidden aria-label="ورشة المعدّن">
@@ -937,6 +950,8 @@
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
   <script src="/platform-rules.js?v=6"></script>
   <script src="/platform-renderer.js?v=5"></script>
+  <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
+  <script src="/clicker-fx.js?v=1"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -1850,11 +1865,12 @@
     }
 
     function updateUI() {
-      goldCounter.innerText = fmt(state.gold);
+      // مع مؤثرات التعدين يتولى ClickerFX عدّاد الذهب (عدّ سلس للقفزات الكبيرة: مكافأة/بيع/شراء)؛ بدونها يبقى التحديث المباشر
+      if (!window.ClickerFX?.active) goldCounter.innerText = fmt(state.gold);
       energyCounter.innerText = fmt(state.energy);
       document.getElementById('max-energy').innerText = fmt(state.maxEnergy);
       energyBar.style.width = `${Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100))}%`;
-      profitCounter.innerText = `+${fmt(passiveGain())}${boostActive() ? ' 🚀' : ''}`;
+      profitCounter.innerText = `+${fmt(passiveGain())}`; // علامة ×2 أثناء التعزيز تأتي من CSS (body.ck-boost-on)
       document.getElementById('tap-cost').innerText = state.clickPower;
       document.getElementById('current-click-power').innerText = state.clickPower;
 
@@ -1865,16 +1881,24 @@
       dailyBtn.disabled = !daily.canClaim;
       dailyBtn.innerText = daily.canClaim ? `🎁 مكافأة يومية +${fmt(daily.reward)}` : `🎁 استُلمت اليوم ✓ (سلسلة ${daily.streak || 1})`;
       const boostBtn = document.getElementById('boost-btn') || {};
+      // حالة الزر بصرياً عبر data-state (جاهز/فعّال/تهدئة): أثناء التعزيز يبدو مفعّلاً متوهجاً لا رمادياً معطّلاً
+      const setBoost = (stateName, label, time) => {
+        if (boostBtn.dataset && boostBtn.dataset.state !== stateName) boostBtn.dataset.state = stateName;
+        const l = boostBtn.querySelector?.('.ck-boost-label');
+        const t = boostBtn.querySelector?.('.ck-boost-time');
+        if (l) { l.textContent = label; if (t) t.textContent = time; } else boostBtn.innerText = time ? `${label} (${time})` : label;
+      };
       if (boostActive()) {
         boostBtn.disabled = true;
-        boostBtn.innerText = `🚀 تعزيز ×2 (${Math.ceil((state.boostUntil - now) / 1000)}ث)`;
+        const left = Math.ceil((state.boostUntil - now) / 1000);
+        setBoost('active', 'تعزيز ×2 فعّال', `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
       } else if (now < (state.boostCooldownUntil || 0)) {
         boostBtn.disabled = true;
         const s = Math.ceil((state.boostCooldownUntil - now) / 1000);
-        boostBtn.innerText = `🚀 تعزيز (${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')})`;
+        setBoost('cooldown', 'جاهز بعد', `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
       } else {
         boostBtn.disabled = false;
-        boostBtn.innerText = '🚀 تعزيز ×2';
+        setBoost('ready', 'تعزيز ×2', '0:30');
       }
 
       // إحصائيات الدعوات
@@ -1905,7 +1929,7 @@
       // دون خادم يبقى مشتقاً محلياً من إجمالي المكاسب كما كان
       const prog = serverMode && profile?.progress ? profile.progress : null;
       const level = prog ? prog.level : Math.floor(state.totalEarned / 5000) + 1;
-      const titles = ['مبتدئ 🔥', 'هاوٍ ⛏️', 'محترف 💪', 'خبير 👑', 'أسطورة 🏆'];
+      const titles = ['مبتدئ', 'هاوٍ', 'محترف', 'خبير', 'أسطورة'];
       levelBadge.innerText = `${level} (${titles[Math.min(titles.length - 1, Math.floor((level - 1) / 3))]})`;
       const xpBar = document.getElementById('xp-bar');
       if (xpBar) {
@@ -1916,22 +1940,38 @@
           levelBadge.title = xpBar.title;
         }
       }
+      const xpText = document.getElementById('xp-text');
+      if (xpText) xpText.textContent = prog ? `${fmt(prog.current)}/${fmt(prog.needed)} XP` : '';
+
+      // مؤثرات تبويب التعدين (عرض فقط): حالة الطاقة والتعزيز والهدف التالي وعدّ الذهب والاحتفال بالمستوى
+      window.ClickerFX?.sync({
+        gold: state.gold, energy: state.energy, maxEnergy: state.maxEnergy, clickPower: state.clickPower,
+        boostUntil: state.boostUntil || 0, boostCooldownUntil: state.boostCooldownUntil || 0,
+        costs: state.costs, owned: state.owned, passive: passiveGain(), level, levelSource: prog ? 'server' : 'local', now,
+      });
     }
 
+    // أنواع الاهتزاز: light/medium/heavy/rigid/soft (ضربات) وsuccess/warning/error (إشعارات) وselection؛ الافتراضي light
+    const HAPTIC_VIBRATE = { light: 10, soft: 8, selection: 6, medium: 18, rigid: 14, heavy: [28, 20, 28], success: [12, 40, 12], warning: [20, 30, 20], error: [30, 30, 30] };
     function haptic(type) {
       try {
         if (tg?.HapticFeedback) {
-          if (type === 'success' || type === 'error') tg.HapticFeedback.notificationOccurred(type);
-          else tg.HapticFeedback.impactOccurred('light');
+          if (type === 'success' || type === 'error' || type === 'warning') tg.HapticFeedback.notificationOccurred(type);
+          else if (type === 'selection') tg.HapticFeedback.selectionChanged?.();
+          else tg.HapticFeedback.impactOccurred(['light', 'medium', 'heavy', 'rigid', 'soft'].includes(type) ? type : 'light');
         } else if (navigator.vibrate) {
-          navigator.vibrate(type === 'error' ? [30, 30, 30] : 10);
+          navigator.vibrate(HAPTIC_VIBRATE[type] ?? 10);
         }
       } catch (e) {}
     }
 
     // --- Mining Click Action (يدعم اللمس المتعدد عبر pointer events) ---
     function handleMine(e) {
-      if (state.energy < state.clickPower) { haptic('error'); return; }
+      // موضع اللمس في إحداثيات الشاشة؛ من لوحة المفاتيح (بلا إحداثيات) يكون مركز الجوهرة
+      const rect = clickArea.getBoundingClientRect();
+      const cx = e.clientX ?? (rect.left + rect.width / 2);
+      const cy = e.clientY ?? (rect.top + rect.height / 2);
+      if (state.energy < state.clickPower) { haptic('error'); window.ClickerFX?.denied({ x: cx, y: cy }); return; }
 
       const gain = clickGain(); // ×2 أثناء التعزيز كما يعرض الزر
       state.energy -= state.clickPower;
@@ -1943,10 +1983,9 @@
 
       haptic('light');
 
-      const rect = clickArea.getBoundingClientRect();
-      const x = (e.clientX ?? (rect.left + rect.width / 2)) - rect.left;
-      const y = (e.clientY ?? (rect.top + rect.height / 2)) - rect.top;
-      createFloatingText(`+${gain}`, x, y);
+      // المؤثرات (إمالة، أرقام، جسيمات، سلسلة، صوت) عرض فقط؛ إن لم تتوفر يبقى الرقم الطائر القديم
+      if (window.ClickerFX?.active) window.ClickerFX.tap({ x: cx, y: cy, gain, boosted: boostActive() });
+      else createFloatingText(`+${gain}`, cx - rect.left, cy - rect.top);
       updateUI();
       save();
     }
@@ -1965,7 +2004,17 @@
       }
     }
 
-    document.getElementById('mine-btn').addEventListener('pointerdown', handleMine);
+    (function wireMineButton() {
+      const btn = document.getElementById('mine-btn');
+      btn.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return; // الزر الأيمن/الأوسط لا يعدّن
+        handleMine(e);
+      });
+      // لوحة المفاتيح: Enter/Space يعدّنان (الزر كان يستجيب لـ pointerdown فقط)؛ الاستمرار بالضغط لا يكرّر النقر
+      btn.addEventListener('keydown', (e) => {
+        if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); handleMine(e); }
+      });
+    })();
     document.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // ================= 🎮 لعبة مغامرة المنجم التفاعلية =================
@@ -3041,10 +3090,11 @@
       }
     }
 
+    // name/desc/icon تعرضها بطاقة «الهدف التالي» في تبويب التعدين؛ المنطق (apply/growth) لم يتغير
     const UPGRADES = {
-      click: { apply: () => { state.clickPower += 1; },      growth: 1.5 },
-      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4 },
-      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3 }
+      click: { apply: () => { state.clickPower += 1; },      growth: 1.5, name: 'فأس فولاذي',        desc: '+1 لكل نقرة',   icon: 'i-pickaxe' },
+      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4, name: 'عامل آلي',          desc: '+5 ذهب/ثانية',  icon: 'i-robot' },
+      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3, name: 'منصة تعدين عملاقة', desc: '+25 ذهب/ثانية', icon: 'i-drill' }
     };
 
     function buyUpgrade(type) {
@@ -3072,8 +3122,9 @@
     // --- Auto Income & Energy Regeneration Loop ---
     setInterval(() => {
       if (state.passiveIncome > 0) {
-        state.gold += state.passiveIncome / 10;
-        state.totalEarned += state.passiveIncome / 10;
+        const tick = passiveGain() / 10; // ×2 أثناء التعزيز كما يحتسب الخادم الدخل داخل نافذته (والرقم المعروض في الشريط)
+        state.gold += tick;
+        state.totalEarned += tick;
       }
       // تجديد الطاقة: 3/ثانية
       if (state.energy < state.maxEnergy) {
@@ -3120,6 +3171,7 @@
       activeBtn.classList.remove('text-slate-400');
 
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
+      window.ClickerFX?.onTab?.(tabId); // يُفرغ المؤثرات العالقة عند المغادرة ويُنعش العرض عند الدخول
       if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
@@ -3447,6 +3499,8 @@
     window.openMines = minesOpen;
     window.closeMines = minesClose;
 
+    // مؤثرات تبويب التعدين (عرض فقط): إن غاب الملف أو تعطّل يبقى المسار القديم
+    window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES });
     updateUI();
     updateArenaUI();
     updateAdventureUI();

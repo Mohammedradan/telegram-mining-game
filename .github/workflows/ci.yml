@@ -80,3 +80,7 @@ jobs:
         run: npm run test:browser
         env:
           TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run mining-screen (clicker) browser end-to-end test
+        run: npm run test:clicker
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000

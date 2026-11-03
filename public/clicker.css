@@ -1,0 +1,593 @@
+/* تبويب التعدين التفاعلي (النقر السريع) — أنماط ذاتية: بلا CDN ولا صور ولا خطوط إيموجي.
+   كل ما هنا عرض فقط؛ الذهب والطاقة والعمليات الخادمية يحسمها منطق اللعبة في index.html،
+   وتُحرَّك العناصر عبر public/clicker-fx.js. */
+
+/* ---------- الهيكل ---------- */
+/* مركزة آمنة: الهوامش التلقائية تتوسّط عند وجود فراغ وتتحول إلى صفر عند الفيض فيبقى الأعلى قابلاً للتمرير */
+.ck-tab { justify-content: flex-start; padding: 0 4px; }
+.ck-stage {
+  --ck-size: clamp(150px, min(62vw, calc(var(--app-height, 100vh) - 500px)), 264px);
+  position: relative;
+  margin-block: auto;
+  width: 100%;
+  max-width: 440px;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+@supports (height: 100dvh) {
+  .ck-stage { --ck-size: clamp(150px, min(62vw, calc(var(--app-height, 100dvh) - 500px)), 264px); }
+}
+/* غبار جواهر خفيف يتصاعد خلف الجوهرة */
+.ck-ambience {
+  position: absolute;
+  inset: 0 -8px;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 80%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 80%, transparent);
+}
+.ck-ambience i {
+  position: absolute;
+  bottom: -8px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(253, 224, 71, .75);
+  box-shadow: 0 0 7px rgba(253, 224, 71, .85);
+  opacity: 0;
+  animation: ck-dust 10s linear infinite;
+}
+.ck-ambience i:nth-child(1) { left: 7%;  animation-duration: 9s;  animation-delay: -1s; }
+.ck-ambience i:nth-child(2) { left: 19%; animation-duration: 12s; animation-delay: -6s; width: 2px; height: 2px; background: rgba(125, 211, 252, .8); box-shadow: 0 0 7px rgba(125, 211, 252, .9); }
+.ck-ambience i:nth-child(3) { left: 31%; animation-duration: 10s; animation-delay: -3s; }
+.ck-ambience i:nth-child(4) { left: 46%; animation-duration: 13s; animation-delay: -9s; width: 4px; height: 4px; }
+.ck-ambience i:nth-child(5) { left: 61%; animation-duration: 11s; animation-delay: -2s; width: 2px; height: 2px; background: rgba(125, 211, 252, .8); box-shadow: 0 0 7px rgba(125, 211, 252, .9); }
+.ck-ambience i:nth-child(6) { left: 74%; animation-duration: 9.5s; animation-delay: -7s; }
+.ck-ambience i:nth-child(7) { left: 86%; animation-duration: 12.5s; animation-delay: -4s; width: 4px; height: 4px; }
+.ck-ambience i:nth-child(8) { left: 94%; animation-duration: 10.5s; animation-delay: -8s; width: 2px; height: 2px; }
+@keyframes ck-dust {
+  0%   { transform: translate3d(0, 0, 0) scale(.6); opacity: 0; }
+  12%  { opacity: .95; }
+  100% { transform: translate3d(10px, -380px, 0) scale(1.15); opacity: 0; }
+}
+
+/* زر كتم صوت المؤثرات */
+.ck-sound {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 4px;
+  z-index: 6;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, .72);
+  border: 1px solid rgba(148, 163, 184, .28);
+  cursor: pointer;
+  transition: transform .08s ease, color .2s ease, background .2s ease;
+}
+.ck-sound:hover { background: rgba(30, 41, 59, .9); }
+.ck-sound:active { transform: scale(.92); }
+.ck-sound .ui-icon { width: 18px; height: 18px; }
+.ck-sound[aria-pressed="true"] { color: #64748b; }
+.ck-sound[aria-pressed="true"] .ck-ico-on,
+.ck-sound[aria-pressed="false"] .ck-ico-off { display: none; }
+
+/* ---------- الجوهرة ---------- */
+.ck-area {
+  position: relative;
+  width: calc(var(--ck-size) + 26px);
+  height: calc(var(--ck-size) + 26px);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+.ck-aura {
+  /* هالة من box-shadow لا من صندوق أكبر: الظل لا يوسّع منطقة التمرير فلا يظهر شريط تمرير زائد في الشاشات القصيرة */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--ck-size);
+  height: var(--ck-size);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 64px 16px rgba(251, 191, 36, .34), 0 0 130px 36px rgba(245, 158, 11, .15);
+  animation: ck-breathe 3.6s ease-in-out infinite;
+}
+.ck-stage[data-boost="1"] .ck-aura { box-shadow: 0 0 64px 18px rgba(217, 70, 239, .42), 0 0 130px 40px rgba(147, 51, 234, .2); }
+.ck-stage[data-frenzy="1"] .ck-aura { box-shadow: 0 0 64px 20px rgba(251, 113, 133, .5), 0 0 130px 44px rgba(249, 115, 22, .24); animation-duration: .8s; }
+@keyframes ck-breathe {
+  0%, 100% { opacity: .72; transform: translate(-50%, -50%) scale(.96); }
+  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.06); }
+}
+
+/* حلقة الحرارة: تمتلئ بسرعة النقر المتواصل وتخبو عند التوقف (عرض فقط — لا مضاعف ولا مكافأة) */
+.ck-heat {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96%;
+  height: 96%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  overflow: visible;
+  pointer-events: none;
+}
+.ck-heat circle { fill: none; stroke-width: 3.5; }
+.ck-heat-track { stroke: rgba(148, 163, 184, .13); }
+.ck-heat-bar {
+  stroke: url(#ck-heat-grad);
+  stroke-linecap: round;
+  stroke-dasharray: 603.2;
+  stroke-dashoffset: calc(603.2px * (1 - var(--heat, 0)));
+  opacity: var(--heat-o, 0);
+  transition: stroke-dashoffset .09s linear, opacity .2s ease;
+  filter: drop-shadow(0 0 5px rgba(251, 146, 60, .7));
+}
+
+/* دعوة للمس الجوهرة قبل أول نقرة */
+.ck-stage[data-fresh="1"] .ck-btn::after {
+  content: "";
+  position: absolute;
+  inset: 2%;
+  border-radius: 50%;
+  border: 3px solid rgba(253, 224, 71, .75);
+  pointer-events: none;
+  animation: ck-invite 1.9s ease-out infinite;
+}
+@keyframes ck-invite {
+  0%   { transform: scale(.96); opacity: .9; }
+  100% { transform: scale(1.22); opacity: 0; }
+}
+
+.ck-btn {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: calc(var(--ck-size) + 8px);
+  height: calc(var(--ck-size) + 8px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+/* الأنماط القديمة كانت تصغّر الزر كله عند الضغط؛ الآن تتولى العرض إمالة القرص نفسه */
+#mine-btn.mining-btn { transition: none; }
+#mine-btn.mining-btn:active { transform: none; }
+.ck-btn:focus-visible .ck-coin {
+  box-shadow: 0 0 0 4px rgba(253, 224, 71, .8), 0 0 0 9px rgba(251, 191, 36, .28);
+}
+.ck-bob {
+  display: block;
+  width: var(--ck-size);
+  height: var(--ck-size);
+  animation: ck-bob 4s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes ck-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.ck-coin {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transform: perspective(780px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(var(--sc, 1));
+  transition: transform .5s cubic-bezier(.2, 1.8, .35, 1);
+  will-change: transform;
+}
+.ck-coin.is-down { transition-duration: .07s; transition-timing-function: ease-out; }
+.ck-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #fff2b8, #f59e0b 50deg, #b45309 100deg, #fcd34d 150deg, #fffbe6 190deg, #f59e0b 240deg, #92400e 290deg, #fbbf24 330deg, #fff2b8);
+  box-shadow: 0 12px 30px rgba(180, 83, 9, .5), 0 0 56px rgba(245, 158, 11, .38), inset 0 0 0 2px rgba(255, 255, 255, .38);
+  animation: ck-spin 26s linear infinite;
+}
+@keyframes ck-spin { to { transform: rotate(360deg); } }
+.ck-face {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(circle at 34% 26%, #fff3bf 0, #fbbf24 32%, #f59e0b 60%, #b45309 100%);
+  box-shadow: inset 0 3px 9px rgba(255, 255, 255, .6), inset 0 -12px 20px rgba(120, 53, 15, .55), 0 0 0 3px rgba(120, 53, 15, .38);
+}
+.ck-face::before {
+  content: "";
+  position: absolute;
+  inset: 7%;
+  border-radius: 50%;
+  border: 2px dashed rgba(120, 53, 15, .3);
+}
+.ck-gem {
+  position: relative;
+  z-index: 1;
+  width: 64%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 7px 8px rgba(8, 47, 73, .55)) drop-shadow(0 0 12px rgba(56, 189, 248, .55));
+  animation: ck-gem 3.4s ease-in-out infinite;
+}
+@keyframes ck-gem { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+.ck-twinkle {
+  position: absolute;
+  z-index: 2;
+  width: 14%;
+  aspect-ratio: 1;
+  background: #fff;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  opacity: 0;
+  animation: ck-twinkle 3.2s ease-in-out infinite;
+}
+.ck-twinkle.t1 { top: 14%; inset-inline-start: 20%; }
+.ck-twinkle.t2 { top: 60%; inset-inline-end: 14%; width: 10%; animation-delay: -1.2s; }
+.ck-twinkle.t3 { top: 26%; inset-inline-end: 22%; width: 8%; animation-delay: -2.1s; }
+@keyframes ck-twinkle { 0%, 70%, 100% { opacity: 0; transform: scale(.4) rotate(0deg); } 82% { opacity: 1; transform: scale(1) rotate(45deg); } }
+.ck-gloss { position: absolute; inset: 8%; border-radius: 50%; overflow: hidden; pointer-events: none; z-index: 3; }
+.ck-gloss i {
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 32%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .6), transparent);
+  transform: translateX(-180%) skewX(-18deg);
+  animation: ck-gloss 5.5s ease-in-out infinite;
+}
+@keyframes ck-gloss { 0%, 62% { transform: translateX(-180%) skewX(-18deg); } 100% { transform: translateX(480%) skewX(-18deg); } }
+
+/* ---------- لُصيقات على حافة الجوهرة ---------- */
+.ck-streak, .ck-status {
+  position: absolute;
+  left: 50%;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(340px, calc(100vw - 24px));
+  white-space: nowrap;
+  min-height: 28px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1.2;
+  background: rgba(15, 23, 42, .86);
+  border: 1px solid rgba(251, 191, 36, .55);
+  color: #fde68a;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.ck-streak { top: -6px; transform: translate(-50%, 6px) scale(.9); }
+.ck-status { bottom: -8px; transform: translate(-50%, -6px) scale(.92); }
+.ck-streak.is-on, .ck-status.is-on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.ck-streak .ui-icon, .ck-status .ui-icon { width: 14px; height: 14px; flex: none; }
+.ck-status span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ck-streak b { min-width: 2ch; text-align: center; direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; font-size: 14px; }
+.ck-streak[data-tier="2"] { border-color: rgba(249, 115, 22, .75); color: #fdba74; }
+.ck-streak[data-tier="3"] { border-color: rgba(244, 63, 94, .85); color: #fda4af; background: rgba(76, 5, 25, .78); }
+.ck-status[data-kind="low"] { border-color: rgba(249, 115, 22, .75); color: #fdba74; }
+.ck-status[data-kind="empty"] { border-color: rgba(239, 68, 68, .8); color: #fecaca; background: rgba(69, 10, 10, .85); }
+.ck-status[data-kind="hot"] { border-color: rgba(244, 63, 94, .85); color: #fda4af; background: rgba(76, 5, 25, .78); }
+.ck-status[data-kind="empty"].is-on .ui-icon { animation: ck-blink .9s ease-in-out infinite; }
+@keyframes ck-blink { 50% { opacity: .35; } }
+
+.ck-banner {
+  position: absolute;
+  left: 50%;
+  top: 14%;
+  z-index: 5;
+  padding: 7px 16px;
+  border-radius: 999px;
+  max-width: min(340px, calc(100vw - 24px));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 900;
+  white-space: nowrap;
+  color: #fff7d6;
+  background: linear-gradient(135deg, rgba(180, 83, 9, .95), rgba(120, 53, 15, .95));
+  border: 1px solid rgba(253, 224, 71, .85);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5), 0 0 24px rgba(251, 191, 36, .55);
+  opacity: 0;
+  transform: translate(-50%, 10px) scale(.7);
+  transition: opacity .22s ease, transform .3s cubic-bezier(.2, 1.6, .4, 1);
+  pointer-events: none;
+}
+.ck-banner.is-on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.ck-banner[data-kind="hot"] { background: linear-gradient(135deg, rgba(190, 18, 60, .96), rgba(124, 45, 18, .96)); border-color: rgba(253, 164, 175, .9); box-shadow: 0 8px 24px rgba(0, 0, 0, .5), 0 0 26px rgba(244, 63, 94, .6); }
+.ck-banner[data-kind="level"] { background: linear-gradient(135deg, rgba(37, 99, 235, .96), rgba(126, 34, 206, .96)); border-color: rgba(191, 219, 254, .9); box-shadow: 0 8px 24px rgba(0, 0, 0, .5), 0 0 26px rgba(96, 165, 250, .65); }
+.ck-banner[data-kind="boost"] { background: linear-gradient(135deg, rgba(192, 38, 211, .96), rgba(109, 40, 217, .96)); border-color: rgba(245, 208, 254, .9); }
+
+.ck-hint { position: relative; margin: 0; max-width: 340px; font-size: 12px; line-height: 1.5; color: #94a3b8; text-align: center; }
+
+/* ---------- الطبقة الأمامية: أرقام طائرة وموجات وجسيمات ---------- */
+.ck-fx, .ck-layer { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+.ck-layer { overflow: hidden; z-index: 31; }
+.ck-num {
+  position: absolute;
+  left: 0;
+  top: 0;
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-weight: 900;
+  font-size: 26px;
+  line-height: 1;
+  white-space: nowrap;
+  color: #ffe9a6;
+  text-shadow: 0 2px 0 rgba(120, 53, 15, .95), 0 0 14px rgba(251, 191, 36, .9);
+  will-change: transform, opacity;
+}
+.ck-num.is-boost { color: #fae8ff; font-size: 30px; text-shadow: 0 2px 0 rgba(88, 28, 135, .95), 0 0 16px rgba(217, 70, 239, .95); }
+.ck-num.is-hot { color: #ffedd5; font-size: 32px; text-shadow: 0 2px 0 rgba(124, 45, 18, .95), 0 0 18px rgba(249, 115, 22, .95); }
+.ck-num.is-deny { color: #fecaca; font-size: 15px; letter-spacing: .2px; text-shadow: 0 2px 0 rgba(127, 29, 29, .95), 0 0 12px rgba(239, 68, 68, .85); }
+.ck-num.is-auto { color: #a7f3d0; font-size: 15px; text-shadow: 0 1px 0 rgba(6, 78, 59, .95), 0 0 10px rgba(52, 211, 153, .85); }
+.ck-num.is-cost { color: #e2e8f0; font-size: 18px; text-shadow: 0 2px 0 rgba(15, 23, 42, .95), 0 0 10px rgba(251, 191, 36, .6); }
+.ck-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 76px;
+  height: 76px;
+  margin: -38px 0 0 -38px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 236, 150, .92);
+  box-shadow: 0 0 18px rgba(251, 191, 36, .75);
+  will-change: transform, opacity;
+}
+.ck-ring.is-boost { border-color: rgba(245, 208, 254, .95); box-shadow: 0 0 18px rgba(217, 70, 239, .8); }
+.ck-ring.is-hot { border-color: rgba(253, 186, 116, .95); box-shadow: 0 0 20px rgba(244, 63, 94, .8); }
+
+/* ---------- زر التعزيز ---------- */
+.ck-boost {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(232, 121, 249, .55);
+  background: linear-gradient(135deg, #a21caf, #7e22ce);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  box-shadow: 0 8px 22px rgba(168, 85, 247, .28);
+  cursor: pointer;
+  transition: transform .08s ease, filter .2s ease, box-shadow .2s ease, background .3s ease;
+}
+.ck-boost[data-state="ready"] { box-shadow: 0 8px 28px rgba(217, 70, 239, .5), 0 0 0 2px rgba(232, 121, 249, .22); }
+.ck-boost > :not(.ck-boost-fill) { position: relative; z-index: 1; }
+.ck-boost .ui-icon { width: 17px; height: 17px; }
+.ck-boost:active:not(:disabled) { transform: scale(.96); }
+.ck-boost-fill {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: 0;
+  width: calc(var(--p, 1) * 100%);
+  background: rgba(255, 255, 255, .2);
+  transition: width .25s linear;
+  pointer-events: none;
+}
+.ck-boost-time { min-width: 3ch; text-align: center; direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; opacity: .9; }
+.ck-boost[data-state="ready"] .ck-boost-fill { width: 0; }
+/* دعوة بصرية للزر الجاهز: لمعة تعبر الزر (transform داخل الزر) — لا يتغير حجمه أبداً فيبقى هدف اللمس ثابتاً */
+.ck-boost[data-state="ready"]::after,
+.ck-goal[data-ready="1"] .ck-goal-buy::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .42), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  animation: ck-shine 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes ck-shine { 0%, 55% { transform: translateX(-160%) skewX(-18deg); } 100% { transform: translateX(420%) skewX(-18deg); } }
+/* أثناء التعزيز الزر يبدو «مفعّلاً» لا معطّلاً: يتوهّج ويتناقص شريطه مع الوقت المتبقي */
+.ck-boost[data-state="active"]:disabled {
+  opacity: 1;
+  filter: none;
+  background: linear-gradient(135deg, #e879f9, #c026d3 45%, #7e22ce);
+  border-color: rgba(250, 232, 255, .85);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .25), 0 0 26px rgba(217, 70, 239, .7);
+}
+.ck-boost[data-state="active"] .ck-boost-icon { animation: ck-zap .7s ease-in-out infinite; }
+@keyframes ck-zap { 50% { transform: scale(1.25) rotate(-8deg); } }
+.ck-boost[data-state="cooldown"]:disabled {
+  opacity: 1;
+  filter: none;
+  background: linear-gradient(135deg, #334155, #1e293b);
+  border-color: rgba(148, 163, 184, .28);
+  color: #cbd5e1;
+  box-shadow: none;
+}
+.ck-boost[data-state="cooldown"] .ck-boost-fill { background: rgba(148, 163, 184, .2); }
+.ck-boost:focus-visible, .ck-goal-buy:focus-visible, .ck-sound:focus-visible { outline: 3px solid rgba(253, 224, 71, .8); outline-offset: 2px; }
+
+/* ---------- هدف الترقية التالي ---------- */
+.ck-goal {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 340px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, .86), rgba(15, 23, 42, .92));
+  border: 1px solid rgba(148, 163, 184, .22);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+  transition: border-color .25s ease, box-shadow .25s ease;
+}
+.ck-goal[data-ready="1"] { border-color: rgba(251, 191, 36, .85); box-shadow: 0 6px 18px rgba(0, 0, 0, .28), 0 0 20px rgba(251, 191, 36, .32), 0 0 0 1px rgba(251, 191, 36, .35); }
+
+.ck-goal-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; color: #fbbf24; background: rgba(251, 191, 36, .12); border: 1px solid rgba(251, 191, 36, .3); }
+.ck-goal-icon .ui-icon { width: 22px; height: 22px; }
+.ck-goal-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ck-goal-title { display: flex; align-items: baseline; gap: 6px; font-weight: 900; font-size: 13px; color: #f1f5f9; }
+.ck-goal-title small { font-size: 10px; color: #fbbf24; font-weight: 900; }
+.ck-goal-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #94a3b8; }
+.ck-goal-meta > :first-child { flex: none; }
+.ck-goal-meta [dir="ltr"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; color: #cbd5e1; }
+.ck-goal-bar { display: block; height: 6px; margin-top: 3px; border-radius: 999px; background: rgba(148, 163, 184, .18); overflow: hidden; }
+.ck-goal-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #f59e0b, #fde047); transition: width .25s ease; }
+.ck-goal-buy {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 78px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  font-weight: 900;
+  font-size: 12px;
+  color: #1c1917;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border: 1px solid rgba(255, 237, 160, .85);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, .32);
+  cursor: pointer;
+  transition: transform .08s ease, filter .2s ease, opacity .2s ease;
+}
+.ck-goal-buy .ui-icon { width: 15px; height: 15px; }
+.ck-goal-buy b { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.ck-goal-buy:disabled { opacity: .45; filter: grayscale(.55); box-shadow: none; cursor: default; }
+.ck-goal-buy:active:not(:disabled) { transform: scale(.94); }
+
+/* ---------- الشريط العلوي والرصيد ---------- */
+.ck-coin-icon { width: 30px; height: 30px; color: #fbbf24; fill: rgba(251, 191, 36, .2); filter: drop-shadow(0 0 8px rgba(251, 191, 36, .45)); }
+#gold-counter { display: inline-block; transform-origin: center; font-variant-numeric: tabular-nums; }
+#xp-bar { height: 6px; }
+#xp-fill { transition: width .35s ease; }
+.ck-level-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ck-xp-text { font-size: 9px; line-height: 1; color: #94a3b8; direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ck-xp-text:empty { display: none; }
+.ck-boost-on #profit-per-sec::after { content: " ×2"; color: #e879f9; font-weight: 900; }
+#nav-shop { position: relative; }
+.ck-can-buy #nav-shop::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: calc(50% + 7px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f43f5e;
+  box-shadow: 0 0 0 2px #0f172a, 0 0 10px #f43f5e;
+  animation: ck-dot 1.6s ease-in-out infinite;
+}
+@keyframes ck-dot { 50% { transform: scale(1.35); } }
+
+/* ---------- شريط الطاقة ---------- */
+.ck-energy-icon { width: 14px; height: 14px; color: #fbbf24; }
+.ck-regen { margin-inline-start: 4px; padding: 1px 6px; border-radius: 999px; font-size: 9px; font-weight: 900; color: #7dd3fc; background: rgba(56, 189, 248, .12); border: 1px solid rgba(56, 189, 248, .25); opacity: 0; transition: opacity .25s ease; }
+.ck-regen.is-on { opacity: 1; }
+.ck-energy-track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, .9);
+  border: 1px solid rgba(71, 85, 105, .5);
+}
+.ck-energy-ghost { position: absolute; inset-block: 1px; inset-inline-start: 1px; width: 100%; max-width: calc(100% - 2px); border-radius: 999px; background: rgba(251, 191, 36, .32); transition: width .9s ease .18s; }
+#energy-bar { position: relative; z-index: 1; overflow: hidden; }
+#energy-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .55) 50%, transparent 80%);
+  transform: translateX(-120%);
+  animation: ck-shimmer 2.4s ease-in-out infinite;
+}
+@keyframes ck-shimmer { 60%, 100% { transform: translateX(120%); } }
+#energy-container[data-level="full"] #energy-bar::after { animation: none; opacity: 0; }
+#energy-container[data-level="low"] #energy-bar { background-image: linear-gradient(90deg, #ea580c, #fb923c); }
+#energy-container[data-level="empty"] #energy-bar { background-image: linear-gradient(90deg, #b91c1c, #ef4444); }
+#energy-container[data-level="low"] #energy-counter, #energy-container[data-level="low"] #max-energy { color: #fdba74; }
+#energy-container[data-level="empty"] #energy-counter { color: #fca5a5; animation: ck-blink .9s ease-in-out infinite; }
+#energy-container[data-level="low"] .ck-energy-track { box-shadow: 0 0 0 2px rgba(249, 115, 22, .35), 0 0 12px rgba(249, 115, 22, .4); }
+
+/* ---------- مقاسات الشاشة ---------- */
+@media (max-height: 700px) {
+  .ck-stage { gap: 7px; padding-top: 12px; }
+  .ck-hint { font-size: 11px; }
+  .ck-boost { min-height: 38px; padding-block: 6px; }
+  .ck-goal { padding: 6px 9px; }
+  .ck-goal-icon { width: 32px; height: 32px; }
+  .ck-goal-buy { padding-block: 7px; }
+}
+@media (max-height: 610px) {
+  .ck-hint { display: none; }
+  .ck-ambience { display: none !important; }
+}
+@media (max-width: 340px) {
+  .ck-goal-buy { min-width: 64px; padding-inline: 8px; }
+  .ck-goal-icon { display: none; }
+  .ck-goal { grid-template-columns: minmax(0, 1fr) auto; }
+}
+/* الأفقي القصير: الجوهرة بجانب بطاقتي التعزيز والهدف بدل تكديسها عمودياً */
+@media (orientation: landscape) and (max-height: 520px) {
+  body:has(#tab-mining.active) .app-header { display: none !important; }
+  .ck-stage {
+    --ck-size: clamp(96px, calc(var(--app-height, 100vh) - 255px), 190px);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-auto-rows: min-content;
+    align-content: center;
+    column-gap: 22px;
+    row-gap: 8px;
+    max-width: 640px;
+    padding-top: 4px;
+  }
+  @supports (height: 100dvh) { .ck-stage { --ck-size: clamp(96px, calc(var(--app-height, 100dvh) - 255px), 190px); } }
+  .ck-area { grid-column: 1; grid-row: 1 / span 3; }
+  .ck-hint { display: none; }
+  .ck-boost, .ck-goal { grid-column: 2; max-width: none; }
+  .ck-boost { align-self: end; }
+  .ck-goal { align-self: start; }
+  .ck-sound { top: auto; bottom: 0; inset-inline-end: 0; width: 34px; height: 34px; }
+  /* هالة أضيق: المساحة الرأسية قصيرة فلا تُقصّ حافتها داخل حاوية التمرير */
+  .ck-aura { box-shadow: 0 0 34px 6px rgba(251, 191, 36, .3); }
+  .ck-stage[data-boost="1"] .ck-aura { box-shadow: 0 0 34px 8px rgba(217, 70, 239, .38); }
+  .ck-stage[data-frenzy="1"] .ck-aura { box-shadow: 0 0 34px 10px rgba(251, 113, 133, .46); }
+}
+
+/* حركة أقل: بلا إمالة ولا غبار ولا تأرجح — تبقى الألوان والأرقام */
+@media (prefers-reduced-motion: reduce) {
+  .ck-ambience, .ck-twinkle, .ck-stage[data-fresh="1"] .ck-btn::after { display: none !important; }
+  .ck-bob, .ck-rim, .ck-gem, .ck-aura, .ck-gloss i, .ck-btn::after, .ck-boost-icon,
+  .ck-boost::after, .ck-goal-buy::after, #energy-bar::after, #energy-counter, #nav-shop::after, .ck-status .ui-icon { animation: none !important; }
+  .ck-coin { transition-duration: .01ms !important; }
+  .ck-streak, .ck-status, .ck-banner { transition-duration: .01ms !important; }
+}
