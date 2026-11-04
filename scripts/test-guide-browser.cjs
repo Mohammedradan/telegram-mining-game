@@ -6,6 +6,7 @@
 // win / for gear, its buttons really open the workshop or pick the mine, a veteran is not flooded with "new" chapters, and the
 // epilogue and the codex open up. It also proves the guide is read-only (no network write, no change to gold/energy), keeps a paused
 // round paused, and fits phones (320x568, 390x844) and a landscape phone (844x390). Writes docs/media/guide-*.jpg.
+// FONT_STRESS=1.4 npm run test:guide repeats it with every glyph spread by 1.4px (a wider font, as on the CI runner).
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -30,6 +31,9 @@ async function main() {
 
   async function context(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, ...extras });
+    // FONT_STRESS=1.4 spreads every glyph by that many px: a stand-in for a machine whose font is wider than ours (the CI runner's was:
+    // a line wrapped there that does not wrap here). The layout checks compare the page with itself, so they must pass at any value.
+    if (process.env.FONT_STRESS) await ctx.addInitScript((px) => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = `*{letter-spacing:${px}px !important}`; document.head.appendChild(s); }); }, Number(process.env.FONT_STRESS));
     const page = await ctx.newPage();
     const requests = [];
     page.on('request', (r) => requests.push({ method: r.method(), url: r.url() }));
@@ -63,13 +67,28 @@ async function main() {
   const openGuide = async (page) => { await page.locator('#open-guide').click(); await page.locator('#guide-overlay').waitFor({ state: 'visible' }); };
   const tab = async (page, name) => { await page.locator(`[data-guide-tab="${name}"]`).click(); };
   const goalId = (page) => page.locator('.gd-goal').getAttribute('data-goal');
-  // the round overlay scrolls when its content is taller than the stage; the guide button shares the workshop row and must add no height,
-  // whatever its label says (measured with and without it, so the check does not depend on the fonts of the machine)
-  const overlayHeight = (page, hideGuide) => page.evaluate((hide) => {
+  // the round overlay scrolls when its content is taller than the stage: the guide button is a corner icon outside the layout flow, so
+  // with and without it the overlay keeps its height and every button keeps its width (compared with itself, never with a constant:
+  // the first version sat in the button row and the CI runner's wider font wrapped a line of the neighbours, 420px against 407px)
+  const overlayMetrics = (page, hideGuide) => page.evaluate((hide) => {
     const b = document.getElementById('open-guide'), was = b.hidden, ov = document.getElementById('platform-overlay');
-    b.hidden = hide; const h = ov.scrollHeight; b.hidden = was; return h;
+    b.hidden = hide;
+    const w = (id) => Math.round(document.getElementById(id).getBoundingClientRect().width * 100) / 100;
+    const m = { scrollHeight: ov.scrollHeight, mineW: w('mine-select'), workshopW: w('open-workshop-overlay'), startW: w('platform-start') };
+    b.hidden = was; return m;
   }, hideGuide);
   const overlap = (a, b) => a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1;
+  // the corner icon (and its "new" badge) must not cover anything else in the overlay
+  const coversNothing = async (page, what) => {
+    const rects = await page.evaluate(() => {
+      const r = (e) => { const b = e.getBoundingClientRect(); return { id: e.id || e.className || e.tagName, l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+      const own = [document.getElementById('open-guide'), ...document.querySelectorAll('#open-guide .guide-new')].filter((e) => e.getClientRects().length).map(r);
+      const others = [...document.querySelectorAll('#platform-overlay > *')].filter((e) => e.id !== 'open-guide' && e.getClientRects().length).map(r);
+      return { own, others };
+    });
+    assert.ok(rects.own.length >= 1 && rects.others.length >= 3, `${what}: the overlay has its content`);
+    for (const a of rects.own) for (const o of rects.others) assert.equal(overlap(a, o), false, `${what}: ${a.id} does not cover ${o.id}`);
+  };
   const noSideScroll = (page) => page.evaluate(() => {
     const body = document.getElementById('guide-body'), ov = document.getElementById('guide-overlay');
     return { doc: document.documentElement.scrollWidth <= document.documentElement.clientWidth, body: body.scrollWidth <= body.clientWidth + 1, overlay: ov.scrollWidth <= ov.clientWidth + 1 };
@@ -82,13 +101,13 @@ async function main() {
       assert.equal(await page.locator('#open-guide').isVisible(), true, 'the guide button appears once the guide is ready');
       assert.equal(await page.locator('#open-guide .guide-dot').isVisible(), true, 'a red dot invites the new player');
       assert.equal((await page.locator('#open-guide [data-guide-label]').innerText()).trim(), 'المرشد', 'the intro chapter is announced by the dot alone');
-      const row = { mine: await box(page, '#mine-select'), ws: await box(page, '#open-workshop-overlay'), guide: await box(page, '#open-guide'), ov: await box(page, '#platform-overlay'), start: await box(page, '#platform-start') };
-      assert.ok(Math.abs(row.guide.t - row.ws.t) < 3 && Math.abs(row.guide.t - row.mine.t) < 3, 'the three buttons share one row');
-      for (const [a, b] of [['mine', 'ws'], ['mine', 'guide'], ['ws', 'guide']]) assert.equal(overlap(row[a], row[b]), false, `${a} and ${b} do not overlap`);
-      assert.ok(row.guide.l >= row.ov.l && row.guide.r <= row.ov.r, 'the button sits inside the round overlay');
-      assert.ok(row.guide.h >= 36 && row.guide.w >= 50 && row.guide.w <= 70, `a compact but tappable button (${row.guide.w}x${row.guide.h})`);
-      assert.ok(row.mine.w >= 90 && row.ws.w >= 90, 'the two big buttons keep their room');
-      assert.equal(await overlayHeight(page, false), await overlayHeight(page, true), 'the guide button adds no height to the round overlay');
+      const geo = { guide: await box(page, '#open-guide'), ov: await box(page, '#platform-overlay'), mine: await box(page, '#mine-select'), ws: await box(page, '#open-workshop-overlay') };
+      assert.ok(geo.guide.l >= geo.ov.l && geo.guide.r <= geo.ov.r && geo.guide.t >= geo.ov.t, 'the icon sits in a corner inside the round overlay');
+      assert.ok(geo.guide.w >= 36 && geo.guide.h >= 36 && geo.guide.w <= 44, `a tappable round icon (${geo.guide.w}x${geo.guide.h})`);
+      assert.ok(geo.mine.w >= 90 && geo.ws.w >= 90, 'the two big buttons keep their room');
+      assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), 'the guide icon changes neither the overlay height nor the width of its buttons');
+      assert.equal(await page.locator('#open-guide .guide-new').isHidden(), true, 'no "new" badge for the intro chapter');
+      await coversNothing(page, '390x844');
 
       const before = await page.evaluate(() => ({ gold: state.gold, energy: state.energy, pending: SYNC.pending.length, clicks: SYNC.clicks }));
       const mark = requests.length;
@@ -152,13 +171,18 @@ async function main() {
       assert.equal((await page.locator('#open-guide [data-guide-label]').innerText()).trim(), 'فصل جديد', 'a newly opened mine turns the button into "new chapter"');
       assert.match(await page.locator('#open-guide').getAttribute('aria-label'), /المكبس القديم/, 'screen readers hear which chapter');
       assert.equal(await page.locator('#open-guide .guide-dot').isVisible(), true);
-      assert.equal(await overlayHeight(page, false), await overlayHeight(page, true), 'and the new label still adds no height');
+      assert.equal(await page.locator('#open-guide').getAttribute('data-news'), '1');
+      assert.equal(await page.locator('#open-guide .guide-new').isVisible(), true, 'the gold icon carries a "new" badge');
+      assert.equal((await page.locator('#open-guide .guide-new').innerText()).trim(), 'جديد');
+      assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), 'and the badge still takes no room');
+      await coversNothing(page, 'news state');
       await shot(page, 'guide-overlay-news.jpg');
       // the same button opens exactly that chapter, and says "المرشد" again once it was read
       await openGuide(page);
       assert.equal(await page.locator('.gd-chapter').getAttribute('data-chapter'), '1', 'it opened the new chapter itself, not the goal screen');
       assert.match(await page.locator('.gd-chapter h3').innerText(), /المكبس القديم/);
       assert.equal((await page.locator('#open-guide [data-guide-label]').innerText()).trim(), 'المرشد');
+      assert.equal(await page.locator('#open-guide .guide-new').isHidden(), true, 'the badge goes away once the chapter was read');
       assert.deepEqual((await inspect(page)).store.seen, [0, 1]);
       // the goal screen asks for a win in the mine that was just opened, and its button picks that mine
       await tab(page, 'goal');
@@ -258,29 +282,39 @@ async function main() {
     }
 
     // ================================================================== 5) phones: nothing overflows, every control can be reached
+    // every check runs twice: with the font of this machine and with every glyph spread by 1.6px, because the CI runner's font is wider than
+    // ours and a layout that fits only one font is a bug (the first version of the button row did exactly that)
+    const phoneChecks = async (page, vp, tag) => {
+      await page.locator('#open-guide').scrollIntoViewIfNeeded();
+      const btn = await box(page, '#open-guide');
+      assert.ok(btn.l >= 0 && btn.r <= vp.width && btn.t >= 0 && btn.h >= 34, `${tag}: the button is on screen and tappable (${btn.w}x${btn.h})`);
+      await coversNothing(page, tag);
+      assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), `${tag}: no height, no width taken from the overlay`);
+      await openGuide(page);
+      for (const name of ['goal', 'codex', 'story']) {
+        await tab(page, name);
+        assert.deepEqual(await noSideScroll(page), { doc: true, body: true, overlay: true }, `${tag}/${name}: no sideways scroll`);
+        const close = await box(page, '#guide-close'), tabs = await box(page, '.gd-tabs');
+        assert.ok(close.t >= 0 && close.l >= 0 && close.r <= vp.width, `${tag}: the close button is on screen`);
+        assert.ok(tabs.l >= 0 && tabs.r <= vp.width, `${tag}: the tab bar fits`);
+        if (name === 'goal') {
+          await page.locator('[data-guide-action]').scrollIntoViewIfNeeded();
+          const a = await box(page, '[data-guide-action]');
+          assert.ok(a.t >= 0 && a.b <= vp.height + 1 && a.l >= 0 && a.r <= vp.width, `${tag}: the goal button can be scrolled into view`);
+        }
+        const entries = await page.locator('.gd-entry, .gd-chapter-row').evaluateAll((l) => l.map((e) => Math.round(e.getBoundingClientRect().right)));
+        assert.ok(entries.every((r) => r <= vp.width), `${tag}/${name}: no card sticks out`);
+      }
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#guide-overlay').isHidden(), true, `${tag}: Escape closes the window`);
+    };
     for (const vp of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
       const { ctx, page } = await context(vp, { reducedMotion: vp.width === 320 ? 'reduce' : 'no-preference' });
       await progress(page, { wins: [1, 1, 1, 0, 0, 0], equipment: { pickaxe: 2 }, gold: 10, ores: { copper: 1 } });
       await reload(page);
-      await page.locator('#open-guide').scrollIntoViewIfNeeded();
-      const btn = await box(page, '#open-guide');
-      assert.ok(btn.l >= 0 && btn.r <= vp.width && btn.h >= 34, `${vp.width}x${vp.height}: the button is on screen and tappable (${btn.w}x${btn.h})`);
-      await openGuide(page);
-      for (const name of ['goal', 'codex', 'story']) {
-        await tab(page, name);
-        assert.deepEqual(await noSideScroll(page), { doc: true, body: true, overlay: true }, `${vp.width}x${vp.height}/${name}: no sideways scroll`);
-        const close = await box(page, '#guide-close'), tabs = await box(page, '.gd-tabs');
-        assert.ok(close.t >= 0 && close.l >= 0 && close.r <= vp.width, `${vp.width}x${vp.height}: the close button is on screen`);
-        assert.ok(tabs.l >= 0 && tabs.r <= vp.width, `${vp.width}x${vp.height}: the tab bar fits`);
-        if (name === 'goal') {
-          await page.locator('[data-guide-action]').scrollIntoViewIfNeeded();
-          const a = await box(page, '[data-guide-action]');
-          assert.ok(a.t >= 0 && a.b <= vp.height + 1 && a.l >= 0 && a.r <= vp.width, `${vp.width}x${vp.height}: the goal button can be scrolled into view`);
-        }
-        const entries = await page.locator('.gd-entry, .gd-chapter-row').evaluateAll((l) => l.map((e) => Math.round(e.getBoundingClientRect().right)));
-        assert.ok(entries.every((r) => r <= vp.width), `${vp.width}x${vp.height}/${name}: no card sticks out`);
-      }
-      await page.locator('[data-guide-tab="goal"]').click();
+      await phoneChecks(page, vp, `${vp.width}x${vp.height}`);
+      await page.addStyleTag({ content: '*{letter-spacing:1.6px !important}' });
+      await phoneChecks(page, vp, `${vp.width}x${vp.height} wide font`);
       report.phones.push(`${vp.width}x${vp.height}`);
       assert.deepEqual(errors, []);
       await ctx.close();

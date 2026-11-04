@@ -1,23 +1,31 @@
-/* المرشد «العم سراج» (guide.js): زر المرشد داخل شاشة الجولة (يتحوّل إلى «فصل جديد» عند فتح منجم)، ونافذة المرشد بثلاثة أقسام (الهدف / الموسوعة / الحكاية).
+/* المرشد «العم سراج» (guide.js): زر المرشد أيقونة في زاوية شاشة الجولة (يتحوّل إلى ذهبي بشارة «جديد» عند فتح منجم)، ونافذة المرشد بثلاثة أقسام (الهدف / الموسوعة / الحكاية).
    عرض فقط. الألوان البنفسجية للمرشد وحده كي لا يختلط بذهبي المناجم وتيل الورشة. */
 
 /* ---------- الزر داخل شاشة الجولة ---------- */
-.guide-entry { position: relative; }
-.mine-overlay .overlay-row .guide-entry {
-  flex: 0 0 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 4px;
-  background: linear-gradient(135deg, #4d3b6b, #2f2646); color: #efe4ff; border: 1px solid #8670b8; box-shadow: 0 4px 14px rgba(70, 45, 120, .35);
-  font-size: 10px; line-height: 1.2;
+/* أيقونة في زاوية الشاشة خارج تدفّق التخطيط: كان الزر في صفّ الأزرار يضيّق زرّي «المنجم» و«الورشة» فيلتفّ نص «الصخرة: ضربة واحدة»
+   بخط أعرض (قِيس في CI) وتزيد الشاشة سطراً. الزاوية لا تغيّر ارتفاع الشاشة ولا عرض أي زر، أياً كان الخط. */
+.gd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.mine-overlay .guide-entry {
+  position: absolute; top: 8px; inset-inline-end: 8px; z-index: 3; width: 38px; height: 38px; padding: 0; display: grid; place-items: center;
+  border-radius: 50%; color: #efe4ff; border: 2px solid #8670b8; text-shadow: none;
+  background: radial-gradient(circle at 35% 28%, #5a4580, #261d3d); box-shadow: 0 3px 10px rgba(0, 0, 0, .5);
 }
+.mine-overlay .guide-entry:hover { transform: none; box-shadow: 0 3px 12px rgba(120, 90, 190, .55); }
 .guide-entry .ui-icon { width: 18px; height: 18px; }
 .guide-dot {
-  position: absolute; top: 4px; inset-inline-end: 6px; width: 9px; height: 9px; border-radius: 50%;
-  background: #ff6b5e; box-shadow: 0 0 0 2px #2f2646, 0 0 8px rgba(255, 107, 94, .85);
+  position: absolute; top: -2px; inset-inline-start: -2px; width: 11px; height: 11px; border-radius: 50%;
+  background: #ff6b5e; box-shadow: 0 0 0 2px #261d3d, 0 0 8px rgba(255, 107, 94, .85);
 }
-/* فصل جديد: الزر نفسه يتحوّل إلى ذهبي ويفتح الفصل مباشرة (لا شريط إضافي يزيد ارتفاع شاشة الجولة) */
-.mine-overlay .overlay-row .guide-entry[data-news="1"] {
-  background: linear-gradient(135deg, #f5bc60, #e09a2d); color: #302119; border-color: #ffe2a2; box-shadow: 0 4px 14px rgba(245, 188, 96, .4);
+.guide-new { display: none; }
+/* فصل جديد: الزر يتحوّل إلى ذهبي وتظهر شارة «جديد» تحته ويفتح الفصل مباشرة */
+.mine-overlay .guide-entry[data-news="1"] {
+  background: radial-gradient(circle at 35% 28%, #ffd98a, #e09a2d); color: #302119; border-color: #ffe2a2; box-shadow: 0 3px 14px rgba(245, 188, 96, .55);
 }
 .guide-entry[data-news="1"] .guide-dot { box-shadow: 0 0 0 2px #e09a2d, 0 0 8px rgba(255, 107, 94, .85); }
+.guide-entry[data-news="1"] .guide-new {
+  display: block; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 2px; padding: 1px 7px; border-radius: 999px;
+  font-size: 9px; font-weight: 900; line-height: 1.5; color: #fff; background: #e5564a; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
 
 /* ---------- النافذة ---------- */
 .guide-overlay {

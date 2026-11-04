@@ -539,18 +539,25 @@ test('wiring: markup, styles, script order and the hooks in the page', () => {
   assert.match(html, /role="tablist" aria-label="أقسام المرشد"/);
   assert.equal((html.match(/data-guide-tab="/g) || []).length, 3);
   assert.match(html, /id="open-guide"[^>]*class="guide-entry"[^>]*data-guide-open[^>]*data-news="0"[^>]*hidden[^>]*aria-haspopup="dialog"/, 'hidden until the guide starts');
-  assert.match(html, /<span data-guide-label>المرشد<\/span><i class="guide-dot" hidden aria-hidden="true"><\/i>/);
+  assert.match(html, /<span class="gd-sr" data-guide-label>المرشد<\/span><span class="guide-new" aria-hidden="true">جديد<\/span><i class="guide-dot" hidden aria-hidden="true"><\/i>/);
   assert.doesNotMatch(html, /guide-chip/, 'no extra strip: the round overlay of a 390x844 phone has no spare line');
   assert.match(html, /<symbol id="i-book" viewBox="0 0 24 24">/);
   assert.match(html, /window\.Guide\?\.init\(\{[\s\S]*?getState: \(\) => state[\s\S]*?\}\);/);
   assert.match(html, /window\.platformReady\.then\(\(\) => window\.Guide\?\.start\?\.\(\)\);/, 'starts only after the server state was adopted, so a veteran never looks new');
   assert.match(html, /window\.Guide\?\.refresh\?\.\(\);\s*\n\s*\}/, 'updateUI keeps it current');
-  const row = /<div class="overlay-row">[\s\S]*?<\/div>/.exec(html)[0];
-  assert.ok(row.indexOf('open-workshop-overlay') < row.indexOf('open-guide'), 'the guide button joins the row next to the workshop button');
+  // a corner icon of the round overlay, outside the button row: in the row its width squeezed the two big buttons, and with the wider
+  // font of the CI runner the line "الصخرة: ضربة واحدة" wrapped and the overlay grew by 13px (measured, run 41929548510)
+  const overlayHtml = /<div id="platform-overlay" class="mine-overlay">[\s\S]*?<button id="platform-resume"[^>]*>[^<]*<\/button>\s*<\/div>/.exec(html)[0];
+  assert.ok(overlayHtml.indexOf('id="open-guide"') > 0 && overlayHtml.indexOf('id="open-guide"') < overlayHtml.indexOf('overlay-kicker'), 'the first child of the round overlay');
+  assert.ok(!/<div class="overlay-row">[\s\S]*?<\/div>/.exec(html)[0].includes('open-guide'), 'and not a member of the button row');
   assert.ok(JSON.parse(read('package.json')).scripts.build.includes('node --check public/guide.js'), 'the build syntax-checks it');
   const css = read('public', 'guide.css');
   for (const sel of ['.guide-overlay', '.gd-tab.active', '.gd-bubble', '.gd-chapter-row.fresh', '.guide-dot', '.guide-entry[data-news="1"]']) assert.ok(css.includes(sel), sel);
-  assert.match(css, /\.mine-overlay \.overlay-row \.guide-entry \{[^}]*flex: 0 0 60px/, 'a compact button: the two big ones keep their room on a 320px phone');
+  const entry = /\.mine-overlay \.guide-entry \{[^}]*\}/.exec(css)[0];
+  for (const decl of [/position: absolute/, /top: 8px/, /inset-inline-end: 8px/, /width: 38px/, /height: 38px/, /border-radius: 50%/]) assert.match(entry, decl, `out of the layout flow, a 38px round icon: ${decl}`);
+  assert.match(css, /\.gd-sr \{[^}]*position: absolute[^}]*clip: rect\(0 0 0 0\)/, 'the label stays for screen readers');
+  assert.match(css, /\.guide-new \{ display: none; \}/, 'the \"new\" badge is hidden by default');
+  assert.match(css, /\.guide-entry\[data-news="1"\] \.guide-new \{[^}]*display: block; position: absolute/, 'and floats under the icon (no layout space) when a chapter is new');
   assert.match(css, /@media \(max-height: 480px\)/, 'landscape phones are handled');
   assert.match(css, /prefers-reduced-motion/);
   assert.ok(Number(/z-index: (\d+)/.exec(/\.guide-overlay \{[^}]*\}/.exec(css)[0])[1]) > 90, 'above the mines map (90)');
