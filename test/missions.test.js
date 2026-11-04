@@ -6,12 +6,22 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 const { createStore } = require('../db');
 
-const PORT = 3233;
-const BASE = `http://127.0.0.1:${PORT}`;
+// منفذ حرّ يختاره النظام: ملفات الاختبار الأخرى تعمل بالتوازي وبعضها يشتق منفذه من منفذ آخر (economy: PORT + 10 = 3233)،
+// فأي رقم ثابت أختاره قد يتصادم معها في CI (حدث فعلاً: الخادم الآخر قطع الاتصال وسط اختباري فظهر «fetch failed»)
+let PORT = 0;
+let BASE = '';
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.on('error', reject);
+    probe.listen(0, '127.0.0.1', () => { const { port } = probe.address(); probe.close(() => resolve(port)); });
+  });
+}
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mining-missions-'));
 const DB_FILE = path.join(tmpDir, 'game.db');
 const PG_URL = process.env.TEST_DATABASE_URL || '';
@@ -29,6 +39,7 @@ function startServer() {
 }
 async function waitReady() {
   for (let i = 0; i < 50; i++) {
+    if (child.exitCode !== null) throw new Error(`خادم اختبار المهام خرج (${child.exitCode}) قبل أن يجهز: المنفذ ${PORT} مشغول؟`);   // لا نخلط خادمنا بخادم غريب على المنفذ نفسه
     try { const r = await fetch(`${BASE}/health`); if (r.ok) return; } catch {}
     await new Promise((r) => setTimeout(r, 200));
   }
@@ -57,6 +68,8 @@ async function patchUser(id, mutate) {
 }
 
 before(async () => {
+  PORT = await freePort();
+  BASE = `http://127.0.0.1:${PORT}`;
   startServer();
   await waitReady();
   process.env.DATABASE_FILE = DB_FILE;
