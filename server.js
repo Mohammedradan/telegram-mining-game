@@ -327,6 +327,12 @@ const MISSION_POOL = [
   { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة', target: 2, gold: 100, xp: 30, mode: 'sum' },
 ];
 const MISSION_BY_KEY = Object.fromEntries(MISSION_POOL.map((m) => [m.key, m]));
+// مهام لا يمكن إنجازها من اللعب الظاهر حالياً: «اهزم زعيم المنجم» و«نقاط في وضع البقاء» لا يغذّيهما إلا الوضع
+// الكلاسيكي المخفي (#legacy-adventure)، بينما جولات المنصّات الظاهرة تغذّي runs/gems/score/play_time فقط.
+// كانت تُسحب كغيرها (3 من 11) فتظهر مهمة مستحيلة في ~49% من الأيام وتضيع معها مكافأة «أنجز الثلاث».
+// تبقى معرَّفة في المجموعتين كي تظل المهام المخزّنة سابقاً صالحة وقابلة للاستلام، لكنها لا تُسحب في اختيار جديد.
+// عند ظهور زعيم/وضع بقاء في اللعب الظاهر: أزل المفتاح من هذه المجموعة وغذِّه من مساره.
+const UNREACHABLE_MISSION_KEYS = new Set(['boss', 'survival']);
 const MISSIONS_PER_DAY = 3;
 const MISSION_BONUS = { gold: 300, xp: 100 };
 
@@ -339,7 +345,7 @@ function hash32(str) {
 function pickMissions(userId, day) {
   let seed = hash32(`${userId}:${day}`) || 1;
   const next = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
-  const pool = MISSION_POOL.map((_, i) => i);
+  const pool = MISSION_POOL.map((_, i) => i).filter((i) => !UNREACHABLE_MISSION_KEYS.has(MISSION_POOL[i].key));
   const chosen = [];
   while (chosen.length < MISSIONS_PER_DAY && pool.length) chosen.push(pool.splice(Math.floor(next() * pool.length), 1)[0]);
   return chosen.map((i) => ({ key: MISSION_POOL[i].key, progress: 0, claimed: false }));
@@ -421,7 +427,7 @@ const WEEKLY_MISSION_BONUS = { gold: 1000, xp: 300 };
 function pickWeeklyMissions(userId, week) {
   let seed = hash32(`weekly:${userId}:${week}`) || 1;
   const next = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
-  const pool = WEEKLY_MISSION_POOL.map((_, i) => i);
+  const pool = WEEKLY_MISSION_POOL.map((_, i) => i).filter((i) => !UNREACHABLE_MISSION_KEYS.has(WEEKLY_MISSION_POOL[i].key));
   const chosen = [];
   while (chosen.length < WEEKLY_MISSIONS_PER_WEEK && pool.length) chosen.push(pool.splice(Math.floor(next() * pool.length), 1)[0]);
   return chosen.map((i) => ({ key: WEEKLY_MISSION_POOL[i].key, progress: 0, claimed: false }));
