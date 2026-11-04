@@ -617,3 +617,53 @@ test('the HUD wrapper around the gold counter adds no box outside the cave (othe
   assert.doesNotMatch(css.replace(/body\.ck-cave \.ck-hud > \.balance-strip[^}]*\}/, ''), /\.ck-hud > \.balance-strip/);
   assert.match(html, /<div class="ck-hud">\s*<div class="balance-strip[^"]*">[\s\S]*?<button id="ck-sound"/, 'counter and sound toggle share the wrapper');
 });
+
+// ============================== طاقم المنجم والرفيق والمشي (عرض فقط) ==============================
+function webpSize(buf) {
+  assert.equal(buf.toString('ascii', 0, 4), 'RIFF'); assert.equal(buf.toString('ascii', 8, 12), 'WEBP');
+  const fmt = buf.toString('ascii', 12, 16);
+  if (fmt === 'VP8X') return { w: 1 + buf.readUIntLE(24, 3), h: 1 + buf.readUIntLE(27, 3) };
+  if (fmt === 'VP8 ') return { w: buf.readUInt16LE(26) & 0x3fff, h: buf.readUInt16LE(28) & 0x3fff };
+  if (fmt === 'VP8L') { const b = buf.readUInt32LE(21); return { w: 1 + (b & 0x3fff), h: 1 + ((b >>> 14) & 0x3fff) }; }
+  throw new Error(`unknown WebP chunk ${fmt}`);
+}
+
+test('crewView: one robot per auto worker (max 5), one rig per mining rig (max 2), the rest as a +N badge; garbage is safe', () => {
+  const none = { bots: 0, rigs: 0, moreBots: 0, moreRigs: 0, total: 0 };
+  assert.deepEqual(FX.crewView({ bot: 0, rig: 0 }), none);
+  assert.deepEqual(FX.crewView({ bot: 3, rig: 1 }), { bots: 3, rigs: 1, moreBots: 0, moreRigs: 0, total: 4 });
+  assert.deepEqual(FX.crewView({ bot: 5, rig: 2 }), { bots: 5, rigs: 2, moreBots: 0, moreRigs: 0, total: 7 }, 'exactly full: no badge');
+  assert.deepEqual(FX.crewView({ bot: 12, rig: 3 }), { bots: 5, rigs: 2, moreBots: 7, moreRigs: 1, total: 15 });
+  assert.deepEqual(FX.crewView({ bot: 2.9, rig: 1.9 }), { bots: 2, rigs: 1, moreBots: 0, moreRigs: 0, total: 3 }, 'whole machines only');
+  for (const junk of [null, undefined, {}, { bot: -4, rig: 'x' }, { bot: NaN, rig: Infinity * 0 }]) assert.deepEqual(FX.crewView(junk), none);
+  assert.deepEqual({ ...FX.CREW_MAX }, { bot: 5, rig: 2 });
+});
+
+test('the crew is display-only art: markup, pointer-events, reduced motion, a fallback and a rig picture with the aspect the CSS reserves', () => {
+  assert.match(html, /<div id="click-area" class="ck-area">\s*<!--[^>]*-->\s*<div id="ck-crew" class="ck-crew" aria-hidden="true" hidden><\/div>/, 'the lane is the first thing in the field, under the world layer');
+  assert.match(html, /<span class="ck-dust"><i><\/i><i><\/i><\/span><span class="ck-companion"><svg viewBox="0 0 64 64" focusable="false"><use href="#a-robot"\/><\/svg><\/span><\/div>/, 'the miner carries the dust and the companion');
+  assert.match(html, /robot: Math\.max\(0, Math\.floor\(Number\(state\.equipment && state\.equipment\.robot\) \|\| 0\)\)/, 'the page tells the hub the robot level (read only)');
+  assert.match(css, /\.ck-crew \{[^}]*pointer-events: none;/, 'tapping the crew never mines');
+  assert.match(css, /\.ck-crew\[hidden\] \{ display: none; \}/);
+  const rm = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce) {\n  .ck-crew-bot'));
+  for (const sel of ['.ck-crew-bot', '.ck-crew-rig', '.ck-companion', '.ck-dust i', '.ck-hero']) assert.ok(rm.split('}')[0].includes(sel), `${sel} stands still under reduced motion`);
+  const file = path.join(root, 'public', 'assets', 'cave', 'crew', 'rig.webp');
+  const size = webpSize(fs.readFileSync(file));
+  const declared = css.match(/\.ck-crew-rig \{[^}]*aspect-ratio: (\d+) \/ (\d+);/);
+  assert.ok(declared, 'the CSS declares the rig aspect ratio');
+  assert.ok(Math.abs(size.w / size.h - Number(declared[1]) / Number(declared[2])) < 0.01, `rig.webp is ${size.w}x${size.h} but the CSS reserves ${declared[1]} / ${declared[2]}`);
+  assert.ok(fs.statSync(file).size < 60_000, 'light enough to preload');
+  assert.match(fxSource, /load\(RIG_ART, fail\('no-crew-art'\)\)/, 'a missing rig picture falls back to a plain steel block instead of an empty hole');
+  assert.match(css, /\.ck-stage\.no-crew-art \.ck-crew-rig \{/);
+});
+
+test('the walk has weight: stride, a breathing shadow and dust are tied to walking (the old two-frame hop is gone) and dust trails behind either way he faces', () => {
+  assert.match(css, /\.ck-miner\[data-act="walk"\] \.ck-hero \{ animation: ck-stride \.52s ease-in-out infinite; \}/);
+  assert.match(css, /\.ck-miner\[data-act="walk"\]::before \{ animation: ck-footfall \.26s ease-in-out infinite; \}/);
+  assert.match(css, /\.ck-miner\[data-act="walk"\] \.ck-dust i \{ animation: ck-puff \.52s ease-out infinite; \}/);
+  assert.doesNotMatch(css, /ck-step/, 'the old hop is replaced');
+  const stride = css.match(/@keyframes ck-stride \{([\s\S]*?)\n\}/)[1];
+  assert.ok(stride.includes('rotate(-2.4deg)') && stride.includes('rotate(2.4deg)'), 'the lean alternates foot to foot');
+  assert.match(css, /\.ck-miner\[data-face="-1"\] \.ck-dust i \{ --dx: 70%; \}/);
+  assert.match(css, /\.ck-miner\[data-act="walk"\] \.ck-dust i:nth-child\(2\) \{ animation-delay: -\.26s; \}/, 'the second puff is half a stride behind (a specificity-safe override of the shorthand)');
+});

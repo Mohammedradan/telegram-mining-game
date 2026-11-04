@@ -641,6 +641,45 @@ async function main() {
     assert.ok(back.size.W > 100 && back.size.H > 60, 'and re-measures the field');
     report.dig.pause = { window: true, tab: true };
 
+    // ---------------------------------------------------------------- the crew, the companion and the walk (display only)
+    assert.equal(await page.evaluate(() => document.getElementById('ck-crew').hidden), true, 'no crew before anything is bought');
+    await page.evaluate(() => { state.owned.bot = 3; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 2 }); updateUI(); });
+    const crew = await page.evaluate(() => {
+      const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+      const box = document.getElementById('ck-crew'), kids = [...box.children].filter((c) => !c.classList.contains('ck-crew-more'));
+      const comp = document.querySelector('.ck-companion');
+      return { hidden: box.hidden, bots: box.querySelectorAll('.ck-crew-bot').length, rigs: box.querySelectorAll('.ck-crew-rig').length, area: R(document.getElementById('click-area')), kids: kids.map(R), pe: getComputedStyle(box).pointerEvents,
+        companion: { shown: getComputedStyle(comp).display !== 'none', rect: R(comp), miner: R(document.getElementById('ck-hero')) }, rock: R(document.getElementById('mine-btn')), pad: R(document.getElementById('ck-pad')), dig: R(document.getElementById('ck-dig')),
+        rigImg: getComputedStyle(box.querySelector('.ck-crew-rig')).backgroundImage, rigLoaded: document.getElementById('ck-stage').classList.contains('no-crew-art') === false };
+    });
+    assert.deepEqual([crew.hidden, crew.bots, crew.rigs], [false, 3, 1], 'three workers and one rig, as bought');
+    assert.equal(crew.pe, 'none'); assert.match(crew.rigImg, /crew\/rig\.webp/); assert.equal(crew.rigLoaded, true, 'the rig picture loaded (no fallback block)');
+    for (const k of crew.kids) assert.ok(k.l >= crew.area.l - 1 && k.r <= crew.area.r + 1 && k.t >= crew.area.t - 1 && k.b <= crew.area.b + 1, 'the crew stands inside the field');
+    for (const k of crew.kids) for (const o of [crew.rock, crew.pad, crew.dig]) assert.equal(overlaps(k, o), false, 'the crew never sits on the rock or the controls');
+    assert.equal(crew.companion.shown, true, 'the upgraded robot walks beside the miner');
+    assert.ok(Math.abs((crew.companion.rect.l + crew.companion.rect.r) / 2 - (crew.companion.miner.l + crew.companion.miner.r) / 2) < crew.companion.miner.w * 1.1, 'and stays next to him');
+    const gCrew = await page.evaluate(() => state.gold);
+    const rigBox = await page.locator('.ck-crew-rig').first().boundingBox();
+    await page.touchscreen.tap(rigBox.x + rigBox.width / 2, rigBox.y + rigBox.height / 2);
+    assert.equal(await page.evaluate(() => state.gold), gCrew, 'tapping the crew is scenery: it never mines');
+    await page.evaluate(() => { state.owned.bot = 9; state.owned.rig = 3; updateUI(); });
+    assert.deepEqual(await page.evaluate(() => [document.querySelectorAll('#ck-crew .ck-crew-bot').length, document.querySelectorAll('#ck-crew .ck-crew-rig').length, [...document.querySelectorAll('#ck-crew .ck-crew-more')].map((b) => b.textContent)]), [5, 2, ['+1', '+4']], 'what the lane cannot hold becomes a +N badge');
+    // the walk: stride (lean, squash, weight), a breathing shadow and dust behind the feet while he walks; breathing again when he stops
+    const walk = await page.evaluate(async () => {
+      const m = document.getElementById('ck-miner'), hero = document.getElementById('ck-hero'), cs = (e, ps) => getComputedStyle(e, ps);
+      const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      DigSite.debug.place({ x: 0.2, y: 0.8 }); DigSite.debug.setStick(1, 0); DigSite.debug.step(1 / 60, 8); await frame();
+      const walking = { act: m.dataset.act, hero: cs(hero).animationName, shadow: cs(m, '::before').animationName, dust: cs(document.querySelector('.ck-dust')).display, puff: cs(document.querySelector('.ck-dust i')).animationName };
+      DigSite.debug.setStick(0, 0); DigSite.debug.step(1 / 60, 40); await frame();
+      const idle = { act: m.dataset.act, hero: cs(hero).animationName, dust: cs(document.querySelector('.ck-dust')).display };
+      DigSite.debug.place({ x: 0.26, y: 0.8 });
+      return { walking, idle };
+    });
+    assert.deepEqual(walk.walking, { act: 'walk', hero: 'ck-stride', shadow: 'ck-footfall', dust: 'block', puff: 'ck-puff' });
+    assert.deepEqual(walk.idle, { act: 'idle', hero: 'ck-breath', dust: 'none' });
+    await page.evaluate(() => { state.owned.bot = 0; state.owned.rig = 0; state.equipment = Object.assign({}, state.equipment, { robot: 0 }); updateUI(); });
+    assert.deepEqual(await page.evaluate(() => [document.getElementById('ck-crew').hidden, document.getElementById('ck-stage').dataset.companion]), [true, '0'], 'selling nothing, showing nothing');
+    report.crew = { shown: true, capped: true, scenery: true, companion: true, walk: true };
     await ctx.close();
 
     // ---------------------------------------------------------------- reduced motion: no tilt / particles / floating flight
@@ -656,6 +695,10 @@ async function main() {
     assert.equal(parseFloat(rmRes.ry), 0, 'no tilt with reduced motion');
     assert.ok(rmRes.floats > 0, 'the gain is still shown');
     assert.deepEqual([rmRes.bob, rmRes.glow, rmRes.hero, rmRes.scene], ['none', 'none', 'none', 'none'], 'idle bobbing, glow breathing, miner breathing and the scene fade are off');
+    await rm.page.evaluate(() => { state.owned.bot = 2; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 1 }); updateUI(); DigSite.debug.place({ x: 0.2, y: 0.8 }); DigSite.debug.setStick(1, 0); DigSite.debug.step(1 / 60, 8); });
+    const rmCrew = await rm.page.evaluate(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); const cs = (sel, ps) => getComputedStyle(document.querySelector(sel), ps).animationName; return { bot: cs('.ck-crew-bot'), rig: cs('.ck-crew-rig'), companion: cs('.ck-companion'), stride: cs('#ck-hero'), puff: cs('.ck-dust i'), act: document.getElementById('ck-miner').dataset.act }; });
+    assert.deepEqual(rmCrew, { bot: 'none', rig: 'none', companion: 'none', stride: 'none', puff: 'none', act: 'walk' }, 'with reduced motion the crew, the companion and the stride stand still (he still walks)');
+    await rm.page.evaluate(() => { DigSite.debug.setStick(0, 0); DigSite.debug.step(1 / 60, 30); state.owned.bot = 0; state.owned.rig = 0; updateUI(); });
     // the dig site honours it too: the miner still walks and digs and the rock still breaks, without pop-in, ghost or crumble particles
     const rmDig = await rm.page.evaluate(() => {
       DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 2); DigSite.debug.place({ x: 0.3, y: 0.8 });
@@ -718,6 +761,12 @@ async function main() {
       assert.ok(dg.miner.h >= 70, `${tag}: the miner is big enough to read (${Math.round(dg.miner.h)}px)`);
       assert.deepEqual([dg.outside, dg.covered], [0, 0], `${tag}: a respawned rock stays inside the field and its centre is never under a control`);
       assert.ok(dg.worst <= 0.1, `${tag}: a respawned rock overlaps the controls by at most a sliver (${(dg.worst * 100).toFixed(1)}%)`);
+      // the crew (3 workers + 1 rig) stands inside the field, clear of the stick, the dig button and the rock
+      const cw = await v.page.evaluate(() => { state.owned.bot = 3; state.owned.rig = 1; updateUI(); const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
+        const kids = [...document.getElementById('ck-crew').children].map(R), area = R(document.getElementById('click-area')), others = ['#ck-pad', '#ck-dig', '#mine-btn'].map((s) => R(document.querySelector(s)));
+        const out = { kids, area, others, hidden: document.getElementById('ck-crew').hidden }; state.owned.bot = 0; state.owned.rig = 0; updateUI(); return out; });
+      assert.equal(cw.hidden, false, `${tag}: the crew shows`);
+      for (const k of cw.kids) { assert.ok(k.l >= cw.area.l - 1 && k.r <= cw.area.r + 1 && k.t >= cw.area.t - 1 && k.b <= cw.area.b + 1, `${tag}: the crew is inside the field`); for (const o of cw.others) assert.equal(overlaps(k, o), false, `${tag}: the crew is clear of the controls and the rock`); }
       // the upgrade window fits on every screen, big medal included
       await v.page.evaluate(() => ClickerFX.openSheet('click'));
       const sh = await v.page.evaluate(() => { const c = document.querySelector('.ck-sheet-card').getBoundingClientRect(), a = document.getElementById('ck-sheet-art').getBoundingClientRect(), b = document.getElementById('ck-sheet-buy').getBoundingClientRect();

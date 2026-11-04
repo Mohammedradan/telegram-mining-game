@@ -28,6 +28,7 @@
   // ورقتا السبرايت (المعدّن 3×2 والصخرة 3×1) تُرسمان بـbackground في clicker.css بالرابط نفسه، فيُعاد استعمال التنزيل من الذاكرة
   const HERO_SHEET = `/assets/cave/hero-sheet.webp?v=${ASSET_V}`;
   const ORE_SHEET = `/assets/cave/ore-sheet.webp?v=${ASSET_V}`;
+  const RIG_ART = `/assets/cave/crew/rig.webp?v=${ASSET_V}`;
   const WIDE_QUERY = '(min-width: 1024px) and (min-aspect-ratio: 1/1), (orientation: landscape) and (max-height: 520px)';
 
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
@@ -671,6 +672,32 @@
     return `<span class="cv-medal" data-state="${esc(o.state || 'poor')}" style="--p:${num(o.progress).toFixed(3)}"><span class="cv-plate"><svg class="ui-icon cv-fallback" aria-hidden="true"><use href="#${esc(o.icon || 'i-gem')}"/></svg></span>${lvl}</span>`;
   }
 
+  // ---------- طاقم المنجم: ما اشتريتَه يظهر يعمل في الكهف (عرض فقط) ----------
+  // مسيّرة لكل «عامل آلي» (حتى 5) ومنصة حفر لكل «منصة تعدين» (حتى 2)؛ ما زاد يظهر شارة «+N» فلا تزدحم الساحة
+  const CREW_MAX = Object.freeze({ bot: 5, rig: 2 });
+  function crewView(owned) {
+    const bot = Math.max(0, Math.floor(num(owned && owned.bot))), rig = Math.max(0, Math.floor(num(owned && owned.rig)));
+    return { bots: Math.min(CREW_MAX.bot, bot), rigs: Math.min(CREW_MAX.rig, rig), moreBots: Math.max(0, bot - CREW_MAX.bot), moreRigs: Math.max(0, rig - CREW_MAX.rig), total: bot + rig };
+  }
+  let crewSig = '';
+  function renderCrew(v) {
+    if (!els || !els.crew) return;
+    const c = crewView(v.owned);
+    if (els.stage) els.stage.dataset.companion = Math.floor(num(v.robot)) >= 1 ? '1' : '0';     // الروبوت المرقّى يرافق المعدّن
+    const sig = `${c.bots}|${c.rigs}|${c.moreBots}|${c.moreRigs}`;
+    if (sig === crewSig) return;
+    crewSig = sig;
+    let html = '';
+    for (let i = 0; i < c.rigs; i++) html += `<span class="ck-crew-rig" style="--j:${i}"></span>`;
+    if (c.moreRigs) html += `<b class="ck-crew-more">+${c.moreRigs}</b>`;
+    for (let i = 0; i < c.bots; i++) html += `<span class="ck-crew-bot" style="--i:${i}"><svg viewBox="0 0 64 64" focusable="false"><use href="#a-robot"/></svg></span>`;
+    if (c.moreBots) html += `<b class="ck-crew-more">+${c.moreBots}</b>`;
+    els.crew.innerHTML = html;
+    els.crew.hidden = c.total === 0;
+    els.crew.dataset.bots = String(c.bots);
+    els.crew.dataset.rigs = String(c.rigs);
+  }
+
   function nodeDefs() {
     const out = [];
     const goals = (opts && opts.goals) || {};
@@ -929,6 +956,7 @@
       }
     }
     if (!shown) return;
+    renderCrew(v);
     if (els.boost) setVar(els.boost, '--p', bv.progress.toFixed(3));
 
     // الطاقة
@@ -1014,6 +1042,7 @@
         load(url);
         load(ORE_SHEET, fail('no-ore-art'));
         load(HERO_SHEET, fail('no-hero-art'));
+        load(RIG_ART, fail('no-crew-art'));
       });
     } catch (e) { /* لا شيء */ }
   }
@@ -1031,7 +1060,7 @@
       streak: $('ck-streak'), streakN: $('ck-streak-n'),
       status: $('ck-status'), statusText: $('ck-status-text'), statusIcon: $('ck-status-icon'), banner: $('ck-banner'), live: $('ck-live'),
       boost: $('boost-btn'), go: $('ck-go'), nodes: $('ck-nodes'),
-      sheet: $('ck-sheet'), sheetCard: q('#ck-sheet .ck-sheet-card'), sheetClose: $('ck-sheet-close'), sheetArt: $('ck-sheet-art'),
+      crew: $('ck-crew'), sheet: $('ck-sheet'), sheetCard: q('#ck-sheet .ck-sheet-card'), sheetClose: $('ck-sheet-close'), sheetArt: $('ck-sheet-art'),
       sheetTitle: $('ck-sheet-title'), sheetDesc: $('ck-sheet-desc'), sheetOwned: $('ck-sheet-owned'), sheetNow: $('ck-sheet-now'),
       sheetNext: $('ck-sheet-next'), sheetCostBox: $('ck-sheet-costbox'), sheetCost: $('ck-sheet-cost'), sheetHave: $('ck-sheet-have'), sheetBuy: $('ck-sheet-buy'),
       energy: $('energy-container'), ghost: $('energy-ghost'), track: $('energy-track'), regen: $('ck-regen'),
@@ -1109,7 +1138,7 @@
 
   Object.assign(api, {
     VERSION: 4, REGEN_PER_SEC,
-    createHeat, streakTier, energyView, boostView, nextGoal, arcLift, nodeView, sheetView, hintTarget, needsTween, followValue, tiltFor, makeRng, makeParticles, stepParticle, createSound,
+    createHeat, streakTier, energyView, boostView, nextGoal, arcLift, nodeView, crewView, CREW_MAX, sheetView, hintTarget, needsTween, followValue, tiltFor, makeRng, makeParticles, stepParticle, createSound,
     syncSound: safe(() => {}), init: safe(init), tap: safe(tap), denied: safe(denied), burst: safe(burst), cue: safe(cue), touched: safe(() => { if (api.active && els) markTapped(); }), sync: safe(sync), onTab: safe(onTab), openSheet: safe(openSheet), closeSheet: safe(closeSheet), buyOpen: safe(onSheetBuy), inspect,
   });
   return api;

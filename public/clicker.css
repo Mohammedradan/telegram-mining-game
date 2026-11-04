@@ -318,10 +318,48 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-miner[data-pose="raise"] .ck-hero { background-position: 0 100%; }
 .ck-miner[data-pose="strike"] .ck-hero { background-position: 50% 100%; }
 .ck-miner[data-pose="cheer"] .ck-hero { background-position: 100% 100%; }
-.ck-miner[data-act="walk"] .ck-hero { animation: ck-step .26s ease-in-out infinite; }
 .ck-miner[data-act="swing"] .ck-hero { animation: none; }
 @keyframes ck-breath { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.028); } }
-@keyframes ck-step { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3.5%); } }
+
+/* ===== مشية أحسن: وزن وميل وانضغاط + ظل يتنفس + غبار خلف القدمين (CSS خالص؛ إطارا المشي في الورقة متقاربان فالحركة هي ما يعطي الخطوة) ===== */
+.ck-miner[data-act="walk"] .ck-hero { animation: ck-stride .52s ease-in-out infinite; }
+@keyframes ck-stride {
+  0%, 100% { transform: translateY(0) rotate(-2.4deg) scale(1.03, .97); }
+  25%, 75% { transform: translateY(-4.2%) rotate(0deg) scale(.985, 1.02); }
+  50% { transform: translateY(0) rotate(2.4deg) scale(1.03, .97); }
+}
+.ck-miner[data-act="walk"]::before { animation: ck-footfall .26s ease-in-out infinite; }
+@keyframes ck-footfall { 0%, 100% { transform: translateX(-50%) scale(1.04, 1); } 50% { transform: translateX(-50%) scale(.82, .88); } }
+.ck-dust { display: none; position: absolute; left: 0; right: 0; bottom: 0; height: 14%; pointer-events: none; }
+.ck-dust i { position: absolute; bottom: 4%; width: 15%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(226, 204, 164, .7), rgba(226, 204, 164, 0) 70%); opacity: 0; --dx: -70%; }
+.ck-dust i:nth-child(1) { left: 24%; }
+.ck-dust i:nth-child(2) { left: 56%; }
+.ck-miner[data-face="-1"] .ck-dust i { --dx: 70%; }
+.ck-miner[data-act="walk"] .ck-dust { display: block; }
+.ck-miner[data-act="walk"] .ck-dust i { animation: ck-puff .52s ease-out infinite; }
+.ck-miner[data-act="walk"] .ck-dust i:nth-child(2) { animation-delay: -.26s; }
+@keyframes ck-puff { 0% { transform: translate(0, 0) scale(.4); opacity: 0; } 14% { opacity: .8; } 100% { transform: translate(var(--dx), -55%) scale(1.6); opacity: 0; } }
+
+/* ===== رفيق المعدّن: الروبوت المرقّى في الورشة يرافقه في الكهف (نفس رسم مسيّرة الورشة؛ ClickerFX يضبط data-companion) ===== */
+.ck-companion { display: none; position: absolute; left: -17%; top: 2%; width: 36%; aspect-ratio: 1; pointer-events: none; animation: ck-companion 2.6s ease-in-out infinite; }
+.ck-companion svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.ck-stage[data-companion="1"] .ck-companion { display: block; }
+@keyframes ck-companion { 0%, 100% { transform: translate(0, 0) rotate(-3deg); } 50% { transform: translate(5%, -10%) rotate(3deg); } }
+
+/* ===== طاقم المنجم (عرض فقط): ما اشتريتَه يعمل فوق الساحة على سقالة؛ pointer-events: none فلا يعترض لمس الصخرة ===== */
+.ck-crew { position: absolute; z-index: 0; left: 5%; right: 5%; top: 5%; height: 24%; display: flex; align-items: flex-end; justify-content: center; gap: 3.5%; pointer-events: none; }
+.ck-crew[hidden] { display: none; }
+.ck-crew::after { content: ""; position: absolute; left: -3%; right: -3%; bottom: -4px; height: 7px; border-radius: 4px; background: linear-gradient(#9a6a35, #4a2c12); box-shadow: 0 3px 6px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 226, 170, .4); }
+.ck-crew-bot { position: relative; flex: none; width: clamp(28px, 10.5cqw, 44px); aspect-ratio: 1; transform-origin: 50% 100%; animation: ck-crew-work 1.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.27s); }
+.ck-crew-bot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.ck-crew-rig { position: relative; flex: none; height: 100%; max-height: clamp(40px, 15cqw, 60px); aspect-ratio: 303 / 256; background: url("/assets/cave/crew/rig.webp?v=1") 50% 100% / contain no-repeat; transform-origin: 50% 100%; animation: ck-rig-rumble .56s linear infinite; animation-delay: calc(var(--j, 0) * -.2s); }
+.ck-stage.no-crew-art .ck-crew-rig { background: linear-gradient(#5a6578, #2c3444); border-radius: 8px; }
+.ck-crew-more { align-self: center; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 900; line-height: 16px; color: #ffe9a6; background: rgba(8, 6, 20, .84); border: 1px solid rgba(240, 185, 60, .6); }
+@keyframes ck-crew-work { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-7%) rotate(5deg); } }
+@keyframes ck-rig-rumble { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(.6px, -.8px); } 50% { transform: translate(-.6px, .4px); } 75% { transform: translate(.4px, -.5px); } }
+@media (prefers-reduced-motion: reduce) {
+  .ck-crew-bot, .ck-crew-rig, .ck-companion, .ck-dust i, .ck-miner[data-act="walk"]::before, .ck-miner[data-act="walk"] .ck-hero { animation: none !important; }
+}
 
 /* زر الصخرة: هو الهدف الوحيد للمس في العالم (المعدّن لا يعترض اللمس)؛ منطقة اللمس أوسع من الرسم قليلاً */
 .ck-btn {

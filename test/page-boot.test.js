@@ -436,6 +436,33 @@ test('the deep-dive medal opens the full-screen dive: intro first, a run descend
   assert.deepEqual(page.log.errors, []);
 });
 
+test('the crew and the companion mirror what was bought and what the workshop upgraded (display only, never touches the gold)', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const { state } = page.dbg();
+  const crew = page.byId('ck-crew'), stage = page.byId('ck-stage');
+  const count = (re) => (crew.innerHTML.match(re) || []).length;
+  page.ctx.updateUI();
+  assert.equal(crew.hidden, true, 'nothing bought: no crew'); assert.equal(stage.dataset.companion, '0');
+  const gold = state.gold;
+  state.owned.bot = 3; state.owned.rig = 1; state.equipment = { ...(state.equipment || {}), robot: 2 };
+  page.ctx.updateUI();
+  assert.equal(crew.hidden, false);
+  assert.deepEqual([count(/ck-crew-bot"/g), count(/ck-crew-rig"/g)], [3, 1], 'a robot per auto worker, a machine per rig');
+  assert.deepEqual([crew.dataset.bots, crew.dataset.rigs, stage.dataset.companion], ['3', '1', '1'], 'and the upgraded robot walks beside the miner');
+  crew.children = ['sentinel'];                                // assigning innerHTML replaces the children, so a rebuild would drop this
+  page.ctx.updateUI();
+  assert.deepEqual(crew.children, ['sentinel'], 'an unchanged crew is not rebuilt on every sync');
+  state.owned.bot = 9; state.owned.rig = 4; page.ctx.updateUI();
+  assert.equal(count(/ck-crew-bot"/g), 5); assert.equal(count(/ck-crew-rig"/g), 2);
+  assert.match(crew.innerHTML, /<b class="ck-crew-more">\+4<\/b>/); assert.match(crew.innerHTML, /<b class="ck-crew-more">\+2<\/b>/);
+  state.owned.bot = 0; state.owned.rig = 0; state.equipment.robot = 0; page.ctx.updateUI();
+  assert.equal(crew.hidden, true); assert.equal(stage.dataset.companion, '0');
+  assert.equal(state.gold, gold, 'drawing the crew never changes the gold');
+  assert.deepEqual(page.log.errors, []);
+});
+
 test('the deep-dive medal wears a "new" badge until it is opened once, and remembers that on the device', async () => {
   const page = bootPage({ me: meResponse });
   await page.settle();

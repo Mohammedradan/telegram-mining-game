@@ -314,7 +314,7 @@
   <link rel="stylesheet" href="/platform.css?v=9">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
-  <link rel="stylesheet" href="/clicker.css?v=8">
+  <link rel="stylesheet" href="/clicker.css?v=9">
   <link rel="stylesheet" href="/deep-dig.css?v=3">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
@@ -678,10 +678,12 @@
       <div id="ck-nodes" class="ck-nodes" role="group" aria-label="ترقيات التعدين"></div>
 
       <div id="click-area" class="ck-area">
+        <!-- طاقم المنجم (عرض فقط): مسيّرات بعدد ما اشتريتَه من «عامل آلي» ومنصات حفر بعدد «منصة التعدين»، تعمل على سقالة فوق الساحة؛ يبنيه clicker-fx.js -->
+        <div id="ck-crew" class="ck-crew" aria-hidden="true" hidden></div>
         <!-- موقع الحفر: المعدّن يمشي بعصا التحكم (أو الأسهم) ويحفر الصخرة؛ المس الصخرة يعدّن أيضاً. المواضع يضبطها public/dig-site.js بـtransform،
              وبدونه يبقى المعدّن والصخرة في مكانيهما الافتراضيين من CSS والنقر على الصخرة يعدّن كما كان -->
         <div id="ck-world" class="ck-world">
-          <div id="ck-miner" class="ck-miner" data-pose="idle" data-face="1" data-act="idle" aria-hidden="true"><span class="ck-flip"><span id="ck-hero" class="ck-hero"></span></span></div>
+          <div id="ck-miner" class="ck-miner" data-pose="idle" data-face="1" data-act="idle" aria-hidden="true"><span class="ck-flip"><span id="ck-hero" class="ck-hero"></span></span><span class="ck-dust"><i></i><i></i></span><span class="ck-companion"><svg viewBox="0 0 64 64" focusable="false"><use href="#a-robot"/></svg></span></div>
           <button id="mine-btn" type="button" aria-label="تعدين" aria-describedby="tap-hint" class="mining-btn ck-btn">
             <span class="ck-bob"><span id="ck-ore" class="ck-ore" data-stage="0">
               <span class="ck-glow" aria-hidden="true"></span>
@@ -1076,7 +1078,7 @@
   <script src="/platform-renderer.js?v=5"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
-  <script src="/clicker-fx.js?v=5"></script>
+  <script src="/clicker-fx.js?v=6"></script>
   <!-- موقع الحفر: المعدّن يمشي ويحفر بعصا التحكم؛ كل ضربة = handleMine واحد (الاقتصاد لم يتغير) -->
   <script src="/dig-site.js?v=4"></script>
   <!-- الحفر العميق: بئر عمودي بعصا التحكم. نموذج حتمي + مُرسِم Canvas + صوت مولَّد + واجهة؛ عميل فقط (لا ذهب ولا خادم) -->
@@ -2080,7 +2082,7 @@
         gold: state.gold, energy: state.energy, maxEnergy: state.maxEnergy, clickPower: state.clickPower,
         boostUntil: state.boostUntil || 0, boostCooldownUntil: state.boostCooldownUntil || 0,
         costs: state.costs, owned: state.owned, passive: passiveGain(), level, levelSource: prog ? 'server' : 'local', now,
-        workshop: workshopHint(), deepDive: deepDiveHint(),
+        workshop: workshopHint(), deepDive: deepDiveHint(), robot: Math.max(0, Math.floor(Number(state.equipment && state.equipment.robot) || 0)),
       });
     }
 
