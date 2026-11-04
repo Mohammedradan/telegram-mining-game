@@ -22,8 +22,8 @@ function hitsUntilBroken(s, limit = 1200) {
   return hits;
 }
 
-test('phase 3: version is 4 and the config is normalised to safe values', () => {
-  assert.equal(R.VERSION, 4);
+test('phase 3: the engine version is 5 and the config is normalised to safe values', () => {
+  assert.equal(R.VERSION, 5);
   assert.deepEqual(R.normalizeConfig(undefined), { zone: 0, loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
   assert.deepEqual(R.normalizeConfig(null), R.normalizeConfig({}));
   const wild = R.normalizeConfig({ zone: 9, loadout: { pickaxe: 99, boots: -3, bag: '2', magnet: 1.9, drill: NaN, robot: Infinity, hacker: 7 } });
@@ -71,22 +71,23 @@ test('phase 3: mine 0 with an empty loadout has physics identical to the frozen 
   assert.ok(ticks > 15000, 'a meaningful number of ticks was compared');
 });
 
-test('phase 3: six mines — rising rock hardness, own palette, same routes, ore tiers from each table', () => {
+test('phase 3: six mines — rising rock hardness, own palette, own layout, ore tiers from each table', () => {
   assert.equal(R.MINES.length, 6);
   assert.equal(R.ZONES.length, 6);
+  assert.equal(R.LEVELS.length, 6, 'every mine owns a level (V5)');
   assert.deepEqual(R.MINES.map(m => m.rockHp), [3, 6, 9, 13, 18, 24]);
   const seed = R.seedFromId('mine-layout');
-  const base = R.layoutFor(seed, 0);
   for (const [i, mine] of R.MINES.entries()) {
     assert.equal(R.ZONES[i].id, mine.id);
     assert.equal(mine.weights.reduce((a, b) => a + b, 0), 100, `${mine.id} weights are percentages`);
     for (const ore of Object.values(mine.tier)) assert.ok(R.ORES[ore], `${mine.id} references a priced ore`);
-    const s = R.create('miner', seed, { zone: i });
-    assert.deepEqual(s.rocks.map(r => r.x), base.rocks.map(r => r.x), 'the mine never moves the rocks (routes stay valid)');
+    const level = R.levelFor(i), s = R.create('miner', seed, { zone: i });
+    assert.deepEqual(s.rocks.map(r => r.x), R.layoutFor(seed, i).rocks.map(r => r.x), 'a run uses the layout of its own mine');
+    s.rocks.forEach((r, k) => assert.ok(level.rockSpans[k].some(([a, b]) => r.x >= a && r.x <= b), `${mine.id}: rock ${k} stays inside its span`));
     assert.ok(s.rocks.every(r => r.hp === mine.rockHp && r.maxHp === mine.rockHp));
     assert.ok(s.rocks.every(r => Object.values(mine.tier).includes(r.ore)), 'rock ores come from the mine tier table');
-    assert.ok(s.enemies.every((e, k) => e.maxHp === R.LEVEL.enemies[k].maxHp + mine.enemyHp && e.hp === e.maxHp));
-    assert.equal(s.hazards[0].active, mine.vent);
+    assert.ok(s.enemies.every(e => { const base = level.enemies.find(x => x.id === e.id); return e.maxHp === base.maxHp + mine.enemyHp && e.hp === e.maxHp; }));
+    assert.equal(s.hazards.find(h => h.vent).active, mine.vent, 'the mine sets how long the timed hazard stays on');
     if (i > 0) {
       assert.equal(mine.requires.win, i - 1, 'each mine unlocks from the previous one');
       assert.ok(mine.rockHp > R.MINES[i - 1].rockHp && mine.vent > R.MINES[i - 1].vent);

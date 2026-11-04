@@ -5,6 +5,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const { createStore } = require('../db');
 const R = require('../public/platform-rules');
 const solution = require('./fixtures/platform-solution.cjs');
+const bot = require('./fixtures/platform-bot.cjs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mining-platform-'));
 const file = path.join(dir, 'game.db'), url = process.env.TEST_DATABASE_URL || '';
 const ports = [3231, 3232];
@@ -248,7 +249,8 @@ test('phase 3 API: start issues the config snapshot and defaults to the first mi
   const res = await post('cfg-default', 'start');
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.config, { zone: 0, loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
-  assert.equal(res.body.version, 4);
+  assert.equal(res.body.version, R.VERSION);
+  assert.equal(R.VERSION, 5);
   const row = await store.getPlatformRun(res.body.id);
   assert.deepEqual(JSON.parse(row.config_json), res.body.config, 'the snapshot is persisted with the run');
 });
@@ -369,4 +371,70 @@ test('phase 3 API: runs with no snapshot (created before the upgrade) finish und
   const res = await post(name, 'finish', payload);
   assert.equal(res.status, 200); assert.equal(res.body.won, true); assert.equal(res.body.zone, 0);
   assert.deepEqual((await store.getUser(owner(name))).state.mines.wins, [1, 0, 0, 0, 0, 0]);
+});
+
+// ---------------------------------------------------------------------------
+// V5: الزعماء — سقوط الزعيم يُحتسب على الخادم من إعادة التشغيل نفسها
+// ---------------------------------------------------------------------------
+test('V5 API: beating the boss of a mine counts the kill — bossWins, the boss achievement, the receipt and the ledger — and an ordinary mine never does', async () => {
+  const name = 'boss-kill';
+  const gear = { ...R.normalizeLoadout({}), pickaxe: 1 };
+  await patchUser(name, u => { u.state.equipment = { ...gear }; u.state.mines.wins = [1, 1, 0, 0, 0, 0]; });
+  // an ordinary mine first: a win, but no boss
+  const plain = await historicalWith(name, { zone: 1, loadout: gear });
+  assert.equal(plain.state.status, 'won'); assert.equal(plain.state.bossDefeated, false);
+  const plainRes = await post(name, 'finish', { id: plain.id, inputs: plain.inputs });
+  assert.equal(plainRes.status, 200); assert.equal(plainRes.body.won, true); assert.equal(plainRes.body.boss, false);
+  assert.equal((await store.getUser(owner(name))).state.adventure.bossWins, 0);
+  assert.equal(plainRes.body.profile.achievements.items.find(i => i.id === 'boss').done, false);
+  // the golden caves: the Colossus has to fall before the exit opens
+  const config = { zone: 2, loadout: gear };
+  const payload = await historicalWith(name, config, 'warrior');
+  assert.equal(payload.state.status, 'won'); assert.equal(payload.state.bossDefeated, true);
+  const res = await post(name, 'finish', { id: payload.id, inputs: payload.inputs, hero: 'warrior' });
+  assert.equal(res.status, 200); assert.equal(res.body.won, true); assert.equal(res.body.boss, true); assert.equal(res.body.zone, 2);
+  assert.deepEqual(res.body.ores, R.oreSummary(payload.state), 'the boss loot is part of the replayed ores — never a client claim');
+  assert.ok(res.body.ores.gold >= 1 && res.body.ores.crystal >= 2, 'at least the boss loot (1 gold ore, 2 crystal) is in the receipt');
+  const saved = await store.getUser(owner(name));
+  assert.equal(saved.state.adventure.bossWins, 1);
+  assert.deepEqual(saved.state.mines.wins, [1, 2, 1, 0, 0, 0], 'the earlier iron win and the new gold win are both counted');
+  const achievement = res.body.profile.achievements.items.find(i => i.id === 'boss');
+  assert.equal(achievement.done, true, 'the achievement nobody could reach before is now unlocked by a real kill');
+  const entry = (await store.ledgerFor(owner(name))).find(e => e.kind === 'platform_finish' && e.detail.zone === 2);
+  assert.equal(entry.detail.boss, true);
+  // a duplicate finish never counts a second kill
+  const dup = await post(name, 'finish', { id: payload.id, inputs: payload.inputs, hero: 'warrior' });
+  assert.equal(dup.body.duplicate, true);
+  assert.equal((await store.getUser(owner(name))).state.adventure.bossWins, 1);
+});
+
+test('V5 API: a boss that is still standing counts for nothing, and the exit stays shut however the run ends', async () => {
+  const name = 'boss-alive';
+  await patchUser(name, u => { u.state.equipment = { ...R.normalizeLoadout({}), pickaxe: 1 }; u.state.mines.wins = [1, 1, 0, 0, 0, 0]; });
+  const config = { zone: 2, loadout: { ...R.normalizeLoadout({}), pickaxe: 1 } };
+  const lossId = crypto.randomUUID();
+  await store.withUsers([owner(name)], () => store.savePlatformRun({ id: lossId, user_id: owner(name), version: R.VERSION, status: 'playing',
+    config_json: JSON.stringify(config), started_at: Date.now() - R.MAX_TICKS / 60 * 1000 - 2000 }));
+  const loss = await post(name, 'finish', { id: lossId, inputs: [{ mask: 0, frames: R.MAX_TICKS }] });
+  assert.equal(loss.status, 200); assert.equal(loss.body.won, false); assert.equal(loss.body.boss, false);
+  assert.equal((await store.getUser(owner(name))).state.adventure.bossWins, 0);
+  // a run that walks straight to the exit with everything collected but ignores the boss cannot win (rules-level check, replayed by the server)
+  const rush = bot(R.seedFromId('rush'), 'miner', config);
+  assert.equal(rush.state.status, 'won');
+  const noBoss = rush.inputs.filter(seg => seg.frames > 0).slice(0, 60); // far too short to have beaten anything
+  assert.notEqual(R.replay(noBoss, 'miner', R.seedFromId('rush'), config).state.status, 'won');
+});
+
+test('V5 API: the finish body limit fits a long boss recording; the rules still cap it, and an oversized body is refused outright', async () => {
+  const name = 'boss-body';
+  const started = await post(name, 'start');
+  const segs = n => Array.from({ length: n }, (_, i) => ({ mask: i % 2, frames: 1 }));
+  const long = await post(name, 'finish', { id: started.body.id, inputs: segs(2000) });   // ≈ 46 KB: over the old 32 KB parser limit
+  assert.equal(long.status, 400);
+  assert.match(long.body.error, /لم ينتهِ/, 'parsed and replayed — the level just is not finished yet');
+  const tooMany = await post(name, 'finish', { id: started.body.id, inputs: segs(R.MAX_SEGMENTS + 1) });
+  assert.equal(tooMany.status, 400);
+  assert.match(tooMany.body.error, /غير صالحة/, 'the shared rules reject more than MAX_SEGMENTS');
+  const huge = await fetch(`http://127.0.0.1:${ports[0]}/api/platform/finish`, { method: 'POST', headers: headers(name), body: JSON.stringify({ id: started.body.id, inputs: segs(4200) }) });
+  assert.equal(huge.status, 413, 'above 64 KB the body is refused before any replay work');
 });

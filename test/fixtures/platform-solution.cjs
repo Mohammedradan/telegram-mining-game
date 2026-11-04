@@ -1,7 +1,11 @@
 // A reproducible legal controller, not an injected score or physics override.
 // `config` = { zone, loadout } selects the mine and the equipment the run is verified under (default: mine 0, no gear).
+// Mine 0 keeps its hand-written route (the V3-parity and API tests were written against it); every other mine, and the boss arenas,
+// are played by the generic bot in platform-bot.cjs, which also wins mine 0 (see platform-worlds.test.js).
 const R = require('../../public/platform-rules');
+const bot = require('./platform-bot.cjs');
 module.exports = function solution(seed, hero = 'miner', config) {
+  if (R.create(hero, seed, config).zone !== 0) return bot(seed, hero, config);
   const state = R.create(hero, seed, config), inputs = [];
   for (let i = 0; i < R.MAX_TICKS && state.status === 'playing'; i++) {
     const p = state.player;

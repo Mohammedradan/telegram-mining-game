@@ -49,7 +49,7 @@
   }
   const reduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   const volume = 1; // master gain for the synthesised effects (0 mutes)
-  let feedbackUntil = 0, observedCheckpoint = sim.checkpoint, observedMined = sim.mined;
+  let feedbackUntil = 0, observedCheckpoint = sim.checkpoint, observedMined = sim.mined, exitHinted = false;
   let learnedJump = false;
   function feedback(text) {
     const box = el('platform-feedback');
@@ -58,7 +58,7 @@
     feedbackUntil = sim.tick + 150;
   }
   function resetFeedback() {
-    feedbackUntil = 0; observedCheckpoint = sim.checkpoint; observedMined = sim.mined;
+    feedbackUntil = 0; observedCheckpoint = sim.checkpoint; observedMined = sim.mined; exitHinted = false;
     const box = el('platform-feedback'); if (box) box.hidden = true;
     resetImpact();
   }
@@ -168,6 +168,16 @@
         hurt: { freq: 110, dur: 0.18, type: 'sawtooth', slide: 55 },
         win: { freq: 1040, dur: 0.22, type: 'sine', slide: 1560 },
         game_over: { freq: 140, dur: 0.32, type: 'triangle', slide: 70 },
+        // الزعماء: كل حدث له نبرة تُعرَف بلا نظر (إنذار صاعد، ضربة ثقيلة، انهيار، رنين الدرع)
+        clang: { freq: 1500, dur: 0.09, type: 'square', slide: 900 },
+        boss_wake: { freq: 90, dur: 0.5, type: 'sawtooth', slide: 52 },
+        boss_windup: { freq: 260, dur: 0.32, type: 'sawtooth', slide: 560 },
+        boss_slam: { freq: 72, dur: 0.3, type: 'triangle', slide: 38 },
+        boss_charge: { freq: 120, dur: 0.36, type: 'sawtooth', slide: 230 },
+        boss_crash: { freq: 95, dur: 0.38, type: 'square', slide: 40 },
+        boss_stun: { freq: 700, dur: 0.14, type: 'sine', slide: 420 },
+        boss_enrage: { freq: 210, dur: 0.5, type: 'sawtooth', slide: 92 },
+        boss_death: { freq: 320, dur: 0.7, type: 'triangle', slide: 60 },
       };
       const d = defs[type] || { freq: 300, dur: 0.12, type: 'sine', slide: 360 };
       const o = audio.createOscillator(), g = audio.createGain();
@@ -230,7 +240,7 @@
     }
     const progEl = el('platform-progress');
     const zoneName = R.ZONES?.[sim.zone || 0]?.name;
-    if (progEl) progEl.textContent = `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.LEVEL.exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+    if (progEl) progEl.textContent = `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.levelFor(sim.zone).exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
     // Update gold and energy from main game state
     try {
@@ -259,14 +269,15 @@
       comboEl.hidden = !live;
       if (live) comboEl.textContent = `×${combo}`;
     }
-    const mg = el('mission-gems'), mr = el('mission-rocks'), mf = el('mission-fill');
+    const mg = el('mission-gems'), mr = el('mission-rocks'), mf = el('mission-fill'), mb = el('mission-boss');
     if (mg) mg.textContent = `${Math.min(3, sim.collected)}/3`;
     if (mr) mr.textContent = `${Math.min(1, sim.mined)}/1`;
+    if (mb) { const row = mb.closest('.mission-row'); if (row) row.hidden = !sim.bossId; mb.textContent = sim.bossDefeated ? '1/1' : '0/1'; }
     const milestoneCount = sim.milestones?.length || 0, milestoneTotal = R.MILESTONES?.length || 5;
     const mc = el('milestone-count'), mm = el('mission-milestones');
     if (mc) mc.textContent = `${milestoneCount}/${milestoneTotal}`;
     if (mm) mm.textContent = `${milestoneCount}/${milestoneTotal}`;
-    if (mf) mf.style.width = `${Math.round((Math.min(3, sim.collected) / 3 * 0.45 + Math.min(1, sim.mined) * 0.25 + (milestoneCount / milestoneTotal) * 0.30) * 100)}%`;
+    if (mf) mf.style.width = `${Math.round(((Math.min(3, sim.collected) / 3) * (sim.bossId ? 0.3 : 0.45) + Math.min(1, sim.mined) * (sim.bossId ? 0.15 : 0.25) + (sim.bossDefeated ? 0.3 : 0) + (milestoneCount / milestoneTotal) * (sim.bossId ? 0.25 : 0.30)) * 100)}%`;
   }
 
   // المناجم المفتوحة لحالة اللاعب (الشروط من القواعد المشتركة؛ الخادم يعيد التحقق عند بدء الجولة)
@@ -311,11 +322,14 @@
     if (sim.mined > observedMined) feedback('تكسّر العِرق! جمعت بلورتين من المعدن.');
     if (sim.checkpoint !== observedCheckpoint) feedback('راية مفعّلة — ستعود إلى هنا إن أصابك خطر.');
     observedMined = sim.mined; observedCheckpoint = sim.checkpoint;
+    if (sim.bossId && !sim.bossDefeated && !exitHinted && sim.mined >= 1 && sim.collected >= 3 && sim.player.x > R.levelFor(sim.zone).exit.x - 150) {
+      exitHinted = true; say('البوابة مغلقة حتى يسقط الزعيم.');
+    }
     for (const event of sim.events) {
       if (event.type === 'jump') learnedJump = true;
       if (event.type === 'hurt') feedback(sim.player.hearts > 0 ? (sim.checkpoint === 64 ? 'احذر الخطر! عدت إلى نقطة البداية.' : 'احذر الخطر! عدت إلى آخر راية، ومواردك باقية.') : 'نفدت القلوب — يمكنك المحاولة من جديد.');
       if (event.type === 'defeat') feedback('هزمت حارسًا — الطريق أكثر أمانًا.');
-      beep(event.type);
+      beep(event.type === 'hit' && event.damage === 0 ? 'clang' : event.type);
       // shake feedback for impactful events
       if (event.type === 'hurt') { doShake(0.65); haptic('hurt'); }
       else if (event.type === 'enemy_death') { doShake(0.35); haptic('heavy'); }
@@ -323,6 +337,11 @@
       else if (event.type === 'win') { doShake(0.55); haptic('win'); }
       else if (event.type === 'game_over') { doShake(0.5); haptic('hurt'); }
       else if (event.type === 'hit') haptic('light');
+      else if (event.type === 'boss_wake') { doShake(0.45); haptic('heavy'); }
+      else if (event.type === 'boss_slam') { doShake(0.7); haptic('heavy'); }
+      else if (event.type === 'boss_crash') { doShake(0.8); haptic('heavy'); }
+      else if (event.type === 'boss_enrage') { doShake(0.55); haptic('heavy'); }
+      else if (event.type === 'boss_death') { doShake(0.9); haptic('win'); }
 
       // أرقام الضرر/المكافأة وسلسلة التعدين — خارج المحرك الحتمي تماماً.
       if (event.type === 'robot_mine') {
@@ -341,8 +360,26 @@
         bumpCombo();
         if (combo >= 2) pushFloater(sim.player.x + (sim.player.w || 20) / 2, sim.player.y - 14, `×${combo}`, '#ffd166', 13);
       } else if (event.type === 'hit') {
-        pushFloater(event.x, event.y - 8, `-${event.damage || 1}`, '#ff9b7a');
-        requestHitStop(35);
+        if (event.damage === 0) pushFloater(event.x, event.y - 8, 'مدرّع', '#9fb4c4', 10); // درع الزعيم: لا ضرر خارج مرحلة الذهول
+        else { pushFloater(event.x, event.y - 8, `-${event.damage || 1}`, '#ff9b7a'); requestHitStop(35); }
+      } else if (event.type === 'boss_wake') {
+        const boss = sim.enemies.find(e => e.id === event.id);
+        say(`${boss ? boss.name : 'الزعيم'} استيقظ — درعه لا يُخترق إلا حين يترنّح بعد هجومه: تفادَ الضربة ثم اضربه.`);
+        pushFloater(event.x, event.y - 30, boss ? boss.name : 'الزعيم', '#ffd166', 13);
+      } else if (event.type === 'boss_windup') {
+        pushFloater(event.x, event.y - 14, event.attack === 'charge' ? 'اندفاع!' : 'صدمة — اقفز!', '#ff9b7a', 12);
+      } else if (event.type === 'boss_stun') {
+        pushFloater(event.x, event.y - 16, 'مذهول — اضربه!', '#ffe28a', 12);
+      } else if (event.type === 'boss_enrage') {
+        say('اهتاج الزعيم — أسرع وأقصر إنذاراً! لا تزال نافذة الذهول هي فرصتك.');
+        pushFloater(event.x, event.y - 24, 'اهتاج!', '#ff6b4d', 14);
+      } else if (event.type === 'boss_death') {
+        const boss = sim.enemies.find(e => e.id === event.id);
+        const loot = Object.entries(event.ores || {}).filter(([, n]) => n > 0).map(([k, n]) => `${R.ORES[k]?.name || k} ${n}`).join('، ');
+        say(`سقط ${boss ? boss.name : 'الزعيم'}! البوابة انفتحت${loot ? ` — غنيمة: ${loot}` : ''}.`);
+        pushFloater(event.x, event.y - 20, 'سقط الزعيم!', '#ffd166', 15);
+        Object.entries(event.ores || {}).filter(([, n]) => n > 0).forEach(([k, n], i) => pushFloater(event.x + (i - 0.5) * 30, event.y - 44 - i * 12, `+${n} ${R.ORES[k]?.name || k}`, '#9fe8ff', 11));
+        spawnBurst(event.x, event.y, '#ffd166', 28);
       } else if (event.type === 'enemy_death') {
         pushFloater(event.x, event.y - 12, '+1', '#ffd166');
       } else if (event.type === 'hurt') {
@@ -374,8 +411,21 @@
           particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: 18, color: '#5cf3d233', size: 18, ring: true });
         } else if (event.type === 'attack') {
           for (let i = 0; i < 5; i++) particles.push({ x: event.x + (event.facing > 0 ? 28 : -8), y: event.y + 14, vx: event.facing * (1.2 + i * 0.5) + (Math.random() - 0.5), vy: (Math.random() - 0.5) * 0.8, life: 16, color: '#ffeaa7', size: 3, glow: true, trail: true });
+        } else if (event.type === 'hit' && event.damage === 0) {
+          for (let i = 0; i < 6; i++) particles.push({ x: event.x, y: event.y, vx: (Math.random() - 0.5) * 3.4, vy: -0.8 - Math.random() * 1.4, life: 14, color: i % 2 ? '#dfeaf2' : '#8fa3b3', size: 2.2, glow: true });
         } else if (event.type === 'hit') {
           for (let i = 0; i < 10; i++) particles.push({ x: event.x, y: event.y, vx: (Math.random() - 0.5) * 2.8, vy: -1.4 - Math.random() * 1.2, life: 20, color: i % 3 === 0 ? '#ff6b6b' : '#ffa94d', size: 3.4, glow: true });
+        } else if (event.type === 'boss_slam' || event.type === 'boss_crash') {
+          for (let i = 0; i < 14; i++) particles.push({ x: event.x + (i - 7) * 9, y: 298, vx: (i - 7) * 0.35 + (Math.random() - 0.5), vy: -0.8 - Math.random() * 1.6, life: 24, color: i % 2 ? '#8f8272' : '#b8ab96', size: 3.2, glow: false });
+          particles.push({ x: event.x, y: 296, vx: 0, vy: 0, life: 20, color: '#ffd9a055', size: 30, ring: true });
+        } else if (event.type === 'boss_charge') {
+          for (let i = 0; i < 8; i++) particles.push({ x: event.x + (Math.random() - 0.5) * 30, y: 296, vx: (Math.random() - 0.5) * 2.4, vy: -0.6 - Math.random() * 1.2, life: 22, color: i % 2 ? '#8f8272' : '#b8ab96', size: 3, glow: false });
+        } else if (event.type === 'boss_enrage' || event.type === 'boss_wake') {
+          particles.push({ x: event.x, y: event.y + 30, vx: 0, vy: 0, life: 24, color: event.type === 'boss_enrage' ? '#ff5a3688' : '#ffd16688', size: 34, ring: true });
+        } else if (event.type === 'boss_stun') {
+          for (let i = 0; i < 6; i++) particles.push({ x: event.x + (Math.random() - 0.5) * 24, y: event.y - 4, vx: (Math.random() - 0.5) * 1.2, vy: -1.2 - Math.random() * 0.8, life: 26, color: '#ffe28a', size: 3, glow: true });
+        } else if (event.type === 'boss_death') {
+          for (let i = 0; i < 30; i++) particles.push({ x: event.x + (Math.random() - 0.5) * 50, y: event.y + (Math.random() - 0.5) * 40, vx: (Math.random() - 0.5) * 4, vy: -2.4 - Math.random() * 2.6, life: 48, color: i % 3 === 0 ? '#ffd166' : i % 3 === 1 ? '#ff9b5a' : '#a78bfa', size: 4.4, glow: true, trail: i < 6 });
         } else if (event.type === 'enemy_death') {
           for (let i = 0; i < 16; i++) particles.push({ x: event.x, y: event.y, vx: (Math.random() - 0.5) * 3.4, vy: -2 - Math.random() * 2.2, life: 36, color: i % 2 ? '#a55eea' : '#ff6b8a', size: 4.5, glow: true, trail: i < 4 });
           particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: 20, color: '#a55eea44', size: 28, ring: true });
@@ -420,6 +470,29 @@
     if (shake > 0) shake = Math.max(0, shake - 0.07);
   }
 
+  // خطوة محاكاة واحدة: تسجيل الإدخال ← R.step ← أحداث العرض. يستعملها حلقة الزمن الحقيقي ومُغذّي اختبار المتصفح بلا فرق.
+  function advance(mask) {
+    const hpBefore = sim.rocks.map(r => r.hp);
+    record(mask); R.step(sim, mask);
+    const broken = sim.rocks.filter((r, i) => hpBefore[i] > 0 && r.hp === 0);
+    consumeEvents(broken);
+    if (sim.tick % 120 === 0) save();
+  }
+  // اختبار المتصفح فقط: يمرّر حركات مسجّلة عبر المسار نفسه (HUD والأحداث والإنهاء والإرسال) دون انتظار 60 إطاراً في الثانية.
+  // الخادم يعيد المحاكاة من الصفر ويرفض ما يخالف الزمن الحقيقي، فلا يمنح هذا المدخل أي ميزة.
+  let feedIndex = 0, feedFrame = 0;
+  function feed(segments, untilTick = Infinity) {
+    let fed = 0;
+    while (running && feedIndex < segments.length && sim.status === 'playing' && sim.tick < untilTick) {
+      const seg = segments[feedIndex];
+      advance(seg.mask); fed++;
+      if (++feedFrame >= seg.frames) { feedIndex++; feedFrame = 0; }
+    }
+    hud(); draw();
+    if (sim.status !== 'playing' && running) finish();
+    return { tick: sim.tick, status: sim.status, fed };
+  }
+
   function frame(time) {
     raf = 0;
     if (!running || paused) return;
@@ -442,14 +515,10 @@
         if (joystickX > 0.2) mask |= 2; // RIGHT
       }
 
-      if (inputs.length >= 1000 && inputs[inputs.length - 1].mask !== mask) {
+      if (inputs.length >= R.MAX_SEGMENTS && inputs[inputs.length - 1].mask !== mask) {
         pause(); say('وصلت إلى حد تسجيل الحركات؛ أعد بدء الجولة.'); return;
       }
-      const hpBefore = sim.rocks.map(r => r.hp);
-      record(mask); R.step(sim, mask);
-      const broken = sim.rocks.filter((r, i) => hpBefore[i] > 0 && r.hp === 0);
-      consumeEvents(broken); accumulator -= R.DT;
-      if (sim.tick % 120 === 0) save();
+      advance(mask); accumulator -= R.DT;
     }
     hud(); draw();
     if (sim.status !== 'playing') { finish(); return; }
@@ -545,9 +614,9 @@
         if (issued.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
         ticket = issued;
         const mine = R.MINES[ticket.config?.zone ?? selectedZone];
-        say(`${mine ? `${mine.name}: ` : ''}الهدف 3 بلورات وصخرة واحدة، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
+        say(`${mine ? `${mine.name}: ` : ''}الهدف 3 بلورات وصخرة واحدة${R.levelFor(ticket.config?.zone ?? selectedZone).boss ? '، ثم اهزم الزعيم' : ''}، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
-      sim = R.create(currentHero, seedOf(ticket), configFor(ticket)); inputs = []; particles = []; shake = 0; resetImpact(); running = true; paused = false; save();
+      sim = R.create(currentHero, seedOf(ticket), configFor(ticket)); inputs = []; particles = []; shake = 0; resetImpact(); feedIndex = 0; feedFrame = 0; running = true; paused = false; save();
       resume();
     } catch (e) {
       // منجم مقفل (حساب آخر/تقدّم أقدم): نرجع للمنجم الأول بدل أن يبقى اللاعب عالقاً عند الخطأ نفسه
@@ -746,7 +815,10 @@
       config: { zone: sim.zone, loadout: { ...sim.loadout } }, selectedZone,
       miningPower: sim.player.miningPower, speed: sim.player.speed, maxHearts: sim.player.maxHearts,
       rockMaxHp: sim.rocks[0]?.maxHp, robot: Boolean(sim.player.robot), beams: beams.length,
+      boss: sim.bossId ? (() => { const b = sim.enemies.find(e => e.id === sim.bossId); return { name: b.name, state: b.state, hp: b.hp, maxHp: b.maxHp, enraged: b.enraged, defeated: sim.bossDefeated, waves: sim.waves.length, x: b.x }; })() : null,
+      statusText: el('platform-status')?.textContent || '',
     }),
+    feed, resetFeed() { feedIndex = 0; feedFrame = 0; },
   };
 
   el('platform-start').disabled = true;

@@ -88,3 +88,7 @@ jobs:
         run: npm run test:deepdive
         env:
           TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run worlds-and-bosses browser end-to-end test
+        run: npm run test:bosses
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000

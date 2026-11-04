@@ -494,6 +494,8 @@
     }
 
     const camera = R.cameraFor(s, w);
+    const L = R.levelFor ? R.levelFor(s.zone) : R.LEVEL; // V5: كل منجم له مستواه (الأرض والأخطار والراية واللافتات والبوابة)
+    const skin = (root.PlatformScenery ? root.PlatformScenery.skinFor(L.id) : null);
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
     const zone = (R.ZONES || [])[s.zone || 0] || DEFAULT_ZONE;
 
@@ -658,7 +660,7 @@
     }
 
     // ---- Environmental extras: mine carts, chests, barrels ----
-    const extras = [
+    const extras = root.PlatformScenery ? root.PlatformScenery.propsFor(L) : [
       { x: 530, type: 'cart' }, { x: 890, type: 'barrel' }, { x: 1260, type: 'cart' },
       { x: 1440, type: 'chest' }, { x: 1760, type: 'barrel' }, { x: 2040, type: 'cart' }, { x: 2320, type: 'chest' },
     ];
@@ -679,7 +681,7 @@
         c.beginPath(); c.arc(ex.x + 24, 298, 2, 0, Math.PI * 2); c.fill();
         // rail
         c.fillStyle = '#4a5560';
-        c.fillRect(0, 300, R.LEVEL.width, 2);
+        c.fillRect(0, 300, L.width, 2);
       } else if (ex.type === 'chest') {
         // treasure chest
         round(c, ex.x, 283, 28, 16, 3, '#6b4a28');
@@ -699,16 +701,17 @@
         c.fillStyle = '#8a7050'; c.fillRect(ex.x + 2, 286, 14, 2); c.fillRect(ex.x + 1, 292, 16, 1.5); c.fillRect(ex.x + 2, 298, 14, 1.5);
         c.strokeStyle = '#3d3028'; c.lineWidth = 1;
         c.beginPath(); c.ellipse(ex.x + 9, 294, 8, 8, 0, 0, Math.PI * 2); c.stroke();
-      }
+      } else if (root.PlatformScenery) root.PlatformScenery.drawProp(c, ex, s.tick, reduced);
     }
 
     // ---- Lava river with animated surface ----
     const lavaWave = reduced ? 0 : Math.sin(s.tick * 0.08) * 2;
-    round(c, 0, 328, R.LEVEL.width, 32, 0, '#a33a1e');
-    round(c, 0, 330 + lavaWave, R.LEVEL.width, 30, 0, '#cc472b');
-    round(c, 0, 334 + lavaWave * 0.5, R.LEVEL.width, 26, 0, '#ea6231');
-    round(c, 0, 342, R.LEVEL.width, 18, 0, '#ff9d42');
-    round(c, 0, 346, R.LEVEL.width, 10, 0, '#ffd152');
+    const liquid = skin ? skin.liquid : ['#a33a1e', '#cc472b', '#ea6231', '#ff9d42', '#ffd152'];
+    round(c, 0, 328, L.width, 32, 0, liquid[0]);
+    round(c, 0, 330 + lavaWave, L.width, 30, 0, liquid[1]);
+    round(c, 0, 334 + lavaWave * 0.5, L.width, 26, 0, liquid[2]);
+    round(c, 0, 342, L.width, 18, 0, liquid[3]);
+    round(c, 0, 346, L.width, 10, 0, liquid[4]);
     // lava bubbles
     if (!reduced) {
       const bubblePhase = s.tick * 0.18;
@@ -725,33 +728,34 @@
       }
     }
     // heat haze above lava
-    c.fillStyle = 'rgba(255,100,40,0.04)';
-    c.fillRect(0, 318, R.LEVEL.width, 10);
+    c.fillStyle = skin ? skin.haze : 'rgba(255,100,40,0.04)';
+    c.fillRect(0, 318, L.width, 10);
 
     // ---- Platforms with detailed stone ----
-    for (const box of R.LEVEL.platforms) {
+    const sk = skin || { rock: ['#4c443c', '#5a5048'], top: ['#6b7c3f', '#a58253', '#d8b27c'], moss: '#5a6d35', crack: '#3a342e', hi: '#6b6358' };
+    for (const box of L.platforms) {
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
       // base rock
-      round(c, box.x, box.y, box.w, box.h, 4, '#4c443c');
+      round(c, box.x, box.y, box.w, box.h, 4, sk.rock[0]);
       // inner shading
-      round(c, box.x + 2, box.y + 2, box.w - 4, box.h - 4, 3, '#5a5048');
+      round(c, box.x + 2, box.y + 2, box.w - 4, box.h - 4, 3, sk.rock[1]);
       // top grass/moss trim
-      round(c, box.x, box.y, box.w, 9, 3, '#6b7c3f');
-      round(c, box.x, box.y, box.w, 6, 2, '#a58253');
-      round(c, box.x, box.y + 2, box.w, 3, 1, '#d8b27c');
+      round(c, box.x, box.y, box.w, 9, 3, sk.top[0]);
+      round(c, box.x, box.y, box.w, 6, 2, sk.top[1]);
+      round(c, box.x, box.y + 2, box.w, 3, 1, sk.top[2]);
       // moss patches
-      c.fillStyle = '#5a6d35';
+      c.fillStyle = sk.moss;
       for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
         c.beginPath(); c.ellipse(mx, box.y + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
       }
       // stone cracks & strata
-      c.strokeStyle = '#3a342e'; c.lineWidth = 1.2;
+      c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       for (let x = Math.max(box.x + 8, Math.floor(camera / 36) * 36); x < Math.min(box.x + box.w - 8, camera + w); x += 36) {
         c.beginPath(); c.moveTo(x, box.y + 11); c.lineTo(x + 11, box.y + 22); c.lineTo(x + 3, box.y + 38); c.stroke();
         // small highlight
-        c.strokeStyle = '#6b6358'; c.lineWidth = 0.6;
+        c.strokeStyle = sk.hi; c.lineWidth = 0.6;
         c.beginPath(); c.moveTo(x + 1, box.y + 12); c.lineTo(x + 9, box.y + 12); c.stroke();
-        c.strokeStyle = '#3a342e'; c.lineWidth = 1.2;
+        c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       }
       // side shadow
       c.fillStyle = 'rgba(0,0,0,0.18)';
@@ -823,7 +827,6 @@
     for (const gem of s.gems) {
       if (gem.taken || gem.x < camera - 20 || gem.x > camera + w + 20) continue;
       const bob = reduced ? 0 : Math.sin(s.tick * 0.08 + gem.x * 0.02) * 3;
-      const idx = R.LEVEL.gems.indexOf ? R.LEVEL.gems.findIndex(g => g.x === gem.x || Math.abs(g.x - gem.x) < 2) : -1;
       // alternate colors for variety: every 3rd is rare purple
       const isRare = (gem.x % 400) < 80; // pseudo-rare based on position hash
       if (isRare && !reduced) {
@@ -843,8 +846,9 @@
     }
 
     // ---- Hazards ----
-    for (const h of (s.hazards || R.LEVEL.hazards)) {
+    for (const h of (s.hazards || L.hazards)) {
       if (h.x < camera - 70 || h.x > camera + w + 20) continue;
+      if (root.PlatformScenery && root.PlatformScenery.drawHazard(c, h, s.tick, reduced)) continue;
       const active = R.activeHazard(h, s.tick);
       // base plate
       round(c, h.x - 5, 294, h.w + 10, 6, 2, '#2e2420');
@@ -889,7 +893,7 @@
     }
 
     // ---- Signposts & Checkpoints ----
-    for (const x of [680, 1485, 2030]) {
+    for (const x of L.signs || [680, 1485, 2030]) {
       round(c, x, 267, 4, 33, 1, '#9b7e4e');
       round(c, x, 268, 2, 31, 1, '#b89a5a');
       round(c, x - 14, 253, 37, 20, 3, '#af8d55');
@@ -898,7 +902,7 @@
       // arrow highlight
       c.fillStyle = '#ffe4a0'; c.font = 'bold 10px sans-serif'; c.fillText('▲', x + 4, 264);
     }
-    for (const x of [920, 1710]) {
+    for (const x of (L.checkpoints || [{ at: 920 }, { at: 1710 }]).map(cp => cp.at)) {
       round(c, x, 255, 3, 45, 1, '#9bbab2');
       round(c, x + 0.5, 256, 1.5, 43, 1, '#b5d1c9');
       const active = s.checkpoint === x;
@@ -914,8 +918,10 @@
       }
     }
 
+    if (root.PlatformScenery && L.boss) root.PlatformScenery.drawBossGate(c, L, s.tick, reduced);
+
     // ---- Exit portal ----
-    const e = R.LEVEL.exit;
+    const e = L.exit;
     // outer arch stone
     round(c, e.x - 10, e.y - 12, e.w + 20, e.h + 16, 26, '#8a6d3a');
     round(c, e.x - 8, e.y - 10, e.w + 16, e.h + 12, 24, '#a4814d');
@@ -953,7 +959,7 @@
     c.fillStyle = unlocked ? '#baffed' : '#ffe2a1';
     c.font = 'bold 9px sans-serif'; c.textAlign = 'center';
     if (unlocked && !reduced) c.fillText('✦ مفتوحة ✦', e.x + 35, e.y - 18, 132);
-    else c.fillText(unlocked ? 'بوابة مفتوحة' : '🔒 3 بلورات + تعدين', e.x + 35, e.y - 18, 132);
+    else c.fillText(unlocked ? 'بوابة مفتوحة' : (s.bossId && !s.bossDefeated ? 'مغلقة حتى يسقط الزعيم' : '🔒 3 بلورات + تعدين'), e.x + 35, e.y - 18, 132);
     // keyhole when locked
     if (!unlocked) {
       c.fillStyle = '#2d2410'; c.beginPath(); c.arc(e.x + 35, e.y + 38, 5, 0, Math.PI * 2); c.fill();
@@ -963,8 +969,11 @@
     // ---- Projectiles ----
     if (s.projectiles) for (const proj of s.projectiles) drawProjectile(c, proj);
 
-    // ---- Enemies ----
-    if (s.enemies) for (const enemy of s.enemies) drawEnemy(c, enemy, s.tick, reduced);
+    // ---- Boss warning lane, enemies, boss, shockwaves ----
+    const bosses = root.PlatformBosses;
+    if (bosses) for (const enemy of s.enemies) if (enemy.boss) bosses.drawTelegraph(c, enemy, s, reduced);
+    if (s.enemies) for (const enemy of s.enemies) { if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); } else drawEnemy(c, enemy, s.tick, reduced); }
+    if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced);
 
     // ---- Hero ----
     drawHero(c, s.player, s.tick, reduced);
@@ -1042,6 +1051,9 @@
     }
 
     // invulnerability shimmer on hero is handled in drawHero
+
+    // boss health bar: screen space, unaffected by the shake
+    if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, pixelH / worldH, 0, 0); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
   }
 
   root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos };

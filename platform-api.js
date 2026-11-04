@@ -105,19 +105,22 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       if (state.status === 'won') mines.wins[config.zone] = Math.min(1_000_000, mines.wins[config.zone] + 1);
       a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
       if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
+      // سقوط زعيم المنجم أعاد المحرك تشغيله بنفس المسار؛ يُحتسب حتى لو خسر اللاعب بعده في طريق الخروج. هذا ما يُحيي إنجاز «قاتل الزعماء».
+      const bossKill = state.bossDefeated === true;
+      if (bossKill) { a.bossWins = (Number(a.bossWins) || 0) + 1; trackMission(user, 'boss', 1, now()); }
       const score = state.collected * 25 + state.mined * 50 + (state.status === 'won' ? 200 : 0);
       a.bestScore = Math.max(a.bestScore, score); a.rewardEarned += gold;
       a.zones = a.gems >= 75 || a.bossWins >= 1 ? 3 : a.gems >= 25 || a.runs >= 3 ? 2 : 1;
       for (const [key, value] of [['runs', 1], ['gems', state.collected], ['score', score], ['play_time', Math.floor(duration)]]) trackMission(user, key, value, now());
       user.revision++; user.updatedAt = now();
-      const receipt = { id: run.id, won: state.status === 'won', zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration,
+      const receipt = { id: run.id, won: state.status === 'won', zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
         ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
         dailyRemaining: quota.remaining, ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
-        detail: { won: receipt.won, zone: config.zone, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, ticks: state.tick, hero: state.player.hero,
+        detail: { won: receipt.won, zone: config.zone, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
           dailyRemaining: quota.remaining, ores, milestones: state.milestones || [],
           milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
           ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);

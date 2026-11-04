@@ -311,7 +311,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=9">
+  <link rel="stylesheet" href="/platform.css?v=10">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -367,6 +367,7 @@
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.4A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.5c0 5.8-7.5 10.4-7.5 10.4Z"/></symbol>
     <symbol id="i-rope" viewBox="0 0 24 24"><path d="M12 21V5M6.5 10.5 12 5l5.5 5.5M8 21h8"/></symbol>
     <symbol id="i-dive" viewBox="0 0 24 24"><path d="M12 3v13M6.5 11 12 16.5 17.5 11M5 21h14"/></symbol>
+    <symbol id="i-boss" viewBox="0 0 24 24"><path d="M4 4c0 4 1.5 6 3.5 7M20 4c0 4-1.5 6-3.5 7M7 10h10l1 6.5-3 3.5h-6l-3-3.5zM9.5 14.5h.01M14.5 14.5h.01M10.5 18h3"/></symbol>
   </svg>
 
   <!-- فنّ الكهف المتجهي: رسومات ملوّنة بتدرجات (بخلاف أيقونات الواجهة الخطية). الروبوت هنا طائرة الورشة المساعدة؛ أيقونتا الروبوت والنبتة في الميداليات مرسومتان (ملفات WebP) -->
@@ -562,6 +563,7 @@
           <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span>اجمع 3 بلورات</span><b id="mission-gems">0/3</b></div>
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>اكسر صخرة خام</span><b id="mission-rocks">0/1</b></div>
+            <div class="mission-row" hidden><svg class="ui-icon" aria-hidden="true"><use href="#i-boss"/></svg><span>اهزم الزعيم</span><b id="mission-boss">0/1</b></div>
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg><span>معالم مكتشفة</span><b id="mission-milestones">0/5</b></div>
             <div class="mission-progress"><i id="mission-fill"></i></div>
           </div>
@@ -1074,8 +1076,10 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=6"></script>
-  <script src="/platform-renderer.js?v=5"></script>
+  <script src="/platform-rules.js?v=7"></script>
+  <script src="/platform-scenery.js?v=1"></script>
+  <script src="/platform-bosses.js?v=1"></script>
+  <script src="/platform-renderer.js?v=6"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
@@ -3556,6 +3560,8 @@
       document.querySelectorAll('[data-mine-name]').forEach((n) => { n.textContent = mine.name; });
       document.querySelectorAll('[data-mine-hits]').forEach((n) => { n.textContent = `الصخرة: ${hitsWord(hits)}`; });
     }
+    // الخطر المميّز لكل عالم (نص عرض فقط؛ الخطر نفسه معرَّف في مستوى المنجم بالقواعد المشتركة)
+    const WORLD_DANGER = { stone: 'فتحات بخار وحفرة أشواك', iron: 'مكبس سحق موقوت', gold: 'غبار ذهبي ينفث', crystal: 'بلّورات تنبثق بإيقاعات مختلفة', lava: 'نوافير حمم فوق الفجوات', legend: 'مكبس سحق وحارس القلب' };
     function minesRender() {
       const host = document.getElementById('mines-list');
       if (!host) return;
@@ -3572,6 +3578,7 @@
           <div class="mine-card-body">
             <h3>${m.name}</h3><p>${m.blurb}</p>
             <div class="mine-meta"><span>الصخرة: ${hitsWord(hits)}</span><span>انتصارات: <b>${st.wins}</b></span></div>
+            <div class="mine-world"><span class="mine-danger"><svg class="ui-icon" aria-hidden="true"><use href="#i-flame"/></svg>${WORLD_DANGER[m.id] || ''}</span>${WS_RULES.levelFor(i).boss ? `<span class="mine-boss"><svg class="ui-icon" aria-hidden="true"><use href="#i-boss"/></svg>زعيم: ${WS_RULES.levelFor(i).boss.name}</span>` : ''}</div>
             <div class="mine-ores">${ores}</div>${needs}
           </div>
           <button type="button" class="mine-pick" data-mine-pick="${i}" ${st.unlocked && i !== selected ? '' : 'disabled'}>${label}</button>
@@ -3666,6 +3673,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=7"></script>
+  <script src="/platform-game.js?v=8"></script>
 </body>
 </html>
