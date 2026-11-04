@@ -81,14 +81,17 @@ jobs:
         env:
           TEST_APP_URL: http://127.0.0.1:3000
       - name: Run mining-screen (clicker) browser end-to-end test
+        if: ${{ !cancelled() }}
         run: bash scripts/ci-run-e2e.sh "Clicker E2E" test:clicker
         env:
           TEST_APP_URL: http://127.0.0.1:3000
       - name: Run deep-dive browser end-to-end test
+        if: ${{ !cancelled() }}
         run: bash scripts/ci-run-e2e.sh "Deep-dive E2E" test:deepdive
         env:
           TEST_APP_URL: http://127.0.0.1:3000
       - name: Run worlds-and-bosses browser end-to-end test
+        if: ${{ !cancelled() }}
         run: bash scripts/ci-run-e2e.sh "Worlds-and-bosses E2E" test:bosses
         env:
           TEST_APP_URL: http://127.0.0.1:3000

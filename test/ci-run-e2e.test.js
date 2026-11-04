@@ -59,4 +59,10 @@ test('CI runs all four browser tests through the wrapper, in order, on the same 
   assert.deepEqual(steps, ['test:browser', 'test:clicker', 'test:deepdive', 'test:bosses']);
   for (const name of steps) assert.ok(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).scripts[name], `${name} exists in package.json`);
   assert.doesNotMatch(ci, /run: npm run test:(browser|clicker|deepdive|bosses)/, 'no E2E step bypasses the wrapper');
+  // one red browser test must not hide the others: the three that follow the platform E2E run even when an earlier one failed
+  const blocks = ci.split(/\n(?=      - name: )/);
+  for (const name of ['test:clicker', 'test:deepdive', 'test:bosses']) {
+    const block = blocks.find((b) => b.includes(`ci-run-e2e.sh`) && b.includes(` ${name}`));
+    assert.ok(block && block.includes('if: ${{ !cancelled() }}'), `${name} still runs after an earlier E2E failed`);
+  }
 });

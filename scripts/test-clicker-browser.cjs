@@ -668,6 +668,9 @@ async function main() {
     const walk = await page.evaluate(async () => {
       const m = document.getElementById('ck-miner'), hero = document.getElementById('ck-hero'), cs = (e, ps) => getComputedStyle(e, ps);
       const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      // calm first: finish what any earlier tap started (an approach, a show swing: a swing in progress freezes him in place and the
+      // 8 frames below would not be a walk) on the simulated clock, with the rock parked far out of reach
+      DigSite.debug.setStick(0, 0); DigSite.debug.setDig(false); DigSite.debug.setRock({ x: 0.9, y: 0.8 }, 12); DigSite.debug.step(0.05, 80); 
       DigSite.debug.place({ x: 0.2, y: 0.8 }); DigSite.debug.setStick(1, 0); DigSite.debug.step(1 / 60, 8); await frame();
       const walking = { act: m.dataset.act, hero: cs(hero).animationName, shadow: cs(m, '::before').animationName, dust: cs(document.querySelector('.ck-dust')).display, puff: cs(document.querySelector('.ck-dust i')).animationName };
       DigSite.debug.setStick(0, 0); DigSite.debug.step(1 / 60, 40); await frame();
@@ -695,7 +698,7 @@ async function main() {
     assert.equal(parseFloat(rmRes.ry), 0, 'no tilt with reduced motion');
     assert.ok(rmRes.floats > 0, 'the gain is still shown');
     assert.deepEqual([rmRes.bob, rmRes.glow, rmRes.hero, rmRes.scene], ['none', 'none', 'none', 'none'], 'idle bobbing, glow breathing, miner breathing and the scene fade are off');
-    await rm.page.evaluate(() => { state.owned.bot = 2; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 1 }); updateUI(); DigSite.debug.place({ x: 0.2, y: 0.8 }); DigSite.debug.setStick(1, 0); DigSite.debug.step(1 / 60, 8); });
+    await rm.page.evaluate(() => { state.owned.bot = 2; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 1 }); updateUI(); DigSite.debug.setStick(0, 0); DigSite.debug.setDig(false); DigSite.debug.setRock({ x: 0.9, y: 0.8 }, 12); DigSite.debug.step(0.05, 80); DigSite.debug.place({ x: 0.2, y: 0.8 }); DigSite.debug.setStick(1, 0); DigSite.debug.step(1 / 60, 8); });
     const rmCrew = await rm.page.evaluate(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); const cs = (sel, ps) => getComputedStyle(document.querySelector(sel), ps).animationName; return { bot: cs('.ck-crew-bot'), rig: cs('.ck-crew-rig'), companion: cs('.ck-companion'), stride: cs('#ck-hero'), puff: cs('.ck-dust i'), act: document.getElementById('ck-miner').dataset.act }; });
     assert.deepEqual(rmCrew, { bot: 'none', rig: 'none', companion: 'none', stride: 'none', puff: 'none', act: 'walk' }, 'with reduced motion the crew, the companion and the stride stand still (he still walks)');
     await rm.page.evaluate(() => { DigSite.debug.setStick(0, 0); DigSite.debug.step(1 / 60, 30); state.owned.bot = 0; state.owned.rig = 0; updateUI(); });
