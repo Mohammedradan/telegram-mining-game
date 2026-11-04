@@ -10,11 +10,11 @@
   const BASE = '/assets/cave/icons/';
   const VERSION = 1;
   // الفن المرسوم الموجود كملفات (المعرّف = اسم الملف)
-  const PAINTED = Object.freeze(['pickaxe', 'boots', 'bag', 'magnet', 'drill', 'armor', 'miner', 'robot', 'luck']);
+  const PAINTED = Object.freeze(['pickaxe', 'boots', 'bag', 'magnet', 'drill', 'armor', 'miner', 'robot', 'luck', 'dive']);
   // رسومات متجهية في سبرايت #art-sprite لما لا يتوفر له ملف مرسوم بعد (فارغ الآن: كل الميداليات مرسومة)
   const VECTOR = Object.freeze({});
-  // ترقيات النقر تستعير فنّ المعدات المقابلة؛ وميدالية الورشة تعرض وجه المعدّن
-  const ALIAS = Object.freeze({ click: 'pickaxe', bot: 'robot', rig: 'drill', workshop: 'miner' });
+  // ترقيات النقر تستعير فنّ المعدات المقابلة؛ وميدالية الورشة تعرض وجه المعدّن، وميدالية الحفر العميق قفص المصعد
+  const ALIAS = Object.freeze({ click: 'pickaxe', bot: 'robot', rig: 'drill', workshop: 'miner', deepdive: 'dive' });
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clamp01 = (n) => { const v = Number(n); return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0; };

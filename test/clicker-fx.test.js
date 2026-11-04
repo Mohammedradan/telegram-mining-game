@@ -324,7 +324,7 @@ test('sound never throws without WebAudio, without storage, or with a broken sto
 });
 
 // ============================== عقد «عرض فقط» ==============================
-test('ClickerFX is display-only: no network, no ops queue, no economy state, only its own three storage keys', () => {
+test('ClickerFX is display-only: no network, no ops queue, no economy state, only its own four cosmetic storage keys', () => {
   const code = fxSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   for (const forbidden of ['fetch(', 'XMLHttpRequest', 'enqueueOp', 'SYNC', 'applyOpLocally', 'state.gold', 'state.energy', 'totalEarned', 'sendBeacon', 'WebSocket', '/api/', '.apply(', '.apply?.(']) {
     assert.ok(!code.includes(forbidden), `clicker-fx.js must not reference ${forbidden}`);
@@ -332,8 +332,9 @@ test('ClickerFX is display-only: no network, no ops queue, no economy state, onl
   // it never calls an upgrade's apply(): buying goes through the page's buyUpgrade passed to init()
   assert.doesNotMatch(code, /\bapply\s*\(/);
   const keys = [...code.matchAll(/(?:getItem|setItem)\(\s*([A-Za-z_'"]+)/g)].map((m) => m[1].replace(/['"]/g, ''));
-  assert.ok(keys.length >= 4 && keys.every((k) => ['MUTE_KEY', 'TAPPED_KEY', 'HINT_KEY'].includes(k)), `unexpected storage keys: ${keys}`);
-  assert.deepEqual([...new Set(keys)].sort(), ['HINT_KEY', 'MUTE_KEY', 'TAPPED_KEY']);
+  assert.ok(keys.length >= 4 && keys.every((k) => ['MUTE_KEY', 'TAPPED_KEY', 'HINT_KEY', 'DIVE_SEEN_KEY'].includes(k)), `unexpected storage keys: ${keys}`);
+  assert.deepEqual([...new Set(keys)].sort(), ['DIVE_SEEN_KEY', 'HINT_KEY', 'MUTE_KEY', 'TAPPED_KEY']);   // the fourth is only a "seen" flag for the deep-dive medal's badge
+  assert.match(code, /const DIVE_SEEN_KEY = 'mining-fx-dive-seen'/);
   assert.match(code, /const MUTE_KEY = 'mining-fx-muted'/);
   assert.match(code, /const HINT_KEY = 'mining-fx-hint'/);
   // the page hands it the state; it only reads what the page passes to sync()/tap()
@@ -355,7 +356,14 @@ test('index.html loads the stylesheets and the scripts (scripts first, so the pa
   assert.ok(artAt > 0 && scriptAt > artAt, 'cave-art.js is linked before clicker-fx.js (it builds the medallions)');
   const gameScript = html.indexOf('<script>\n', scriptAt);
   assert.ok(scriptAt < gameScript, 'both load before the inline game script');
-  assert.match(html, /window\.ClickerFX\?\.init\(\{ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES \? wsOpen : null \}\);/);
+  assert.match(html, /window\.ClickerFX\?\.init\(\{ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES \? wsOpen : null, deepDive: deepDiveReady \? \(\) => window\.DeepDigUI\.open\(\) : null \}\);/);
+  // الحفر العميق: أنماطه بعد مجموعة الكهف، وملفاته الأربعة بالترتيب قبل سكربت الصفحة، وتهيئته قبل ClickerFX (الميدالية لا تظهر إلا إن نجحت)
+  assert.match(html, /<link rel="stylesheet" href="\/deep-dig\.css\?v=\d+">/);
+  assert.ok(html.indexOf('/deep-dig.css') > html.indexOf('/cave.css'), 'the dive styles build on the shared kit');
+  const dive = ['/deep-dig.js?v=', '/cave-sound.js?v=', '/deep-dig-render.js?v=', '/deep-dig-ui.js?v='].map((f) => html.indexOf(`<script src="${f}`));
+  assert.ok(dive.every((i) => i > scriptAt) && dive.every((i, k) => k === 0 || i > dive[k - 1]), 'model, sound, renderer, then the UI that wires them');
+  assert.ok(dive[3] < gameScript || gameScript > scriptAt, 'loaded before the inline game script');
+  assert.ok(html.indexOf('window.DeepDigUI?.init(') > 0 && html.indexOf('window.DeepDigUI?.init(') < html.indexOf('window.ClickerFX?.init('), 'the dive initialises first so its medal can be offered to the hub');
   const init = html.indexOf('window.ClickerFX?.init(');
   assert.ok(init > html.indexOf('const UPGRADES = {') && init > html.indexOf('function buyUpgrade(') && init > html.indexOf('function goToMine('), 'init runs after the helpers it receives');
   // the cave scene layer exists and is the first thing in the body (it paints behind everything)
@@ -411,7 +419,7 @@ test('the cave art is real: scene, hero and ore sprite sheets and medal icons ex
   assert.equal(art.resolve('luck').kind, 'painted');
   // every medal the screens can ask for resolves to a painted file or a vector symbol that exists
   const rules = require('../public/platform-rules');
-  for (const id of [...rules.EQUIPMENT_ORDER, 'click', 'bot', 'rig', 'workshop']) {
+  for (const id of [...rules.EQUIPMENT_ORDER, 'click', 'bot', 'rig', 'workshop', 'deepdive']) {
     const r = art.resolve(id);
     assert.ok(r.kind === 'painted' || (r.kind === 'vector' && symbols.has(r.symbol)), `${id} has art (${r.kind})`);
   }
@@ -535,6 +543,8 @@ test('CaveArt resolves painted art, vector fallbacks and aliases, and builds med
   const art = require('../public/cave-art');
   assert.deepEqual([art.resolve('pickaxe').kind, art.resolve('click').key, art.resolve('rig').key, art.resolve('workshop').key], ['painted', 'pickaxe', 'drill', 'miner']);
   assert.deepEqual([art.resolve('robot').kind, art.resolve('robot').key, art.resolve('luck').kind, art.resolve('luck').key], ['painted', 'robot', 'painted', 'luck']);
+  assert.deepEqual([art.resolve('deepdive').kind, art.resolve('deepdive').key], ['painted', 'dive'], 'the deep-dive medal shows the mine-lift cage');
+  assert.ok(fs.existsSync(path.join(root, 'public', 'assets', 'cave', 'icons', 'dive.webp')));
   assert.match(art.resolve('robot').src, /^\/assets\/cave\/icons\/robot\.webp\?v=\d+$/);
   assert.deepEqual(Object.keys(art.VECTOR), [], 'every medal is painted; the vector table is only a hook for future art');
   assert.equal(art.resolve('bot').key, 'robot', 'the auto worker borrows the robot art');
@@ -583,7 +593,7 @@ test('the workshop and the hub share one medal builder: nodes keep their test ho
 
 test('cave art is cached for a week, which is only safe because every reference carries a version number', () => {
   assert.match(read('server.js'), /assets\$\{path\.sep\}cave\$\{path\.sep\}[^\n]*max-age=604800, immutable/);
-  const sources = { 'index.html': html, 'clicker.css': css, 'platform.css': read('public', 'platform.css'), 'cave.css': read('public', 'cave.css'), 'cave-art.js': read('public', 'cave-art.js'), 'clicker-fx.js': fxSource };
+  const sources = { 'index.html': html, 'clicker.css': css, 'platform.css': read('public', 'platform.css'), 'cave.css': read('public', 'cave.css'), 'cave-art.js': read('public', 'cave-art.js'), 'clicker-fx.js': fxSource, 'deep-dig-ui.js': read('public', 'deep-dig-ui.js') };
   let refs = 0;
   for (const [name, text] of Object.entries(sources)) {
     for (const m of text.matchAll(/\/assets\/cave\/[A-Za-z0-9_.\/-]*/g)) {

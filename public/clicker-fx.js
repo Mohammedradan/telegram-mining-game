@@ -18,6 +18,7 @@
   const MAX_PARTICLES = 150;
   const MAX_FLOATS = 24;
   const MUTE_KEY = 'mining-fx-muted';
+  const DIVE_SEEN_KEY = 'mining-fx-dive-seen';   // شارة «جديد» على ميدالية الحفر العميق حتى تُفتح أول مرة
   const TAPPED_KEY = 'mining-fx-tapped';
   const HINT_KEY = 'mining-fx-hint';
   const SCENE_CLASS = 'ck-cave';
@@ -678,6 +679,8 @@
       out.push({ key, kind: 'upgrade', name: d.name || key, icon: d.icon || 'i-pickaxe', art: key });
     }
     if (opts && typeof opts.workshop === 'function') out.push({ key: 'workshop', kind: 'workshop', name: 'ورشة المعدّن', icon: 'i-gem', art: 'workshop' });
+    // «الحفر العميق»: ميدالية دخول (مثل الورشة)، حلقتها = أفضل عمق ÷ عمق الصندوق؛ تظهر فقط إن مُرِّر لها مُفتِّح
+    if (opts && typeof opts.deepDive === 'function') out.push({ key: 'deepdive', kind: 'dive', name: 'الحفر العميق', icon: 'i-dive', art: 'deepdive' });
     return out;
   }
 
@@ -687,6 +690,7 @@
     const doc = root.document;
     const defs = nodeDefs();
     els.nodes.textContent = '';
+    els.nodes.dataset.count = String(defs.length);          // 5 ميداليات (مع الأعماق) تُصغَّر قليلاً لتتسع في الصف
     defs.forEach((d, i) => {
       const b = doc.createElement('button');
       b.type = 'button';
@@ -695,10 +699,14 @@
       b.dataset.state = 'poor';
       setVar(b, '--lift', arcLift(i, defs.length).toFixed(3));
       b.setAttribute('aria-label', d.name);
+      const enter = d.kind === 'workshop' || d.kind === 'dive';
       const tag = d.kind === 'workshop'
         ? '<span class="ck-node-tag is-label"><b>ورشة</b></span>'
-        : '<span class="ck-node-tag"><svg aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><b>0</b></span>';
-      b.innerHTML = medal({ id: d.art, icon: d.icon, level: d.kind === 'workshop' ? null : 0, progress: d.kind === 'workshop' ? 1 : 0, state: d.kind === 'workshop' ? 'plain' : 'poor' }) + tag;
+        : d.kind === 'dive'
+          ? '<span class="ck-node-tag is-label"><b>الأعماق</b></span><span class="ck-new" aria-hidden="true">جديد</span>'
+          : '<span class="ck-node-tag"><svg aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><b>0</b></span>';
+      b.innerHTML = medal({ id: d.art, icon: d.icon, level: enter ? null : 0, progress: d.kind === 'workshop' ? 1 : 0, state: d.kind === 'workshop' ? 'plain' : 'poor' }) + tag;
+      if (d.kind === 'dive') { let seen = true; try { seen = root.localStorage.getItem(DIVE_SEEN_KEY) === '1'; } catch (e) { /* التخزين غير متاح: بلا شارة */ } b.dataset.fresh = seen ? '0' : '1'; }
       b.addEventListener('click', () => openSheet(d.key));
       els.nodes.appendChild(b);
       const q = (sel) => (b.querySelector ? b.querySelector(sel) : null);
@@ -719,6 +727,16 @@
         n.btn.dataset.state = ready ? 'ready' : 'poor';
         if (n.medal) n.medal.dataset.state = ready ? 'ready' : 'plain';
         n.btn.setAttribute('aria-label', ready ? `${n.def.name} — ترقية معدات متاحة` : n.def.name);
+        continue;
+      }
+      if (n.def.kind === 'dive') {
+        const dv = v.deepDive || null, p = dv ? Math.min(1, Math.max(0, num(dv.progress))) : 0, best = dv ? Math.max(0, Math.floor(num(dv.best))) : 0;
+        const sig = `d|${Math.round(p * 200)}|${best}`;
+        views.push({ key, state: 'poor' });
+        if (sig === n.sig) continue;
+        n.sig = sig;
+        if (n.medal) setVar(n.medal, '--p', p.toFixed(3));
+        n.btn.setAttribute('aria-label', best > 0 ? `${n.def.name} — أعمق نزول لك ${best} م` : n.def.name);
         continue;
       }
       const nv = nodeView(key, v);
@@ -801,6 +819,15 @@
       sound.open();
       opts.haptic('selection');
       if (typeof opts.workshop === 'function') opts.workshop();
+      return;
+    }
+    if (key === 'deepdive') { // الحفر العميق نافذة كاملة مستقلة
+      try { root.localStorage.setItem(DIVE_SEEN_KEY, '1'); } catch (e) { /* التخزين غير متاح */ }
+      const dn = nodeEls.get('deepdive');
+      if (dn) dn.btn.dataset.fresh = '0';
+      sound.open();                       // لا markHinted(): إرشاد أول مرة يخص نافذة الترقية، وفتح الأعماق لا يعني أن اللاعب رآها
+      opts.haptic('selection');
+      if (typeof opts.deepDive === 'function') opts.deepDive();
       return;
     }
     const def = defOf(key);
@@ -1023,6 +1050,13 @@
     sound = createSound(root.localStorage, root);
     const syncSoundUI = () => { if (els.soundBtn) els.soundBtn.setAttribute('aria-pressed', String(sound.muted)); };
     syncSoundUI();
+    // الكتم قد يُغيَّر من «الحفر العميق» (مفتاح التخزين نفسه): نعيد قراءته عند العودة فيبقى كتم واحد للتطبيق
+    api.syncSound = safe(() => {
+      let stored = sound.muted;
+      try { stored = root.localStorage.getItem(MUTE_KEY) === 'true'; } catch (e) { /* التخزين غير متاح */ }
+      if (stored !== sound.muted) sound.setMuted(stored);
+      syncSoundUI();
+    });
     if (els.soundBtn) els.soundBtn.addEventListener('click', () => { sound.setMuted(!sound.muted); syncSoundUI(); if (!sound.muted) sound.tap(6, false); });
     // متصفحات iOS لا تفتح الصوت إلا من لمسة/نقرة مكتملة لا من pointerdown
     for (const ev of ['pointerup', 'click', 'touchend', 'keyup']) els.tab.addEventListener(ev, () => sound.unlock(), { passive: true });
@@ -1074,9 +1108,9 @@
   };
 
   Object.assign(api, {
-    VERSION: 3, REGEN_PER_SEC,
+    VERSION: 4, REGEN_PER_SEC,
     createHeat, streakTier, energyView, boostView, nextGoal, arcLift, nodeView, sheetView, hintTarget, needsTween, followValue, tiltFor, makeRng, makeParticles, stepParticle, createSound,
-    init: safe(init), tap: safe(tap), denied: safe(denied), burst: safe(burst), cue: safe(cue), touched: safe(() => { if (api.active && els) markTapped(); }), sync: safe(sync), onTab: safe(onTab), openSheet: safe(openSheet), closeSheet: safe(closeSheet), buyOpen: safe(onSheetBuy), inspect,
+    syncSound: safe(() => {}), init: safe(init), tap: safe(tap), denied: safe(denied), burst: safe(burst), cue: safe(cue), touched: safe(() => { if (api.active && els) markTapped(); }), sync: safe(sync), onTab: safe(onTab), openSheet: safe(openSheet), closeSheet: safe(closeSheet), buyOpen: safe(onSheetBuy), inspect,
   });
   return api;
 });

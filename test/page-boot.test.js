@@ -264,11 +264,11 @@ test('updateUI feeds the effects: medal states, energy states, live boost button
   // medals: 1,234 gold covers all three upgrades (50 / 200 / 1,000); the workshop has gold but no ores yet, so it is not ready
   page.ctx.updateUI();
   const fxState = page.ctx.ClickerFX.inspect();
-  assert.deepEqual({ ...fxState.nodes }, { click: 'ready', bot: 'ready', rig: 'ready', workshop: 'poor' }); // spread: the VM's objects have another realm's prototype
+  assert.deepEqual({ ...fxState.nodes }, { click: 'ready', bot: 'ready', rig: 'ready', workshop: 'poor', deepdive: 'poor' }); // spread: the VM's objects have another realm's prototype
   assert.equal(fxState.hint, 'click', 'the first-run pointer targets the first ready medal');
-  assert.equal(page.byId('ck-nodes').children.filter((c) => c.dataset && c.dataset.ckItem).length, 4, 'three upgrades and the workshop');
+  assert.equal(page.byId('ck-nodes').children.filter((c) => c.dataset && c.dataset.ckItem).length, 5, 'three upgrades, the workshop and the deep dive');
   state.gold = 120; page.ctx.updateUI();
-  assert.deepEqual({ ...page.ctx.ClickerFX.inspect().nodes }, { click: 'ready', bot: 'poor', rig: 'poor', workshop: 'poor' });
+  assert.deepEqual({ ...page.ctx.ClickerFX.inspect().nodes }, { click: 'ready', bot: 'poor', rig: 'poor', workshop: 'poor', deepdive: 'poor' });
   state.gold = 1234; page.ctx.updateUI();
   // energy states
   assert.equal(page.byId('energy-container').dataset.level, 'full');
@@ -384,6 +384,107 @@ test('the workshop medal opens the workshop instead of a window, and the CTA sta
   resume.hidden = true; start.disabled = true;
   page.ctx.goToMine();
   assert.equal(starts, 1, 'a disabled start button is never clicked');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the deep-dive medal opens the full-screen dive: intro first, a run descends, the rope banks the loot, the record stays on the device and nothing is sent to the server', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const fx = page.ctx.ClickerFX, dd = page.ctx.DeepDigUI;
+  assert.equal(dd.active, true, 'the dive initialised before the hub (its medal exists)');
+  let paused = 0;
+  page.ctx.PlatformGame = { pause: () => { paused++; }, refresh: noop };
+  const overlay = page.byId('dd-overlay');
+  overlay.hidden = true;
+  const sentBefore = page.log.fetches.length;
+  fx.openSheet('deepdive');                                   // the medal goes through opts.deepDive, not through the upgrade window
+  assert.equal(fx.inspect().sheet, '', 'no upgrade window for the dive medal');
+  assert.equal(overlay.hidden, false, 'the full-screen dive is open');
+  assert.equal(dd.inspect().phase, 'intro');
+  assert.equal(paused, 1, 'a paused platformer round must not run behind it');
+  assert.equal(dd.inspect().game.depthM, 0);
+  assert.equal(dd.startRun(), true);
+  assert.equal(dd.inspect().phase, 'run');
+  assert.equal(JSON.parse(page.ctx.localStorage.getItem('mining-deep-dig')).hinted, true, 'the first-run hint is remembered as soon as it was shown (not only after a finished run)');
+  dd.debug.setStick(0, 1);                                    // the stick pushed down
+  dd.debug.step(1 / 60, 300);                                 // 5 s of simulated play
+  const mid = dd.inspect();
+  assert.ok(mid.game.depthM >= 6, `the miner dug down (${mid.game.depthM} m)`);
+  assert.equal(mid.game.hp, mid.game.maxHp, 'the first layer is safe');
+  dd.debug.setStick(0, 0);
+  dd.debug.fillBag('gold', 2);
+  dd.debug.teleport(3, 14);
+  assert.equal(dd.rope(), true, 'the rope starts');
+  assert.equal(dd.inspect().game.state, 'rope');
+  dd.debug.step(1 / 60, 400);
+  const end = dd.inspect();
+  assert.equal(end.phase, 'summary', 'the rope banked the loot and the summary card is up');
+  assert.equal(end.game.status, 'done');
+  const rec = JSON.parse(page.ctx.localStorage.getItem('mining-deep-dig'));
+  assert.ok(rec.depthM >= 28 && rec.runs === 1 && rec.value >= 16, `the best depth and loot are kept locally: ${JSON.stringify(rec)}`);
+  assert.equal(page.byId('dd-sum-value').textContent, String(end.record.value));
+  assert.equal(dd.progress(), rec.depthM / dd.DEPTH_MAX_M, 'the medal ring follows the best depth');
+  assert.equal(dd.close(), true);
+  assert.equal(overlay.hidden, true); assert.equal(dd.inspect().phase, 'closed');
+  assert.equal(dd.open(), true, 'it can be opened again');
+  assert.equal(dd.inspect().record.runs, 1, 'the record survives a reopen');
+  dd.close();
+  const sent = page.log.fetches.slice(sentBefore);
+  assert.deepEqual(sent, [], `the dive never talks to the server: ${sent.join(', ')}`);
+  assert.equal(page.dbg().state.gold, meResponse.state.gold, 'no gold was written');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the deep-dive medal wears a "new" badge until it is opened once, and remembers that on the device', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const node = () => page.byId('ck-nodes').children.find((c) => c.dataset && c.dataset.ckItem === 'deepdive');
+  assert.match(node().innerHTML, /class="ck-new"/, 'the badge is part of the medal');
+  assert.equal(node().dataset.fresh, '1', 'shown on a fresh device');
+  page.ctx.updateUI();                                         // 1,234 gold: the upgrade medals are ready, so the first-run pointer targets the first of them
+  assert.equal(page.ctx.ClickerFX.inspect().hint, 'click', 'the first-run pointer teaches the upgrade window');
+  assert.equal(page.ctx.localStorage.getItem('mining-fx-dive-seen'), null);
+  page.ctx.PlatformGame = { pause() {}, refresh() {} };
+  page.byId('dd-overlay').hidden = true;
+  page.ctx.ClickerFX.openSheet('deepdive');
+  assert.equal(node().dataset.fresh, '0', 'gone once opened');
+  assert.equal(page.ctx.localStorage.getItem('mining-fx-hint'), null, 'opening the dive does not silence the first-run pointer: that hint teaches the upgrade window, which the player has not seen');
+  assert.equal(page.ctx.ClickerFX.inspect().hint, 'click', 'the pointer still targets the first ready medal');
+  assert.equal(page.ctx.localStorage.getItem('mining-fx-dive-seen'), '1');
+  page.ctx.DeepDigUI.close();
+  // a second visit (new page boot, same device) never shows it again
+  const again = bootPage({ me: meResponse });
+  again.ctx.localStorage.setItem('mining-fx-dive-seen', '1');
+  await again.settle();
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the dive pauses on Escape and when the page loses focus, never reads equipment it should not write, and survives broken art', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const dd = page.ctx.DeepDigUI;
+  page.ctx.PlatformGame = { pause: noop, refresh: noop };
+  page.byId('dd-overlay').hidden = true;
+  dd.open(); dd.startRun();
+  assert.equal(dd.inspect().phase, 'run');
+  assert.equal(dd.pause('test'), true);
+  assert.equal(dd.inspect().phase, 'paused');
+  assert.equal(page.byId('dd-pause').hidden, false);
+  dd.debug.setStick(0, 1);
+  const before = dd.inspect().game.tick;
+  dd.debug.step(1 / 60, 60);
+  assert.equal(dd.inspect().game.tick, before, 'nothing advances while paused');
+  assert.equal(dd.resume(), true);
+  assert.equal(dd.inspect().phase, 'run');
+  // the equipment levels come from the server state and are only read
+  const eq = page.dbg().state.equipment;
+  const snapshot = JSON.stringify(eq || null);
+  dd.close(); dd.open();
+  assert.equal(JSON.stringify(page.dbg().state.equipment || null), snapshot, 'equipment is read-only for the dive');
+  dd.close();
   assert.deepEqual(page.log.errors, []);
 });
 

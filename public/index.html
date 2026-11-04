@@ -314,7 +314,8 @@
   <link rel="stylesheet" href="/platform.css?v=9">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
-  <link rel="stylesheet" href="/clicker.css?v=5">
+  <link rel="stylesheet" href="/clicker.css?v=8">
+  <link rel="stylesheet" href="/deep-dig.css?v=3">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -363,6 +364,9 @@
     <symbol id="i-armor" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.4A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.5c0 5.8-7.5 10.4-7.5 10.4Z"/></symbol>
+    <symbol id="i-rope" viewBox="0 0 24 24"><path d="M12 21V5M6.5 10.5 12 5l5.5 5.5M8 21h8"/></symbol>
+    <symbol id="i-dive" viewBox="0 0 24 24"><path d="M12 3v13M6.5 11 12 16.5 17.5 11M5 21h14"/></symbol>
   </svg>
 
   <!-- فنّ الكهف المتجهي: رسومات ملوّنة بتدرجات (بخلاف أيقونات الواجهة الخطية). الروبوت هنا طائرة الورشة المساعدة؛ أيقونتا الروبوت والنبتة في الميداليات مرسومتان (ملفات WebP) -->
@@ -999,16 +1003,87 @@
     <div id="mines-list" class="mines-list"></div>
   </div>
 
+  <!-- الحفر العميق: بئر عمودي تنزل فيه بعصا التحكم وتجمع العروق وتقرّر متى تصعد. عميل فقط (لا ذهب ولا خادم):
+       النموذج deep-dig.js، الرسم deep-dig-render.js، الصوت cave-sound.js، التحكم deep-dig-ui.js -->
+  <div id="dd-overlay" class="dd-overlay" hidden role="dialog" aria-modal="true" aria-label="الحفر العميق" data-phase="closed">
+    <canvas id="dd-canvas" class="dd-canvas" aria-hidden="true"></canvas>
+
+    <div class="dd-hud">
+      <div class="dd-row">
+        <div id="dd-layerbox" class="dd-depth cv-frame" data-layer="-1"><small id="dd-layer">السطح</small><b id="dd-depth">0 م</b></div>
+        <div id="dd-hearts" class="dd-hearts" role="img" aria-label="الصحة"></div>
+        <span class="dd-spacer"></span>
+        <button id="dd-sound" class="dd-iconbtn ws-icon-btn" type="button" aria-label="الصوت" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="#i-sound"/></svg></button>
+        <button id="dd-close" class="dd-iconbtn ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+      <div id="dd-bag" class="dd-bag cv-frame" role="group" aria-label="الحقيبة" data-full="">
+        <div class="dd-bag-head">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-bag"/></svg><b id="dd-bag-count">0/8</b>
+          <div class="dd-meter" aria-hidden="true"><i id="dd-bag-fill"></i></div>
+          <span class="dd-value" title="قيمة الغنيمة"><svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><b id="dd-value">0</b></span>
+        </div>
+        <div id="dd-chips" class="dd-chips" hidden></div>
+      </div>
+    </div>
+
+    <div id="dd-banner" class="dd-banner" aria-hidden="true"></div>
+    <div id="dd-live" class="sr-only" aria-live="polite"></div>
+
+    <div id="dd-pad" class="dd-pad" role="group" aria-label="عصا تحكم المعدّن: اسحبها ليمشي ويحفر" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"><span id="dd-stick" class="dd-stick"></span></div>
+    <button id="dd-rope" class="dd-rope cv-btn cv-btn-gold" type="button" aria-keyshortcuts="R" aria-label="الحبل: اصعد إلى السطح"><svg class="ui-icon" aria-hidden="true"><use href="#i-rope"/></svg><span>صعود</span></button>
+
+    <section id="dd-intro" class="dd-card cv-frame" aria-labelledby="dd-intro-title">
+      <img class="dd-card-art" src="/assets/cave/icons/dive.webp?v=1" alt="" width="96" height="96" draggable="false">
+      <h2 id="dd-intro-title">الحفر العميق</h2>
+      <p class="dd-lead">انزل في البئر بعصا التحكم، اجمع العروق اللامعة، وقرّر: أنزل أعمق أم أصعد بغنيمتك؟</p>
+      <p id="dd-intro-best" class="dd-best"></p>
+      <p id="dd-intro-gear" class="dd-gear"></p>
+      <ul class="dd-rules">
+        <li><b>اسحب العصا</b> للمشي والحفر — الصخر أصلب كلما نزلت.</li>
+        <li><b>الصخرة السائبة</b> تسقط إن حفرتَ تحتها، و<b>الغاز</b> يُحرق، و<b>الحمم</b> تُسخّن من الجوار.</li>
+        <li><b>الحبل</b> يرفعك بكل غنيمتك، و<b>الإغماء</b> يفقدك نصفها.</li>
+      </ul>
+      <p id="dd-intro-note" class="dd-note"></p>
+      <p class="dd-note">نسخة تجريبية: لا ذهب ولا مكافآت بعد — يُسجَّل أفضل عمق لديك فقط.</p>
+      <button id="dd-start" class="cv-btn cv-btn-gold dd-primary" type="button">ابدأ النزول</button>
+      <button id="dd-intro-back" class="cv-btn dd-secondary" type="button">رجوع للكهف</button>
+    </section>
+
+    <section id="dd-pause" class="dd-card cv-frame" hidden aria-labelledby="dd-pause-title">
+      <h2 id="dd-pause-title">توقّف مؤقت</h2>
+      <p class="dd-lead">تضيع غنيمة هذه الجولة إن خرجتَ الآن؛ لتحتفظ بها اصعد بالحبل.</p>
+      <button id="dd-resume" class="cv-btn cv-btn-green dd-primary" type="button">متابعة</button>
+      <button id="dd-quit" class="cv-btn dd-secondary" type="button">خروج بلا غنيمة</button>
+    </section>
+
+    <section id="dd-summary" class="dd-card cv-frame" hidden aria-labelledby="dd-sum-title" data-tone="safe">
+      <h2 id="dd-sum-title">عدتَ سالماً!</h2>
+      <p id="dd-sum-sub" class="dd-lead"></p>
+      <div class="dd-sum-depth"><small>أعمق نقطة</small><b id="dd-sum-depth">0 م</b><span id="dd-sum-best" class="dd-badge" hidden>رقم قياسي جديد</span></div>
+      <div id="dd-sum-loot" class="dd-chips dd-chips-lg"></div>
+      <div class="dd-sum-value"><svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><small>قيمة الغنيمة</small><b id="dd-sum-value">0</b><span id="dd-sum-newvalue" class="dd-badge" hidden>أفضل غنيمة</span></div>
+      <p id="dd-sum-legend" class="dd-legend" hidden>حصلتَ على كنز «قلب الأسطورة»</p>
+      <p class="dd-note">لا تُضاف هذه الغنيمة إلى رصيدك في النسخة التجريبية.</p>
+      <button id="dd-again" class="cv-btn cv-btn-gold dd-primary" type="button">نزول جديد</button>
+      <button id="dd-back" class="cv-btn dd-secondary" type="button">رجوع للكهف</button>
+    </section>
+  </div>
+
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
   <script src="/platform-rules.js?v=6"></script>
   <script src="/platform-renderer.js?v=5"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
-  <script src="/cave-art.js?v=2"></script>
-  <script src="/clicker-fx.js?v=3"></script>
+  <script src="/cave-art.js?v=3"></script>
+  <script src="/clicker-fx.js?v=5"></script>
   <!-- موقع الحفر: المعدّن يمشي ويحفر بعصا التحكم؛ كل ضربة = handleMine واحد (الاقتصاد لم يتغير) -->
-  <script src="/dig-site.js?v=3"></script>
+  <script src="/dig-site.js?v=4"></script>
+  <!-- الحفر العميق: بئر عمودي بعصا التحكم. نموذج حتمي + مُرسِم Canvas + صوت مولَّد + واجهة؛ عميل فقط (لا ذهب ولا خادم) -->
+  <script src="/deep-dig.js?v=1"></script>
+  <script src="/cave-sound.js?v=1"></script>
+  <script src="/deep-dig-render.js?v=1"></script>
+  <script src="/deep-dig-ui.js?v=1"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -2005,7 +2080,7 @@
         gold: state.gold, energy: state.energy, maxEnergy: state.maxEnergy, clickPower: state.clickPower,
         boostUntil: state.boostUntil || 0, boostCooldownUntil: state.boostCooldownUntil || 0,
         costs: state.costs, owned: state.owned, passive: passiveGain(), level, levelSource: prog ? 'server' : 'local', now,
-        workshop: workshopHint(),
+        workshop: workshopHint(), deepDive: deepDiveHint(),
       });
     }
 
@@ -3463,6 +3538,10 @@
         return { ready: WORKSHOP_ITEMS.some((it) => wsAfford(it.id).ok) };
       } catch (_) { return null; }
     }
+    // ميدالية الحفر العميق: حلقتها = أفضل عمق ÷ عمق الصندوق (يُحفظ محلياً، لا علاقة له بالخادم)
+    function deepDiveHint() {
+      try { return window.DeepDigUI && window.DeepDigUI.active ? { progress: window.DeepDigUI.progress(), best: window.DeepDigUI.bestDepth() } : null; } catch (_) { return null; }
+    }
 
     // ============================================================
     // خريطة المناجم: اختيار المنجم المفتوح. الخادم يعيد التحقق من الفتح عند بدء الجولة.
@@ -3562,7 +3641,14 @@
     window.closeMines = minesClose;
 
     // مؤثرات تبويب التعدين (عرض فقط): إن غاب الملف أو تعطّل يبقى المسار القديم
-    window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null });
+    // الحفر العميق (عميل فقط): المعدات تُقرأ من state.equipment فقط ولا يكتب ذهباً ولا عمليات؛ إن تعطّل لا تظهر ميداليته
+    const deepDiveReady = !!window.DeepDigUI?.init({
+      getEquipment: () => state.equipment, haptic,
+      onOpen: () => { try { window.PlatformGame?.pause(); } catch (_) {} },
+      onClose: () => { try { window.ClickerFX?.syncSound?.(); } catch (_) {} updateUI(); },
+      onMute: () => { try { window.ClickerFX?.syncSound?.(); } catch (_) {} },
+    });
+    window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null, deepDive: deepDiveReady ? () => window.DeepDigUI.open() : null });
     // موقع الحفر: كل ضربة للمعدّن تمرّ من handleMine نفسه (طاقة + ذهب + عملية mine)؛ يعيد false حين ترفضها قلة الطاقة
     window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic });
     updateUI();

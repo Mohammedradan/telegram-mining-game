@@ -197,6 +197,15 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-node-tag b { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
 .ck-node[data-state="ready"] .ck-node-tag { color: #d8ffe5; border-color: rgba(74, 222, 128, .85); box-shadow: 0 2px 6px rgba(0, 0, 0, .55), 0 0 10px rgba(74, 222, 128, .35); }
 .ck-node-tag.is-label { color: #c8e9ff; border-color: rgba(125, 211, 252, .55); }
+/* خمس ميداليات (مع «الأعماق»): تُصغَّر قليلاً لتتسع في الصف على أضيق الشاشات (يضبط ClickerFX الخاصية data-count) */
+.ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(40px, min(12.6vw, calc(var(--app-height, 100vh) * .068)), 62px); gap: 7px; }
+.ck-nodes[data-count="5"] .ck-node-tag { min-width: 40px; padding-inline: 5px 6px; font-size: 10.5px; }
+.ck-nodes[data-count="5"] .ck-node-tag svg { width: 11px; height: 11px; }
+/* شارة «جديد» على ميدالية الحفر العميق: تختفي بعد أول فتح (ClickerFX يضبط data-fresh) */
+.ck-new { display: none; position: absolute; top: 0; left: 50%; z-index: 5; transform: translateX(-50%); padding: 0 7px; border-radius: 999px; font-size: 9.5px; font-weight: 900; line-height: 15px; color: #06361a; background: linear-gradient(#9dffbd, #3fd47a); border: 1.5px solid #ecffef; box-shadow: 0 2px 6px rgba(0, 0, 0, .55), 0 0 10px rgba(74, 222, 128, .7); pointer-events: none; white-space: nowrap; animation: ck-new-pulse 1.8s ease-in-out infinite; }
+.ck-node[data-fresh="1"] .ck-new { display: block; }
+@keyframes ck-new-pulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .ck-new { animation: none; } }
 
 /* إرشاد أول مرة: سهم أخضر تحت الميدالية الجاهزة ونص يتوسّط الصف (يبقى حتى تُفتح أي نافذة ترقية) */
 .ck-pointer {
@@ -882,6 +891,10 @@ body.ck-cave .ck-sound { display: grid; }
   .ck-node { margin-bottom: 0 !important; --ck-node: clamp(40px, calc(var(--app-height, 100vh) * .13), 52px); gap: 4px; padding-top: 4px; }
   @supports (height: 100dvh) { .ck-node { --ck-node: clamp(40px, calc(var(--app-height, 100dvh) * .13), 52px); } }
   .ck-node-tag { display: inline-flex; font-size: 9.5px; line-height: 14px; min-width: 36px; }
+  /* خمس ميداليات = ثلاثة صفوف في العمودين: تُصغَّر لتبقى أقصر من الصفين القديمين (وكل زر يبقى بحجم إصبع مع شارته) */
+  .ck-nodes[data-count="5"] { gap: 2px 10px; }
+  .ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(32px, calc(var(--app-height, 100vh) * .098), 40px); gap: 3px; padding-top: 2px; }
+  .ck-nodes[data-count="5"] .ck-node-tag { font-size: 9px; line-height: 12px; min-width: 34px; }
   .ck-area { grid-column: 2; grid-row: 1; min-height: 0; }
   .ck-hint { display: none; }
   .ck-actions { grid-column: 3; grid-row: 1; grid-template-columns: 1fr; align-content: center; gap: 8px; padding: 0; }

@@ -192,8 +192,8 @@
   function overlayOpen() {
     const doc = root.document;
     if (!doc || !doc.getElementById) return false;
-    const sheet = els.sheet, ws = doc.getElementById('ws-overlay'), mines = doc.getElementById('mines-overlay');
-    return !!((sheet && sheet.hidden === false) || (ws && ws.hidden === false) || (mines && mines.hidden === false));
+    const sheet = els.sheet, ws = doc.getElementById('ws-overlay'), mines = doc.getElementById('mines-overlay'), dive = doc.getElementById('dd-overlay');
+    return !!((sheet && sheet.hidden === false) || (ws && ws.hidden === false) || (mines && mines.hidden === false) || (dive && dive.hidden === false));
   }
   const paused = () => !api.active || !tabVisible() || overlayOpen() || !!(root.document && root.document.hidden);
 

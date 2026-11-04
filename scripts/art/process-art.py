@@ -10,6 +10,10 @@ The pictures are generated as plain images; this script turns them into web asse
   portrait <hero.webp> <out.webp>                        head-and-shoulders medal of the keyed hero on a navy plate (workshop medal)
   sheet <out.webp> --cols N --cell-height H <frame>...   cut several green-screen frames out and pack them into ONE aligned sprite
                                                          sheet (same feet anchor, same union crop, same scale for every frame)
+  atlas <out.webp> [--size 384] [--quality 62] "name=src[,off=0..1][,sat=S][,tint=R:G:B][,gain=G][,calm=cyan|orange:K]"...
+                                                         square rock textures packed side by side (the Deep Dig layers). sat/tint/gain
+                                                         recolour one picture into several layers; calm=cyan|orange:K softens small bright
+                                                         specks of that hue (K 0..1) so a texture cannot be mistaken for ore.
 
 Needs Pillow + numpy (dev-time only; nothing here ships to the browser):
   python3 -m venv /tmp/venv && /tmp/venv/bin/pip install pillow numpy
@@ -129,6 +133,59 @@ def portrait(src, dst, size=192, quality=82):
     return (size, size)
 
 
+def _parse_cell(spec):
+    """'name=src,opt=val,...' -> (name, src, {opt: val})"""
+    head, *rest = spec.split(',')
+    name, src = head.split('=', 1)
+    return name, src, dict(r.split('=', 1) for r in rest if '=' in r)
+
+
+def _calm(im, kind, strength):
+    """Replace small bright specks of one hue by a median-filtered copy (feathered mask), keeping the rock's own colour."""
+    a = np.asarray(im).astype(np.float32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    lum = 0.299 * r + 0.587 * g + 0.114 * b
+    if kind == 'cyan':
+        hue = np.clip(((g + b) / 2.0 - r - 35.0) / 60.0, 0, 1)
+        bright = np.clip((lum - 80.0) / 70.0, 0, 1)
+    else:                                                  # orange embers
+        hue = np.clip((r - b - 70.0) / 80.0, 0, 1)
+        bright = np.clip((lum - 90.0) / 90.0, 0, 1)
+    m = Image.fromarray((hue * bright * 255).astype(np.uint8), 'L').filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(3))
+    m = np.asarray(m).astype(np.float32)[..., None] / 255.0 * strength
+    med = np.asarray(im.filter(ImageFilter.MedianFilter(17))).astype(np.float32)
+    return Image.fromarray(np.clip(a * (1 - m) + med * m, 0, 255).astype(np.uint8), 'RGB')
+
+
+def _recolour(im, sat=1.0, tint=(1.0, 1.0, 1.0), gain=1.0):
+    a = np.asarray(im).astype(np.float32)
+    gray = (0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2])[..., None]
+    a = (gray + (a - gray) * sat) * np.array(tint, dtype=np.float32).reshape(1, 1, 3) * gain
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGB')
+
+
+def rock_atlas(cells, dst, size=384, quality=62):
+    """Pack square rock textures side by side (one cell per Deep Dig layer, in the order given)."""
+    sheet = Image.new('RGB', (size * len(cells), size))
+    names = []
+    for i, spec in enumerate(cells):
+        name, src, o = _parse_cell(spec)
+        im = Image.open(src).convert('RGB')
+        side = min(im.size)
+        off = float(o.get('off', 0.5))                       # where the square window sits along the longer side
+        x0, y0 = int((im.width - side) * off) if im.width > im.height else 0, int((im.height - side) * off) if im.height > im.width else 0
+        im = im.crop((x0, y0, x0 + side, y0 + side)).resize((size, size), Image.LANCZOS)
+        if 'calm' in o:
+            kind, k = o['calm'].split(':')
+            im = _calm(im, kind, float(k))
+        if any(k in o for k in ('sat', 'tint', 'gain')):
+            im = _recolour(im, float(o.get('sat', 1)), tuple(float(v) for v in o.get('tint', '1:1:1').split(':')), float(o.get('gain', 1)))
+        sheet.paste(im, (i * size, 0))
+        names.append(name)
+    sheet.save(dst, 'WEBP', quality=quality, method=6)
+    return sheet.size, names
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest='cmd', required=True)
@@ -138,7 +195,13 @@ def main():
     pt = sub.add_parser('portrait'); pt.add_argument('src'); pt.add_argument('dst')
     sh = sub.add_parser('sheet'); sh.add_argument('dst'); sh.add_argument('frames', nargs='+'); sh.add_argument('--cols', type=int, required=True)
     sh.add_argument('--cell-height', type=int, required=True); sh.add_argument('--align', choices=['feet', 'centre'], default='feet')
+    at = sub.add_parser('atlas'); at.add_argument('dst'); at.add_argument('cells', nargs='+')
+    at.add_argument('--size', type=int, default=384); at.add_argument('--quality', type=int, default=62)
     a = p.parse_args()
+    if a.cmd == 'atlas':
+        size, names = rock_atlas(a.cells, a.dst, a.size, a.quality)
+        print(f"{a.dst}: {size[0]}x{size[1]} ({len(names)} cells of {a.size}px: {', '.join(names)}), {os.path.getsize(a.dst)} bytes")
+        return 0
     if a.cmd == 'sheet':
         meta = sprite_sheet(a.frames, a.dst, a.cols, a.cell_height, align=a.align)
         print(f"{a.dst}: {meta['size'][0]}x{meta['size'][1]} ({meta['cols']}x{meta['rows']} cells of {meta['cell'][0]}x{meta['cell'][1]}, feet at {meta['feetX']},{meta['feetY']}), {os.path.getsize(a.dst)} bytes")
