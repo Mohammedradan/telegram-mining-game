@@ -534,8 +534,9 @@ test('wiring: build script syntax-checks the module, a dedicated browser test ex
   assert.equal(pkg.scripts['test:clicker'], 'node scripts/test-clicker-browser.cjs');
   assert.ok(fs.existsSync(path.join(root, 'scripts', 'test-clicker-browser.cjs')));
   const ci = read('.github', 'workflows', 'ci.yml');
-  assert.match(ci, /npm run test:clicker/);
-  assert.ok(ci.indexOf('npm run test:browser') < ci.indexOf('npm run test:clicker'), 'it runs after the platform E2E, on the same server');
+  // the E2E steps go through scripts/ci-run-e2e.sh, which turns a failure into annotations (see test/ci-run-e2e.test.js)
+  assert.match(ci, /ci-run-e2e\.sh "Clicker E2E" test:clicker/);
+  assert.ok(ci.indexOf('test:browser') < ci.indexOf('test:clicker'), 'it runs after the platform E2E, on the same server');
 });
 
 // ============================== cave-art.js (الميداليات المشتركة) ==============================

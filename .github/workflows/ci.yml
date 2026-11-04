@@ -77,18 +77,18 @@ jobs:
           cat /tmp/platform-server.log
           exit 1
       - name: Run platform browser end-to-end tests
-        run: npm run test:browser
+        run: bash scripts/ci-run-e2e.sh "Platform E2E" test:browser
         env:
           TEST_APP_URL: http://127.0.0.1:3000
       - name: Run mining-screen (clicker) browser end-to-end test
-        run: npm run test:clicker
+        run: bash scripts/ci-run-e2e.sh "Clicker E2E" test:clicker
         env:
           TEST_APP_URL: http://127.0.0.1:3000
       - name: Run deep-dive browser end-to-end test
-        run: npm run test:deepdive
+        run: bash scripts/ci-run-e2e.sh "Deep-dive E2E" test:deepdive
         env:
           TEST_APP_URL: http://127.0.0.1:3000
       - name: Run worlds-and-bosses browser end-to-end test
-        run: npm run test:bosses
+        run: bash scripts/ci-run-e2e.sh "Worlds-and-bosses E2E" test:bosses
         env:
           TEST_APP_URL: http://127.0.0.1:3000
