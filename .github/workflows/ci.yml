@@ -95,3 +95,8 @@ jobs:
         run: bash scripts/ci-run-e2e.sh "Worlds-and-bosses E2E" test:bosses
         env:
           TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run guide browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Guide E2E" test:guide
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000

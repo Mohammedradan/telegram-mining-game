@@ -594,7 +594,7 @@ test('the workshop and the hub share one medal builder: nodes keep their test ho
 
 test('cave art is cached for a week, which is only safe because every reference carries a version number', () => {
   assert.match(read('server.js'), /assets\$\{path\.sep\}cave\$\{path\.sep\}[^\n]*max-age=604800, immutable/);
-  const sources = { 'index.html': html, 'clicker.css': css, 'platform.css': read('public', 'platform.css'), 'cave.css': read('public', 'cave.css'), 'cave-art.js': read('public', 'cave-art.js'), 'clicker-fx.js': fxSource, 'deep-dig-ui.js': read('public', 'deep-dig-ui.js') };
+  const sources = { 'index.html': html, 'clicker.css': css, 'platform.css': read('public', 'platform.css'), 'cave.css': read('public', 'cave.css'), 'cave-art.js': read('public', 'cave-art.js'), 'clicker-fx.js': fxSource, 'deep-dig-ui.js': read('public', 'deep-dig-ui.js'), 'guide.js': read('public', 'guide.js') };
   let refs = 0;
   for (const [name, text] of Object.entries(sources)) {
     for (const m of text.matchAll(/\/assets\/cave\/[A-Za-z0-9_.\/-]*/g)) {

@@ -316,6 +316,7 @@
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
   <link rel="stylesheet" href="/deep-dig.css?v=3">
+  <link rel="stylesheet" href="/guide.css?v=1">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -368,6 +369,7 @@
     <symbol id="i-rope" viewBox="0 0 24 24"><path d="M12 21V5M6.5 10.5 12 5l5.5 5.5M8 21h8"/></symbol>
     <symbol id="i-dive" viewBox="0 0 24 24"><path d="M12 3v13M6.5 11 12 16.5 17.5 11M5 21h14"/></symbol>
     <symbol id="i-boss" viewBox="0 0 24 24"><path d="M4 4c0 4 1.5 6 3.5 7M20 4c0 4-1.5 6-3.5 7M7 10h10l1 6.5-3 3.5h-6l-3-3.5zM9.5 14.5h.01M14.5 14.5h.01M10.5 18h3"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M3 5.5c3-1 6-.8 9 1.2 3-2 6-2.2 9-1.2v13c-3-1-6-.8-9 1.2-3-2-6-2.2-9-1.2zM12 6.7v13M6 9.5c1.1-.2 2.2-.1 3.2.3M6 12.5c1.1-.2 2.2-.1 3.2.3M15 9.8c1-.4 2.1-.5 3.2-.3M15 12.8c1-.4 2.1-.5 3.2-.3"/></symbol>
   </svg>
 
   <!-- فنّ الكهف المتجهي: رسومات ملوّنة بتدرجات (بخلاف أيقونات الواجهة الخطية). الروبوت هنا طائرة الورشة المساعدة؛ أيقونتا الروبوت والنبتة في الميداليات مرسومتان (ملفات WebP) -->
@@ -571,6 +573,7 @@
           <div class="overlay-row">
             <button id="mine-select" type="button" class="mine-select" aria-haspopup="dialog" aria-label="اختيار المنجم"><span class="mine-select-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="mine-select-hits" data-mine-hits></span></button>
             <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
+            <button id="open-guide" type="button" class="guide-entry" data-guide-open data-news="0" hidden aria-haspopup="dialog" aria-label="المرشد العم سراج: الهدف والموسوعة والحكاية"><svg class="ui-icon" aria-hidden="true"><use href="#i-book"/></svg><span data-guide-label>المرشد</span><i class="guide-dot" hidden aria-hidden="true"></i></button>
           </div>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
@@ -1007,6 +1010,21 @@
     <div id="mines-list" class="mines-list"></div>
   </div>
 
+  <!-- المرشد «العم سراج» (guide.js): الهدف التالي والموسوعة والحكاية. عرض فقط: يقرأ حالة اللاعب ولا يكتب شيئاً -->
+  <div id="guide-overlay" class="guide-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <div class="ws-cave" aria-hidden="true"></div>
+    <div class="gd-top">
+      <h2 id="guide-title">العم سراج<small>حارس المصباح</small></h2>
+      <button id="guide-close" class="ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="gd-tabs" role="tablist" aria-label="أقسام المرشد">
+      <button type="button" role="tab" class="gd-tab active" aria-selected="true" data-guide-tab="goal">الهدف</button>
+      <button type="button" role="tab" class="gd-tab" aria-selected="false" data-guide-tab="codex">الموسوعة</button>
+      <button type="button" role="tab" class="gd-tab" aria-selected="false" data-guide-tab="story">الحكاية</button>
+    </div>
+    <div id="guide-body" class="gd-body" role="tabpanel"></div>
+  </div>
+
   <!-- الحفر العميق: بئر عمودي تنزل فيه بعصا التحكم وتجمع العروق وتقرّر متى تصعد. عميل فقط (لا ذهب ولا خادم):
        النموذج deep-dig.js، الرسم deep-dig-render.js، الصوت cave-sound.js، التحكم deep-dig-ui.js -->
   <div id="dd-overlay" class="dd-overlay" hidden role="dialog" aria-modal="true" aria-label="الحفر العميق" data-phase="closed">
@@ -1090,6 +1108,7 @@
   <script src="/cave-sound.js?v=1"></script>
   <script src="/deep-dig-render.js?v=1"></script>
   <script src="/deep-dig-ui.js?v=1"></script>
+  <script src="/guide.js?v=1"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -2088,6 +2107,7 @@
         costs: state.costs, owned: state.owned, passive: passiveGain(), level, levelSource: prog ? 'server' : 'local', now,
         workshop: workshopHint(), deepDive: deepDiveHint(), robot: Math.max(0, Math.floor(Number(state.equipment && state.equipment.robot) || 0)),
       });
+      window.Guide?.refresh?.();
     }
 
     // أنواع الاهتزاز: light/medium/heavy/rigid/soft (ضربات) وsuccess/warning/error (إشعارات) وselection؛ الافتراضي light
@@ -3660,6 +3680,12 @@
     window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null, deepDive: deepDiveReady ? () => window.DeepDigUI.open() : null });
     // موقع الحفر: كل ضربة للمعدّن تمرّ من handleMine نفسه (طاقة + ذهب + عملية mine)؛ يعيد false حين ترفضها قلة الطاقة
     window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic });
+    // المرشد (عرض فقط): يقرأ state ولا يكتب ذهباً ولا عمليات؛ يبدأ بعد اعتماد حالة الخادم كي لا يبدو اللاعب القديم جديداً
+    window.Guide?.init({
+      getState: () => state, getZone: () => window.PlatformGame?.getZone?.() ?? 0,
+      pause: () => { try { window.PlatformGame?.pause(); } catch (_) {} },
+      openWorkshop: WS_RULES ? wsOpen : null, setZone: (z) => window.PlatformGame?.setZone?.(z),
+    });
     updateUI();
     updateArenaUI();
     updateAdventureUI();
@@ -3669,6 +3695,7 @@
     setTimeout(resizeAdventureCanvas, 50);
     // جسر منجم المنصّة ينتظر انحسم bootstrap (نجاحاً أو فشلاً) قبل أن يُعرف إن كان للاعب هوية خادمية
     window.platformReady = bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
+    window.platformReady.then(() => window.Guide?.start?.());
   </script>
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
