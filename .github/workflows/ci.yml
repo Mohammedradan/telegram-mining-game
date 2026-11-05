@@ -110,3 +110,8 @@ jobs:
         run: bash scripts/ci-run-e2e.sh "Quests E2E" test:quests
         env:
           TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run prestige browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Prestige E2E" test:prestige
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000

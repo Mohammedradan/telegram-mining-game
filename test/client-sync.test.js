@@ -31,6 +31,7 @@ function harness({ responder } = {}) {
       boostUntil: 0, boostCooldownUntil: 0, dailyLastClaim: null, dailyStreak: 0, lastSeen: 0,
     },
     state: null,
+    PrestigeRules: require('../public/prestige-rules'),
     ADV_UPGRADE_DEFS: { magnet: { base: 150, growth: 1.7, max: 5 }, cart: { base: 200, growth: 1.7, max: 5 } },
     ADV: { playerW: 78 },
     localStorage: {
@@ -436,4 +437,47 @@ test('phase 3: buy_equip is applied optimistically with the shared price table, 
   h.e.SYNC.pending = [];
   h.e.adoptServerState({ revision: 4, state: serverState({ gold: 1000, ores: { copper: 10 }, equipment: { pickaxe: 2 } }) });
   assert.ok(!h.ctx.state.equipment.boots, 'the refused purchase disappears'); assert.equal(h.ctx.state.gold, 1000);
+});
+
+// الدفعة 3ج: التبجيل يُعرض فوراً بقاعدة الخادم نفسها (prestige-rules.js)، ويُعاد تطبيقه فوق حالة الخادم حتى يؤكَّد، ويُلغى إن رفضه الخادم.
+test('phase 3c: a prestige is previewed with the shared rules, does nothing when the stock is short, and a purchase earns at the level\'s rate', () => {
+  const h = harness();
+  h.e.loadSyncQueue();
+  const stock = (bot, rig, prestige = 0) => ({ ...h.ctx.state, gold: 777, owned: { click: 4, bot, rig }, costs: { click: 300, bot: 22_211, rig: 1_690 }, passiveIncome: bot * 5 + rig * 25, prestige, ores: { copper: 9, iron: 0, gold: 0, crystal: 0, lava: 0 }, equipment: { pickaxe: 2 }, clickPower: 5 });
+  const ok = stock(15, 3);
+  h.e.applyOpLocally(ok, { type: 'prestige' });
+  assert.deepEqual([ok.owned.bot, ok.owned.rig, ok.prestige, ok.costs.bot, ok.costs.rig, ok.passiveIncome], [0, 0, 1, 200, 1000, 0], 'bots, rigs and their prices reset, the level rises');
+  assert.deepEqual([ok.owned.click, ok.costs.click, ok.clickPower, ok.gold, ok.ores.copper, ok.equipment.pickaxe], [4, 300, 5, 777, 9, 2], 'clicks, gold, ores and equipment are not touched');
+  const short = stock(14, 3); h.e.applyOpLocally(short, { type: 'prestige' });
+  assert.deepEqual([short.owned.bot, short.owned.rig, short.prestige, short.passiveIncome], [14, 3, 0, 14 * 5 + 75], 'one bot short: nothing changes (the server would refuse as well)');
+  const rigShort = stock(40, 2); h.e.applyOpLocally(rigShort, { type: 'prestige' });
+  assert.equal(rigShort.prestige, 0);
+  const second = stock(16, 4, 1); h.e.applyOpLocally(second, { type: 'prestige' });
+  assert.equal(second.prestige, 1, 'level 1 asks for 17 bots, not 15: 16 are not enough'); h.e.applyOpLocally(Object.assign(second, { owned: { click: 0, bot: 17, rig: 4 } }), { type: 'prestige' });
+  assert.equal(second.prestige, 2);
+  const top = stock(900, 900, 10); h.e.applyOpLocally(top, { type: 'prestige' });
+  assert.deepEqual([top.prestige, top.owned.bot], [10, 900], 'the top level never resets anything');
+  // a purchase after a prestige earns at the level's rate: one bot at level 3 earns 1 × 13 / 2 = 6.5 a second, exactly
+  const rebuilt = { ...stock(0, 0, 3), gold: 1000, costs: { click: 50, bot: 200, rig: 1000 } };
+  h.e.applyOpLocally(rebuilt, { type: 'buy', item: 'bot' });
+  assert.equal(rebuilt.passiveIncome, 6.5); assert.equal(rebuilt.costs.bot, 280);
+  h.e.applyOpLocally(rebuilt, { type: 'buy', item: 'bot' });
+  assert.equal(rebuilt.passiveIncome, 13, 'two bots: still exact, no float noise from 5 × 1.3');
+});
+
+test('phase 3c: a pending prestige is layered over the server state until it is acknowledged, then the authoritative state wins', () => {
+  const h = harness();
+  h.e.loadSyncQueue();
+  const before = serverState({ gold: 5000, owned: { click: 2, bot: 15, rig: 3 }, passiveIncome: 150, prestige: 0, costs: { click: 125, bot: 22_211, rig: 1_690 } });
+  h.e.SYNC.pending = [{ seq: 1, type: 'prestige' }];
+  h.e.adoptServerState({ revision: 5, state: before });
+  assert.deepEqual([h.ctx.state.owned.bot, h.ctx.state.owned.rig, h.ctx.state.prestige, h.ctx.state.passiveIncome], [0, 0, 1, 0], 'the reset shows at once');
+  assert.equal(h.ctx.state.gold, 5000);
+  // the server answered without it (refused, e.g. another tab had spent the stock): the page returns to the truth
+  h.e.SYNC.pending = [];
+  h.e.adoptServerState({ revision: 6, state: before });
+  assert.deepEqual([h.ctx.state.owned.bot, h.ctx.state.prestige, h.ctx.state.passiveIncome], [15, 0, 150], 'a refused prestige disappears');
+  // acknowledged: the server state already carries the level
+  h.e.adoptServerState({ revision: 7, state: serverState({ gold: 5000, owned: { click: 2, bot: 0, rig: 0 }, passiveIncome: 0, prestige: 1 }) });
+  assert.deepEqual([h.ctx.state.owned.bot, h.ctx.state.prestige], [0, 1]);
 });

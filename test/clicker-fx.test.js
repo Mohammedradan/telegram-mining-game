@@ -427,14 +427,32 @@ test('the cave art is real: scene, hero and ore sprite sheets and medal icons ex
   assert.ok(html.includes('/assets/cave/hero.webp'), 'the workshop shows the idle miner');
   for (const f of ['/assets/cave/hero-sheet.webp', '/assets/cave/ore-sheet.webp']) assert.ok(css.includes(f), `${f} is painted by clicker.css`);
   assert.ok(!fs.existsSync(path.join(dir, 'ore.webp')), 'the single-frame ore image was replaced by the sheet');
-  const goals = [...html.matchAll(/(click|bot|rig):\s+\{ apply: \(\) => \{ state\.(clickPower|passiveIncome) \+= (\d+); \},\s+growth: [\d.]+, name: '([^']+)',\s+desc: '([^']+)',\s+icon: '([^']+)',\s+base: (\d+), gain: (\d+),\s+unit: '([^']+)'/g)];
-  assert.deepEqual(goals.map((m) => m[1]), ['click', 'bot', 'rig'], 'all three upgrades carry medal metadata');
-  for (const [, key, , applied, name, desc, icon, , gain, unit] of goals) {
-    assert.ok(symbols.has(icon), `${key} uses a sprite icon that exists (${icon})`);
-    assert.equal(gain, applied, `${key}: the effect shown in the window (+${gain}) is what apply() adds (+${applied})`);
-    assert.ok(html.includes(name) && desc.includes(gain) && unit, `${key} reads the same in the shop and in the window`);
+  // the shop table is the page's own code, run: each upgrade's window metadata must match what apply() really adds (since prestige a bot or a rig
+  // adds 5 or 25 times the level's multiplier, so desc and gain are getters; the old regex over literal numbers could not see that)
+  const table = /const UPGRADES = (\{[\s\S]*?\n    \});\n\n    function buyUpgrade/.exec(html)[1];
+  const PrestigeRules = require('../public/prestige-rules');
+  const fmtRate = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 });
+  const vmx = require('node:vm');
+  const run = (level) => {
+    const ctx = { state: { clickPower: 1, passiveIncome: 0, owned: { click: 0, bot: 0, rig: 0 }, prestige: level }, PrestigeRules, fmtRate };
+    vmx.createContext(ctx);
+    return { ctx, UPGRADES: vmx.runInContext(`(${table})`, ctx) };
+  };
+  assert.deepEqual(Object.keys(run(0).UPGRADES), ['click', 'bot', 'rig'], 'all three upgrades carry medal metadata');
+  for (const level of [0, 1, 4, 10]) {
+    for (const key of ['click', 'bot', 'rig']) {
+      const { ctx, UPGRADES } = run(level), up = UPGRADES[key];
+      assert.ok(symbols.has(up.icon), `${key} uses a sprite icon that exists (${up.icon})`);
+      assert.ok(html.includes(up.name) && up.unit, `${key} reads the same in the shop and in the window`);
+      const before = key === 'click' ? ctx.state.clickPower : ctx.state.passiveIncome;
+      ctx.state.owned[key] += 1; up.apply();
+      const added = (key === 'click' ? ctx.state.clickPower : ctx.state.passiveIncome) - before;
+      assert.equal(added, up.gain, `${key} at prestige ${level}: the effect shown in the window (+${up.gain}) is what apply() adds (+${added})`);
+      assert.ok(up.desc.includes(key === 'click' ? String(up.gain) : fmtRate(up.gain)), `${key} at prestige ${level}: the description says the same number (${up.desc})`);
+      if (key !== 'click') assert.equal(up.gain, PrestigeRules.passiveFor(key === 'bot' ? { bot: 1 } : { rig: 1 }, level), `${key}: one piece's income at this level, in the rules' own exact arithmetic (5 × 1.1 floats to 5.500000000000001; this does not)`);
+    }
   }
-  assert.ok(html.includes('+1 لكل نقرة') && html.includes('+5 ذهب/ثانية') && html.includes('+25 ذهب/ثانية'));
+  assert.ok(html.includes('+1 لكل نقرة') && html.includes('id="gain-bot">5</span> ذهب/ثانية') && html.includes('id="gain-rig">25</span> ذهب/ثانية'), 'the shop lines start at +5 and +25 and are kept current by updateUI');
 });
 
 test('the tap path keeps the sync accounting lines and hooks the effects around them', () => {

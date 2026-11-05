@@ -14,6 +14,7 @@ const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
 const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
 const Quests = require('./quests');
+const Prestige = require('./public/prestige-rules');
 // قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
 const PlatformRules = require('./public/platform-rules');
 
@@ -87,6 +88,7 @@ const defaultState = () => ({
   maxEnergy: 1000,
   owned: { click: 0, bot: 0, rig: 0 },
   costs: { click: 50, bot: 200, rig: 1000 },
+  prestige: 0,   // مستوى التبجيل (الدفعة 3ج): يكتبه الخادم وحده بعملية prestige؛ +10% من الدخل السلبي لكل مستوى حتى 10
   adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
   ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
   // المرحلة 3: معدات المناجم الدائمة (0..5) وعدد انتصارات كل منجم. تُكتب من الخادم فقط (buy_equip / ختم الجولة).
@@ -132,6 +134,7 @@ function sanitizeState(input, base = defaultState()) {
       bot: clampNum(c.bot, 1, 1e12, base.costs.bot),
       rig: clampNum(c.rig, 1, 1e12, base.costs.rig),
     },
+    prestige: Prestige.levelOf(clampNum(s.prestige, 0, Prestige.MAX_LEVEL, base.prestige || 0)),
     adventureUpgrades: Object.fromEntries(
       Object.keys(ADV_UPGRADES_DEF).map((k) => [k, Math.floor(clampNum(au[k], 0, ADV_UPGRADES_DEF[k].max, base.adventureUpgrades?.[k] || 0))])
     ),
@@ -232,7 +235,8 @@ function zonesFor(a) {
 
 function deriveStats(s) {
   s.clickPower = 1 + s.owned.click;
-  s.passiveIncome = s.owned.bot * 5 + s.owned.rig * 25;
+  s.prestige = Prestige.levelOf(s.prestige);
+  s.passiveIncome = Prestige.passiveFor(s.owned, s.prestige); // (عمال + 5×منصّات) × (10 + مستوى) / 2؛ المستوى 0 = العمال×5 + المنصّات×25 كما كان
   for (const t of Object.keys(UPGRADES_DEF)) s.costs[t] = costFor(t, s.owned[t]);
   if (!s.adventure) s.adventure = defaultAdventure();
   if (!s.ores || typeof s.ores !== 'object') s.ores = { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 };
@@ -249,7 +253,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore', 'buy_equip', 'quest']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore', 'buy_equip', 'quest', 'prestige']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -496,7 +500,7 @@ const ACHIEVEMENTS = [
   { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', target: 1, gold: 100, xp: 30, value: (u) => num(advOf(u).bossWins) },
   { id: 'racer', icon: '⚔️', name: 'بطل السباقات', desc: 'افُز بسباق مباشر واحد', target: 1, gold: 50, xp: 20, value: (u, ctx) => num(ctx.raceWins) },
   { id: 'earner', icon: '🪙', name: 'صانع الذهب', desc: 'اكسب 500 ذهب من المغامرات', target: 500, gold: 100, xp: 30, value: (u) => num(advOf(u).rewardEarned) },
-  { id: 'upgrades10', icon: '🛠️', name: 'مهندس المنجم', desc: 'اشترِ 10 ترقيات إجمالاً', target: 10, gold: 150, xp: 40, value: (u) => Object.values(u.state.owned || {}).reduce((a, v) => a + num(v), 0) + Object.values(u.state.adventureUpgrades || {}).reduce((a, v) => a + num(v), 0) },
+  { id: 'upgrades10', icon: '🛠️', name: 'مهندس المنجم', desc: 'اشترِ 10 ترقيات إجمالاً', target: 10, gold: 150, xp: 40, value: (u) => Object.values(u.state.owned || {}).reduce((a, v) => a + num(v), 0) + Object.values(u.state.adventureUpgrades || {}).reduce((a, v) => a + num(v), 0) + Prestige.spentBy(u.state.prestige) },
   { id: 'missions10', icon: '📅', name: 'مثابر', desc: 'استلم 10 مهام يومية', target: 10, gold: 200, xp: 50, value: (u) => num(u.sync.missionsClaimed) },
   { id: 'streak7', icon: '🗓️', name: 'أسبوع كامل', desc: 'سلسلة مكافأة يومية 7 أيام', target: 7, gold: 300, xp: 60, value: (u) => num(u.dailyStreak) },
   { id: 'inviter', icon: '👥', name: 'صاحب الدعوة', desc: 'ادعُ صديقاً واحداً', target: 1, gold: 100, xp: 30, value: (u) => num(u.referralCount) },
@@ -778,6 +782,18 @@ function applyOps(user, session, ops, now, ctx = {}) {
         r.xp = grantXp(s, cost.gold / XP_RULES.costPerXp);
         trackMission(user, 'buy', 1, now);
         goldDelta = -cost.gold; detail = { key: op.key, level: lvl + 1, ores: cost.ores };
+        break;
+      }
+      case 'prestige': {
+        // التبجيل: يصفّر العمال والمنصّات (وأسعارهم المشتقة) مقابل +10% دائمة من الدخل السلبي. الذهب والخامات والمعدات والمناجم والنقرات
+        // وترقيات المغامرة والخبرة لا تُمَسّ. الدخل المتراكم حتى هذه اللحظة دُفع قبل الدفعة (settlePassive) بالمضاعف القديم.
+        // التكرار يمنعه تسلسل العمليات، وتكراره بتسلسل جديد تمنعه المتطلبات نفسها (العدّادات صارت صفراً).
+        const c = Prestige.check(s.owned, s.prestige);
+        if (!c.ok) { r.status = 'rejected'; r.reason = c.reason; r.level = c.level; r.need = c.need; r.have = c.have; break; }
+        const gave = { bots: s.owned.bot, rigs: s.owned.rig };
+        s.owned.bot = 0; s.owned.rig = 0; s.prestige = c.level + 1; deriveStats(s);
+        Object.assign(r, { level: s.prestige, multiplier: Prestige.multiplier(s.prestige), passiveIncome: s.passiveIncome });
+        detail = { from: c.level, to: s.prestige, bots: gave.bots, rigs: gave.rigs, multiplier: r.multiplier };
         break;
       }
       case 'boost': {

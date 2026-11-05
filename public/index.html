@@ -785,7 +785,7 @@
         <div class="text-3xl bg-slate-800 p-2 rounded-xl">🤖</div>
         <div>
           <div class="font-bold text-sm">عامل آلي <span id="owned-bot" class="text-[10px] text-amber-400 font-black"></span></div>
-          <div class="text-xs text-slate-400">+5 ذهب/ثانية</div>
+          <div class="text-xs text-slate-400">+<span id="gain-bot">5</span> ذهب/ثانية</div>
         </div>
       </div>
       <button onclick="buyUpgrade('bot')" id="btn-upgrade-bot" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
@@ -799,13 +799,25 @@
         <div class="text-3xl bg-slate-800 p-2 rounded-xl">⚡</div>
         <div>
           <div class="font-bold text-sm">منصة تعدين عملاقة <span id="owned-rig" class="text-[10px] text-amber-400 font-black"></span></div>
-          <div class="text-xs text-slate-400">+25 ذهب/ثانية</div>
+          <div class="text-xs text-slate-400">+<span id="gain-rig">25</span> ذهب/ثانية</div>
         </div>
       </div>
       <button onclick="buyUpgrade('rig')" id="btn-upgrade-rig" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
         <span>🪙</span> <span id="cost-upgrade-rig">1000</span>
       </button>
     </div>
+
+    <!-- التبجيل (الدفعة 3ج): +10% من الدخل السلبي لكل مستوى حتى 10 (×2)، مقابل تصفير العمال والمنصّات وأسعارهم؛ عملية خادمية واحدة -->
+    <section id="prestige-card" class="prestige-card" aria-labelledby="prestige-title">
+      <div class="prestige-head">
+        <span class="prestige-ico" aria-hidden="true"><svg class="ui-icon"><use href="#i-sparkle"/></svg></span>
+        <div class="prestige-titles"><h3 id="prestige-title">التبجيل</h3><p id="prestige-level" aria-live="polite"></p></div>
+        <b id="prestige-mult" class="prestige-mult"></b>
+      </div>
+      <p class="prestige-note">يصفّر العمال الآليين والمنصّات العملاقة وأسعارهم، ويرفع دخلك السلبي <b>10%</b> للأبد (حتى ×2 في المستوى 10). الذهب والخامات والمعدات والمناجم والنقرات لا تتأثر.</p>
+      <div id="prestige-needs" class="prestige-needs"></div>
+      <button id="prestige-btn" type="button" class="prestige-btn" disabled></button>
+    </section>
 
     <!-- المرحلة 2: مخزن الخامات — يُمنح من جولات يعيد الخادم تشغيلها، ويُباع بسعر ثابت خادمياً -->
     <section id="ore-storage" class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-3 flex flex-col gap-2">
@@ -1117,6 +1129,7 @@
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
   <script src="/platform-rules.js?v=7"></script>
+  <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=1"></script>
   <script src="/platform-renderer.js?v=6"></script>
@@ -1144,6 +1157,7 @@
       maxEnergy: 1000,
       owned: { click: 0, bot: 0, rig: 0 },
       costs: { click: 50, bot: 200, rig: 1000 },
+      prestige: 0,           // مستوى التبجيل (خادمي): +10% من الدخل السلبي لكل مستوى حتى 10
       adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
       ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
       equipment: { pickaxe: 0, boots: 0, bag: 0, magnet: 0, drill: 0, robot: 0, luck: 0, armor: 0 }, // معدات المناجم (خادمية)
@@ -1216,6 +1230,7 @@
     const levelBadge = document.getElementById('level-badge');
     const clickArea = document.getElementById('click-area');
     const fmt = (n) => Math.floor(n).toLocaleString('en-US');
+    const fmtRate = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 }); // ذهب/ثانية: 5.5 لا 5 بعد التبجيل
 
     let saveQueued = false;
     function save() {
@@ -1323,7 +1338,14 @@
         s.owned[op.item] += 1;
         s.costs[op.item] = Math.floor(cost * growth);
         s.clickPower = 1 + s.owned.click;
-        s.passiveIncome = s.owned.bot * 5 + s.owned.rig * 25;
+        s.passiveIncome = PrestigeRules.passiveFor(s.owned, s.prestige);
+      } else if (op.type === 'prestige') {
+        // نفس ما يطبّقه الخادم: يصفّر العمال والمنصّات وأسعارهم فقط ويرفع المستوى (إن لم تتحقق المتطلبات لا يتغيّر شيء)
+        const c = PrestigeRules.check(s.owned, s.prestige);
+        if (!c.ok) return;
+        s.owned.bot = 0; s.owned.rig = 0; s.prestige = c.level + 1;
+        s.costs.bot = 200; s.costs.rig = 1000;
+        s.passiveIncome = PrestigeRules.passiveFor(s.owned, s.prestige);
       } else if (op.type === 'buy_adv') {
         const def = ADV_UPGRADE_DEFS[op.key];
         const lvl = s.adventureUpgrades[op.key] || 0;
@@ -1434,6 +1456,7 @@
         const weeklyDone = results.filter((r) => r.type === 'weekly_mission' && r.status === 'ok');
         const achievementsDone = results.filter((r) => r.type === 'achievement' && r.status === 'ok');
         const questsDone = results.filter((r) => r.type === 'quest' && r.status === 'ok');
+        const prestigeDone = results.filter((r) => r.type === 'prestige' && r.status === 'ok');
         const arenaVerdicts = results.filter((r) => r.type === 'arena');
         if (typeof noteArenaVerdicts === 'function') noteArenaVerdicts(arenaVerdicts);
         if (data.levelUp && data.levelUp.to > data.levelUp.from) { setSyncStatus(`🎉 مستوى جديد: ${data.levelUp.to} — خبرتك من نشاط تحقق منه الخادم`); haptic('success'); }
@@ -1442,6 +1465,7 @@
         else if (refused.length) setSyncStatus(refused.some((r) => r.type === 'run') ? '🛡️ لم يُحتسب تقرير جولة لا يطابق زمن اللعب الحقيقي' : '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك');
         else if (weeklyDone.length) setSyncStatus(`🗓️ ${weeklyDone.some((r) => r.key === 'bonus') ? 'مكافأة إكمال مهام الأسبوع' : 'مهمة أسبوعية مكتملة'}: +${weeklyDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${weeklyDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
         else if (missionsDone.length) setSyncStatus(`🎯 ${missionsDone.some((r) => r.key === 'bonus') ? 'مكافأة إكمال مهام اليوم' : 'مهمة مكتملة'}: +${missionsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${missionsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
+        else if (prestigeDone.length) setSyncStatus(`🌟 تبجيل مُعتمد: المستوى ${prestigeDone[prestigeDone.length - 1].level} — دخلك السلبي ×${fmtRate(prestigeDone[prestigeDone.length - 1].multiplier)}`);
         else if (questsDone.length) setSyncStatus(`🧭 مهمة مغامرة مُعتمدة: +${questsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${questsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
         else if (achievementsDone.length) setSyncStatus(`🏅 إنجاز مُعتمد: +${achievementsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙${achievementsDone.some((r) => r.xp) ? ` +${achievementsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة` : ''}`);
         else if (runs.some((r) => r.unlocked)) setSyncStatus(`🗺️ فُتحت منطقة جديدة — تقدّمك محفوظ في حسابك (${runs[runs.length - 1].zones}/3)`);
@@ -1868,6 +1892,54 @@
       save();
     }
 
+    // 🌟 التبجيل (الدفعة 3ج): المتطلب والمضاعف من prestige-rules.js نفسه الذي يحسب به الخادم؛ هنا عرض وتأكيد بلمستين، والخادم يقرّر
+    let prestigeConfirmUntil = 0, prestigeSig = '';
+    function renderPrestige(force) {
+      const card = document.getElementById('prestige-card');
+      if (!card) return;
+      const v = PrestigeRules.view(state.owned, state.prestige);
+      const confirming = v.ready && Date.now() < prestigeConfirmUntil;
+      const sig = [v.level, v.have.bots, v.have.rigs, v.ready ? 1 : 0, confirming ? 1 : 0, serverMode ? 1 : 0].join('|');
+      if (!force && sig === prestigeSig) return;
+      prestigeSig = sig;
+      const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+      set('prestige-level', `المستوى ${v.level} من ${v.max}${v.level ? ` · دخلك السلبي +${v.bonusPct}%` : ''}`);
+      set('prestige-mult', `×${fmtRate(v.multiplier)}`);
+      const needs = document.getElementById('prestige-needs');
+      if (needs) {
+        needs.innerHTML = v.next ? [['i-robot', 'العمال الآليون', v.have.bots, v.next.bots], ['i-drill', 'المنصّات العملاقة', v.have.rigs, v.next.rigs]].map(([icon, label, have, need]) => {
+          const ok = have >= need, pct = Math.max(0, Math.min(100, Math.floor(have / need * 100)));
+          return `<div class="prestige-need ${ok ? 'ok' : ''}"><span class="prestige-need-label"><svg class="ui-icon" aria-hidden="true"><use href="#${icon}"/></svg>${label}</span><div class="prestige-bar" aria-hidden="true"><i style="width:${pct}%"></i></div><b>${fmt(have)}/${fmt(need)}</b></div>`;
+        }).join('') : '<p class="prestige-note">بلغت أقصى مستوى: دخلك السلبي ضعف ما كان.</p>';
+      }
+      const btn = document.getElementById('prestige-btn');
+      if (!btn) return;
+      btn.dataset.state = v.maxed ? 'max' : confirming ? 'confirm' : v.ready ? 'ready' : 'locked';
+      btn.disabled = !serverMode || !v.ready;
+      btn.textContent = !serverMode ? 'التبجيل يتطلب اتصالاً بالخادم'
+        : v.maxed ? `المستوى الأقصى ×${fmtRate(v.multiplier)}`
+        : confirming ? `اضغط مرة أخرى للتأكيد: يُصفَّر ${fmt(v.have.bots)} عاملاً و${fmt(v.have.rigs)} منصّة`
+        : v.ready ? `تبجيل ← ×${fmtRate(v.nextMultiplier)}`
+        : `يلزمك ${fmt(v.next.bots)} عاملاً و${fmt(v.next.rigs)} منصّة`;
+    }
+    function prestigeTap() {
+      const v = PrestigeRules.view(state.owned, state.prestige);
+      if (!serverMode || !v.ready) { haptic('error'); return; }
+      if (Date.now() >= prestigeConfirmUntil) {            // أول لمسة: تأكيد (يُصفّر العمال والمنصّات، فلا يحدث بلمسة واحدة)
+        prestigeConfirmUntil = Date.now() + 6000;
+        renderPrestige(true); haptic('warning');
+        setTimeout(() => renderPrestige(true), 6100);       // ينتهي التأكيد وحده
+        return;
+      }
+      prestigeConfirmUntil = 0;
+      const op = { type: 'prestige' };
+      applyOpLocally(state, op);                            // نفس التصفير الذي سيطبّقه الخادم، فيظهر فوراً
+      enqueueOp(op);
+      haptic('success');
+      renderPrestige(true); updateUI(); save();
+    }
+    document.getElementById('prestige-btn')?.addEventListener('click', prestigeTap);
+
     // 🧭 مهام المغامرة (الدفعة 3ب): الخادم يعدّ التقدّم من جولاته المُعاد تشغيلها ويعرض الاثنتي عشرة؛ هنا عرض واستلام فقط.
     // الأيقونات SVG (رمز من الصفحة أو نقطة لون الخام) بلا إيموجي.
     function questIconHtml(icon) {
@@ -2106,7 +2178,7 @@
       energyCounter.innerText = fmt(state.energy);
       document.getElementById('max-energy').innerText = fmt(state.maxEnergy);
       energyBar.style.width = `${Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100))}%`;
-      profitCounter.innerText = `+${fmt(passiveGain())}`; // علامة ×2 أثناء التعزيز تأتي من CSS (body.ck-boost-on)
+      profitCounter.innerText = `+${fmtRate(passiveGain())}`; // علامة ×2 أثناء التعزيز تأتي من CSS (body.ck-boost-on)
       document.getElementById('tap-cost').innerText = state.clickPower;
       document.getElementById('current-click-power').innerText = state.clickPower;
 
@@ -2160,6 +2232,11 @@
         const ownedEl = document.getElementById(`owned-${type}`);
         ownedEl.innerText = state.owned[type] > 0 ? `×${state.owned[type]}` : '';
       }
+      for (const [type, one] of [['bot', { bot: 1 }], ['rig', { rig: 1 }]]) {
+        const gainEl = document.getElementById(`gain-${type}`), text = fmtRate(PrestigeRules.passiveFor(one, state.prestige));
+        if (gainEl && gainEl.textContent !== text) gainEl.textContent = text;
+      }
+      renderPrestige();
 
       // المستوى: من نقاط خبرة يمنحها الخادم على نشاط موثوق (تعدين، شراء، جولات، يومية، دعوات)؛
       // دون خادم يبقى مشتقاً محلياً من إجمالي المكاسب كما كان
@@ -3341,8 +3418,9 @@
     // name/desc/icon وbase/gain/unit تعرضها ميداليات ونافذة الترقية في تبويب التعدين (عرض فقط)؛ المنطق (apply/growth) لم يتغير
     const UPGRADES = {
       click: { apply: () => { state.clickPower += 1; },      growth: 1.5, name: 'فأس فولاذي',        desc: '+1 لكل نقرة',   icon: 'i-pickaxe', base: 1, gain: 1,  unit: 'لكل نقرة' },
-      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4, name: 'عامل آلي',          desc: '+5 ذهب/ثانية',  icon: 'i-robot',   base: 0, gain: 5,  unit: 'ذهب/ثانية' },
-      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3, name: 'منصة تعدين عملاقة', desc: '+25 ذهب/ثانية', icon: 'i-drill',   base: 0, gain: 25, unit: 'ذهب/ثانية' }
+      // بعد التبجيل يعطي كل عامل/منصّة أكثر من 5/25: الأثر المعروض = 5 أو 25 × مضاعف المستوى، والتطبيق يعيد الحساب بقاعدة الخادم نفسها
+      bot:   { apply: () => { state.passiveIncome = PrestigeRules.passiveFor(state.owned, state.prestige); },  growth: 1.4, name: 'عامل آلي',          get desc() { return `+${fmtRate(this.gain)} ذهب/ثانية`; },  icon: 'i-robot',   base: 0, get gain() { return PrestigeRules.passiveFor({ bot: 1 }, state.prestige); },  unit: 'ذهب/ثانية' },
+      rig:   { apply: () => { state.passiveIncome = PrestigeRules.passiveFor(state.owned, state.prestige); },  growth: 1.3, name: 'منصة تعدين عملاقة', get desc() { return `+${fmtRate(this.gain)} ذهب/ثانية`; }, icon: 'i-drill',   base: 0, get gain() { return PrestigeRules.passiveFor({ rig: 1 }, state.prestige); }, unit: 'ذهب/ثانية' }
     };
 
     function buyUpgrade(type) {

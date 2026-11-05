@@ -414,3 +414,30 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .quest-done{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#7dffd4;font-weight:800}
 .quest-done .ui-icon{width:12px;height:12px}
 @media(max-width:360px){.quest-reward{white-space:normal}.quest-row{gap:7px;padding:7px}}
+
+/* التبجيل (3ج): بطاقة في تبويب الترقيات تحت المنصّة العملاقة. الأيقونات SVG، والبنفسجي لها وحدها كي لا تختلط بذهبي الترقيات */
+.prestige-card{display:flex;flex-direction:column;gap:9px;padding:12px;border-radius:14px;background:linear-gradient(160deg,rgba(58,40,104,.6),rgba(15,23,42,.94));border:1px solid rgba(167,139,250,.5);box-shadow:0 6px 20px rgba(88,60,170,.16)}
+.prestige-head{display:flex;align-items:center;gap:10px}
+.prestige-ico{flex:0 0 34px;height:34px;border-radius:11px;display:grid;place-items:center;background:radial-gradient(circle at 35% 28%,#a78bfa,#4c1d95);border:1px solid rgba(233,213,255,.5);color:#fff}
+.prestige-ico .ui-icon{width:18px;height:18px}
+.prestige-titles{min-width:0;flex:1}
+.prestige-titles h3{margin:0;font-size:14px;font-weight:900;color:#e9d5ff}
+.prestige-titles p{margin:1px 0 0;font-size:10.5px;color:#c4b5fd}
+.prestige-mult{flex:0 0 auto;padding:3px 11px;border-radius:999px;font-size:13px;font-weight:900;color:#2e1065;background:linear-gradient(135deg,#e9d5ff,#c4b5fd);direction:ltr;unicode-bidi:isolate}
+.prestige-note{margin:0;font-size:10px;line-height:1.7;color:#a8b4c5}
+.prestige-note b{color:#ddd6fe}
+.prestige-needs{display:flex;flex-direction:column;gap:7px}
+.prestige-need{display:grid;grid-template-columns:minmax(0,auto) minmax(40px,1fr) auto;align-items:center;gap:9px;font-size:11px;color:#cbd5e1}
+.prestige-need-label{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.prestige-need-label .ui-icon{width:14px;height:14px;color:#c4b5fd}
+.prestige-need b{direction:ltr;unicode-bidi:isolate;color:#e9d5ff}
+.prestige-bar{height:6px;border-radius:99px;background:rgba(148,163,184,.22);overflow:hidden}
+.prestige-bar i{display:block;height:100%;background:linear-gradient(90deg,#a78bfa,#f0abfc);border-radius:99px}
+.prestige-need.ok .prestige-bar i{background:linear-gradient(90deg,#34d399,#6ee7b7)}
+.prestige-need.ok b{color:#7dffd4}
+.prestige-btn{padding:10px 12px;border-radius:11px;font-size:12px;font-weight:900;line-height:1.4;color:#2e1065;background:linear-gradient(135deg,#e9d5ff,#a78bfa);border:1px solid #ede9fe;cursor:pointer;text-align:center}
+.prestige-btn[data-state="confirm"]{color:#fff;background:linear-gradient(135deg,#fb7185,#e11d48);border-color:#fecdd3}
+.prestige-btn[data-state="max"]{color:#2e1065;background:linear-gradient(135deg,#fde68a,#f59e0b);border-color:#fef3c7}
+.prestige-btn:disabled{opacity:.6;cursor:default;color:#cbd5e1;background:linear-gradient(135deg,#3c4a58,#2a3541);border-color:rgba(148,163,184,.3)}
+.prestige-btn[data-state="max"]:disabled{opacity:1;color:#2e1065;background:linear-gradient(135deg,#fde68a,#f59e0b)}
+@media(max-width:360px){.prestige-need{gap:6px}.prestige-note{font-size:9.5px}}
