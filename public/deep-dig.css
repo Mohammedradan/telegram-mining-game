@@ -1,0 +1,290 @@
+/* الحفر العميق: نافذة كاملة فيها بئر عمودي تنزل فيه بعصا التحكم. عرض فقط — بلا منطق لعبة (deep-dig.js) ولا اقتصاد.
+   تستعمل مجموعة الكهف (cave.css): إطارات ذهبية cv-frame وأزرار cv-btn. الرسم نفسه على <canvas> (deep-dig-render.js). */
+
+body.dd-open { overflow: hidden; }
+
+.dd-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: var(--app-height, 100dvh);
+  z-index: 95;
+  direction: rtl;
+  color: #f4e6c8;
+  font-family: 'Tajawal', system-ui, -apple-system, sans-serif;
+  background: #07050d;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
+}
+.dd-overlay[hidden] { display: none; }
+.dd-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ---------- الشريط العلوي ---------- */
+.dd-hud {
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(520px, 100%);
+  margin-inline: auto;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 0;
+  pointer-events: none;
+}
+.dd-overlay[data-phase="intro"] .dd-hud { visibility: hidden; }
+.dd-row { display: flex; align-items: center; gap: 8px; }
+.dd-spacer { flex: 1; }
+.dd-hud button { pointer-events: auto; }
+.dd-iconbtn { flex: none; }
+
+.dd-depth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 88px;
+  padding: 3px 14px 5px;
+  border-radius: 14px;
+  line-height: 1.1;
+}
+.dd-depth small { font-size: 11.5px; font-weight: 800; color: #ffd98a; }
+.dd-depth b { font-size: 21px; font-weight: 900; white-space: nowrap; color: #fff4cf; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 rgba(0, 0, 0, .55); }   /* «106 م» لا يلتف على سطرين */
+.dd-depth[data-layer="0"] small { color: #e8bf8a; }
+.dd-depth[data-layer="1"] small { color: #b9c8d8; }
+.dd-depth[data-layer="2"] small { color: #ffd45a; }
+.dd-depth[data-layer="3"] small { color: #b3a6ff; }
+.dd-depth[data-layer="4"] small { color: #ff9a6a; }
+
+.dd-hearts { display: flex; flex-wrap: nowrap; min-width: 0; gap: 1px; padding-inline: 2px; }
+.dd-heart .ui-icon {
+  width: 22px;
+  height: 22px;
+  fill: #ff4d5e;
+  stroke: #54081a;
+  stroke-width: 1.7;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .55));
+  transition: fill .2s ease, transform .2s ease;
+}
+.dd-heart.is-empty .ui-icon { fill: rgba(28, 18, 40, .72); stroke: #6a5a80; }
+.dd-overlay[data-danger="1"] .dd-heart:not(.is-empty) .ui-icon { animation: dd-beat .7s ease-in-out infinite; }
+@keyframes dd-beat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.22); } }
+
+/* ---------- الحقيبة ---------- */
+.dd-bag {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(236px, 64vw);
+  padding: 5px 10px 6px;
+  border-radius: 14px;
+  pointer-events: none;
+}
+.dd-bag-head { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 800; color: #f4e6c8; }
+.dd-bag-head .ui-icon { width: 17px; height: 17px; color: #ffd98a; }
+.dd-bag-head #dd-bag-count { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; color: #fff4cf; }
+.dd-value { display: inline-flex; align-items: center; gap: 4px; color: #ffe9a6; }
+.dd-value .ck-coin-art { width: 20px; height: 20px; }
+.dd-value b { font-variant-numeric: tabular-nums; }
+.dd-meter { flex: 1; min-width: 40px; height: 7px; border-radius: 4px; overflow: hidden; background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 214, 120, .26); }
+.dd-meter i { display: block; width: var(--fill, 0%); height: 100%; background: linear-gradient(90deg, #ffd24a, #ff9d2e); transition: width .2s ease; }
+.dd-bag[data-full="1"] .dd-meter i { background: linear-gradient(90deg, #ff8a66, #ff3d2e); }
+.dd-chips { display: flex; flex-wrap: wrap; gap: 4px; min-height: 19px; }
+.dd-chips[hidden] { display: none; }
+.dd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px 1px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff4cf;
+  background: rgba(10, 8, 20, .72);
+  border: 1px solid rgba(255, 214, 120, .3);
+}
+.dd-chip[hidden] { display: none; }
+.dd-chip b { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+.dd-chip small { margin-inline-start: 3px; color: #ff9d8a; font-weight: 800; direction: ltr; unicode-bidi: isolate; }
+.dd-chip.is-lost { opacity: .7; }
+.ore-relic { background: #ffe27a; box-shadow: 0 0 7px rgba(255, 226, 122, .95); }
+
+/* ---------- لافتة الأحداث ---------- */
+.dd-banner {
+  position: absolute;
+  inset-inline: 0;
+  top: 26%;
+  z-index: 3;
+  padding: 0 18px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 900;
+  color: #fff4cf;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .75), 0 0 16px rgba(0, 0, 0, .7);
+  pointer-events: none;
+  opacity: 0;
+}
+.dd-banner.is-on { animation: dd-banner 1.9s ease-out forwards; }
+.dd-banner[data-kind="relic"] { color: #ffe27a; font-size: 27px; }
+.dd-banner[data-kind="boulder"], .dd-banner[data-kind="faint"], .dd-banner[data-kind="full"] { color: #ffb4a0; }
+.dd-banner[data-kind="gas"] { color: #b9ff9f; }
+.dd-banner[data-kind="layer"] { color: #ffd98a; font-size: 23px; letter-spacing: .5px; }
+.dd-banner[data-kind="hint"] { font-size: 16px; color: #e9dcc0; }
+@keyframes dd-banner {
+  0% { opacity: 0; transform: translateY(10px) scale(.94); }
+  12% { opacity: 1; transform: none; }
+  78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+/* ---------- عصا التحكم وزر الحبل (تظهر أثناء النزول فقط) ---------- */
+.dd-overlay:not([data-phase="run"]) .dd-pad,
+.dd-overlay:not([data-phase="run"]) .dd-rope { display: none; }
+
+.dd-pad {
+  position: absolute;
+  left: calc(14px + env(safe-area-inset-left, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: clamp(92px, 26vw, 120px);
+  height: clamp(92px, 26vw, 120px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, rgba(52, 66, 130, .5), rgba(8, 10, 30, .74) 72%);
+  border: 3px solid rgba(240, 185, 60, .8);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .55), inset 0 0 16px rgba(0, 0, 0, .55), inset 0 2px 0 rgba(255, 255, 255, .12);
+  touch-action: none;
+  cursor: grab;
+}
+.dd-pad.is-on { border-color: #ffe08a; cursor: grabbing; }
+.dd-pad::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='%23f0b93c' fill-opacity='.72'%3E%3Cpath d='M50 6 60 21H40z'/%3E%3Cpath d='M50 94 60 79H40z'/%3E%3Cpath d='M6 50 21 40V60z'/%3E%3Cpath d='M94 50 79 40V60z'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+.dd-stick {
+  position: relative;
+  z-index: 1;
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 28%, #fff4b8, #f0b93c 52%, #8a4a08 100%);
+  border: 2px solid rgba(90, 40, 0, .75);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .6), inset 0 2px 0 rgba(255, 255, 255, .55);
+  transform: translate(var(--sx, 0px), var(--sy, 0px));
+  transition: transform .12s ease-out;
+  will-change: transform;
+  pointer-events: none;
+}
+.dd-pad.is-on .dd-stick { transition: none; }
+
+.dd-rope {
+  position: absolute;
+  right: calc(14px + env(safe-area-inset-right, 0px));
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  z-index: 2;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 94px;
+  min-height: 66px;
+  font-size: 15px;
+  touch-action: manipulation;
+}
+.dd-rope .ui-icon { width: 25px; height: 25px; stroke-width: 2.4; }
+.dd-rope[data-loot="1"]:not(:disabled) { animation: dd-pulse 1.7s ease-in-out infinite; }
+@keyframes dd-pulse { 0%, 100% { box-shadow: 0 4px 0 var(--edge), 0 9px 16px rgba(0, 0, 0, .5), 0 0 0 0 rgba(255, 214, 90, .0); } 50% { box-shadow: 0 4px 0 var(--edge), 0 9px 16px rgba(0, 0, 0, .5), 0 0 18px 4px rgba(255, 214, 90, .55); } }
+
+/* ---------- البطاقات: البداية والتوقف والملخص ---------- */
+.dd-overlay[data-phase="intro"]::after,
+.dd-overlay[data-phase="paused"]::after,
+.dd-overlay[data-phase="summary"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: rgba(4, 3, 10, .58);
+  pointer-events: none;
+}
+.dd-card {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(342px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  margin-inline: auto;
+  padding: 16px 16px 16px;
+  overflow-y: auto;
+  border-radius: 20px;
+  text-align: center;
+  transform: translateY(-50%);
+  touch-action: pan-y;
+}
+.dd-card[hidden] { display: none; }
+.dd-card h2 { margin: 0; font-size: 25px; font-weight: 900; line-height: 1.2; color: #ffe9a6; text-shadow: 0 2px 0 #4a2a05; }
+.dd-card-art {
+  flex: none;
+  width: 84px;
+  height: 84px;
+  margin: 2px auto 0;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #f1b93a;
+  background: #0e1739;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .6);
+}
+.dd-lead { margin: 0; font-size: 14px; line-height: 1.55; color: #e9dcc0; }
+.dd-best { margin: 0; font-size: 13.5px; font-weight: 800; color: #ffd98a; }
+.dd-gear { margin: 0; font-size: 12.5px; font-weight: 700; color: #b9d4ff; }
+.dd-rules { margin: 2px 0; padding: 0; padding-inline-start: 18px; text-align: start; font-size: 12.5px; line-height: 1.6; color: #d8cdb6; }
+.dd-rules b { color: #ffe9a6; }
+.dd-note { margin: 0; font-size: 11.5px; line-height: 1.5; color: #9fa6c0; }
+.dd-primary { width: 100%; min-height: 54px; margin-top: 4px; font-size: 19px; }
+.dd-secondary { width: 100%; min-height: 44px; font-size: 14px; --c1: #6a7491; --c2: #3d4663; --c3: #222a42; --edge: #0d1222; }
+.dd-card[data-tone="win"] h2 { color: #fff1a0; }
+.dd-card[data-tone="best"] h2 { color: #9dffbd; }
+.dd-card[data-tone="faint"] h2 { color: #ff9d8a; }
+
+.dd-sum-depth, .dd-sum-value { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.dd-sum-depth small, .dd-sum-value small { font-size: 12.5px; font-weight: 800; color: #b8b0c8; }
+.dd-sum-depth b { font-size: 30px; font-weight: 900; color: #fff4cf; text-shadow: 0 2px 0 #4a2a05; }
+.dd-sum-value b { font-size: 24px; font-weight: 900; color: #ffe9a6; font-variant-numeric: tabular-nums; }
+.dd-sum-value .ck-coin-art { width: 26px; height: 26px; }
+.dd-badge { padding: 1px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 900; color: #06361a; background: linear-gradient(#9dffbd, #3fd47a); }
+.dd-badge[hidden], .dd-legend[hidden] { display: none; }
+.dd-legend { margin: 0; font-size: 14px; font-weight: 900; color: #ffe27a; }
+.dd-chips-lg { justify-content: center; gap: 6px; min-height: 30px; }
+.dd-chips-lg .dd-chip { padding: 3px 11px 3px 9px; font-size: 15px; }
+.dd-empty { font-size: 13px; color: #9fa6c0; }
+
+/* الشاشات الضيقة (320px): الصف العلوي = لوحة العمق + حتى 7 قلوب (درع كامل) + زرّان، فيُضغط ليبقى زر الإغلاق على الشاشة */
+@media (max-width: 360px) {
+  .dd-row { gap: 5px; }
+  .dd-depth { min-width: 72px; padding: 3px 9px 4px; }
+  .dd-depth b { font-size: 19px; }
+  .dd-heart .ui-icon { width: 17px; height: 17px; }
+  .dd-iconbtn.ws-icon-btn { width: 34px; height: 34px; }
+}
+@media (max-height: 560px) {
+  .dd-card { padding: 12px; gap: 6px; }
+  .dd-card-art { width: 60px; height: 60px; margin-top: 0; }
+  .dd-card h2 { font-size: 21px; }
+  .dd-pad { width: 88px; height: 88px; bottom: 12px; }
+  .dd-rope { min-height: 56px; bottom: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dd-banner.is-on { animation: none; opacity: 1; }
+  .dd-rope[data-loot="1"]:not(:disabled), .dd-overlay[data-danger="1"] .dd-heart:not(.is-empty) .ui-icon { animation: none; }
+}

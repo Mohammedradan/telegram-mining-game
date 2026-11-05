@@ -40,7 +40,7 @@ function makeElement(id = '') {
   return e;
 }
 
-function bootPage({ me }) {
+function bootPage({ me, source = script }) {
   const elements = new Map();
   const byId = (id) => { if (!ids.has(id)) return null; if (!elements.has(id)) elements.set(id, makeElement(id)); return elements.get(id); };
   const timers = [];
@@ -76,7 +76,7 @@ function bootPage({ me }) {
   vm.createContext(ctx);
   let topLevelError = null;
   try {
-    vm.runInContext(`${script}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' });
+    vm.runInContext(`${source}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' });
   } catch (e) { topLevelError = e; }
   const settle = async () => {
     for (let i = 0; i < 12; i++) {
@@ -205,4 +205,347 @@ test('the weekly missions card is rendered from the server payload: progress, cl
   list.children[0].children[0].children[1].onclick();
   assert.equal(page.dbg().state.gold, before + 500);
   assert.equal(page.dbg().SYNC.pending.filter((op) => op.type === 'weekly_mission').length, 1);
+});
+
+
+// ===== تبويب التعدين التفاعلي (public/clicker-fx.js) داخل الصفحة الكاملة =====
+// المؤثرات عرض فقط: الذهب والطاقة وطابور العمليات يحسمها منطق الصفحة، والمؤثرات تراقب وتعرض.
+const fxSource = fs.readFileSync(path.join(__dirname, '..', 'public', 'clicker-fx.js'), 'utf8');
+const showMiningTab = (page) => { page.byId('tab-mining').classList.contains = (c) => c === 'active'; };
+
+test('with the clicker effects loaded a tap credits exactly what the game logic decides, and the effects only watch', async () => {
+  const page = bootPage({ me: meResponse });
+  assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
+  await page.settle();
+  const fx = page.ctx.ClickerFX;
+  assert.equal(fx.active, true, 'the effects initialise against the real markup');
+  const s0 = page.dbg();
+  const [gold0, energy0, clicks0, power] = [s0.state.gold, s0.state.energy, s0.SYNC.clicks, s0.state.clickPower];
+  for (let i = 0; i < 5; i++) page.ctx.handleMine({ clientX: 150, clientY: 160 });
+  const s1 = page.dbg();
+  assert.equal(s1.state.gold - gold0, 5 * power, 'five taps, five times clickPower');
+  assert.equal(energy0 - s1.state.energy, 5 * power);
+  assert.equal(s1.SYNC.clicks - clicks0, 5, 'five clicks queued for the server');
+  assert.equal(fx.inspect().streak, 5, 'the effects counted the same taps');
+  assert.ok(fx.inspect().particles > 0, 'particles were emitted');
+  assert.ok(fx.inspect().heat > 0.1);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('a tap without energy is refused: nothing credited, nothing queued, the streak untouched', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  page.ctx.handleMine({ clientX: 10, clientY: 10 });
+  const live = page.dbg();
+  live.state.energy = 0;
+  const [gold, clicks, streak] = [live.state.gold, live.SYNC.clicks, page.ctx.ClickerFX.inspect().streak];
+  page.ctx.handleMine({ clientX: 10, clientY: 10 });
+  const after = page.dbg();
+  assert.equal(after.state.gold, gold);
+  assert.equal(after.SYNC.clicks, clicks);
+  assert.equal(page.ctx.ClickerFX.inspect().streak, streak);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('keyboard activation has no coordinates and still mines (falls back to the coin centre)', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  const g0 = page.dbg().state.gold;
+  page.ctx.handleMine({ key: 'Enter' }); // KeyboardEvent: no clientX/clientY
+  assert.equal(page.dbg().state.gold - g0, page.dbg().state.clickPower);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('updateUI feeds the effects: medal states, energy states, live boost button and level-up celebration', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const { state, profile } = page.dbg();
+  // medals: 1,234 gold covers all three upgrades (50 / 200 / 1,000); the workshop has gold but no ores yet, so it is not ready
+  page.ctx.updateUI();
+  const fxState = page.ctx.ClickerFX.inspect();
+  assert.deepEqual({ ...fxState.nodes }, { click: 'ready', bot: 'ready', rig: 'ready', workshop: 'poor', deepdive: 'poor' }); // spread: the VM's objects have another realm's prototype
+  assert.equal(fxState.hint, 'click', 'the first-run pointer targets the first ready medal');
+  assert.equal(page.byId('ck-nodes').children.filter((c) => c.dataset && c.dataset.ckItem).length, 5, 'three upgrades, the workshop and the deep dive');
+  state.gold = 120; page.ctx.updateUI();
+  assert.deepEqual({ ...page.ctx.ClickerFX.inspect().nodes }, { click: 'ready', bot: 'poor', rig: 'poor', workshop: 'poor', deepdive: 'poor' });
+  state.gold = 1234; page.ctx.updateUI();
+  // energy states
+  assert.equal(page.byId('energy-container').dataset.level, 'full');
+  state.energy = 100; page.ctx.updateUI();
+  assert.equal(page.byId('energy-container').dataset.level, 'low');
+  assert.match(page.byId('ck-status-text').textContent, /100 نقرة/);
+  state.energy = 0; page.ctx.updateUI();
+  assert.equal(page.byId('energy-container').dataset.level, 'empty');
+  assert.match(page.byId('ck-status-text').textContent, /الطاقة تتجدد/);
+  state.energy = state.maxEnergy;
+  // boost: active shows a countdown, disables the button and lights the stage; the harness has no inner label so the whole text is the fallback
+  state.boostUntil = Date.now() + 20_000; state.boostCooldownUntil = Date.now() + 300_000;
+  page.ctx.updateUI();
+  const boost = page.byId('boost-btn');
+  assert.equal(boost.dataset.state, 'active');
+  assert.equal(boost.disabled, true);
+  assert.match(boost.innerText, /تعزيز ×2 فعّال \(0:(19|20)\)/);
+  assert.equal(page.byId('ck-stage').dataset.boost, '1');
+  state.boostUntil = 0; page.ctx.updateUI();
+  assert.equal(boost.dataset.state, 'cooldown');
+  assert.match(boost.innerText, /جاهز بعد \((5:00|4:5\d)\)/);
+  assert.equal(page.byId('ck-stage').dataset.boost, '0');
+  state.boostCooldownUntil = 0; page.ctx.updateUI();
+  assert.equal(boost.dataset.state, 'ready');
+  assert.equal(boost.disabled, false);
+  // level: the first sync only records it; a later rise of the same source celebrates
+  assert.doesNotMatch(page.byId('ck-banner').textContent, /المستوى/, 'no level banner without a level change (the banner only shows the boost one)');
+  profile.progress = { ...profile.progress, level: profile.progress.level + 1 };
+  page.ctx.updateUI();
+  assert.match(page.byId('ck-banner').textContent, new RegExp(`ارتقيت إلى المستوى ${profile.progress.level}`));
+  assert.match(page.byId('ck-live').textContent, new RegExp(String(profile.progress.level)));
+  assert.equal(page.byId('xp-text').textContent, `${profile.progress.current}/${profile.progress.needed} XP`);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('switching tabs clears the effects and re-syncs on return', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  for (let i = 0; i < 6; i++) page.ctx.handleMine({ clientX: 150, clientY: 160 });
+  assert.equal(page.ctx.ClickerFX.inspect().streak, 6);
+  page.ctx.ClickerFX.onTab('shop');
+  const away = page.ctx.ClickerFX.inspect();
+  assert.deepEqual([away.streak, away.heat, away.particles], [0, 0, 0]);
+  page.ctx.ClickerFX.onTab('mining');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the upgrade window shows the effect, buys through buyUpgrade (a normal server op) and keeps the economy exact', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const fx = page.ctx.ClickerFX;
+  const { state, SYNC } = page.dbg();
+  page.ctx.updateUI();
+  fx.openSheet('click');
+  assert.equal(fx.inspect().sheet, 'click');
+  assert.equal(page.byId('ck-sheet').hidden, false);
+  assert.equal(page.byId('ck-sheet-title').textContent, 'فأس فولاذي');
+  assert.equal(page.byId('ck-sheet-owned').textContent, '0');
+  assert.match(page.byId('ck-sheet-now').textContent, /^1 لكل نقرة$/);
+  assert.match(page.byId('ck-sheet-next').textContent, /^2 لكل نقرة$/);
+  assert.equal(page.byId('ck-sheet-cost').textContent, '50');
+  assert.equal(page.byId('ck-sheet-buy').disabled, false);
+  assert.equal(fx.inspect().hinted, true, 'opening any window retires the first-run pointer');
+  const [gold0, power0, pending0] = [state.gold, state.clickPower, SYNC.pending.length];
+  fx.buyOpen();
+  assert.equal(state.gold, gold0 - 50, 'exactly the listed price is charged');
+  assert.equal(state.owned.click, 1);
+  assert.equal(state.clickPower, power0 + 1, 'the effect shown in the window is the effect applied');
+  assert.equal(SYNC.pending.length, pending0 + 1);
+  assert.ok(SYNC.pending.some((op) => op.type === 'buy' && op.item === 'click'), 'a normal buy op is queued for the server');
+  assert.equal(page.byId('ck-sheet-owned').textContent, '1', 'the window re-renders in place');
+  assert.match(page.byId('ck-sheet-now').textContent, /^2 لكل نقرة$/);
+  // not enough gold: the button is disabled, says why, and a forced buy changes nothing
+  state.gold = 10; page.ctx.updateUI();
+  assert.equal(page.byId('ck-sheet-buy').disabled, true);
+  assert.equal(page.byId('ck-sheet-buy').textContent, 'الذهب غير كافٍ');
+  assert.match(page.byId('ck-sheet-have').textContent, /ينقصك/);
+  const owned = state.owned.click;
+  fx.buyOpen();
+  assert.equal(state.owned.click, owned, 'a refused purchase buys nothing');
+  assert.equal(state.gold, 10);
+  fx.closeSheet();
+  assert.equal(fx.inspect().sheet, '');
+  assert.equal(page.byId('ck-sheet').hidden, true);
+  // leaving the tab closes it too
+  fx.openSheet('bot');
+  assert.equal(fx.inspect().sheet, 'bot');
+  fx.onTab('shop');
+  assert.equal(fx.inspect().sheet, '');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the workshop medal opens the workshop instead of a window, and the CTA starts a round unless a paused one waits', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const fx = page.ctx.ClickerFX;
+  let opened = 0;
+  page.ctx.openWorkshop = () => { opened++; };
+  fx.openSheet('workshop'); // goes through opts.workshop (the real wsOpen), not through the sheet
+  assert.equal(fx.inspect().sheet, '', 'no upgrade window for the workshop medal');
+  const start = page.byId('platform-start'), resume = page.byId('platform-resume');
+  let starts = 0;
+  start.click = () => { starts++; };
+  resume.hidden = true;
+  page.ctx.goToMine();
+  assert.equal(starts, 1, 'no paused round: the CTA starts one');
+  resume.hidden = false;
+  page.ctx.goToMine();
+  assert.equal(starts, 1, 'a paused round: the player chooses (resume or restart)');
+  resume.hidden = true; start.disabled = true;
+  page.ctx.goToMine();
+  assert.equal(starts, 1, 'a disabled start button is never clicked');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the deep-dive medal opens the full-screen dive: intro first, a run descends, the rope banks the loot, the record stays on the device and nothing is sent to the server', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const fx = page.ctx.ClickerFX, dd = page.ctx.DeepDigUI;
+  assert.equal(dd.active, true, 'the dive initialised before the hub (its medal exists)');
+  let paused = 0;
+  page.ctx.PlatformGame = { pause: () => { paused++; }, refresh: noop };
+  const overlay = page.byId('dd-overlay');
+  overlay.hidden = true;
+  const sentBefore = page.log.fetches.length;
+  fx.openSheet('deepdive');                                   // the medal goes through opts.deepDive, not through the upgrade window
+  assert.equal(fx.inspect().sheet, '', 'no upgrade window for the dive medal');
+  assert.equal(overlay.hidden, false, 'the full-screen dive is open');
+  assert.equal(dd.inspect().phase, 'intro');
+  assert.equal(paused, 1, 'a paused platformer round must not run behind it');
+  assert.equal(dd.inspect().game.depthM, 0);
+  assert.equal(dd.startRun(), true);
+  assert.equal(dd.inspect().phase, 'run');
+  assert.equal(JSON.parse(page.ctx.localStorage.getItem('mining-deep-dig')).hinted, true, 'the first-run hint is remembered as soon as it was shown (not only after a finished run)');
+  dd.debug.setStick(0, 1);                                    // the stick pushed down
+  dd.debug.step(1 / 60, 300);                                 // 5 s of simulated play
+  const mid = dd.inspect();
+  assert.ok(mid.game.depthM >= 6, `the miner dug down (${mid.game.depthM} m)`);
+  assert.equal(mid.game.hp, mid.game.maxHp, 'the first layer is safe');
+  dd.debug.setStick(0, 0);
+  dd.debug.fillBag('gold', 2);
+  dd.debug.teleport(3, 14);
+  assert.equal(dd.rope(), true, 'the rope starts');
+  assert.equal(dd.inspect().game.state, 'rope');
+  dd.debug.step(1 / 60, 400);
+  const end = dd.inspect();
+  assert.equal(end.phase, 'summary', 'the rope banked the loot and the summary card is up');
+  assert.equal(end.game.status, 'done');
+  const rec = JSON.parse(page.ctx.localStorage.getItem('mining-deep-dig'));
+  assert.ok(rec.depthM >= 28 && rec.runs === 1 && rec.value >= 16, `the best depth and loot are kept locally: ${JSON.stringify(rec)}`);
+  assert.equal(page.byId('dd-sum-value').textContent, String(end.record.value));
+  assert.equal(dd.progress(), rec.depthM / dd.DEPTH_MAX_M, 'the medal ring follows the best depth');
+  assert.equal(dd.close(), true);
+  assert.equal(overlay.hidden, true); assert.equal(dd.inspect().phase, 'closed');
+  assert.equal(dd.open(), true, 'it can be opened again');
+  assert.equal(dd.inspect().record.runs, 1, 'the record survives a reopen');
+  dd.close();
+  const sent = page.log.fetches.slice(sentBefore);
+  assert.deepEqual(sent, [], `the dive never talks to the server: ${sent.join(', ')}`);
+  assert.equal(page.dbg().state.gold, meResponse.state.gold, 'no gold was written');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the crew and the companion mirror what was bought and what the workshop upgraded (display only, never touches the gold)', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const { state } = page.dbg();
+  const crew = page.byId('ck-crew'), stage = page.byId('ck-stage');
+  const count = (re) => (crew.innerHTML.match(re) || []).length;
+  page.ctx.updateUI();
+  assert.equal(crew.hidden, true, 'nothing bought: no crew'); assert.equal(stage.dataset.companion, '0');
+  const gold = state.gold;
+  state.owned.bot = 3; state.owned.rig = 1; state.equipment = { ...(state.equipment || {}), robot: 2 };
+  page.ctx.updateUI();
+  assert.equal(crew.hidden, false);
+  assert.deepEqual([count(/ck-crew-bot"/g), count(/ck-crew-rig"/g)], [3, 1], 'a robot per auto worker, a machine per rig');
+  assert.deepEqual([crew.dataset.bots, crew.dataset.rigs, stage.dataset.companion], ['3', '1', '1'], 'and the upgraded robot walks beside the miner');
+  crew.children = ['sentinel'];                                // assigning innerHTML replaces the children, so a rebuild would drop this
+  page.ctx.updateUI();
+  assert.deepEqual(crew.children, ['sentinel'], 'an unchanged crew is not rebuilt on every sync');
+  state.owned.bot = 9; state.owned.rig = 4; page.ctx.updateUI();
+  assert.equal(count(/ck-crew-bot"/g), 5); assert.equal(count(/ck-crew-rig"/g), 2);
+  assert.match(crew.innerHTML, /<b class="ck-crew-more">\+4<\/b>/); assert.match(crew.innerHTML, /<b class="ck-crew-more">\+2<\/b>/);
+  state.owned.bot = 0; state.owned.rig = 0; state.equipment.robot = 0; page.ctx.updateUI();
+  assert.equal(crew.hidden, true); assert.equal(stage.dataset.companion, '0');
+  assert.equal(state.gold, gold, 'drawing the crew never changes the gold');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the deep-dive medal wears a "new" badge until it is opened once, and remembers that on the device', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const node = () => page.byId('ck-nodes').children.find((c) => c.dataset && c.dataset.ckItem === 'deepdive');
+  assert.match(node().innerHTML, /class="ck-new"/, 'the badge is part of the medal');
+  assert.equal(node().dataset.fresh, '1', 'shown on a fresh device');
+  page.ctx.updateUI();                                         // 1,234 gold: the upgrade medals are ready, so the first-run pointer targets the first of them
+  assert.equal(page.ctx.ClickerFX.inspect().hint, 'click', 'the first-run pointer teaches the upgrade window');
+  assert.equal(page.ctx.localStorage.getItem('mining-fx-dive-seen'), null);
+  page.ctx.PlatformGame = { pause() {}, refresh() {} };
+  page.byId('dd-overlay').hidden = true;
+  page.ctx.ClickerFX.openSheet('deepdive');
+  assert.equal(node().dataset.fresh, '0', 'gone once opened');
+  assert.equal(page.ctx.localStorage.getItem('mining-fx-hint'), null, 'opening the dive does not silence the first-run pointer: that hint teaches the upgrade window, which the player has not seen');
+  assert.equal(page.ctx.ClickerFX.inspect().hint, 'click', 'the pointer still targets the first ready medal');
+  assert.equal(page.ctx.localStorage.getItem('mining-fx-dive-seen'), '1');
+  page.ctx.DeepDigUI.close();
+  // a second visit (new page boot, same device) never shows it again
+  const again = bootPage({ me: meResponse });
+  again.ctx.localStorage.setItem('mining-fx-dive-seen', '1');
+  await again.settle();
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the dive pauses on Escape and when the page loses focus, never reads equipment it should not write, and survives broken art', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  showMiningTab(page);
+  const dd = page.ctx.DeepDigUI;
+  page.ctx.PlatformGame = { pause: noop, refresh: noop };
+  page.byId('dd-overlay').hidden = true;
+  dd.open(); dd.startRun();
+  assert.equal(dd.inspect().phase, 'run');
+  assert.equal(dd.pause('test'), true);
+  assert.equal(dd.inspect().phase, 'paused');
+  assert.equal(page.byId('dd-pause').hidden, false);
+  dd.debug.setStick(0, 1);
+  const before = dd.inspect().game.tick;
+  dd.debug.step(1 / 60, 60);
+  assert.equal(dd.inspect().game.tick, before, 'nothing advances while paused');
+  assert.equal(dd.resume(), true);
+  assert.equal(dd.inspect().phase, 'run');
+  // the equipment levels come from the server state and are only read
+  const eq = page.dbg().state.equipment;
+  const snapshot = JSON.stringify(eq || null);
+  dd.close(); dd.open();
+  assert.equal(JSON.stringify(page.dbg().state.equipment || null), snapshot, 'equipment is read-only for the dive');
+  dd.close();
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('the cave scene follows the mining tab: on when it opens, off when anything else opens', async () => {
+  const page = bootPage({ me: meResponse });
+  await page.settle();
+  const classes = new Set();
+  const body = page.ctx.document.body;
+  body.classList.toggle = (name, force) => { if (force === undefined ? !classes.has(name) : force) classes.add(name); else classes.delete(name); };
+  body.classList.contains = (name) => classes.has(name);
+  const fx = page.ctx.ClickerFX;
+  fx.onTab('mining');
+  assert.equal(classes.has('ck-cave'), true);
+  assert.equal(fx.inspect().scene, true);
+  fx.onTab('play');
+  assert.equal(classes.has('ck-cave'), false);
+  assert.equal(fx.inspect().scene, false);
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('without clicker-fx.js the game still mines: legacy floating number, direct gold counter, classic boost label', async () => {
+  const legacy = script.replace(fxSource, '');
+  assert.notEqual(legacy, script, 'the module was really removed from the boot script');
+  const page = bootPage({ me: meResponse, source: legacy });
+  assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
+  await page.settle();
+  assert.equal(page.ctx.ClickerFX, undefined);
+  const g0 = page.dbg().state.gold;
+  const kids0 = page.byId('click-area').children.length;
+  page.ctx.handleMine({ clientX: 120, clientY: 120 });
+  const s = page.dbg();
+  assert.equal(s.state.gold - g0, s.state.clickPower);
+  assert.equal(page.byId('gold-counter').innerText, Math.floor(s.state.gold).toLocaleString('en-US'));
+  assert.equal(page.byId('click-area').children.length, kids0 + 1, 'the old floating number is created');
+  assert.match(page.byId('boost-btn').innerText, /تعزيز ×2 \(0:30\)/);
+  assert.deepEqual(page.log.errors, []);
 });

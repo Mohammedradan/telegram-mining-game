@@ -59,7 +59,8 @@ test('platform: the exit unlocks only after mining and collecting three gems; fa
   const lost = R.create(); lost.status = 'lost'; assert.equal(R.rewardFor(lost), 0);
 });
 test('platform: malformed replay, excess ticks, masks and post-victory actions are rejected', () => {
-  for (const input of [null, [], [{ mask: 64, frames: 1 }], [{ mask: -1, frames: 1 }], [{ mask: 1, frames: .5 }], [{ mask: 1, frames: 0 }], [{ mask: 1, frames: R.MAX_TICKS + 1 }], Array.from({length:1001}, () => ({mask:0,frames:1}))]) assert.equal(R.replay(input).ok, false);
+  for (const input of [null, [], [{ mask: 64, frames: 1 }], [{ mask: -1, frames: 1 }], [{ mask: 1, frames: .5 }], [{ mask: 1, frames: 0 }], [{ mask: 1, frames: R.MAX_TICKS + 1 }], Array.from({length: R.MAX_SEGMENTS + 1}, () => ({mask:0,frames:1}))]) assert.equal(R.replay(input).ok, false);
+  assert.equal(R.replay(Array.from({length: R.MAX_SEGMENTS}, () => ({mask:0,frames:1}))).ok, true, 'exactly the cap is still a valid recording (boss fights toggle buttons often)');
   assert.equal(R.replay([...solution().inputs, { mask: 2, frames: 1 }]).reason, 'after_end');
   const loss = R.replay([{mask: 0, frames: R.MAX_TICKS}]); assert.equal(loss.state.status, 'lost');
 });
@@ -209,29 +210,84 @@ test('platform balance: each hero has a distinct, measurable advantage', () => {
   R.step(melee, R.INPUT.ATTACK); assert.equal(melee.defeated, 0);
 });
 
-// من فرع devin/1792351084-gameplay-overhaul (PR #25): أربعة كهوف تجميلية حسب بذرة الجولة.
-test('platform zones: all four caves are reachable from server-style run ids, with own colours, layout and a winnable route', () => {
-  const names = ['كهف البلّور الأزرق', 'مناجم الحمم', 'كهف الزمرّد', 'الأعماق البنفسجية'];
-  assert.deepEqual(R.ZONES.map(z => z.name), names);
-  const found = new Map();
-  for (let i = 0; i < 200 && found.size < R.ZONES.length; i++) {
-    const seed = R.seedFromId(`zone-run-${i}`); // نفس صيغة معرّف الجولة في platform-api.js
-    const zone = R.zoneFor(seed);
-    if (!found.has(zone)) found.set(zone, seed);
+// المرحلة 3: الكهوف صارت ستة مناجم حقيقية تُختار عبر config (اختبارها التفصيلي في test/platform-mines.test.js).
+test('platform zones: each mine has its own palette and the cosmetic zone no longer depends on the run seed', () => {
+  assert.equal(R.ZONES.length, 6);
+  assert.deepEqual(R.ZONES.map(z => z.name), R.MINES.map(m => m.name));
+  for (const [i, zone] of R.ZONES.entries()) {
+    for (const key of ['sky', 'far', 'mid', 'columns', 'glow', 'crystal']) assert.ok(zone[key], `zone ${i} has ${key} colours`);
   }
-  assert.equal(found.size, R.ZONES.length, 'every cosmetic zone is reachable from run ids');
-  const layouts = new Set();
-  for (const [zone, seed] of found) {
-    const s = R.create('miner', seed);
-    assert.equal(s.zone, zone);
-    assert.equal(R.ZONES[s.zone].name, names[zone]);
-    for (const key of ['sky', 'far', 'mid', 'columns', 'glow', 'crystal']) {
-      assert.ok(R.ZONES[zone][key], `zone ${zone} has ${key} colours`);
-    }
-    layouts.add(JSON.stringify(s.rocks.map(r => r.x)));
-    const { state, inputs } = solution(seed);
-    assert.equal(state.status, 'won', `zone ${names[zone]} layout is winnable`);
-    assert.deepEqual(R.replay(inputs, 'miner', seed).state, state, 'the zone never changes verified physics');
+  const seed = R.seedFromId('zone-run-0');
+  assert.equal(R.create('miner', seed).zone, 0, 'no config = first mine, whatever the seed');
+  for (let zone = 0; zone < 6; zone++) {
+    const { state, inputs } = solution(seed, 'miner', { zone });
+    assert.equal(state.zone, zone);
+    assert.equal(state.status, 'won', `${R.MINES[zone].name} is winnable`);
+    assert.deepEqual(R.replay(inputs, 'miner', seed, { zone }).state, state, 'the mine never changes verified physics');
   }
-  assert.equal(layouts.size, found.size, 'each zone sample has its own layout');
+});
+
+// ---------------------------------------------------------------------------
+// المرحلة 2 — خامات ومعالم داخل الجولة الحتمية (V3)
+// ---------------------------------------------------------------------------
+test('phase 2: layout is deterministic and every rock/gem carries a seeded ore or chest', () => {
+  const seed = R.seedFromId('ore-fixture-2026');
+  const a = R.layoutFor(seed), b = R.layoutFor(seed);
+  assert.deepEqual(a, b);
+  assert.equal(a.rocks.length, 3);
+  for (const rock of a.rocks) {
+    assert.ok(R.ORES[rock.ore], 'ore type must be known to the price table');
+    assert.ok(rock.yield >= 2 && rock.yield <= 4);
+  }
+  assert.equal(a.gems.filter(g => g.chest).length, 1, 'exactly one chest per run');
+  assert.ok(Object.values(R.ORES).every(o => o.price > 0));
+});
+
+test('phase 2: replay reproduces ore wallet and milestones exactly, and the win reward is unchanged', () => {
+  const seed = R.seedFromId('ore-win-fixture');
+  const { state, inputs } = solution(seed);
+  assert.equal(state.status, 'won');
+  assert.equal(R.rewardFor(state), 98, 'win keeps the original 100-gold cap formula');
+  const replayed = R.replay(inputs, 'miner', seed);
+  assert.equal(replayed.ok, true);
+  assert.deepEqual(R.oreSummary(replayed.state), R.oreSummary(state), 'the server credits the same ores');
+  assert.deepEqual(replayed.state.milestones, state.milestones);
+  assert.ok(state.milestones.length >= 2, 'a legal winning run unlocks milestones');
+  const haul = R.oreSummary(state);
+  assert.ok(Object.values(haul).some(v => v > 0), 'the run yields real ores');
+  const breakdown = R.rewardBreakdown(state);
+  assert.equal(breakdown.total, 98);
+  assert.equal(breakdown.milestoneGold + breakdown.finalGold, 98);
+  assert.ok(breakdown.milestoneGold <= 100 && breakdown.finalGold <= 100);
+});
+
+test('phase 2: milestones unlock only part of the same cap, losses keep milestones but never exceed it', () => {
+  const s = R.create('miner', 12345);
+  assert.deepEqual(R.oreSummary(s), { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 });
+  assert.equal(R.rewardFor(s), 0, 'an untouched lost run pays nothing');
+  s.milestones = R.MILESTONES.map(m => m.id);
+  s.collected = 50; s.mined = 20; // potential clamps at 100
+  s.status = 'lost';
+  const lost = R.rewardBreakdown(s);
+  assert.equal(lost.potential, 100);
+  assert.equal(lost.milestoneGold, 5 * R.MILESTONE_GOLD);
+  assert.equal(lost.finalGold, 0);
+  assert.equal(lost.total, 60, 'no gold is created above the 100 cap');
+  s.status = 'won';
+  const won = R.rewardBreakdown(s);
+  assert.equal(won.total, 100);
+  assert.equal(won.finalGold, 40);
+  assert.equal(R.rewardFor(s), 100);
+});
+
+test('phase 2: ore and milestone events only fire once per achievement', () => {
+  const s = R.create('miner', 777);
+  s.mined = 1;
+  advance(s, 0, 1);
+  const fired = s.events.filter(e => e.type === 'milestone');
+  assert.ok(fired.some(e => e.id === 'first_rock'));
+  advance(s, 0, 5);
+  assert.equal(s.events.filter(e => e.type === 'milestone').length, 0, 'no repeated milestone in later ticks');
+  assert.equal(s.milestones.filter(id => id === 'first_rock').length, 1);
+  assert.equal(s.ores.copper, R.milestoneOres(0, 'first_rock').copper);
 });

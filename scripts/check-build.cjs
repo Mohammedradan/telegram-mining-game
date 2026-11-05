@@ -33,4 +33,30 @@ for (const [, reference] of html.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
   localAssets++;
 }
 
-console.log(`Build checks passed: ${checkedFiles} JavaScript files, ${inlineScripts} inline scripts and ${localAssets} local asset references.`);
+// Images the stylesheets paint (the cave scene, hero art…) must exist too: a typo there fails silently in the browser.
+let cssAssets = 0;
+for (const file of fs.readdirSync(path.join(root, 'public'))) {
+  if (!file.endsWith('.css')) continue;
+  const css = fs.readFileSync(path.join(root, 'public', file), 'utf8');
+  for (const [, reference] of css.matchAll(/url\(\s*["']?(\/[^"')#?]+)/g)) {
+    if (!fs.existsSync(path.join(root, 'public', reference.replace(/^\//, '')))) {
+      throw new Error(`Missing asset referenced by public/${file}: ${reference}`);
+    }
+    cssAssets++;
+  }
+}
+
+// Images requested from JavaScript (the deep-dive rock atlas, hero sheet…) too: a typo there only shows up as a blank canvas.
+let jsAssets = 0;
+for (const file of fs.readdirSync(path.join(root, 'public'))) {
+  if (!file.endsWith('.js')) continue;
+  const source = fs.readFileSync(path.join(root, 'public', file), 'utf8');
+  for (const [, reference] of source.matchAll(/[\"'`](\/assets\/[A-Za-z0-9_.\/-]*[A-Za-z0-9_])(?:\?[^\"'`]*)?[\"'`]/g)) {
+    if (!fs.existsSync(path.join(root, 'public', reference.replace(/^\//, '')))) {
+      throw new Error(`Missing asset referenced by public/${file}: ${reference}`);
+    }
+    jsAssets++;
+  }
+}
+
+console.log(`Build checks passed: ${checkedFiles} JavaScript files, ${inlineScripts} inline scripts, ${localAssets} local asset references, ${cssAssets} stylesheet images and ${jsAssets} images requested from scripts.`);

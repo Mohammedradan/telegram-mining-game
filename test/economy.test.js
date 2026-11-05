@@ -1079,3 +1079,183 @@ test('balances and session sequences survive a server restart', async () => {
   assert.equal(retry.body.state.gold, 950);
   assert.equal(retry.body.state.owned.click, 1);
 });
+
+// ---------------------------------------------------------------------------
+// المرحلة 2 — بيع الخامات بسعر خادمي ثابت وضمن السقف اليومي
+// ---------------------------------------------------------------------------
+const { ORE_PRICES, DAILY_GOLD_CAP } = require('../platform-api');
+
+test('sell_ore: only owned ores are sold at fixed prices, over-selling is clamped', async () => {
+  const id = uid('ore-sell');
+  await me(id);
+  const empty = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 5 }]);
+  assert.equal(empty.body.results[0].status, 'rejected');
+  assert.equal(empty.body.results[0].reason, 'insufficient');
+  await patchUser(`guest_${id}`, (u) => { u.state.ores = { ...u.state.ores, gold: 5, copper: 10 }; });
+  const sold = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 3 }], { from: 2 });
+  assert.equal(sold.body.results[0].status, 'ok');
+  assert.equal(sold.body.results[0].count, 3);
+  assert.equal(sold.body.results[0].gold, 3 * ORE_PRICES.gold);
+  assert.equal(sold.body.state.ores.gold, 2);
+  assert.equal(sold.body.state.ores.copper, 10);
+  assert.equal(sold.body.state.gold, 3 * ORE_PRICES.gold);
+  const oversell = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 999 }], { from: 3 });
+  assert.equal(oversell.body.results[0].count, 2, 'a client cannot sell more than it owns');
+  assert.equal(oversell.body.state.ores.gold, 0);
+});
+
+test('sell_ore: sale gold counts toward the daily cap and replayed ops are idempotent', async () => {
+  const id = uid('ore-cap');
+  await me(id);
+  const day = new Date().toISOString().slice(0, 10);
+  await patchUser(`guest_${id}`, (u) => {
+    u.state.ores = { ...u.state.ores, gold: 100 };
+    u.sync.platformDay = day; u.sync.platformGold = DAILY_GOLD_CAP - ORE_PRICES.gold;
+  });
+  const capped = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 100 }], { session: 'cap' });
+  assert.equal(capped.body.results[0].count, 1, 'only the remaining daily quota can be converted');
+  assert.equal(capped.body.results[0].gold, ORE_PRICES.gold);
+  const blocked = await sendOps(id, [{ type: 'sell_ore', key: 'gold', count: 100 }], { session: 'cap', from: 2 });
+  assert.equal(blocked.body.results[0].status, 'rejected');
+  assert.equal(blocked.body.results[0].reason, 'daily_cap');
+
+  const other = uid('ore-dup');
+  await me(other);
+  await patchUser(`guest_${other}`, (u) => { u.state.ores = { ...u.state.ores, copper: 10 }; });
+  const first = await sendOps(other, [{ type: 'sell_ore', key: 'copper', count: 10 }], { session: 'dup' });
+  assert.equal(first.body.results[0].gold, 10 * ORE_PRICES.copper);
+  const again = await sendOps(other, [{ type: 'sell_ore', key: 'copper', count: 10 }], { session: 'dup' });
+  assert.equal(again.body.results[0].status, 'duplicate');
+  assert.equal(again.body.state.ores.copper, 0, 'ores are not refunded or re-sold');
+});
+
+// ---------------------------------------------------------------------------
+// المرحلة 3: معدات المناجم الدائمة (buy_equip) — ذهب + خام «سلّم» ثابت من القواعد المشتركة
+// ---------------------------------------------------------------------------
+const PlatformRules = require('../public/platform-rules');
+const stock = (ores) => ({ copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0, ...ores });
+
+test('phase 3 state: equipment and mine wins start at zero and are always sanitised server-side', async () => {
+  const id = uid('equip-state');
+  const first = await me(id);
+  assert.deepEqual(first.state.equipment, { pickaxe: 0, boots: 0, bag: 0, magnet: 0, drill: 0, robot: 0, luck: 0, armor: 0 });
+  assert.deepEqual(first.state.mines, { wins: [0, 0, 0, 0, 0, 0] });
+  // قيم تالفة في التخزين (مثلاً من إصدار قديم أو عبث) تُطبَّع عند التحميل: سقف 5، قائمة بيضاء، أعداد صحيحة
+  await patchUser(`guest_${id}`, (u) => {
+    u.state.equipment = { pickaxe: 99, boots: -4, bag: 2.9, evil: 5 };
+    u.state.mines = { wins: [3, 'x', -1, 9e9] };
+  });
+  const clean = await me(id);
+  assert.deepEqual(clean.state.equipment, { pickaxe: 5, boots: 0, bag: 2, magnet: 0, drill: 0, robot: 0, luck: 0, armor: 0 });
+  assert.deepEqual(clean.state.mines.wins, [3, 0, 0, 1e6, 0, 0]);
+  // مستخدم قديم بلا الحقلين أصلاً يحصل على الافتراضي ولا يخسر شيئاً من ذهبه
+  await patchUser(`guest_${id}`, (u) => { delete u.state.equipment; delete u.state.mines; u.state.gold = 77; });
+  const legacy = await me(id);
+  assert.equal(legacy.state.gold, 77);
+  assert.deepEqual(legacy.state.equipment, first.state.equipment);
+  assert.deepEqual(legacy.state.mines, first.state.mines);
+});
+
+test('buy_equip: charges gold plus the ladder ore, levels one step at a time and writes XP, mission progress and ledger', async () => {
+  const id = uid('equip-buy');
+  await fund(id); // 1000 ذهب موثوق
+  await patchUser(`guest_${id}`, (u) => { u.state.ores = stock({ copper: 20, iron: 20 }); });
+  const xpBefore = (await me(id)).state.xp;
+  const one = await sendOps(id, [{ type: 'buy_equip', key: 'pickaxe' }]);
+  const r1 = one.body.results[0];
+  assert.equal(r1.status, 'ok'); assert.equal(r1.level, 1); assert.equal(r1.cost, 50); assert.deepEqual(r1.ores, { copper: 6 });
+  assert.equal(one.body.state.equipment.pickaxe, 1);
+  assert.equal(one.body.state.gold, 1000 - 50);
+  assert.equal(one.body.state.ores.copper, 14);
+  assert.equal(one.body.state.xp - xpBefore, Math.floor(50 / 20), 'spending gold on gear grants XP like other upgrades');
+  const two = await sendOps(id, [{ type: 'buy_equip', key: 'pickaxe' }, { type: 'buy_equip', key: 'boots' }], { from: 2 });
+  assert.deepEqual(two.body.results.map((r) => [r.status, r.level, r.cost]), [['ok', 2, 80], ['ok', 1, 60]]);
+  assert.deepEqual(two.body.results[0].ores, { iron: 6 });
+  assert.equal(two.body.state.equipment.pickaxe, 2); assert.equal(two.body.state.equipment.boots, 1);
+  assert.equal(two.body.state.gold, 1000 - 50 - 80 - 60);
+  assert.deepEqual([two.body.state.ores.copper, two.body.state.ores.iron], [8, 14]);
+  const ledger = (await store.ledgerFor(`guest_${id}`, 20)).filter((e) => e.kind === 'buy_equip');
+  assert.equal(ledger.length, 3);
+  assert.deepEqual(ledger.map((e) => e.goldDelta).sort((a, b) => a - b), [-80, -60, -50]);
+  assert.ok(ledger.every((e) => e.detail.key && e.detail.level >= 1 && e.detail.ores));
+  const persisted = (await me(id)).state;
+  assert.deepEqual(persisted.equipment, two.body.state.equipment, 'the next profile load keeps the purchases');
+});
+
+test('buy_equip: missing gold or ore rejects without any partial charge, unknown/maxed items are refused', async () => {
+  const id = uid('equip-reject');
+  await me(id);
+  await patchUser(`guest_${id}`, (u) => { u.state.gold = 49; u.state.ores = stock({ copper: 99 }); });
+  const poor = await sendOps(id, [{ type: 'buy_equip', key: 'pickaxe' }]);
+  assert.equal(poor.body.results[0].status, 'rejected'); assert.equal(poor.body.results[0].reason, 'insufficient');
+  assert.equal(poor.body.state.gold, 49); assert.equal(poor.body.state.ores.copper, 99); assert.equal(poor.body.state.equipment.pickaxe, 0);
+  assert.equal(poor.body.violations, 1, 'an unaffordable purchase is a client desync/forgery signal like other buys');
+  await patchUser(`guest_${id}`, (u) => { u.state.gold = 5000; u.state.ores = stock({ copper: 5 }); });
+  const noOre = await sendOps(id, [{ type: 'buy_equip', key: 'pickaxe' }], { from: 2 });
+  assert.equal(noOre.body.results[0].reason, 'insufficient', '5 copper < 6 required');
+  assert.equal(noOre.body.state.gold, 5000); assert.equal(noOre.body.state.ores.copper, 5);
+  const wrongOre = await sendOps(id, [{ type: 'buy_equip', key: 'armor' }], { from: 3 });
+  assert.equal(wrongOre.body.results[0].status, 'rejected', 'armor level 1 needs 8 copper and only 5 are owned');
+  const invalid = await sendOps(id, [{ type: 'buy_equip', key: 'laser' }, { type: 'buy_equip' }], { from: 4 });
+  assert.deepEqual(invalid.body.results.map((r) => r.status), ['invalid', 'invalid']);
+  await patchUser(`guest_${id}`, (u) => { u.state.equipment.pickaxe = 5; u.state.gold = 1e6; u.state.ores = stock({ copper: 99, iron: 99, gold: 99, crystal: 99, lava: 99 }); });
+  const maxed = await sendOps(id, [{ type: 'buy_equip', key: 'pickaxe' }], { from: 6 });
+  assert.equal(maxed.body.results[0].status, 'rejected'); assert.equal(maxed.body.results[0].reason, 'max');
+  assert.equal(maxed.body.state.equipment.pickaxe, 5); assert.equal(maxed.body.state.gold, 1e6);
+});
+
+test('buy_equip: later levels use the next ladder ore and a batch can never overspend', async () => {
+  const id = uid('equip-ladder');
+  await me(id);
+  await patchUser(`guest_${id}`, (u) => { u.state.gold = 1000; u.state.equipment.pickaxe = 3; u.state.ores = stock({ crystal: 5, lava: 4 }); });
+  const lvl4 = await sendOps(id, [{ type: 'buy_equip', key: 'pickaxe' }]);
+  assert.equal(lvl4.body.results[0].status, 'ok');
+  assert.deepEqual(lvl4.body.results[0].ores, { crystal: 5 }); assert.equal(lvl4.body.results[0].cost, 205);
+  assert.equal(lvl4.body.state.ores.crystal, 0);
+  // المستوى 5 يحتاج 4 حمم + 328 ذهباً: الحمم موجودة (4) لكن 300 ذهب لا تكفي
+  await patchUser(`guest_${id}`, (u) => { u.state.gold = 300; });
+  const lvl5 = await sendOps(id, [{ type: 'buy_equip', key: 'pickaxe' }], { from: 2 });
+  assert.equal(lvl5.body.results[0].reason, 'insufficient');
+  assert.equal(lvl5.body.state.equipment.pickaxe, 4);
+  // دفعة بخامات تكفي مرة واحدة فقط: الثانية ترفض
+  await patchUser(`guest_${id}`, (u) => { u.state.gold = 10_000; u.state.equipment.boots = 3; u.state.ores = stock({ crystal: 5 }); });
+  const twice = await sendOps(id, [{ type: 'buy_equip', key: 'boots' }, { type: 'buy_equip', key: 'boots' }], { from: 3 });
+  assert.deepEqual(twice.body.results.map((r) => r.status), ['ok', 'rejected']);
+  assert.equal(twice.body.state.equipment.boots, 4);
+  assert.equal(twice.body.state.ores.crystal, 0);
+});
+
+test('buy_equip: replayed batches are idempotent and the client never supplies price or level', async () => {
+  const id = uid('equip-idem');
+  await fund(id);
+  await patchUser(`guest_${id}`, (u) => { u.state.ores = stock({ copper: 20 }); });
+  const op = { type: 'buy_equip', key: 'magnet', level: 5, cost: 1, gold: 999999, ores: { copper: 0 } };
+  const first = await sendOps(id, [op], { session: 'eq' });
+  assert.equal(first.body.results[0].status, 'ok');
+  assert.equal(first.body.results[0].level, 1, 'an op can only ever buy the next level');
+  assert.equal(first.body.results[0].cost, 80, 'price comes from the shared rules');
+  const again = await sendOps(id, [op], { session: 'eq' });
+  assert.equal(again.body.results[0].status, 'duplicate');
+  assert.equal(again.body.state.equipment.magnet, 1);
+  assert.equal(again.body.state.gold, 1000 - 80);
+  assert.equal(again.body.state.ores.copper, 20 - Math.ceil(6 * 12 / 10));
+});
+
+test('phase 3 rules cost table is what the server charges for every item and level', async () => {
+  const id = uid('equip-table');
+  await me(id);
+  let seq = 1;
+  for (const key of PlatformRules.EQUIPMENT_ORDER) {
+    await patchUser(`guest_${id}`, (u) => { u.state.equipment[key] = 0; u.state.gold = 1e7; u.state.ores = stock({ copper: 999, iron: 999, gold: 999, crystal: 999, lava: 999 }); });
+    for (let level = 0; level < PlatformRules.MAX_EQUIP_LEVEL; level++) {
+      const expected = PlatformRules.equipCost(key, level);
+      const before = (await me(id)).state;
+      const res = await sendOps(id, [{ type: 'buy_equip', key }], { from: seq++ });
+      const after = res.body.state;
+      assert.equal(res.body.results[0].status, 'ok', `${key} level ${level + 1}`);
+      assert.equal(before.gold - after.gold, expected.gold);
+      for (const [ore, qty] of Object.entries(expected.ores)) assert.equal(before.ores[ore] - after.ores[ore], qty);
+      assert.equal(after.equipment[key], level + 1);
+    }
+  }
+});

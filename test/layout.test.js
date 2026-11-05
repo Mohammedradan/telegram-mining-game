@@ -94,3 +94,83 @@ test('local styles are actually linked and platform touch controls preserve spat
   assert.match(html, /if \(tabId !== 'play'\) window\.PlatformGame\?\.pause\(\)/);
   assert.match(html, /if \(panelId !== 'adventure'\) window\.PlatformGame\?\.pause\(\)/);
 });
+
+// المرحلة 1: مؤثرات الإحساس بالضربة على العميل فقط. المرحلة 2 رفعت VERSION إلى 3
+// (خامات/معالم) لكن أضافت أحداثاً فقط ولم تلمس فيزياء step أو عدد خطواتها.
+test('phase 1+2: impact feedback and ore economy are wired into the real UI', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-renderer.js'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const rules = require('../public/platform-rules');
+  assert.ok(rules.VERSION >= 3, 'phase 2 introduced the ore engine; later phases only bump the version upward');
+  for (const id of ['platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill',
+    'mission-milestones', 'milestone-count', 'ore-storage', 'ore-list', 'sell-all-ore', 'ore-total']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(game, /pushFloater\(/);
+  assert.match(game, /hitStopUntil > time/, 'hit-stop must freeze rendering, never R.step');
+  assert.match(game, /R\.step\(sim, mask\)/, 'the physics step call stays intact');
+  assert.match(renderer, /opts\.floaters/);
+  assert.match(css, /\.mine-combo\{/);
+  assert.match(css, /\.overlay-mission\{/);
+  assert.match(css, /\.ore-row\{/);
+  assert.match(server, /case 'sell_ore'/);
+  assert.match(server, /ores: Object\.fromEntries/);
+  assert.ok(Array.isArray(rules.MILESTONES) && rules.MILESTONES.length === 5);
+  assert.equal(typeof rules.oreSummary, 'function');
+  assert.equal(typeof rules.rewardBreakdown, 'function');
+});
+
+// المرحلة 3: الورشة صارت مدعومة بالخادم (بدل المعاينة) + خريطة المناجم + عرض الصلابة في المشهد.
+test('phase 3 UI: the workshop is server-backed, the mines map is wired in and the scene shows rock hardness', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const renderer = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-renderer.js'), 'utf8');
+  assert.equal(require('../public/platform-rules').VERSION, 5);
+  for (const id of ['ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'ws-upgrade', 'ws-note', 'ws-ore-row', 'ws-mine',
+    'ws-card-now', 'ws-card-next', 'ws-cost-gold', 'ws-cost-ore', 'open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop',
+    'mine-select', 'mines-overlay', 'mines-list', 'mines-close']) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  for (const sym of ['i-boots', 'i-bag', 'i-magnet', 'i-drill', 'i-robot', 'i-luck', 'i-armor', 'i-music', 'i-close', 'i-check']) {
+    assert.match(html, new RegExp(`id="${sym}"`));
+  }
+  assert.match(css, /\.ws-overlay\{position:fixed;inset:0/, 'the workshop covers the whole viewport');
+  assert.match(css, /\.mines-overlay\{position:fixed;inset:0/, 'the mines map covers the whole viewport');
+  for (const rule of ['.ws-node{', '.ws-node.can-buy{', '.ws-cta{', '.ws-cost{', '.ws-cost.lack{', '.mine-card{', '.mine-card.locked{', '.mine-pick{', '.overlay-row{', '.ore-dot{']) {
+    assert.ok(css.includes(rule), `${rule} is styled`);
+  }
+  assert.match(css, /\.mine-overlay::before,\.mine-overlay::after\{content:'';flex:1 0 0/, 'the start overlay centres short content without clipping tall content');
+  // الورشة تقرأ الأسعار والتأثيرات من القواعد المشتركة وترسل عملية خادمية، لا مستويات محلية
+  assert.match(html, /WORKSHOP_ITEMS = WS_RULES \? WS_RULES\.EQUIPMENT_ORDER/, 'items come from the shared rules; a missing rules file only disables the workshop');
+  assert.match(html, /enqueueOp\(\{ type: 'buy_equip', key: id \}\)/);
+  assert.match(html, /function noteEquipResults\(/);
+  assert.doesNotMatch(html, /workshop-preview-levels|wsLevels/, 'no client-only levels remain');
+  assert.doesNotMatch(html, /معاينة بصرية/, 'the screen is no longer a preview');
+  assert.doesNotMatch(html, /\/api\/workshop/, 'equipment goes through the existing ops endpoint');
+  assert.match(html, /window\.openWorkshop = wsOpen/);
+  assert.match(html, /window\.openMines = minesOpen/);
+  assert.ok(html.indexOf('id="mine-select"') > html.indexOf('id="platform-overlay"'), 'the selector lives in the start overlay');
+  // المتحكم: المنجم المختار يُرسل عند البدء، واللقطة المخزنة تُستخدم في الاستعادة والتشغيل
+  assert.match(game, /request\('\/api\/platform\/start', \{ zone: selectedZone \}\)/);
+  assert.match(game, /request\('\/api\/platform\/start', \{ resume: true \}\)/);
+  assert.match(game, /R\.create\(currentHero, seedOf\(ticket\), configFor\(ticket\)\)/);
+  assert.match(game, /R\.replay\(stored\.inputs, currentHero, seedOf\(stored\.ticket\), storedConfig\)/);
+  assert.match(game, /event\.type === 'robot_mine'/);
+  assert.match(game, /new CustomEvent\('platform-config-change'/, 'mine/hero changes notify the screens');
+  assert.match(html, /addEventListener\('platform-config-change'/);
+  assert.doesNotMatch(game, /[\u{1F3C6}\u{1F480}]/u, 'result titles use no emoji');
+  // الرسم: صلابة الصخر بنسبة maxHp وشريط للصخور الصلبة والمخاطر من حالة المنجم
+  assert.match(renderer, /rock\.maxHp/);
+  assert.match(renderer, /s\.hazards \|\| L\.hazards/);
+  assert.doesNotMatch(renderer, /R\.LEVEL\./, 'the renderer reads the level of the run, never the global first level');
+  assert.match(renderer, /drawDrone\(c, s\.player/);
+  // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
+  assert.match(html, /platform-rules\.js\?v=7/);
+  assert.match(html, /platform-game\.js\?v=8/);
+  assert.match(html, /platform-renderer\.js\?v=6/);
+  assert.match(html, /platform-scenery\.js\?v=1/);
+  assert.match(html, /platform-bosses\.js\?v=1/);
+  assert.match(html, /platform\.css\?v=10/);
+});

@@ -8,6 +8,9 @@
     far: '#0a1a28', mid: '#0d2233', columns: '#143040', glow: '#3ee6b3', crystal: '#39a9a4',
   };
 
+  // لون عرق الخام داخل الصخرة: يتعرّف اللاعب على نوع الغنيمة قبل كسرها (المحرك يحدد الخام من البذرة والمنجم والحظ)
+  const ORE_TINT = { copper: '#d68a5a', iron: '#b3bec6', gold: '#ffd166', crystal: '#56ebd3', lava: '#ff7a45' };
+
   const round = (c, x, y, w, h, r, color) => {
     c.fillStyle = color;
     c.beginPath();
@@ -92,6 +95,25 @@
   }
 
   // ---- Enemies ----
+  // دورية المساعد الآلي: يحوم خلف البطل ولا يدخل في أي حساب فيزيائي (رسم فقط)
+  function dronePos(p, tick, reduced) {
+    const bob = reduced ? 0 : Math.sin(tick * 0.09) * 3;
+    return { x: p.x + p.w / 2 - (p.facing || 1) * 24, y: p.y - 8 + bob };
+  }
+  function drawDrone(c, p, tick, reduced) {
+    const d = dronePos(p, tick, reduced);
+    c.save(); c.translate(d.x, d.y);
+    round(c, -8, -5, 16, 10, 4, '#9fb3b8');
+    round(c, -6, -3, 12, 4, 2, '#cfe0e3');
+    c.fillStyle = '#56ebd3'; c.beginPath(); c.arc((p.facing || 1) * 3, 1, 2.2, 0, Math.PI * 2); c.fill();
+    // rotor
+    c.strokeStyle = '#6b7a80'; c.lineWidth = 2; c.lineCap = 'round';
+    const spin = reduced ? 0 : Math.sin(tick * 1.4) * 7;
+    c.beginPath(); c.moveTo(-spin, -8); c.lineTo(spin, -8); c.stroke();
+    c.beginPath(); c.moveTo(0, -8); c.lineTo(0, -5); c.stroke();
+    c.restore();
+  }
+
   function drawEnemy(c, enemy, tick, reduced) {
     if (enemy.dead) return;
     c.save();
@@ -452,6 +474,7 @@
   function draw(canvas, s, opts = {}) {
     const reduced = !!opts.reduced;
     const particles = opts.particles || [];
+    const floaters = opts.floaters || [];
     const shake = opts.shake || 0;
     const c = canvas.getContext('2d');
     const cssW = canvas.clientWidth || 480, cssH = canvas.clientHeight || 300;
@@ -471,6 +494,8 @@
     }
 
     const camera = R.cameraFor(s, w);
+    const L = R.levelFor ? R.levelFor(s.zone) : R.LEVEL; // V5: كل منجم له مستواه (الأرض والأخطار والراية واللافتات والبوابة)
+    const skin = (root.PlatformScenery ? root.PlatformScenery.skinFor(L.id) : null);
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
     const zone = (R.ZONES || [])[s.zone || 0] || DEFAULT_ZONE;
 
@@ -635,7 +660,7 @@
     }
 
     // ---- Environmental extras: mine carts, chests, barrels ----
-    const extras = [
+    const extras = root.PlatformScenery ? root.PlatformScenery.propsFor(L) : [
       { x: 530, type: 'cart' }, { x: 890, type: 'barrel' }, { x: 1260, type: 'cart' },
       { x: 1440, type: 'chest' }, { x: 1760, type: 'barrel' }, { x: 2040, type: 'cart' }, { x: 2320, type: 'chest' },
     ];
@@ -656,7 +681,7 @@
         c.beginPath(); c.arc(ex.x + 24, 298, 2, 0, Math.PI * 2); c.fill();
         // rail
         c.fillStyle = '#4a5560';
-        c.fillRect(0, 300, R.LEVEL.width, 2);
+        c.fillRect(0, 300, L.width, 2);
       } else if (ex.type === 'chest') {
         // treasure chest
         round(c, ex.x, 283, 28, 16, 3, '#6b4a28');
@@ -676,16 +701,17 @@
         c.fillStyle = '#8a7050'; c.fillRect(ex.x + 2, 286, 14, 2); c.fillRect(ex.x + 1, 292, 16, 1.5); c.fillRect(ex.x + 2, 298, 14, 1.5);
         c.strokeStyle = '#3d3028'; c.lineWidth = 1;
         c.beginPath(); c.ellipse(ex.x + 9, 294, 8, 8, 0, 0, Math.PI * 2); c.stroke();
-      }
+      } else if (root.PlatformScenery) root.PlatformScenery.drawProp(c, ex, s.tick, reduced);
     }
 
     // ---- Lava river with animated surface ----
     const lavaWave = reduced ? 0 : Math.sin(s.tick * 0.08) * 2;
-    round(c, 0, 328, R.LEVEL.width, 32, 0, '#a33a1e');
-    round(c, 0, 330 + lavaWave, R.LEVEL.width, 30, 0, '#cc472b');
-    round(c, 0, 334 + lavaWave * 0.5, R.LEVEL.width, 26, 0, '#ea6231');
-    round(c, 0, 342, R.LEVEL.width, 18, 0, '#ff9d42');
-    round(c, 0, 346, R.LEVEL.width, 10, 0, '#ffd152');
+    const liquid = skin ? skin.liquid : ['#a33a1e', '#cc472b', '#ea6231', '#ff9d42', '#ffd152'];
+    round(c, 0, 328, L.width, 32, 0, liquid[0]);
+    round(c, 0, 330 + lavaWave, L.width, 30, 0, liquid[1]);
+    round(c, 0, 334 + lavaWave * 0.5, L.width, 26, 0, liquid[2]);
+    round(c, 0, 342, L.width, 18, 0, liquid[3]);
+    round(c, 0, 346, L.width, 10, 0, liquid[4]);
     // lava bubbles
     if (!reduced) {
       const bubblePhase = s.tick * 0.18;
@@ -702,33 +728,34 @@
       }
     }
     // heat haze above lava
-    c.fillStyle = 'rgba(255,100,40,0.04)';
-    c.fillRect(0, 318, R.LEVEL.width, 10);
+    c.fillStyle = skin ? skin.haze : 'rgba(255,100,40,0.04)';
+    c.fillRect(0, 318, L.width, 10);
 
     // ---- Platforms with detailed stone ----
-    for (const box of R.LEVEL.platforms) {
+    const sk = skin || { rock: ['#4c443c', '#5a5048'], top: ['#6b7c3f', '#a58253', '#d8b27c'], moss: '#5a6d35', crack: '#3a342e', hi: '#6b6358' };
+    for (const box of L.platforms) {
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
       // base rock
-      round(c, box.x, box.y, box.w, box.h, 4, '#4c443c');
+      round(c, box.x, box.y, box.w, box.h, 4, sk.rock[0]);
       // inner shading
-      round(c, box.x + 2, box.y + 2, box.w - 4, box.h - 4, 3, '#5a5048');
+      round(c, box.x + 2, box.y + 2, box.w - 4, box.h - 4, 3, sk.rock[1]);
       // top grass/moss trim
-      round(c, box.x, box.y, box.w, 9, 3, '#6b7c3f');
-      round(c, box.x, box.y, box.w, 6, 2, '#a58253');
-      round(c, box.x, box.y + 2, box.w, 3, 1, '#d8b27c');
+      round(c, box.x, box.y, box.w, 9, 3, sk.top[0]);
+      round(c, box.x, box.y, box.w, 6, 2, sk.top[1]);
+      round(c, box.x, box.y + 2, box.w, 3, 1, sk.top[2]);
       // moss patches
-      c.fillStyle = '#5a6d35';
+      c.fillStyle = sk.moss;
       for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
         c.beginPath(); c.ellipse(mx, box.y + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
       }
       // stone cracks & strata
-      c.strokeStyle = '#3a342e'; c.lineWidth = 1.2;
+      c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       for (let x = Math.max(box.x + 8, Math.floor(camera / 36) * 36); x < Math.min(box.x + box.w - 8, camera + w); x += 36) {
         c.beginPath(); c.moveTo(x, box.y + 11); c.lineTo(x + 11, box.y + 22); c.lineTo(x + 3, box.y + 38); c.stroke();
         // small highlight
-        c.strokeStyle = '#6b6358'; c.lineWidth = 0.6;
+        c.strokeStyle = sk.hi; c.lineWidth = 0.6;
         c.beginPath(); c.moveTo(x + 1, box.y + 12); c.lineTo(x + 9, box.y + 12); c.stroke();
-        c.strokeStyle = '#3a342e'; c.lineWidth = 1.2;
+        c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       }
       // side shadow
       c.fillStyle = 'rgba(0,0,0,0.18)';
@@ -743,33 +770,38 @@
     }
 
     // ---- Rocks / Ores (with HP stages and ore veins) ----
+    // V4: صلابة الصخر تختلف بين المناجم (3..24)، فالمراحل تُحسب بنسبة الصحة لا بقيمة مطلقة؛
+    // منجم 0 (3 نقاط) يطابق الرسم القديم تماماً.
     for (const rock of s.rocks) {
       if (rock.hp <= 0 || rock.x < camera - 60 || rock.x > camera + w) continue;
-      const hpRatio = rock.hp / 3;
-      const baseColor = rock.hp === 3 ? '#5b6e6c' : rock.hp === 2 ? '#4d5d5b' : '#3d4b49';
-      const edgeColor = rock.hp === 3 ? '#8aa69b' : rock.hp === 2 ? '#7a9690' : '#6a8680';
+      const maxHp = Math.max(1, rock.maxHp || 3);
+      const hpRatio = rock.hp / maxHp;
+      const stage = hpRatio > 2 / 3 + 1e-9 ? 3 : hpRatio > 1 / 3 + 1e-9 ? 2 : 1;
+      const tint = ORE_TINT[rock.ore] || '#56ebd3';
+      const baseColor = stage === 3 ? '#5b6e6c' : stage === 2 ? '#4d5d5b' : '#3d4b49';
+      const edgeColor = stage === 3 ? '#8aa69b' : stage === 2 ? '#7a9690' : '#6a8680';
       round(c, rock.x, rock.y, rock.w, rock.h, 10, baseColor);
       strokeRound(c, rock.x, rock.y, rock.w, rock.h, 10, edgeColor, 2);
       // inner bevel
       round(c, rock.x + 2, rock.y + 2, rock.w - 4, rock.h - 8, 8, '#6b807c');
       c.globalAlpha = 0.25; round(c, rock.x + 3, rock.y + 3, rock.w - 6, 10, 6, '#9ab8b0'); c.globalAlpha = 1;
-      // embedded crystal with glow pulse when low HP
-      const pulse = rock.hp === 1 && !reduced ? 0.7 + Math.sin(s.tick * 0.2) * 0.3 : 1;
+      // embedded crystal (tinted by the ore inside) with glow pulse when low HP
+      const pulse = stage === 1 && !reduced ? 0.7 + Math.sin(s.tick * 0.2) * 0.3 : 1;
       c.globalAlpha = pulse;
-      crystal(c, rock.x + 22, rock.y + 25, 0.72, '#56ebd3', true);
+      crystal(c, rock.x + 22, rock.y + 25, 0.72, tint, true);
       c.globalAlpha = 1;
       // ore vein shimmer
-      if (rock.hp >= 2) oreVein(c, rock.x + 6, rock.y + 8, 8, 3, '#c49a6c');
-      if (rock.hp === 3) oreVein(c, rock.x + 30, rock.y + 14, 6, 2, '#8ec5b0');
+      if (stage >= 2) oreVein(c, rock.x + 6, rock.y + 8, 8, 3, tint);
+      if (stage === 3) oreVein(c, rock.x + 30, rock.y + 14, 6, 2, tint);
       // damage cracks with glow
-      if (rock.hp < 3) {
-        c.strokeStyle = hpRatio === 2/3 ? '#ffd875' : '#ff9955';
+      if (stage < 3) {
+        c.strokeStyle = stage === 2 ? '#ffd875' : '#ff9955';
         c.lineWidth = 2; c.lineCap = 'round';
-        if (!reduced && rock.hp === 1) { c.shadowColor = '#ff6b35'; c.shadowBlur = 4; }
+        if (!reduced && stage === 1) { c.shadowColor = '#ff6b35'; c.shadowBlur = 4; }
         c.beginPath(); c.moveTo(rock.x + 24, rock.y + 4); c.lineTo(rock.x + 16, rock.y + 18); c.lineTo(rock.x + 28, rock.y + 30); c.stroke();
         c.shadowBlur = 0;
       }
-      if (rock.hp === 1) {
+      if (stage === 1) {
         c.strokeStyle = '#ff5535'; c.lineWidth = 2;
         if (!reduced) { c.shadowColor = '#ff3333'; c.shadowBlur = 6; }
         c.beginPath(); c.moveTo(rock.x + 35, rock.y + 10); c.lineTo(rock.x + 26, rock.y + 25); c.lineTo(rock.x + 36, rock.y + 42); c.stroke();
@@ -777,10 +809,17 @@
         // debris falling
         if (!reduced) { c.fillStyle = '#6a7674'; c.fillRect(rock.x + 18, rock.y + rock.h - 2, 3, 4); c.fillRect(rock.x + 32, rock.y + rock.h - 1, 2, 3); }
       }
-      // HP pips above rock
-      for (let hi = 0; hi < rock.hp; hi++) {
-        c.fillStyle = hi < rock.hp ? '#56ebd3' : '#2a3a38';
-        c.beginPath(); c.arc(rock.x + 10 + hi * 8, rock.y - 5, 2.5, 0, Math.PI * 2); c.fill();
+      if (maxHp <= 5) {
+        // HP pips above rock (soft rocks, as before)
+        for (let hi = 0; hi < rock.hp; hi++) {
+          c.fillStyle = '#56ebd3';
+          c.beginPath(); c.arc(rock.x + 10 + hi * 8, rock.y - 5, 2.5, 0, Math.PI * 2); c.fill();
+        }
+      } else {
+        // hard rocks: a compact bar instead of dozens of pips
+        const barW = rock.w - 8;
+        round(c, rock.x + 4, rock.y - 9, barW, 5, 2.5, '#1c2a28');
+        round(c, rock.x + 5, rock.y - 8, Math.max(2, (barW - 2) * hpRatio), 3, 1.5, stage === 3 ? '#56ebd3' : stage === 2 ? '#ffd875' : '#ff7a55');
       }
     }
 
@@ -788,7 +827,6 @@
     for (const gem of s.gems) {
       if (gem.taken || gem.x < camera - 20 || gem.x > camera + w + 20) continue;
       const bob = reduced ? 0 : Math.sin(s.tick * 0.08 + gem.x * 0.02) * 3;
-      const idx = R.LEVEL.gems.indexOf ? R.LEVEL.gems.findIndex(g => g.x === gem.x || Math.abs(g.x - gem.x) < 2) : -1;
       // alternate colors for variety: every 3rd is rare purple
       const isRare = (gem.x % 400) < 80; // pseudo-rare based on position hash
       if (isRare && !reduced) {
@@ -808,8 +846,9 @@
     }
 
     // ---- Hazards ----
-    for (const h of R.LEVEL.hazards) {
+    for (const h of (s.hazards || L.hazards)) {
       if (h.x < camera - 70 || h.x > camera + w + 20) continue;
+      if (root.PlatformScenery && root.PlatformScenery.drawHazard(c, h, s.tick, reduced)) continue;
       const active = R.activeHazard(h, s.tick);
       // base plate
       round(c, h.x - 5, 294, h.w + 10, 6, 2, '#2e2420');
@@ -854,7 +893,7 @@
     }
 
     // ---- Signposts & Checkpoints ----
-    for (const x of [680, 1485, 2030]) {
+    for (const x of L.signs || [680, 1485, 2030]) {
       round(c, x, 267, 4, 33, 1, '#9b7e4e');
       round(c, x, 268, 2, 31, 1, '#b89a5a');
       round(c, x - 14, 253, 37, 20, 3, '#af8d55');
@@ -863,7 +902,7 @@
       // arrow highlight
       c.fillStyle = '#ffe4a0'; c.font = 'bold 10px sans-serif'; c.fillText('▲', x + 4, 264);
     }
-    for (const x of [920, 1710]) {
+    for (const x of (L.checkpoints || [{ at: 920 }, { at: 1710 }]).map(cp => cp.at)) {
       round(c, x, 255, 3, 45, 1, '#9bbab2');
       round(c, x + 0.5, 256, 1.5, 43, 1, '#b5d1c9');
       const active = s.checkpoint === x;
@@ -879,8 +918,10 @@
       }
     }
 
+    if (root.PlatformScenery && L.boss) root.PlatformScenery.drawBossGate(c, L, s.tick, reduced);
+
     // ---- Exit portal ----
-    const e = R.LEVEL.exit;
+    const e = L.exit;
     // outer arch stone
     round(c, e.x - 10, e.y - 12, e.w + 20, e.h + 16, 26, '#8a6d3a');
     round(c, e.x - 8, e.y - 10, e.w + 16, e.h + 12, 24, '#a4814d');
@@ -918,7 +959,7 @@
     c.fillStyle = unlocked ? '#baffed' : '#ffe2a1';
     c.font = 'bold 9px sans-serif'; c.textAlign = 'center';
     if (unlocked && !reduced) c.fillText('✦ مفتوحة ✦', e.x + 35, e.y - 18, 132);
-    else c.fillText(unlocked ? 'بوابة مفتوحة' : '🔒 3 بلورات + تعدين', e.x + 35, e.y - 18, 132);
+    else c.fillText(unlocked ? 'بوابة مفتوحة' : (s.bossId && !s.bossDefeated ? 'مغلقة حتى يسقط الزعيم' : '🔒 3 بلورات + تعدين'), e.x + 35, e.y - 18, 132);
     // keyhole when locked
     if (!unlocked) {
       c.fillStyle = '#2d2410'; c.beginPath(); c.arc(e.x + 35, e.y + 38, 5, 0, Math.PI * 2); c.fill();
@@ -928,11 +969,24 @@
     // ---- Projectiles ----
     if (s.projectiles) for (const proj of s.projectiles) drawProjectile(c, proj);
 
-    // ---- Enemies ----
-    if (s.enemies) for (const enemy of s.enemies) drawEnemy(c, enemy, s.tick, reduced);
+    // ---- Boss warning lane, enemies, boss, shockwaves ----
+    const bosses = root.PlatformBosses;
+    if (bosses) for (const enemy of s.enemies) if (enemy.boss) bosses.drawTelegraph(c, enemy, s, reduced);
+    if (s.enemies) for (const enemy of s.enemies) { if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); } else drawEnemy(c, enemy, s.tick, reduced); }
+    if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced);
 
     // ---- Hero ----
     drawHero(c, s.player, s.tick, reduced);
+    // ---- Mining robot companion (V4 equipment) ----
+    if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
+    for (const beam of (opts.beams || [])) {
+      c.globalAlpha = Math.max(0, Math.min(1, beam.life / 8));
+      c.strokeStyle = '#7dffd4'; c.lineWidth = 2.5; c.lineCap = 'round';
+      if (!reduced) { c.shadowColor = '#7dffd4'; c.shadowBlur = 8; }
+      c.beginPath(); c.moveTo(beam.x1, beam.y1); c.lineTo(beam.x2, beam.y2); c.stroke();
+      c.shadowBlur = 0;
+    }
+    c.globalAlpha = 1;
 
     // ---- Particles with glow ----
     for (const p of particles) {
@@ -950,6 +1004,27 @@
         c.globalAlpha = alpha * 0.3;
         round(c, p.x - p.vx * 2, p.y - p.vy * 2, (p.size || 4) * 0.6, (p.size || 4) * 0.6, 1, p.color);
       }
+    }
+    c.globalAlpha = 1;
+
+    // ---- Floating impact numbers (cosmetic only; world coordinates) ----
+    for (const f of floaters) {
+      const alpha = Math.max(0, Math.min(1, (f.life / (f.maxLife || 1)) * 1.8));
+      c.globalAlpha = alpha;
+      c.save();
+      c.translate(f.x, f.y);
+      c.scale(f.scale || 1, f.scale || 1);
+      // الأرقام لاتينية: امنع وراثة direction:rtl من الصفحة وإلا انقلب "+1" إلى "1+".
+      c.direction = 'ltr';
+      c.font = `900 ${f.size || 12}px system-ui, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.lineWidth = 3;
+      c.strokeStyle = 'rgba(4,12,18,.9)';
+      c.strokeText(f.text, 0, 0);
+      c.fillStyle = f.color || '#fff';
+      c.fillText(f.text, 0, 0);
+      c.restore();
     }
     c.globalAlpha = 1;
 
@@ -976,7 +1051,10 @@
     }
 
     // invulnerability shimmer on hero is handled in drawHero
+
+    // boss health bar: screen space, unaffected by the shake
+    if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, pixelH / worldH, 0, 0); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
   }
 
-  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy };
+  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

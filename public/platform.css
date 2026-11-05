@@ -36,7 +36,10 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-stage{position:relative;flex:1;min-height:260px;border:2px solid #6b5a3e;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at center top,#0f2535 0%,#0a1622 40%,#07101a 100%);box-shadow:0 10px 36px rgba(0,0,0,.55),0 0 0 1px rgba(244,191,98,.12),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 8px rgba(0,0,0,.4)}
 #platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none;image-rendering:optimizeQuality}
 
-.mine-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;padding:16px;background:linear-gradient(135deg,rgba(7,20,32,.92),rgba(16,33,48,.85),rgba(8,22,35,.90));text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d;backdrop-filter:blur(2px)}
+.mine-overlay{--ov-gap:8px;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:var(--ov-gap);padding:16px;background:linear-gradient(135deg,rgba(7,20,32,.92),rgba(16,33,48,.85),rgba(8,22,35,.90));text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d;backdrop-filter:blur(2px)}
+.mine-overlay::before,.mine-overlay::after{content:'';flex:1 0 0;min-height:0}
+.mine-overlay::before{margin-bottom:calc(var(--ov-gap) * -1)}
+.mine-overlay::after{margin-top:calc(var(--ov-gap) * -1)}
 .mine-overlay h3{font-size:23px;line-height:1.1;font-weight:900;color:#ffdc91;text-shadow:0 2px 12px rgba(0,0,0,.6),0 0 20px rgba(255,220,145,.25);letter-spacing:.4px}
 .mine-overlay p{font-size:11.5px;line-height:1.7;max-width:400px;color:#cfe0e2;opacity:.95}
 .mine-overlay button,#platform-retry{border-radius:11px;padding:10px 22px;background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;border:1px solid #ffe2a2;font-size:12px;cursor:pointer;box-shadow:0 4px 14px rgba(245,188,96,.3),inset 0 1px 0 rgba(255,255,255,.3);transition:all .15s}
@@ -114,7 +117,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   .mine-controls{padding:2px}
   .virtual-joystick{width:95px;height:95px}
   .action-btn{min-height:42px}
-  .mine-overlay{padding:12px;gap:6px}
+  .mine-overlay{padding:12px;--ov-gap:6px}
   .mine-overlay h3{font-size:19px}
   .mine-overlay p{font-size:10.5px;line-height:1.45}
   .mine-status{font-size:9.5px;min-height:20px}
@@ -184,3 +187,257 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   #platform-scene .mine-economy{display:none}
   #platform-scene .mine-stage{min-height:110px}
 }
+
+/* سطح مكتب بارتفاع قصير (مثل 1280×800): خفّض الحد الأدنى لارتفاع المشهد
+   حتى لا يغطي شريط التنقل السفلي أزرار التحكم. على الشاشات الأطول يبقى
+   المشهد مرناً (flex:1) فيملأ المساحة المتاحة تلقائياً. */
+@media (min-width:1024px) and (max-height:860px){
+  #platform-scene .mine-stage{min-height:300px;max-height:420px}
+}
+
+
+/* أيقونات SVG متجهية موحّدة — بديل عن الإيموجي في واجهة المنجم.
+   ترث اللون من الزر (currentColor) فتبقى متناسقة مع كل نسق لوني. */
+.icon-sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.ui-icon{display:inline-block;flex-shrink:0;width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.15em;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.action-btn .ui-icon{width:22px;height:22px;opacity:.95}
+.pause-btn .ui-icon{width:17px;height:17px}
+.badge-icon{width:20px;height:20px}
+.hero-icon{width:14px;height:14px}
+.econ-icon{width:13px;height:13px}
+.mute-icon{width:14px;height:14px}
+.mine-heading-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.mine-hero-btn{display:flex;align-items:center;justify-content:center;gap:4px}
+.mine-gold,.mine-energy{display:inline-flex;align-items:center;gap:4px}
+#platform-mute[aria-pressed="true"] .mute-icon-on,
+#platform-mute[aria-pressed="false"] .mute-icon-off{display:none}
+@media(max-width:360px){.action-btn .ui-icon{width:18px;height:18px}}
+@media(min-width:1024px){.action-btn .ui-icon{width:24px;height:24px}.pause-btn .ui-icon{width:18px;height:18px}}
+
+.logo-icon{width:22px;height:22px;color:#4a3212}
+.subnav-icon{width:12px;height:12px}
+.nav-icon{width:20px;height:20px}
+.mine-resources{display:inline-flex;align-items:center;gap:8px}
+.res-chip{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;direction:ltr;unicode-bidi:isolate}
+.res-chip .ui-icon{width:13px;height:13px;color:#ffdf8a}
+.res-chip:nth-child(2) .ui-icon{color:#e9b969}
+.res-chip:nth-child(3) .ui-icon{color:#ff9e9e}
+
+/* المرحلة 1 — أرقام المكافأة/الضرر الطائرة، سلسلة التعدين، وبطاقة المهمة */
+.mine-combo{position:absolute;top:8px;left:8px;z-index:3;direction:ltr;pointer-events:none;padding:4px 10px;border-radius:11px;background:rgba(8,20,30,.82);border:1px solid rgba(255,209,102,.55);color:#ffd166;font-weight:900;font-size:13px;box-shadow:0 3px 10px rgba(0,0,0,.4);animation:comboPop .18s ease-out}
+@keyframes comboPop{from{transform:scale(.82);opacity:.45}to{transform:scale(1);opacity:1}}
+.overlay-kicker{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;letter-spacing:.4px;color:#e9b969;background:rgba(244,191,98,.12);border:1px solid rgba(244,191,98,.35);border-radius:999px;padding:5px 12px}
+.overlay-kicker .ui-icon{width:13px;height:13px}
+.overlay-mission{width:min(330px,92%);display:flex;flex-direction:column;gap:7px;padding:10px 12px;border-radius:13px;background:rgba(8,20,30,.7);border:1px solid rgba(120,150,170,.28);text-align:start}
+.mission-row{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#d7e6e8}
+.mission-row .ui-icon{width:14px;height:14px;color:#ffd166}
+.mission-row b{margin-inline-start:auto;color:#ffdf8a;font-size:11px;direction:ltr;unicode-bidi:isolate}
+.mission-progress{height:6px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.mission-progress i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#f5bc60,#56ebd3);transition:width .25s ease}
+.mine-overlay #platform-start,.mine-overlay #platform-resume{min-width:176px;padding:12px 26px;font-size:13px}
+@media(prefers-reduced-motion:reduce){.mine-combo{animation:none}.mission-progress i{transition:none}}
+
+/* المرحلة 2 — مخزن الخامات في تبويب الترقيات */
+.ore-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:rgba(15,23,42,.72);border:1px solid rgba(148,163,184,.16);font-size:11px;color:#dbe6ea}
+.ore-row b{margin-inline-start:auto;color:#ffd166;font-size:11px}
+.ore-row span:nth-child(3){color:#94a3b8;font-size:10px;direction:ltr;unicode-bidi:isolate}
+.ore-sell{background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;border:1px solid #ffe2a2;border-radius:7px;padding:3px 10px;font-size:10px;cursor:pointer;flex-shrink:0}
+.ore-sell:active{transform:translateY(1px)}
+
+/* ============================================================
+   ورشة المعدّن — معاينة بصرية كاملة الشاشة (عميل فقط)
+   ============================================================ */
+.ws-overlay{position:fixed;inset:0;width:100%;height:100%;height:100dvh;z-index:80;display:flex;flex-direction:column;direction:rtl;color:#f4e6c8;font-family:'Tajawal',system-ui,-apple-system,sans-serif;background:#060818;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.7)}
+.ws-cave{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,rgba(4,6,18,.3),rgba(4,6,18,0) 62%),linear-gradient(to bottom,rgba(4,6,18,.72) 0%,rgba(4,6,18,.1) 22%,rgba(4,6,18,0) 48%,rgba(4,6,18,.74) 100%),url("/assets/cave/cave-portrait.jpg?v=1") 50% 30%/cover no-repeat,#060818}
+@media(min-aspect-ratio:1/1){.ws-cave{background:radial-gradient(ellipse at 50% 50%,rgba(4,6,18,.28),rgba(4,6,18,0) 62%),linear-gradient(to bottom,rgba(4,6,18,.66) 0%,rgba(4,6,18,.06) 24%,rgba(4,6,18,0) 50%,rgba(4,6,18,.68) 100%),url("/assets/cave/cave-wide.jpg?v=1") 50% 58%/cover no-repeat,#060818}}
+.ws-top{position:relative;z-index:2;display:flex;align-items:center;gap:6px;padding:10px 12px;flex-shrink:0;width:min(520px,100%);margin-inline:auto}
+.ws-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 13px 3px 10px;border-radius:14px;border:2.5px solid transparent;background:linear-gradient(180deg,rgba(40,26,12,.94),rgba(11,9,22,.96)) padding-box,linear-gradient(150deg,#fff0a8,#e0a021 30%,#7a4208 60%,#f2c050) border-box;box-shadow:0 4px 10px rgba(0,0,0,.55);font-weight:900;font-size:14px;color:#fff;text-shadow:0 2px 0 #7a4208;direction:ltr;unicode-bidi:isolate}
+.ws-chip .ui-icon{width:16px;height:16px}
+.ws-chip .ck-coin-art{width:26px;height:26px}
+.ws-ores{color:#bff4ff;text-shadow:0 2px 0 #0b3a4d}
+.ws-top-actions{margin-inline-start:auto;display:flex;gap:6px}
+.ws-icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#ffe9a6;border:2.5px solid transparent;background:radial-gradient(circle at 35% 28%,#2a3c84,#0d1536) padding-box,linear-gradient(150deg,#fff0a8,#e0a021 35%,#7a4208 65%,#f2c050) border-box;box-shadow:0 3px 8px rgba(0,0,0,.55);cursor:pointer;transition:transform .12s}
+.ws-icon-btn .ui-icon{width:18px;height:18px}
+.ws-icon-btn[aria-pressed="false"]{color:#8a93ad}
+.ws-icon-btn:active{transform:scale(.94)}
+.ws-stage{position:relative;z-index:1;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px;width:min(520px,100%);margin-inline:auto}
+.ws-ring{position:relative;width:min(340px,90vw,calc(100dvh - 190px));aspect-ratio:1;max-height:100%;flex-shrink:0}
+.ws-orbit{position:absolute;inset:7%;border-radius:50%;border:2px solid rgba(255,214,120,.2);box-shadow:inset 0 0 36px rgba(0,0,0,.45),0 0 22px rgba(255,190,80,.12)}
+.ws-glow{position:absolute;inset:20%;border-radius:50%;background:radial-gradient(circle,rgba(255,176,70,.34),transparent 70%);filter:blur(8px);animation:wsPulse 3.5s ease-in-out infinite}
+@keyframes wsPulse{50%{opacity:.6;transform:scale(1.06)}}
+.ws-pedestal{position:absolute;left:50%;top:74%;transform:translateX(-50%);width:54%;height:13%;border-radius:50%;background:radial-gradient(ellipse at 50% 45%,rgba(255,196,110,.3),rgba(0,0,0,.55) 58%,transparent 74%)}
+.ws-hero-canvas{position:absolute;left:50%;top:51%;transform:translate(-50%,-50%);width:46%;height:52%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 8px 10px rgba(0,0,0,.6));-webkit-user-drag:none}
+.ws-drone{position:absolute;left:67%;top:28%;width:15%;aspect-ratio:1;pointer-events:none;filter:drop-shadow(0 6px 8px rgba(0,0,0,.55));animation:wsFloat 2.6s ease-in-out infinite}
+.ws-drone[hidden]{display:none}
+.ws-drone svg{width:100%;height:100%;overflow:visible}
+@keyframes wsFloat{50%{transform:translateY(-6px)}}
+.ws-nodes{position:absolute;inset:0}
+.ws-node{--sz:58px;position:absolute;transform:translate(-50%,-50%);width:var(--sz);height:var(--sz);padding:0;border:0;border-radius:50%;background:none;cursor:pointer;transition:transform .15s}
+.ws-node .cv-medal{--sz:100%}
+.ws-node:hover,.ws-node:focus-visible{transform:translate(-50%,-50%) scale(1.09)}
+.ws-node:focus-visible{outline:3px solid rgba(253,224,71,.9);outline-offset:6px}
+.ws-node:active{transform:translate(-50%,-50%) scale(.95)}
+.ws-bottom{position:relative;z-index:2;flex-shrink:0;padding:8px 14px 12px;display:flex;flex-direction:column;gap:7px;width:min(520px,100%);margin-inline:auto}
+.ws-summary{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#d3dde4;padding:3px 10px;border-radius:10px;background:rgba(6,5,18,.55)}
+.ws-summary b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.ws-cta{width:100%;min-height:56px;font-size:20px;letter-spacing:.2px}
+.ws-cta-icon{width:24px;height:24px;stroke-width:2.2;filter:drop-shadow(0 2px 0 rgba(0,0,0,.4))}
+.ws-note{text-align:center;font-size:9.5px;color:#8fa3b0;margin:0}
+.ws-modal{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:60px 16px 16px;background:rgba(3,4,14,.74);backdrop-filter:blur(3px)}
+.ws-card{position:relative;width:min(340px,100%);padding:58px 16px 16px;display:flex;flex-direction:column;gap:9px;text-align:center;overflow:visible}
+.ws-card-icon{position:absolute;top:-48px;left:50%;transform:translateX(-50%);width:96px;height:96px}
+.ws-card-icon .cv-medal{--sz:96px}
+.ws-card h3{margin:0;font-size:19px;font-weight:900;color:#ffe08a;text-shadow:0 2px 0 rgba(90,40,0,.9),0 0 14px rgba(255,190,70,.35)}
+.ws-card-effect{margin:0;font-size:11px;color:#cfe0e2;line-height:1.6}
+.ws-stats{display:flex;justify-content:space-between;font-size:11px;color:#b9c9d4;padding:8px 10px;border-radius:10px;background:rgba(8,18,28,.6);direction:rtl}
+.ws-stats b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.ws-upgrade{min-height:48px;font-size:16px}
+.ws-modal-close{padding:7px;border-radius:10px;background:transparent;color:#94a3b8;font-size:11px;border:1px solid rgba(148,163,184,.3);cursor:pointer}
+.ws-mini-entry{display:inline-flex;align-items:center;gap:5px;font-size:10px;padding:7px 10px;border-radius:9px;background:rgba(34,51,60,.9);border:1px solid #40505a;min-height:38px;color:#e8f1f5;cursor:pointer;font-weight:700}
+.ws-mini-entry .ui-icon{width:14px;height:14px;color:#ffd166}
+#open-workshop-overlay{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;box-shadow:0 4px 14px rgba(38,84,92,.3)}
+.ws-shop-entry{width:100%;padding:10px;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#f3e8ff;font-weight:900;font-size:12px;border:1px solid rgba(196,181,253,.5);cursor:pointer}
+@media(max-width:360px){.ws-node{--sz:50px}.ws-ring{width:min(300px,92vw,calc(100dvh - 190px))}.ws-cta{font-size:16px}}
+/* شاشة أفقية قصيرة: ضغط الأشرطة حتى لا تتداخل مع حلقة المعدات */
+@media(max-height:480px){.ws-top{padding:5px 10px}.ws-icon-btn{width:32px;height:32px}.ws-chip{font-size:12px;padding:2px 10px 2px 8px}.ws-chip .ck-coin-art{width:22px;height:22px}.ws-bottom{padding:5px 12px 6px;gap:4px}.ws-cta{min-height:44px;padding:4px 12px;font-size:16px}.ws-note{display:none}.ws-summary{font-size:10px;padding:2px 8px}.ws-ring{width:min(300px,92vw,calc(100dvh - 160px))}.ws-node{--sz:44px}.ws-card{padding:42px 12px 10px;gap:6px}.ws-card-icon{top:-34px;width:68px;height:68px}.ws-card-icon .cv-medal{--sz:68px}.ws-card h3{font-size:15px}.ws-card-effect{font-size:10px}.ws-modal{padding-top:40px}}
+/* سطح المكتب: حلقة أكبر تستغل المساحة الرأسية */
+@media(min-width:900px) and (min-height:600px){.ws-ring{width:min(420px,calc(100dvh - 210px))}.ws-node{--sz:68px}.ws-top,.ws-bottom{width:min(560px,100%)}}
+@media(prefers-reduced-motion:reduce){.ws-glow,.ws-drone{animation:none}.ws-node,.ws-cta{transition:none}}
+
+/* ============================================================
+   المرحلة 3 — معدات خادمية + خريطة المناجم
+   ============================================================ */
+/* اختيار المنجم داخل لوحة البداية وفي الورشة */
+.overlay-row{display:flex;gap:8px;width:min(330px,94%);align-items:stretch}
+.mine-overlay .overlay-row button{flex:1 1 0;min-width:0;padding:8px 8px;font-size:11.5px}
+.mine-overlay .mine-select{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:linear-gradient(135deg,#31404f,#222f3b);color:#ffe3a3;border:1px solid rgba(255,209,102,.5);box-shadow:0 4px 14px rgba(0,0,0,.35);line-height:1.3}
+.mine-select-label{font-size:9.5px;font-weight:700;color:#aebccb}
+.mine-select b{font-size:12.5px;color:#ffd166}
+.mine-select-hits{font-size:9.5px;font-weight:700;color:#9fe8d4}
+.ws-mine-btn{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:6px 10px;border-radius:14px;border:2.5px solid transparent;background:linear-gradient(180deg,rgba(40,26,12,.92),rgba(11,9,22,.94)) padding-box,linear-gradient(150deg,#fff0a8,#e0a021 30%,#7a4208 60%,#f2c050) border-box;color:#f4e6c8;font-size:12px;font-weight:700;cursor:pointer;line-height:1.3;box-shadow:0 4px 10px rgba(0,0,0,.5)}
+.ws-mine-btn .ui-icon{width:15px;height:15px;color:#ffd166}
+.ws-mine-btn b{color:#ffd166;font-size:13px}
+.ws-mine-label{font-size:10px;color:#aebccb}
+.ws-mine-hits{font-size:10px;color:#9fe8d4}
+/* ألوان الخامات */
+.ore-dot{display:inline-block;width:9px;height:9px;border-radius:3px;transform:rotate(45deg);margin-inline:3px;vertical-align:middle;background:#9aa;box-shadow:0 0 6px rgba(255,255,255,.25)}
+.ore-copper{background:#d68a5a}.ore-iron{background:#b3bec6}.ore-gold{background:#ffd166}.ore-crystal{background:#56ebd3}.ore-lava{background:#ff7a45}
+.ws-ore-row{position:relative;z-index:2;display:flex;flex-wrap:wrap;justify-content:center;gap:4px;padding:0 10px 2px;width:min(520px,100%);margin-inline:auto}
+.ws-ore-chip{display:inline-flex;align-items:center;gap:2px;padding:3px 7px;border-radius:9px;background:rgba(8,18,28,.72);border:1px solid rgba(148,163,184,.22);font-size:9.5px;color:#cfe0e2}
+.ws-ore-chip b{margin-inline-start:4px;color:#ffd166;direction:ltr;unicode-bidi:isolate}
+/* حالة عقد المعدات */
+.ws-node.can-buy{z-index:1}
+.ws-node.is-max{z-index:0}
+/* بطاقة الترقية */
+.ws-level{direction:ltr;unicode-bidi:isolate}
+.ws-card-max{color:#8fa3b0;font-weight:700}
+.ws-effects{display:flex;flex-direction:column;gap:3px;padding:7px 9px;border-radius:10px;background:rgba(8,18,28,.5);text-align:start}
+.ws-effects p{margin:0;font-size:11px;line-height:1.5;color:#cfe0e2}
+.ws-effects p:last-child{color:#9fe8d4}
+.ws-costs{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.ws-cost{display:inline-flex;align-items:center;gap:3px;padding:5px 9px;border-radius:10px;background:rgba(8,18,28,.65);border:1px solid rgba(148,163,184,.25);font-size:11px;color:#dbe6ea}
+.ws-cost:empty{display:none}
+.ws-cost .ui-icon{width:14px;height:14px;color:#ffd166}
+.ws-cost .ws-cost-coin{width:20px;height:20px;flex:none}
+.ws-cost b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.ws-cost.lack{border-color:rgba(255,107,107,.65);color:#ffb4b4}
+.ws-cost.lack b{color:#ff8f8f}
+.ws-upgrade:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.35)}
+
+/* خريطة المناجم */
+.mines-overlay{position:fixed;inset:0;width:100%;height:100dvh;z-index:90;display:flex;flex-direction:column;direction:rtl;color:#f4e6c8;font-family:'Tajawal',system-ui,-apple-system,sans-serif;background:radial-gradient(ellipse at 50% 8%,#2a3a50 0%,#141f2f 46%,#070d17 100%);overflow:hidden}
+.mines-top{position:relative;z-index:2;display:flex;align-items:center;gap:8px;padding:12px 14px 4px;width:min(640px,100%);margin-inline:auto}
+.mines-top h2{margin:0;font-size:19px;font-weight:900;color:#ffdf8a;margin-inline-end:auto}
+.mines-hint{position:relative;z-index:2;margin:0 auto;padding:0 14px 8px;width:min(640px,100%);font-size:11px;color:#a9bac6;line-height:1.6}
+.mines-list{position:relative;z-index:2;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:2px 14px 18px;width:min(640px,100%);margin-inline:auto;-webkit-overflow-scrolling:touch}
+.mine-card{display:flex;align-items:center;gap:11px;padding:10px;border-radius:15px;background:linear-gradient(160deg,rgba(26,40,56,.92),rgba(12,22,34,.92));border:1px solid rgba(148,163,184,.25)}
+.mine-card.selected{border-color:#ffd166;box-shadow:0 0 0 1px rgba(255,209,102,.35),0 6px 20px rgba(255,190,80,.16)}
+.mine-card.locked{opacity:.78}
+.mine-card-art{flex:0 0 54px;height:54px;border-radius:14px;display:grid;place-items:center;background:radial-gradient(circle at 30% 25%,var(--mine-b),var(--mine-a) 70%);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 14px rgba(0,0,0,.45)}
+.mine-card-art span{font-size:22px;font-weight:900;color:rgba(255,255,255,.88);text-shadow:0 2px 6px rgba(0,0,0,.6);direction:ltr}
+.mine-card-body{flex:1;min-width:0}
+.mine-card-body h3{margin:0;font-size:14px;font-weight:900;color:#ffdf8a}
+.mine-card-body p{margin:1px 0 4px;font-size:10.5px;color:#b9c9d4;line-height:1.5}
+.mine-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:#9fe8d4}
+.mine-meta b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.mine-world{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:3px;font-size:10px;color:#c7b8a2}
+.mine-world .ui-icon{width:12px;height:12px;vertical-align:-2px;margin-inline-end:3px}
+.mine-danger{color:#ffb486}
+.mine-boss{color:#ffd166;font-weight:800}
+.mission-row[hidden]{display:none}
+.mine-ores{display:flex;flex-wrap:wrap;gap:3px 8px;margin-top:4px;font-size:10px;color:#cfe0e2}
+.mine-ore{display:inline-flex;align-items:center}
+.mine-needs{list-style:none;margin:5px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:10px}
+.mine-needs li{display:flex;align-items:center;gap:4px}
+.mine-needs li .ui-icon{width:12px;height:12px}
+.mine-needs li.ok{color:#7dffd4}
+.mine-needs li.no{color:#ffb4b4}
+.mine-pick{flex:0 0 auto;min-width:78px;padding:9px 10px;border-radius:11px;background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;font-size:12px;border:1px solid #ffe2a2;cursor:pointer}
+.mine-pick:disabled{opacity:.55;cursor:default;background:linear-gradient(135deg,#3c4a58,#2a3541);color:#cbd5df;border-color:rgba(148,163,184,.3)}
+.mine-card.selected .mine-pick:disabled{background:linear-gradient(135deg,#2a6b75,#26545c);color:#d5ffef;border-color:#468b85;opacity:1}
+/* الوضع الكلاسيكي (3أ′): بطاقة سفلية ثابتة في خريطة المناجم. ليست .mine-card عمداً: المناجم الستة وحدها تُعدّ بهذا الصنف */
+.mine-classic{position:relative;z-index:2;display:flex;align-items:center;gap:10px;margin:0 auto 12px;padding:8px 10px;width:min(612px,calc(100% - 28px));border-radius:15px;background:linear-gradient(160deg,rgba(18,52,88,.92),rgba(10,24,42,.94));border:1px solid rgba(98,182,255,.42);box-shadow:0 -6px 18px rgba(0,0,0,.35)}
+.mine-classic-art{flex:0 0 40px;height:40px;border-radius:12px;display:grid;place-items:center;background:radial-gradient(circle at 30% 25%,#5ab0ff,#12375e 70%);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 12px rgba(0,0,0,.45)}
+.mine-classic-art .ui-icon{width:22px;height:22px;color:#eaf6ff}
+.mine-classic-body{flex:1;min-width:0}
+.mine-classic-body h3{margin:0;font-size:13px;font-weight:900;color:#bfe3ff}
+.mine-classic-body p{margin:1px 0 0;font-size:10px;color:#b9c9d4;line-height:1.45}
+.mine-classic-body b{color:#ffd166;direction:ltr;unicode-bidi:isolate}
+.mine-classic .mine-pick{min-width:64px;background:linear-gradient(135deg,#7fcaff,#3b8fd9);border-color:#cfeaff;color:#06223c}
+.legacy-back .ui-icon{width:14px;height:14px}
+@media(max-height:480px){.mines-top{padding:6px 12px 2px}.mines-top h2{font-size:15px}.mines-hint{display:none}.mine-card{padding:7px;gap:8px}.mine-card-art{flex-basis:40px;height:40px}.mine-card-art span{font-size:17px}.mine-card-body p{display:none}.mine-classic{margin-bottom:6px;padding:6px 8px}.mine-classic-body p{display:none}}
+@media(max-width:360px){.mine-card-art{display:none}.mine-pick{min-width:64px;padding:8px}.mine-classic-art{display:none}}
+
+/* مهام المغامرة (3ب): قائمة في لوحة المهام، الأيقونات SVG أو نقطة لون الخام */
+.quests-box{border-color:rgba(214,138,90,.4)}
+.quests-title{display:inline-flex;align-items:center;gap:6px}
+.quests-title .ui-icon{width:14px;height:14px;color:#ffd166}
+.quests-note{margin:6px 0 0;font-size:10px;line-height:1.6;color:#9fb0bf}
+.quests-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+#quests-count.quests-ready{color:#ffd166;font-weight:800}
+.quest-row{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:12px;background:rgba(15,23,42,.75);border:1px solid rgba(148,163,184,.22)}
+.quest-row.ready{border-color:rgba(255,209,102,.7);box-shadow:0 0 0 1px rgba(255,209,102,.18),0 4px 14px rgba(255,190,80,.12)}
+.quest-row.claimed{opacity:.62}
+.quest-ico{flex:0 0 30px;height:30px;border-radius:9px;display:grid;place-items:center;background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.25);color:#ffd166}
+.quest-ico .ui-icon{width:16px;height:16px}
+.quest-ico .ore-dot{width:13px;height:13px;margin:0}
+.quest-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.quest-body b{font-size:11.5px;color:#f4e6c8}
+.quest-body small{font-size:10px;color:#9fb0bf;line-height:1.4}
+.quest-bar{height:5px;border-radius:99px;background:rgba(148,163,184,.2);overflow:hidden;margin-top:3px}
+.quest-bar i{display:block;height:100%;background:linear-gradient(90deg,#d68a5a,#ffd166);border-radius:99px}
+.quest-row.ready .quest-bar i,.quest-row.claimed .quest-bar i{background:linear-gradient(90deg,#34d399,#6ee7b7)}
+.quest-side{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:end}
+.quest-reward{font-size:9.5px;color:#ffd166;white-space:nowrap}
+.quest-count{font-size:10px;font-weight:800;color:#cbd5e1;direction:ltr;unicode-bidi:isolate}
+.quest-claim{padding:5px 12px;border-radius:9px;background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;font-size:11px;border:1px solid #ffe2a2;cursor:pointer}
+.quest-done{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:#7dffd4;font-weight:800}
+.quest-done .ui-icon{width:12px;height:12px}
+@media(max-width:360px){.quest-reward{white-space:normal}.quest-row{gap:7px;padding:7px}}
+
+/* التبجيل (3ج): بطاقة في تبويب الترقيات تحت المنصّة العملاقة. الأيقونات SVG، والبنفسجي لها وحدها كي لا تختلط بذهبي الترقيات */
+.prestige-card{display:flex;flex-direction:column;gap:9px;padding:12px;border-radius:14px;background:linear-gradient(160deg,rgba(58,40,104,.6),rgba(15,23,42,.94));border:1px solid rgba(167,139,250,.5);box-shadow:0 6px 20px rgba(88,60,170,.16)}
+.prestige-head{display:flex;align-items:center;gap:10px}
+.prestige-ico{flex:0 0 34px;height:34px;border-radius:11px;display:grid;place-items:center;background:radial-gradient(circle at 35% 28%,#a78bfa,#4c1d95);border:1px solid rgba(233,213,255,.5);color:#fff}
+.prestige-ico .ui-icon{width:18px;height:18px}
+.prestige-titles{min-width:0;flex:1}
+.prestige-titles h3{margin:0;font-size:14px;font-weight:900;color:#e9d5ff}
+.prestige-titles p{margin:1px 0 0;font-size:10.5px;color:#c4b5fd}
+.prestige-mult{flex:0 0 auto;padding:3px 11px;border-radius:999px;font-size:13px;font-weight:900;color:#2e1065;background:linear-gradient(135deg,#e9d5ff,#c4b5fd);direction:ltr;unicode-bidi:isolate}
+.prestige-note{margin:0;font-size:10px;line-height:1.7;color:#a8b4c5}
+.prestige-note b{color:#ddd6fe}
+.prestige-needs{display:flex;flex-direction:column;gap:7px}
+.prestige-need{display:grid;grid-template-columns:minmax(0,auto) minmax(40px,1fr) auto;align-items:center;gap:9px;font-size:11px;color:#cbd5e1}
+.prestige-need-label{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.prestige-need-label .ui-icon{width:14px;height:14px;color:#c4b5fd}
+.prestige-need b{direction:ltr;unicode-bidi:isolate;color:#e9d5ff}
+.prestige-bar{height:6px;border-radius:99px;background:rgba(148,163,184,.22);overflow:hidden}
+.prestige-bar i{display:block;height:100%;background:linear-gradient(90deg,#a78bfa,#f0abfc);border-radius:99px}
+.prestige-need.ok .prestige-bar i{background:linear-gradient(90deg,#34d399,#6ee7b7)}
+.prestige-need.ok b{color:#7dffd4}
+.prestige-btn{padding:10px 12px;border-radius:11px;font-size:12px;font-weight:900;line-height:1.4;color:#2e1065;background:linear-gradient(135deg,#e9d5ff,#a78bfa);border:1px solid #ede9fe;cursor:pointer;text-align:center}
+.prestige-btn[data-state="confirm"]{color:#fff;background:linear-gradient(135deg,#fb7185,#e11d48);border-color:#fecdd3}
+.prestige-btn[data-state="max"]{color:#2e1065;background:linear-gradient(135deg,#fde68a,#f59e0b);border-color:#fef3c7}
+.prestige-btn:disabled{opacity:.6;cursor:default;color:#cbd5e1;background:linear-gradient(135deg,#3c4a58,#2a3541);border-color:rgba(148,163,184,.3)}
+.prestige-btn[data-state="max"]:disabled{opacity:1;color:#2e1065;background:linear-gradient(135deg,#fde68a,#f59e0b)}
+@media(max-width:360px){.prestige-need{gap:6px}.prestige-note{font-size:9.5px}}

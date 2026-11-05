@@ -4,7 +4,33 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 2;
+  const VERSION = 5;
+  // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
+  const MAX_SEGMENTS = 2400;
+  // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
+  // عند /api/platform/start ويُعاد التشغيل به خادمياً؛ شراء معدّة أثناء جولة لا يغيّر تلك الجولة (لقطة غير قابلة للتعديل).
+  // منجم 0 + معدات صفرية ≡ سلوك V3 في الفيزياء والمواضع، فلا تنكسر الحلول المختبرة.
+  const MAX_EQUIP_LEVEL = 5;
+  // المرحلة 2: خامات تُجمع داخل الجولة + معالم تمنح أجزاءً من مكافأة الجولة نفسها.
+  // الأسعار ثابتة خادمياً (server.js يقرأ Rules.ORES) ولا تُرسل من العميل.
+  const ORES = Object.freeze({
+    copper:  { name: 'نحاس',   price: 2 },
+    iron:    { name: 'حديد',   price: 4 },
+    gold:    { name: 'ذهب خام', price: 8 },
+    crystal: { name: 'بلّور',  price: 12 },
+    lava:    { name: 'حمم',    price: 20 },
+  });
+  const ORE_ORDER = Object.keys(ORES);
+  const MILESTONE_GOLD = 12;
+  // حزم الخامات تُعرَّف بخانات (common/mid/rare) وتُحلّ إلى خامات المنجم نفسه: المنجم الأعمق = خامات أغلى بالأعداد نفسها.
+  const MILESTONES = Object.freeze([
+    { id: 'first_rock', label: 'أول عِرق مكسور', slots: { common: 2, mid: 1 }, check: s => s.mined >= 1 },
+    { id: 'three_gems', label: '3 بلورات',        slots: { common: 2, rare: 1 }, check: s => s.collected >= 3 },
+    { id: 'checkpoint', label: 'راية الأمان',      slots: { mid: 2 }, check: s => s.checkpoint !== 64 },
+    { id: 'guard',      label: 'حارس مهزوم',      slots: { rare: 1, mid: 1 }, check: s => s.defeated >= 1 },
+    { id: 'chest',      label: 'صندوق الكنز',     slots: { rare: 2, mid: 1 }, check: s => s.chestFound === true },
+  ]);
+  const CHEST_SLOTS = Object.freeze({ common: 2, mid: 2, rare: 2 });
   const FPS = 60, DT = 1 / FPS, MAX_TICKS = 60 * 150;
   const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32 });
   const MAX_MASK = 63;
@@ -70,8 +96,8 @@
     },
   });
 
-  const LEVEL = Object.freeze({
-    width: 2680, height: 360, exit: { x: 2540, y: 222, w: 70, h: 78 },
+  const STONE = {
+    id: 'stone', width: 2680, height: 360, exit: { x: 2540, y: 222, w: 70, h: 78 },
     platforms: [
       { x: 0, y: 300, w: 720, h: 80 }, { x: 810, y: 300, w: 720, h: 80 },
       { x: 1640, y: 300, w: 1040, h: 80 },
@@ -90,7 +116,7 @@
       { id: 5, type: 'goblin', name: 'غول الكهف', x: 1810, y: 198, w: 26, h: 32, minX: 1790, maxX: 1880, maxHp: 2, patrolSpeed: 40, chaseSpeed: 70, damage: 1, flying: false },
       { id: 6, type: 'bat', name: 'خفاش الظلام', x: 2220, y: 110, w: 24, h: 22, minX: 2170, maxX: 2300, baseY: 110, maxHp: 1, patrolSpeed: 55, chaseSpeed: 80, damage: 1, flying: true },
     ],
-  });
+  };
 
   // تنويع المرحلة من بذرة الجولة: مواقع الصخور والبلورات وبداية دوريات الأعداء تتغير داخل نطاقات
   // مدروسة (التضاريس والفجوات والفخاخ ثابتة)، فلا يصلح تسجيل حركات جولة لإعادة استخدامه في أخرى.
@@ -99,6 +125,144 @@
   // (لا صخرة بعد قفزة فوق فجوة/فخ مباشرة ولا تحت منصة منخفضة: الوقوف عليها يحبس اللاعب)
   const ROCK_SPANS = [[[250, 600]], [[915, 1095]], [[1790, 1980], [2330, 2420]]];
   const GEM_SPANS = [[156, 236], [270, 355], [570, 645], [820, 900], [910, 985], [1330, 1415], [1700, 1760], [1790, 1875], [2190, 2300], [2440, 2510]];
+  // كل ما يخص مستوىً واحداً يعيش معه: نطاقات التوزيع العشوائي، رايات الحفظ (من/إلى = منطقة اللمس، at = موضع العودة)،
+  // لافتات الاتجاه. فتحة البخار الأولى (vent) هي «خطر المنجم الموقوت»: تتبع مدة نشاطها صعوبة المنجم المختار.
+  Object.assign(STONE, {
+    rockSpans: ROCK_SPANS, gemSpans: GEM_SPANS, boss: null,
+    checkpoints: [{ from: 910, to: 1000, at: 920 }, { from: 1700, to: 1780, at: 1710 }],
+    signs: [680, 1485, 2030],
+  });
+  STONE.hazards[0].vent = true; STONE.hazards[0].kind = 'vent'; STONE.hazards[1].kind = 'pit';
+  // ===== عوالم المناجم 1-5 =====
+  // لكل منجم مستوىً كاملاً (أرض وفجوات وحواف وصخور وبلّورات وأخطار وحرّاس وراياتٌ، وزعيم في الثالث والسادس). المنجم 0 يبقى حرفياً كما كان
+  // (تطابق V3 مُختبَر). makeLevel يبني نفس بنية STONE من وصف مختصر: ground = مقاطع الأرض (الفراغ بينها فجوة)، ledges = [x,y,عرض]،
+  // rocks/gems = نطاقات التوزيع العشوائي (الصخرة x فقط، البلّورة x وارتفاعها)، guards = حارس على حافة أو خفاش بين x0..x1.
+  // قواعد الفسحة (تتحقق منها الاختبارات): لا صخرة ولا حافة ضمن منطقة قفز، وبعد كل خطر مساحة هبوط، والعدد دائماً 3 صخور و10 بلّورات و6 حرّاس
+  // فلا تتغير أرقام المكافأة بين المناجم.
+  const ROCK_BOX = { y: 252, w: 46, h: 48 };
+  const GUARDS = {
+    goblin: { name: 'غول الكهف', w: 26, h: 32, maxHp: 2, patrolSpeed: 40, chaseSpeed: 70, flying: false },
+    beetle: { name: 'خنفساء الصخور', w: 28, h: 24, maxHp: 3, patrolSpeed: 30, chaseSpeed: 50, flying: false },
+    bat: { name: 'خفاش الظلام', w: 24, h: 22, maxHp: 1, patrolSpeed: 55, chaseSpeed: 80, flying: true },
+  };
+  function makeLevel(o) {
+    const mid = (a, b) => Math.round((a + b) / 2);
+    const platforms = [...o.ground.map(([a, b]) => ({ x: a, y: 300, w: b - a, h: 80 })), ...o.ledges.map(([x, y, w]) => ({ x, y, w, h: 20 }))];
+    const enemies = o.guards.map((g, i) => {
+      const base = GUARDS[g[0]], id = i + 1;
+      if (g[0] === 'bat') {
+        const [, a, b, y] = g;
+        return { id, type: 'bat', name: base.name, x: mid(a, b), y, w: base.w, h: base.h, minX: a, maxX: b, baseY: y, maxHp: base.maxHp, patrolSpeed: base.patrolSpeed, chaseSpeed: base.chaseSpeed, damage: 1, flying: true };
+      }
+      const [lx, ly, lw] = o.ledges[g[1]];
+      return { id, type: g[0], name: base.name, x: lx + 12, y: ly - base.h, w: base.w, h: base.h, minX: lx + 6, maxX: lx + lw - base.w - 6, maxHp: base.maxHp, patrolSpeed: base.patrolSpeed, chaseSpeed: base.chaseSpeed, damage: 1, flying: false };
+    });
+    let boss = null;
+    if (o.boss) {
+      const b = o.boss;
+      enemies.push({ id: 90, type: 'boss', boss: true, kind: b.kind, name: b.name, x: b.maxX, y: 300 - b.h, w: b.w, h: b.h, minX: b.minX, maxX: b.maxX, wake: b.wake, maxHp: b.maxHp,
+        patrolSpeed: b.patrolSpeed, chaseSpeed: b.patrolSpeed, chargeSpeed: b.chargeSpeed, damage: 1, flying: false, ai: b.ai });
+      boss = { id: 90, kind: b.kind, name: b.name, maxHp: b.maxHp };
+    }
+    return {
+      id: o.id, width: 2680, height: 360, exit: { x: o.exit.x, y: 222, w: 70, h: 78 }, platforms,
+      rocks: o.rocks.map(spans => ({ x: mid(spans[0][0], spans[0][1]), ...ROCK_BOX })),
+      gems: o.gems.map(([a, b, y]) => ({ x: mid(a, b), y })),
+      hazards: o.hazards, enemies,
+      rockSpans: o.rocks, gemSpans: o.gems.map(([a, b]) => [a, b]),
+      checkpoints: o.checkpoints, signs: o.signs, boss,
+    };
+  }
+  // الفخ الموقوت المعلَّم vent: true لا يكتب هنا مدة نشاطه (active) عمداً: تأتي من المنجم (MINES[i].vent) عند إنشاء الجولة، فمصدرها واحد.
+  const WORLD_SPECS = [
+    // المنجم 1 — الحديد: ثلاث فجوات، مكبس سحق عالٍ موقوت (انتظر نافذته) وحفرة أشواك.
+    {
+      id: 'iron', exit: { x: 2540 },
+      ground: [[0, 560], [655, 1235], [1340, 1960], [2055, 2680]],
+      ledges: [[390, 232, 100], [1090, 226, 70], [2150, 230, 110], [2310, 224, 120]],
+      rocks: [[[170, 310]], [[740, 860]], [[1440, 1500]]],
+      gems: [[120, 150, 276], [410, 460, 209], [1105, 1130, 203], [690, 715, 276], [1560, 1600, 276], [2170, 2200, 207], [2330, 2400, 201], [2450, 2500, 276], [1860, 1880, 276], [2225, 2245, 207]],
+      hazards: [
+        { x: 1010, y: 160, w: 46, h: 140, period: 220, vent: true, kind: 'crusher' },
+        { x: 1620, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
+      ],
+      guards: [['goblin', 0], ['beetle', 1], ['goblin', 2], ['beetle', 3], ['bat', 300, 460, 112], ['bat', 2200, 2400, 110]],
+      checkpoints: [{ from: 700, to: 780, at: 710 }, { from: 1400, to: 1480, at: 1410 }],
+      signs: [520, 1195, 1920],
+    },
+    // المنجم 2 — الذهب: فجوتان، فتحة غبار ذهبي، حفرة، وعملاق الذهب في الساحة الأخيرة.
+    {
+      id: 'gold', exit: { x: 2540 },
+      ground: [[0, 720], [820, 1470], [1570, 2680]],
+      ledges: [[330, 230, 100], [1210, 224, 90]],
+      rocks: [[[110, 190]], [[900, 960]], [[1650, 1700]]],
+      gems: [[150, 180, 276], [350, 400, 207], [1230, 1280, 201], [1010, 1030, 276], [640, 660, 276], [1330, 1350, 276], [1780, 1820, 276], [2100, 2200, 276], [2300, 2400, 276], [840, 880, 276]],
+      hazards: [
+        { x: 1090, y: 265, w: 42, h: 35, period: 180, vent: true, kind: 'vent' },
+        { x: 520, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
+      ],
+      guards: [['goblin', 0], ['beetle', 1], ['bat', 250, 420, 112], ['bat', 900, 1100, 108], ['bat', 1250, 1420, 112], ['bat', 100, 300, 110]],
+      checkpoints: [{ from: 1000, to: 1040, at: 1010 }, { from: 1600, to: 1640, at: 1610 }],
+      signs: [680, 1430],
+      boss: { kind: 'colossus', name: 'عملاق الذهب', w: 58, h: 66, minX: 1800, maxX: 2440, wake: 1750, maxHp: 17, patrolSpeed: 42, chargeSpeed: 0,
+        ai: { walk: 90, windup: 40, recover: 80, enragedWalk: 60, enragedWindup: 30, attacks: ['slam'], wave: { speed: 230, w: 30, h: 22, ttl: 64 } } },
+    },
+    // المنجم 3 — البلّور: ثلاث فجوات وثلاثة أخطار قصيرة (فتحة بلّور، أشواك موقوتة بطور مختلف، حفرة).
+    {
+      id: 'crystal', exit: { x: 2540 },
+      ground: [[0, 560], [650, 1250], [1340, 1960], [2050, 2680]],
+      ledges: [[380, 230, 90], [1590, 226, 80], [2330, 222, 100], [2440, 230, 80]],
+      rocks: [[[160, 300]], [[720, 820]], [[1420, 1500]]],
+      gems: [[110, 140, 276], [395, 450, 207], [1000, 1030, 276], [1600, 1650, 203], [1200, 1230, 276], [2350, 2400, 199], [2460, 2500, 207], [2290, 2310, 276], [1880, 1900, 276], [870, 900, 276]],
+      hazards: [
+        { x: 1000, y: 265, w: 42, h: 35, period: 180, vent: true, kind: 'crystal' },
+        { x: 1760, y: 265, w: 42, h: 35, period: 150, active: 60, phase: 40, kind: 'crystal' },
+        { x: 2190, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
+      ],
+      guards: [['bat', 380, 520, 112], ['goblin', 0], ['bat', 1560, 1700, 110], ['goblin', 2], ['beetle', 3], ['bat', 2150, 2330, 108]],
+      checkpoints: [{ from: 700, to: 780, at: 710 }, { from: 1400, to: 1480, at: 1410 }],
+      signs: [520, 1210, 1920],
+    },
+    // المنجم 4 — الحمم: نوافير حمم تنطلق من الفجوات (اعبر في لحظة هدوئها) مع حفرة وشعلة موقوتة.
+    {
+      id: 'lava', exit: { x: 2540 },
+      ground: [[0, 560], [665, 1240], [1350, 1960], [2065, 2680]],
+      ledges: [[360, 230, 100], [2340, 228, 100], [2450, 224, 70]],
+      rocks: [[[170, 300]], [[780, 900]], [[1420, 1500]]],
+      gems: [[120, 150, 276], [380, 440, 207], [1000, 1040, 276], [1190, 1210, 276], [1560, 1600, 276], [2360, 2420, 205], [2460, 2500, 201], [1100, 1130, 276], [1880, 1900, 276], [2100, 2150, 276]],
+      hazards: [
+        { x: 595, y: 185, w: 34, h: 145, period: 240, vent: true, kind: 'geyser' },
+        { x: 1278, y: 185, w: 34, h: 145, period: 210, active: 70, phase: 60, kind: 'geyser' },
+        { x: 1680, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
+        { x: 2210, y: 265, w: 42, h: 35, period: 170, active: 70, phase: 20, kind: 'flare' },
+      ],
+      guards: [['beetle', 0], ['bat', 700, 900, 110], ['beetle', 1], ['goblin', 2], ['bat', 1400, 1600, 110], ['bat', 2250, 2400, 108]],
+      checkpoints: [{ from: 700, to: 780, at: 710 }, { from: 1400, to: 1480, at: 1410 }],
+      signs: [520, 1200, 1920],
+    },
+    // المنجم 5 — الأسطورة: مكبس وحفرة ثم حارس القلب (اندفاع وموجة صدم) في ساحة طويلة.
+    {
+      id: 'legend', exit: { x: 2540 },
+      ground: [[0, 540], [640, 1180], [1280, 2680]],
+      ledges: [[340, 230, 100], [1020, 226, 80]],
+      rocks: [[[130, 230]], [[720, 790]], [[1350, 1400]]],
+      gems: [[110, 130, 276], [360, 420, 207], [1035, 1065, 203], [1130, 1160, 276], [1500, 1540, 276], [2100, 2200, 276], [2300, 2400, 276], [480, 510, 276], [880, 900, 276], [660, 690, 276]],
+      hazards: [
+        { x: 930, y: 160, w: 46, h: 140, period: 240, vent: true, kind: 'crusher' },
+        { x: 1560, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
+      ],
+      guards: [['goblin', 0], ['beetle', 1], ['bat', 300, 500, 112], ['bat', 700, 900, 108], ['bat', 1300, 1450, 110], ['bat', 1500, 1700, 112]],
+      checkpoints: [{ from: 700, to: 760, at: 710 }, { from: 1680, to: 1720, at: 1690 }],
+      signs: [500, 1140],
+      boss: { kind: 'warden', name: 'حارس القلب', w: 56, h: 46, minX: 1840, maxX: 2450, wake: 1800, maxHp: 29, patrolSpeed: 50, chargeSpeed: 215,
+        ai: { walk: 60, windup: 44, recover: 70, enragedWalk: 40, enragedWindup: 32, chargeTicks: 70, attacks: ['charge', 'slam'], enragedAttacks: ['charge', 'slam', 'charge'], wave: { speed: 250, w: 30, h: 22, ttl: 64 } } },
+    },
+  ];
+  const deepFreeze = o => { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) deepFreeze(v); } return o; };
+  const LEVELS = Object.freeze([STONE, ...WORLD_SPECS.map(makeLevel)].map(deepFreeze));
+  // رقم المنجم ← مستواه (خارج النطاق = الأول، كما يفعل mineOf)
+  const levelFor = zone => LEVELS[Number.isInteger(zone) && zone >= 0 && zone < LEVELS.length ? zone : 0];
+  const LEVEL = LEVELS[0]; // الاسم القديم: مستوى المنجم الأول
   function seedFromId(id) {
     let h = 0x811c9dc5;
     for (const ch of String(id || '')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
@@ -114,38 +278,241 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  // مناطق تجميلية فقط: لون الكهف واسمه يتبعان بذرة الجولة، ولا يؤثران في الفيزياء
-  // ولا في التحقق الخادمي (replay). أعيد إدخالها من فرع devin/1792351084-gameplay-overhaul
-  // بعد تحديث المحرك إلى VERSION 2.
-  const ZONES = Object.freeze([
-    { id: 'blue', name: 'كهف البلّور الأزرق', sky: ['#080e1a', '#0c1e2e', '#112838', '#1a3545', '#1e3a4a'], far: '#0a1a28', mid: '#0d2233', columns: '#143040', glow: '#3ee6b3', crystal: '#39a9a4' },
-    { id: 'lava', name: 'مناجم الحمم', sky: ['#160a08', '#2a110c', '#3d1810', '#542318', '#6a2c1e'], far: '#2a120c', mid: '#3d1d14', columns: '#4a2116', glow: '#ff8a3d', crystal: '#ff7043' },
-    { id: 'emerald', name: 'كهف الزمرّد', sky: ['#06130d', '#0b2115', '#10301f', '#17432b', '#1d5033'], far: '#0d2318', mid: '#173826', columns: '#1b4129', glow: '#7dff9a', crystal: '#54d98a' },
-    { id: 'amethyst', name: 'الأعماق البنفسجية', sky: ['#0e0718', '#1a0f2a', '#28163d', '#381f52', '#462862'], far: '#1a0f2b', mid: '#2a1a40', columns: '#331f4d', glow: '#d58bff', crystal: '#b06bea' },
+  // ستة مناجم حقيقية يختار اللاعب منها ما فُتح له (التحقق خادمي). كل منجم يغيّر: صلابة الصخور، جدول الخامات،
+  // صحة الأعداء وسرعتهم، ومدة نشاط فتحة البخار. الفيزياء والمستوى ثابتان؛ كل شيء حتمي من (البذرة، المنجم، المعدات).
+  // weights = نسب مئوية لخانات (common, mid, rare) عند اختيار خام كل صخرة. requires: الفوز في منجم سابق + حد أدنى للمعدات.
+  const MINES = Object.freeze([
+    { id: 'stone',   name: 'المنجم الحجري',   blurb: 'نحاس وحديد — بداية آمنة',        rockHp: 3,  enemyHp: 0, enemySpeed: 100, vent: 84,
+      tier: { common: 'copper',  mid: 'iron',    rare: 'gold' },    weights: [72, 24, 4],  requires: null },
+    { id: 'iron',    name: 'مناجم الحديد',    blurb: 'عروق حديد وصخور أصلب',            rockHp: 6,  enemyHp: 0, enemySpeed: 105, vent: 90,
+      tier: { common: 'copper',  mid: 'iron',    rare: 'gold' },    weights: [35, 50, 15], requires: { win: 0 } },
+    { id: 'gold',    name: 'الكهوف الذهبية',  blurb: 'ذهب خام وبلّور نادر',             rockHp: 9,  enemyHp: 1, enemySpeed: 110, vent: 96,
+      tier: { common: 'iron',    mid: 'gold',    rare: 'crystal' }, weights: [35, 50, 15], requires: { win: 1, gear: { pickaxe: 1 } } },
+    { id: 'crystal', name: 'أعماق البلّور',   blurb: 'بلّور وفير وبعض الحمم',           rockHp: 13, enemyHp: 1, enemySpeed: 115, vent: 102,
+      tier: { common: 'gold',    mid: 'crystal', rare: 'lava' },    weights: [35, 50, 15], requires: { win: 2, gear: { pickaxe: 2, armor: 1 } } },
+    { id: 'lava',    name: 'بحيرة الحمم',     blurb: 'حمم ملتهبة وأعداء أشدّ',          rockHp: 18, enemyHp: 2, enemySpeed: 120, vent: 108,
+      tier: { common: 'crystal', mid: 'lava',    rare: 'lava' },    weights: [35, 50, 15], requires: { win: 3, gear: { pickaxe: 3, armor: 2 } } },
+    { id: 'legend',  name: 'قلب الأسطورة',    blurb: 'أصلب الصخور وأغنى الحمم',         rockHp: 24, enemyHp: 3, enemySpeed: 125, vent: 114,
+      tier: { common: 'crystal', mid: 'lava',    rare: 'lava' },    weights: [15, 50, 35], requires: { win: 4, gear: { pickaxe: 4, armor: 3 } } },
   ]);
-  const zoneFor = seed => (seed === undefined || seed === null ? 0 : (Number(seed) >>> 0) % ZONES.length);
+  const PALETTES = {
+    stone:   { sky: ['#0d0e10', '#16181b', '#1f2226', '#2a2e33', '#343a40'], far: '#14161a', mid: '#1c1f24', columns: '#272b31', glow: '#e8c07a', crystal: '#9fb3b8' },
+    iron:    { sky: ['#0b0f14', '#121a22', '#1a252f', '#232f3b', '#2c3a48'], far: '#10171e', mid: '#17212b', columns: '#202c38', glow: '#b8c7d6', crystal: '#8fa5ba' },
+    gold:    { sky: ['#120d05', '#1f1608', '#2d200c', '#3d2c10', '#4d3813'], far: '#1c1407', mid: '#2a1d0b', columns: '#38270f', glow: '#ffd166', crystal: '#e6b422' },
+    crystal: { sky: ['#080e1a', '#0c1e2e', '#112838', '#1a3545', '#1e3a4a'], far: '#0a1a28', mid: '#0d2233', columns: '#143040', glow: '#3ee6b3', crystal: '#39a9a4' },
+    lava:    { sky: ['#160a08', '#2a110c', '#3d1810', '#542318', '#6a2c1e'], far: '#2a120c', mid: '#3d1d14', columns: '#4a2116', glow: '#ff8a3d', crystal: '#ff7043' },
+    legend:  { sky: ['#0e0718', '#1a0f2a', '#28163d', '#381f52', '#462862'], far: '#1a0f2b', mid: '#2a1a40', columns: '#331f4d', glow: '#d58bff', crystal: '#b06bea' },
+  };
+  // لوحات الألوان التجميلية صارت مرتبطة بالمنجم المختار لا ببذرة الجولة.
+  const ZONES = Object.freeze(MINES.map(m => Object.freeze({ id: m.id, name: m.name, ...PALETTES[m.id] })));
+  const mineOf = zone => MINES[Number.isInteger(zone) && zone >= 0 && zone < MINES.length ? zone : 0];
 
-  function layoutFor(seed) {
-    if (seed === undefined || seed === null) return { rocks: LEVEL.rocks, gems: LEVEL.gems, enemies: LEVEL.enemies.map(e => ({ ...e, dir: 1 })) };
+  // المعدات الثمانية (ترتيبها = ترتيب دوائر الورشة). السعر: ذهب + خام «سلّم» ثابت حسب المستوى الحالي:
+  // نحاس ← حديد ← ذهب خام ← بلّور ← حمم، فيدفع التقدّم اللاعب إلى مناجم أعمق. كل الأرقام صحيحة (بلا فواصل عائمة).
+  const EQUIPMENT_ORDER = Object.freeze(['pickaxe', 'boots', 'bag', 'magnet', 'drill', 'robot', 'luck', 'armor']);
+  const EQUIPMENT = Object.freeze({
+    pickaxe: { name: 'قوة المعول',    icon: 'i-pickaxe', blurb: 'تكسير الصخور بضربات أقل',        gold: 50,  scale: 10 },
+    boots:   { name: 'حذاء المعدّن',  icon: 'i-boots',   blurb: 'حركة أسرع داخل المنجم',           gold: 60,  scale: 10 },
+    bag:     { name: 'حقيبة الموارد', icon: 'i-bag',     blurb: 'خامات أكثر من كل صخرة',           gold: 70,  scale: 12 },
+    magnet:  { name: 'المغناطيس',     icon: 'i-magnet',  blurb: 'جذب البلورات من مسافة أبعد',      gold: 80,  scale: 12 },
+    drill:   { name: 'المثقاب',       icon: 'i-drill',   blurb: 'ضربات أسرع ومدى أطول',            gold: 90,  scale: 15 },
+    robot:   { name: 'روبوت التعدين', icon: 'i-robot',   blurb: 'يضرب أقرب صخرة تلقائياً',         gold: 100, scale: 15 },
+    luck:    { name: 'حظ المعدّن',    icon: 'i-luck',    blurb: 'فرصة أعلى للخامات النادرة',       gold: 110, scale: 13 },
+    armor:   { name: 'معدات الحماية', icon: 'i-armor',   blurb: 'قلوب إضافية وحماية أطول',         gold: 120, scale: 13 },
+  });
+  const ORE_LADDER = Object.freeze(['copper', 'iron', 'gold', 'crystal', 'lava']);
+  const ORE_QTY = Object.freeze([6, 6, 6, 5, 4]);
+  const GOLD_STEP = Object.freeze([100, 160, 256, 410, 655]); // نسب مئوية: ≈ ×1.6 لكل مستوى
+  const levelOf = v => Math.max(0, Math.min(MAX_EQUIP_LEVEL, Math.floor(Number(v)) || 0));
+  function normalizeLoadout(input) {
+    const src = input && typeof input === 'object' ? input : {};
+    const out = {};
+    for (const id of EQUIPMENT_ORDER) out[id] = levelOf(src[id]);
+    return out;
+  }
+  function normalizeConfig(input) {
+    const src = input && typeof input === 'object' ? input : {};
+    const zone = Number.isInteger(src.zone) && src.zone >= 0 && src.zone < MINES.length ? src.zone : 0;
+    return { zone, loadout: normalizeLoadout(src.loadout) };
+  }
+  // تكلفة الترقية من المستوى الحالي إلى التالي (null عند المستوى الأقصى أو معدّة غير معروفة).
+  function equipCost(id, level) {
+    const def = EQUIPMENT[id], lvl = levelOf(level);
+    if (!def || lvl >= MAX_EQUIP_LEVEL) return null;
+    return { gold: Math.round(def.gold * GOLD_STEP[lvl] / 100), ores: { [ORE_LADDER[lvl]]: Math.ceil(ORE_QTY[lvl] * def.scale / 10) } };
+  }
+  // الإحصاءات النهائية للبطل بعد المعدات. كلها صحيحة/ثابتة فتبقى حتمية ومتطابقة بين المتصفح والخادم.
+  function loadoutStats(heroId, loadout) {
+    const hero = CHARACTERS[heroId] || CHARACTERS.miner, L = normalizeLoadout(loadout);
+    const armorHearts = Math.floor((L.armor + 1) / 2);
+    return {
+      speed: Math.round(hero.speed * (100 + 4 * L.boots) / 100),
+      hearts: hero.hearts + armorHearts,
+      maxHearts: hero.maxHearts + armorHearts,
+      hurtInvulnerable: (hero.hurtInvulnerable || 90) + 8 * L.armor,
+      miningPower: hero.miningPower + L.pickaxe,
+      attackCooldown: Math.max(8, hero.attackCooldown - L.drill),
+      miningReach: hero.miningReach + 5 * L.drill,
+      magnet: 12 * L.magnet,
+      yieldPercent: 100 + 15 * L.bag,
+      luck: L.luck,
+      robot: L.robot > 0 ? { period: 190 - 28 * L.robot, damage: 1 + L.robot, range: 170 } : null,
+    };
+  }
+  const NO_BONUS = 'بلا إضافة';
+  const EFFECT_TEXT = {
+    pickaxe: L => (L ? `+${L} قوة تعدين لكل ضربة` : NO_BONUS),
+    boots:   L => (L ? `+${4 * L}% سرعة حركة` : NO_BONUS),
+    bag:     L => (L ? `+${15 * L}% خامات من كل صخرة` : NO_BONUS),
+    magnet:  L => (L ? `مدى جذب البلورات +${12 * L} بكسل` : NO_BONUS),
+    drill:   L => (L ? `زمن تبريد الضربة −${L} إطار · المدى +${5 * L} بكسل` : NO_BONUS),
+    robot:   L => (L ? `ضربة آلية بقوة ${1 + L} كل ${((190 - 28 * L) / 60).toFixed(1)} ثانية` : 'غير مفعّل'),
+    luck:    L => (L ? `+${4 * L}% فرصة للخام النادر` : NO_BONUS),
+    armor:   L => (L ? `+${Math.floor((L + 1) / 2)} قلب · مهلة حماية بعد الإصابة +${(8 * L / 60).toFixed(1)} ثانية` : NO_BONUS),
+  };
+  const effectText = (id, level) => (EFFECT_TEXT[id] ? EFFECT_TEXT[id](levelOf(level)) : '');
+  // عدد ضربات كسر صخرة المنجم للبطل والمعدات الحالية (يُعرض في الواجهة ولا يدخل في أي اقتصاد).
+  const hitsToBreak = (heroId, zone, loadout) => Math.ceil(mineOf(zone).rockHp / loadoutStats(heroId, loadout).miningPower);
+
+  // تقدّم المناجم الموثوق: عدد الانتصارات لكل منجم (يكتبه الخادم من جولات أعاد تشغيلها فقط).
+  const normalizeProgress = input => {
+    const wins = input && Array.isArray(input.wins) ? input.wins : [];
+    return { wins: MINES.map((_, i) => Math.max(0, Math.floor(Number(wins[i])) || 0)) };
+  };
+  function mineStatus(zone, progress, loadout) {
+    if (!Number.isInteger(zone) || zone < 0 || zone >= MINES.length) return null;
+    const mine = MINES[zone], wins = normalizeProgress(progress).wins, L = normalizeLoadout(loadout);
+    const needs = [];
+    if (mine.requires) {
+      const prev = mine.requires.win;
+      needs.push({ kind: 'win', zone: prev, label: `الفوز في ${MINES[prev].name}`, ok: wins[prev] >= 1 });
+      for (const [id, lvl] of Object.entries(mine.requires.gear || {})) {
+        needs.push({ kind: 'gear', id, level: lvl, label: `${EQUIPMENT[id].name} مستوى ${lvl}`, ok: L[id] >= lvl });
+      }
+    }
+    return { zone, id: mine.id, unlocked: needs.every(n => n.ok), needs, wins: wins[zone] };
+  }
+  const mineUnlocked = (zone, progress, loadout) => Boolean(mineStatus(zone, progress, loadout)?.unlocked);
+
+  const emptyOres = () => Object.fromEntries(ORE_ORDER.map(k => [k, 0]));
+  const addOres = (target, bundle) => {
+    for (const [k, v] of Object.entries(bundle || {})) if (k in target) target[k] += v;
+  };
+  // يحلّ حزمة خانات إلى خامات المنجم (نفس الخام في خانتين يُجمع).
+  const resolveSlots = (mine, slots) => {
+    const out = {};
+    for (const [slot, n] of Object.entries(slots)) { const ore = mine.tier[slot]; out[ore] = (out[ore] || 0) + n; }
+    return out;
+  };
+  const milestoneOres = (zone, id) => {
+    const m = MILESTONES.find(x => x.id === id);
+    return m ? resolveSlots(mineOf(zone), m.slots) : {};
+  };
+  // الحظ ينقل نقاطاً مئوية من الخام الشائع إلى النادر (4 نقاط لكل مستوى) مع إبقاء 5% للشائع.
+  function pickOre(mine, u, luck) {
+    const [c, m, r] = mine.weights;
+    const shift = Math.max(0, Math.min(c - 5, 4 * levelOf(luck)));
+    const roll = u * 100;
+    return mine.tier[roll < c - shift ? 'common' : roll < c - shift + m ? 'mid' : 'rare'];
+  }
+
+  function layoutFor(seed, zone = 0, luck = 0) {
+    const mine = mineOf(zone), level = levelFor(zone);
+    if (seed === undefined || seed === null) return {
+      rocks: level.rocks.map((r, i) => ({ ...r, ore: mine.tier[['common', 'mid', 'rare'][i % 3]], yield: 2 + i % 3 })),
+      gems: level.gems.map((g, i) => ({ ...g, chest: i === 4 })),
+      enemies: level.enemies.map(e => ({ ...e, dir: 1 })),
+    };
     const rnd = prng(Number(seed) >>> 0);
     const pick = ([a, b]) => Math.round(a + rnd() * (b - a));
+    // IMPORTANT: مواضع الصخور/البلورات/الأعداء تُستهلك بنفس الترتيب القديم تماماً،
+    // ثم تُسحب اختيارات الخامات والصندوق بعدها — فلا تتغير حلول الجولات المختبرة (ولا مواضع أي منجم).
+    const rocks = level.rocks.map((r, i) => { const spans = level.rockSpans[i]; return { ...r, x: pick(spans[Math.floor(rnd() * spans.length)]) }; });
+    const gems = level.gems.map((g, i) => ({ ...g, x: pick(level.gemSpans[i]) }));
+    const enemies = level.enemies.map(e => (e.boss ? { ...e, dir: 1 } : { ...e, x: pick([e.minX, e.maxX - e.w]), dir: rnd() < 0.5 ? -1 : 1 }));
+    const chestAt = Math.floor(rnd() * gems.length);
     return {
-      rocks: LEVEL.rocks.map((r, i) => { const spans = ROCK_SPANS[i]; return { ...r, x: pick(spans[Math.floor(rnd() * spans.length)]) }; }),
-      gems: LEVEL.gems.map((g, i) => ({ ...g, x: pick(GEM_SPANS[i]) })),
-      enemies: LEVEL.enemies.map(e => ({ ...e, x: pick([e.minX, e.maxX - e.w]), dir: rnd() < 0.5 ? -1 : 1 })),
+      rocks: rocks.map(r => ({ ...r, ore: pickOre(mine, rnd(), luck), yield: 2 + Math.floor(rnd() * 3) })),
+      gems: gems.map((g, i) => ({ ...g, chest: i === chestAt })),
+      enemies,
     };
   }
 
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-  const activeHazard = (h, tick) => tick % h.period < h.active;
-  const canExit = s => s.mined >= 1 && s.collected >= 3;
+  const activeHazard = (h, tick) => (tick + (h.phase || 0)) % h.period < h.active;
+  const canExit = s => s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
 
-  function create(heroId = 'miner', seed) {
+  // ===== الزعيم =====
+  // دورة حتمية بلا أي عشوائية: مشي نحو اللاعب ← إنذار يُرى ويُسمع ← هجوم ← استراحة. الهجمات: «صدمة» (موجتان أرضيتان تجريان من جانبيه
+  // وتُتجنَّبان بالقفز) و«اندفاع» (يجري باتجاه يُثبَّت عند بدء الإنذار حتى الجدار). عند نصف صحته يهتاج: أسرع وإنذاره أقصر.
+  // صحته لا تعود، والعودة بعد الإصابة إلى راية مدخل الساحة، فالمعركة تُحسم بالمثابرة لا بالحظ. غنيمته خامات فقط (لا ذهب).
+  const BOSS_SLOTS = Object.freeze({ mid: 1, rare: 2 });
+  // الزعيم مدرَّع خارج مرحلة الاستراحة (بعد هجومه): الضربة تُرَدّ بضرر 0 ويُعرض ذلك للاعب. غير الزعماء يتلقون الضرر كاملاً دائماً.
+  const blow = (enemy, amount) => (enemy.boss && enemy.state !== 'recover' ? 0 : amount);
+  // الاستراحة هي النافذة الوحيدة التي يُصاب فيها الزعيم؛ حدث boss_stun يُعلم العميل (صوت ونجوم) ولا يغيّر شيئاً في الحساب
+  function stun(s, b, ticks) {
+    b.vx = 0; b.state = 'recover'; b.timer = ticks;
+    s.events.push({ type: 'boss_stun', ticks, x: b.x + b.w / 2, y: b.y, id: b.id });
+  }
+  function startWindup(s, b) {
+    const p = s.player, ai = b.ai, list = b.enraged && ai.enragedAttacks ? ai.enragedAttacks : ai.attacks;
+    b.aim = p.x + p.w / 2 >= b.x + b.w / 2 ? 1 : -1;
+    b.facing = b.aim; b.vx = 0;
+    b.attack = list[b.cycle % list.length]; b.cycle++;
+    b.state = 'windup'; b.timer = b.enraged ? ai.enragedWindup : ai.windup;
+    s.events.push({ type: 'boss_windup', attack: b.attack, ticks: b.timer, x: b.x + b.w / 2, y: b.y, id: b.id });
+  }
+  function fireAttack(s, b) {
+    const ai = b.ai, fast = b.enraged ? 1.2 : 1;
+    if (b.attack === 'charge') {
+      b.state = 'charge'; b.timer = ai.chargeTicks; b.vx = b.aim * Math.round(b.chargeSpeed * fast);
+      s.events.push({ type: 'boss_charge', x: b.x + b.w / 2, y: b.y, id: b.id });
+      return;
+    }
+    const wv = ai.wave, speed = Math.round(wv.speed * fast);
+    for (const dir of [-1, 1]) s.waves.push({ x: dir > 0 ? b.x + b.w : b.x - wv.w, y: 300 - wv.h, w: wv.w, h: wv.h, vx: dir * speed, ttl: wv.ttl, kind: 'wave' });
+    s.events.push({ type: 'boss_slam', x: b.x + b.w / 2, y: 300, id: b.id });
+    stun(s, b, ai.recover);
+  }
+  function bossStep(s, b) {
+    const p = s.player, ai = b.ai, cx = b.x + b.w / 2;
+    if (b.state === 'sleep') {
+      if (p.x < b.wake) { b.vx = 0; return; }
+      b.state = 'walk'; b.timer = ai.walk;
+      s.events.push({ type: 'boss_wake', x: cx, y: b.y, id: b.id });
+    }
+    if (!b.enraged && b.hp * 2 <= b.maxHp) { b.enraged = true; s.events.push({ type: 'boss_enrage', x: cx, y: b.y, id: b.id }); }
+    b.timer--;
+    if (b.state === 'walk') {
+      const dir = p.x + p.w / 2 >= cx ? 1 : -1;
+      b.facing = dir; b.vx = dir * Math.round(b.patrolSpeed * (b.enraged ? 1.3 : 1));
+      b.x = Math.max(b.minX, Math.min(b.maxX, b.x + b.vx * DT));
+      if (b.timer <= 0) startWindup(s, b);
+    } else if (b.state === 'windup') {
+      b.vx = 0;
+      if (b.timer <= 0) fireAttack(s, b);
+    } else if (b.state === 'charge') {
+      b.x += b.vx * DT;
+      if (b.x <= b.minX || b.x >= b.maxX) {
+        b.x = Math.max(b.minX, Math.min(b.maxX, b.x));
+        s.events.push({ type: 'boss_crash', x: b.x + b.w / 2, y: b.y + b.h, id: b.id });
+        stun(s, b, ai.recover + 20);
+      } else if (b.timer <= 0) stun(s, b, ai.recover);
+    } else if (b.state === 'recover') {
+      b.vx = 0;
+      if (b.timer <= 0) { b.state = 'walk'; b.timer = b.enraged ? ai.enragedWalk : ai.walk; }
+    }
+  }
+
+  function create(heroId = 'miner', seed, config) {
     const hero = CHARACTERS[heroId] || CHARACTERS.miner;
-    const layout = layoutFor(seed);
+    const cfg = normalizeConfig(config), mine = MINES[cfg.zone];
+    const stats = loadoutStats(hero.id, cfg.loadout);
+    const layout = layoutFor(seed, cfg.zone, cfg.loadout.luck), level = levelFor(cfg.zone);
     return {
       seed: seed === undefined || seed === null ? null : Number(seed) >>> 0,
-      zone: zoneFor(seed),
+      zone: cfg.zone,
+      loadout: cfg.loadout,
       version: VERSION,
       tick: 0,
       status: 'playing',
@@ -153,49 +520,80 @@
         hero: hero.id,
         x: 64, y: 262, w: 24, h: 38,
         vx: 0, vy: 0,
-        speed: hero.speed,
+        speed: stats.speed,
         jumpSpeed: hero.jumpSpeed,
         grounded: true,
         facing: 1,
-        hearts: hero.hearts,
-        maxHearts: hero.maxHearts,
+        hearts: stats.hearts,
+        maxHearts: stats.maxHearts,
         invulnerable: 0,
         coyote: 6,
         jumpBuffer: 0,
         attack: 0,
-        attackCooldown: hero.attackCooldown,
+        attackCooldown: stats.attackCooldown,
         damage: hero.damage,
         attackRange: hero.attackRange,
-        miningPower: hero.miningPower,
-        miningReach: hero.miningReach,
-        hurtInvulnerable: hero.hurtInvulnerable || 90,
+        miningPower: stats.miningPower,
+        miningReach: stats.miningReach,
+        hurtInvulnerable: stats.hurtInvulnerable,
+        magnet: stats.magnet,
+        yieldPercent: stats.yieldPercent,
+        robot: stats.robot,
         skillCooldown: 0,
         skillMaxCooldown: hero.skillCooldown,
         pose: 'idle',
         landTimer: 0,
       },
       checkpoint: 64,
-      rocks: layout.rocks.map(r => ({ ...r, hp: 3 })),
+      rocks: layout.rocks.map(r => ({ ...r, hp: mine.rockHp, maxHp: mine.rockHp })),
       gems: layout.gems.map(g => ({ ...g, taken: false })),
-      enemies: layout.enemies.map(({ dir, ...e }) => ({
-        ...e,
-        hp: e.maxHp,
-        vx: (e.patrolSpeed || 40) * dir,
-        vy: 0,
-        facing: 1,
-        attackCooldown: 0,
-        hurtCooldown: 0,
-        dead: false,
-        alert: false,
-      })),
+      hazards: level.hazards.map(h => (h.vent ? { ...h, active: mine.vent } : { ...h })),
+      enemies: layout.enemies.map(({ dir, ...e }) => {
+        const maxHp = e.maxHp + mine.enemyHp;
+        const patrolSpeed = Math.round((e.patrolSpeed || 40) * mine.enemySpeed / 100);
+        const chaseSpeed = Math.round((e.chaseSpeed || 65) * mine.enemySpeed / 100);
+        return {
+          ...e,
+          ...(e.boss ? { state: 'sleep', timer: 0, cycle: 0, enraged: false, aim: 1, attack: null, chargeSpeed: Math.round((e.chargeSpeed || 0) * mine.enemySpeed / 100) } : {}),
+          maxHp, patrolSpeed, chaseSpeed,
+          hp: maxHp,
+          vx: patrolSpeed * dir,
+          vy: 0,
+          facing: 1,
+          attackCooldown: 0,
+          hurtCooldown: 0,
+          dead: false,
+          alert: false,
+        };
+      }),
       projectiles: [],
+      waves: [],
+      bossId: (layout.enemies.find(e => e.boss) || {}).id || 0,
+      bossDefeated: false,
       collected: 0,
       mined: 0,
       defeated: 0,
       damage: 0,
+      milestones: [],
+      chestFound: false,
+      ores: emptyOres(),
       lastMask: 0,
       events: [],
     };
+  }
+
+  // ضربة على صخرة من اللاعب أو من الروبوت: عند الكسر تُضاف الخامات (مضروبة بنسبة الحقيبة، مقرّبة للأعلى).
+  function hitRock(s, rock, damage, source) {
+    const p = s.player;
+    rock.hp = Math.max(0, rock.hp - damage);
+    s.events.push({ type: source === 'robot' ? 'robot_mine' : 'mine', x: rock.x + rock.w / 2, y: rock.y + 15, damage });
+    if (rock.hp) return;
+    s.mined++; s.collected += 2;
+    const ore = ORES[rock.ore] ? rock.ore : 'copper';
+    const count = Math.ceil(Math.max(1, Math.floor(rock.yield) || 2) * (p.yieldPercent || 100) / 100);
+    addOres(s.ores, { [ore]: count });
+    s.events.push({ type: 'ore', ore, count, x: rock.x + rock.w / 2, y: rock.y + 8 });
+    s.events.push({ type: 'collect', x: rock.x, y: rock.y });
   }
 
   function hurt(s) {
@@ -214,7 +612,7 @@
   function step(s, mask) {
     if (s.status !== 'playing') return s;
     s.events = []; s.tick++;
-    const p = s.player;
+    const p = s.player, level = levelFor(s.zone);
     if (p.invulnerable > 0) p.invulnerable--;
     if (p.attack > 0) p.attack--;
     if (p.skillCooldown > 0) p.skillCooldown--;
@@ -234,13 +632,20 @@
       const reach = p.miningReach || 54;
       const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - reach, y: p.y - 8, w: reach, h: p.h + 16 };
       const rock = s.rocks.find(r => r.hp > 0 && overlap(hitbox, r));
-      if (rock) {
-        rock.hp = Math.max(0, rock.hp - p.miningPower);
-        s.events.push({ type: 'mine', x: rock.x + rock.w / 2, y: rock.y + 15 });
-        if (!rock.hp) { s.mined++; s.collected += 2; s.events.push({ type: 'collect', x: rock.x, y: rock.y }); }
-      } else {
-        s.events.push({ type: 'mine_miss', x: p.x + (p.facing > 0 ? p.w + 10 : -10), y: p.y + 15 });
+      if (rock) hitRock(s, rock, p.miningPower, 'player');
+      else s.events.push({ type: 'mine_miss', x: p.x + (p.facing > 0 ? p.w + 10 : -10), y: p.y + 15 });
+    }
+
+    // روبوت التعدين: نبضة آلية على أقرب صخرة ضمن مداه كل `period` إطاراً (حتمية: أول أقرب صخرة عند التعادل).
+    if (p.robot && s.tick % p.robot.period === 0) {
+      const cx = p.x + p.w / 2;
+      let target = null, best = Infinity;
+      for (const rock of s.rocks) {
+        if (rock.hp <= 0) continue;
+        const d = Math.abs(rock.x + rock.w / 2 - cx);
+        if (d <= p.robot.range && d < best) { best = d; target = rock; }
       }
+      if (target) hitRock(s, target, p.robot.damage, 'robot');
     }
 
     // ATTACK Action: targets enemies only
@@ -262,10 +667,11 @@
         const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - p.attackRange, y: p.y - 8, w: p.attackRange, h: p.h + 16 };
         for (const enemy of s.enemies) {
           if (!enemy.dead && overlap(hitbox, enemy)) {
-            enemy.hp -= p.damage;
+            const dealt = blow(enemy, p.damage);
+            enemy.hp -= dealt;
             enemy.hurtCooldown = 20;
             enemy.vx = p.facing * 100;
-            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: p.damage });
+            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: dealt });
             if (enemy.hp <= 0) {
               enemy.dead = true;
               s.defeated = (s.defeated || 0) + 1;
@@ -284,9 +690,10 @@
         const slamBox = { x: p.x - 80, y: p.y - 10, w: p.w + 160, h: p.h + 20 };
         for (const enemy of s.enemies) {
           if (!enemy.dead && overlap(slamBox, enemy)) {
-            enemy.hp -= 2;
+            const dealt = blow(enemy, 2);
+            enemy.hp -= dealt;
             enemy.hurtCooldown = 28;
-            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: 2 });
+            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: dealt });
             if (enemy.hp <= 0) {
               enemy.dead = true;
               s.defeated = (s.defeated || 0) + 1;
@@ -300,10 +707,11 @@
         const dashBox = { x: p.facing > 0 ? p.x : p.x - 85, y: p.y - 6, w: p.w + 85, h: p.h + 12 };
         for (const enemy of s.enemies) {
           if (!enemy.dead && overlap(dashBox, enemy)) {
-            enemy.hp -= 2;
+            const dealt = blow(enemy, 2);
+            enemy.hp -= dealt;
             enemy.hurtCooldown = 25;
             enemy.vx = p.facing * 140;
-            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: 2 });
+            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: dealt });
             if (enemy.hp <= 0) {
               enemy.dead = true;
               s.defeated = (s.defeated || 0) + 1;
@@ -329,14 +737,14 @@
       // hitbox is in scope here (an undefined `hitbox` used to crash every skill).
     }
 
-    const solids = LEVEL.platforms.concat(s.rocks.filter(r => r.hp > 0));
+    const solids = level.platforms.concat(s.rocks.filter(r => r.hp > 0));
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
     p.x += p.vx * DT;
     for (const box of solids) if (overlap(p, box)) {
       if (p.vx > 0) p.x = box.x - p.w;
       else if (p.vx < 0) p.x = box.x + box.w;
     }
-    p.x = Math.max(0, Math.min(LEVEL.width - p.w, p.x));
+    p.x = Math.max(0, Math.min(level.width - p.w, p.x));
     p.vy = Math.min(680, p.vy + 1200 * DT);
     p.y += p.vy * DT;
     const wasGrounded = p.grounded; p.grounded = false;
@@ -365,10 +773,11 @@
         for (const enemy of s.enemies) {
           if (!enemy.dead && overlap(proj, enemy)) {
             hit = true;
-            enemy.hp -= proj.damage;
+            const dealt = blow(enemy, proj.damage);
+            enemy.hp -= dealt;
             enemy.hurtCooldown = 20;
             enemy.vx = (proj.vx > 0 ? 1 : -1) * 90;
-            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: proj.damage });
+            s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: dealt });
             if (enemy.hp <= 0) {
               enemy.dead = true;
               s.defeated = (s.defeated || 0) + 1;
@@ -387,7 +796,9 @@
       if (enemy.hurtCooldown > 0) enemy.hurtCooldown--;
       if (enemy.attackCooldown > 0) enemy.attackCooldown--;
 
-      if (enemy.flying) {
+      if (enemy.boss) {
+        bossStep(s, enemy);
+      } else if (enemy.flying) {
         enemy.x += enemy.vx * DT;
         enemy.y = enemy.baseY + Math.sin(s.tick * 0.08 + enemy.id) * 10;
         if (enemy.x <= enemy.minX) { enemy.vx = Math.abs(enemy.patrolSpeed || 55); enemy.facing = 1; }
@@ -422,17 +833,39 @@
       }
     }
 
-    if (p.x > 910 && p.x < 1000 && p.grounded) s.checkpoint = 920;
-    if (p.x > 1700 && p.x < 1780 && p.grounded) s.checkpoint = 1710;
-    for (const gem of s.gems) if (!gem.taken && overlap(p, { x: gem.x - 9, y: gem.y - 10, w: 18, h: 20 })) {
-      gem.taken = true; s.collected++; s.events.push({ type: 'collect', x: gem.x, y: gem.y });
+    for (let i = s.waves.length - 1; i >= 0; i--) {
+      const wave = s.waves[i];
+      wave.x += wave.vx * DT; wave.ttl--;
+      if (wave.ttl <= 0) s.waves.splice(i, 1);
     }
-    if (p.y > LEVEL.height + 50) {
+    if (s.bossId && !s.bossDefeated) {
+      const boss = s.enemies.find(e => e.id === s.bossId);
+      if (boss && boss.dead) {
+        s.bossDefeated = true; boss.state = 'dead'; boss.vx = 0; boss.deadTick = s.tick;
+        const loot = resolveSlots(mineOf(s.zone), BOSS_SLOTS);
+        addOres(s.ores, loot);
+        s.events.push({ type: 'boss_death', x: boss.x + boss.w / 2, y: boss.y + boss.h / 2, id: boss.id, ores: loot });
+      }
+    }
+    for (const cp of level.checkpoints) if (p.x > cp.from && p.x < cp.to && p.grounded) s.checkpoint = cp.at;
+    const pad = p.magnet || 0, mine = mineOf(s.zone);
+    for (const gem of s.gems) if (!gem.taken && overlap(p, { x: gem.x - 9 - pad, y: gem.y - 10 - pad, w: 18 + 2 * pad, h: 20 + 2 * pad })) {
+      gem.taken = true; s.collected++;
+      if (gem.chest && !s.chestFound) {
+        s.chestFound = true;
+        const bundle = resolveSlots(mine, CHEST_SLOTS);
+        addOres(s.ores, bundle);
+        s.events.push({ type: 'chest', x: gem.x, y: gem.y, ores: bundle });
+      } else addOres(s.ores, { [mine.tier.common]: 1 });
+      s.events.push({ type: 'collect', x: gem.x, y: gem.y });
+    }
+    if (p.y > level.height + 50) {
       if (p.invulnerable) { p.x = s.checkpoint; p.y = 240; p.vx = p.vy = 0; }
       else hurt(s);
     }
-    for (const hazard of LEVEL.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
-    if (s.status === 'playing' && canExit(s) && overlap(p, LEVEL.exit)) {
+    for (const hazard of s.hazards || level.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
+    for (const wave of s.waves) if (overlap(p, wave)) hurt(s);
+    if (s.status === 'playing' && canExit(s) && overlap(p, level.exit)) {
       s.status = 'won'; s.events.push({ type: 'win', x: p.x, y: p.y });
     }
     if (s.tick >= MAX_TICKS && s.status === 'playing') {
@@ -442,23 +875,36 @@
 
     p.pose = s.status === 'won' ? 'victory' :
       s.status === 'lost' || p.hearts <= 0 ? 'dead' :
-      p.invulnerable > 60 ? 'hurt' :
+      p.invulnerable > (p.hurtInvulnerable || 90) - 30 ? 'hurt' : // المعدات تطيل الحماية لا وضعية الإصابة
       p.attack > 4 ? ((mask & INPUT.ATTACK) ? 'attack' : 'mine') :
       p.landTimer > 2 ? 'land' :
       !p.grounded ? (p.vy < 0 ? 'jump' : 'fall') :
       direction ? 'run' : 'idle';
 
+    updateMilestones(s);
     s.lastMask = mask;
     return s;
   }
 
-  function replay(inputs, hero = 'miner', seed) {
-    if (!Array.isArray(inputs) || !inputs.length || inputs.length > 1000) return { ok: false, reason: 'inputs' };
+  function updateMilestones(s) {
+    const mine = mineOf(s.zone);
+    for (const m of MILESTONES) {
+      if (s.milestones.includes(m.id) || !m.check(s)) continue;
+      s.milestones.push(m.id);
+      const ores = resolveSlots(mine, m.slots);
+      addOres(s.ores, ores);
+      s.events.push({ type: 'milestone', id: m.id, label: m.label, gold: MILESTONE_GOLD, ores,
+        x: s.player.x + 12, y: s.player.y - 12 });
+    }
+  }
+
+  function replay(inputs, hero = 'miner', seed, config) {
+    if (!Array.isArray(inputs) || !inputs.length || inputs.length > MAX_SEGMENTS) return { ok: false, reason: 'inputs' };
     let total = 0;
     for (const item of inputs) {
       if (!item || !Number.isInteger(item.mask) || item.mask < 0 || item.mask > MAX_MASK || !Number.isInteger(item.frames) || item.frames < 1 || (total += item.frames) > MAX_TICKS) return { ok: false, reason: 'inputs' };
     }
-    const s = create(hero, seed);
+    const s = create(hero, seed, config);
     for (const item of inputs) for (let i = 0; i < item.frames; i++) {
       if (s.status !== 'playing') return { ok: false, reason: 'after_end' };
       step(s, item.mask);
@@ -466,8 +912,42 @@
     return { ok: true, state: s };
   }
 
-  const cameraFor = (s, width) => Math.max(0, Math.min(LEVEL.width - width, s.player.x + s.player.w / 2 - width * 0.35));
-  const rewardFor = s => s.status === 'won' ? Math.min(100, 40 + s.collected * 4 + s.mined * 6) : 0;
+  // الكاميرا للعرض فقط (لا تدخل في المحاكاة ولا في التحقق). تتبع اللاعب عند 35% من العرض؛ وأثناء معركة الزعيم تنزاح بالقدر اللازم
+  // فقط ليبقى الزعيم كاملاً في الشاشة واللاعب بهامش 12% من الحافتين، إن كان ذلك ممكناً (شاشات الهاتف الضيقة تحتاجه).
+  const BOSS_VIEW_HALF = 58;
+  function cameraFor(s, width) {
+    const p = s.player, pc = p.x + p.w / 2;
+    let left = pc - width * 0.35;
+    const boss = s.bossId && !s.bossDefeated ? s.enemies.find(e => e.id === s.bossId) : null;
+    if (boss && !boss.dead && boss.state !== 'sleep') {
+      const bc = boss.x + boss.w / 2;
+      const lo = Math.max(bc + BOSS_VIEW_HALF + 8 - width, pc - width * 0.88), hi = Math.min(bc - BOSS_VIEW_HALF - 8, pc - width * 0.12);
+      if (lo <= hi) left = Math.max(lo, Math.min(hi, left));
+    }
+    return Math.max(0, Math.min(levelFor(s.zone).width - width, left));
+  }
+  // المكافأة الإجمالية لم تتغير عند الفوز: المعالم تفتح أجزاءً من نفس سقف الـ100،
+  // والخسارة تحتفظ بما فتحته فعلاً فقط. لا توجد مكافأة إضافية فوق السقف.
+  function rewardBreakdown(s) {
+    const potential = Math.min(100, 40 + s.collected * 4 + s.mined * 6);
+    const milestoneGold = Math.min(potential, (s.milestones?.length || 0) * MILESTONE_GOLD);
+    const finalGold = s.status === 'won' ? Math.max(0, potential - milestoneGold) : 0;
+    return { potential, milestoneGold, finalGold, total: milestoneGold + finalGold };
+  }
+  const rewardFor = s => rewardBreakdown(s).total;
+  const oreSummary = s => {
+    const out = emptyOres();
+    for (const k of ORE_ORDER) out[k] = Math.max(0, Math.floor(s.ores?.[k] || 0));
+    return out;
+  };
+  const milestoneList = (zone = 0) => MILESTONES.map(m => ({ id: m.id, label: m.label, gold: MILESTONE_GOLD, ores: milestoneOres(zone, m.id) }));
 
-  return { VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, ZONES, zoneFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor, rewardFor };
+  return {
+    BOSS_SLOTS, MAX_SEGMENTS,
+    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
+    rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
+    // المرحلة 3
+    MINES, ZONES, EQUIPMENT, EQUIPMENT_ORDER, MAX_EQUIP_LEVEL, ORE_LADDER,
+    normalizeConfig, normalizeLoadout, normalizeProgress, loadoutStats, equipCost, effectText, hitsToBreak, mineStatus, mineUnlocked,
+  };
 });

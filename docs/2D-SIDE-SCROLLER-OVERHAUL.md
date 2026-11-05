@@ -172,7 +172,7 @@ npm run test:browser
 - `public/platform-game.js`: الإرشادات والإعدادات والإدخال والاستئناف عبر النسخ، ومسارات الإيقاف/بدء الجولة.
 - `public/index.html` و`public/platform.css`: مشهد افتراضي، CSS محلي، أدوات لمس وإعدادات متاحة حتى في الشاشات القصيرة.
 - `platform-api.js` و`server.js`: اختيار القواعد الموثوق، تقدم الزعيم، دفتر المكافأة، ومنع الضيوف في الإنتاج.
-- `test/platform-{rules,api,ui}.test.js` و`test/auth.test.js` و`test/fixtures/platform-boss-solution.cjs`: تغطية اللعب والاقتصاد والتوافق.
+- `test/platform-{rules,api,ui}.test.js` و`test/auth.test.js` و`test/fixtures/platform-boss-solution.cjs` (حُذف في V5: حلّ محله `platform-bot.cjs`، انظر [WORLDS-AND-BOSSES.md](WORLDS-AND-BOSSES.md)): تغطية اللعب والاقتصاد والتوافق.
 - `scripts/test-platform-browser.cjs` و`scripts/check-build.cjs` و`package.json` و`package-lock.json`: تحقق متصفح قابل للتشغيل وفحص build أوسع واعتماد تطوير فقط.
 - `README.md` وهذه الوثيقة ولقطات `docs/media/`: تعليمات التشغيل ونتائج المراجعة.
 

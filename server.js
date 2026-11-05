@@ -12,7 +12,11 @@ const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, de
 // محرك الساحة مشترك مع المتصفح (يُقدَّم ثابتاً من public/) حتى تكون محاكاة الخادم مطابقة لما عرضه العميل
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
-const { mountPlatform } = require('./platform-api');
+const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
+const Quests = require('./quests');
+const Prestige = require('./public/prestige-rules');
+// قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
+const PlatformRules = require('./public/platform-rules');
 
 const app = express();
 app.disable('x-powered-by');
@@ -84,7 +88,12 @@ const defaultState = () => ({
   maxEnergy: 1000,
   owned: { click: 0, bot: 0, rig: 0 },
   costs: { click: 50, bot: 200, rig: 1000 },
+  prestige: 0,   // مستوى التبجيل (الدفعة 3ج): يكتبه الخادم وحده بعملية prestige؛ +10% من الدخل السلبي لكل مستوى حتى 10
   adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
+  ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
+  // المرحلة 3: معدات المناجم الدائمة (0..5) وعدد انتصارات كل منجم. تُكتب من الخادم فقط (buy_equip / ختم الجولة).
+  equipment: defaultEquipment(),
+  mines: defaultMines(),
   boostUntil: 0,
   boostCooldownUntil: 0,
   adventure: defaultAdventure(),
@@ -93,6 +102,8 @@ const defaultState = () => ({
 });
 // إحصاءات المغامرة الموثوقة (تُحدَّث من جولات يتحقق منها الخادم فقط) — المناطق مشتقة منها
 const ADV_STAT_KEYS = ['runs', 'gems', 'maxCombo', 'bestScore', 'bestSurvival', 'bossWins', 'rewardEarned', 'playSec'];
+function defaultEquipment() { return Object.fromEntries(PlatformRules.EQUIPMENT_ORDER.map((k) => [k, 0])); }
+function defaultMines() { return { wins: PlatformRules.MINES.map(() => 0) }; }
 function defaultAdventure() { return { runs: 0, gems: 0, maxCombo: 0, bestScore: 0, bestSurvival: 0, bossWins: 0, rewardEarned: 0, playSec: 0, zones: 1 }; }
 
 const clampNum = (v, min, max, fallback) => {
@@ -123,9 +134,14 @@ function sanitizeState(input, base = defaultState()) {
       bot: clampNum(c.bot, 1, 1e12, base.costs.bot),
       rig: clampNum(c.rig, 1, 1e12, base.costs.rig),
     },
+    prestige: Prestige.levelOf(clampNum(s.prestige, 0, Prestige.MAX_LEVEL, base.prestige || 0)),
     adventureUpgrades: Object.fromEntries(
       Object.keys(ADV_UPGRADES_DEF).map((k) => [k, Math.floor(clampNum(au[k], 0, ADV_UPGRADES_DEF[k].max, base.adventureUpgrades?.[k] || 0))])
     ),
+    // الخامات تُمنح فقط من جولات يعيد الخادم تشغيلها؛ القائمة البيضاء تمنع حقن قيم من العميل.
+    ores: Object.fromEntries(Object.keys(ORE_PRICES).map((k) => [k, Math.floor(clampNum((s.ores || {})[k], 0, 1e9, base.ores?.[k] || 0))])),
+    equipment: Object.fromEntries(PlatformRules.EQUIPMENT_ORDER.map((k) => [k, Math.floor(clampNum((s.equipment || {})[k], 0, PlatformRules.MAX_EQUIP_LEVEL, base.equipment?.[k] || 0))])),
+    mines: { wins: PlatformRules.MINES.map((_, i) => Math.floor(clampNum((s.mines?.wins || [])[i], 0, 1e6, base.mines?.wins?.[i] || 0))) },
     boostUntil: clampNum(s.boostUntil, 0, Date.now() + 24 * 3600e3, 0),
     boostCooldownUntil: clampNum(s.boostCooldownUntil, 0, Date.now() + 24 * 3600e3, 0),
     adventure: sanitizeAdventure(s.adventure, base.adventure),
@@ -219,9 +235,13 @@ function zonesFor(a) {
 
 function deriveStats(s) {
   s.clickPower = 1 + s.owned.click;
-  s.passiveIncome = s.owned.bot * 5 + s.owned.rig * 25;
+  s.prestige = Prestige.levelOf(s.prestige);
+  s.passiveIncome = Prestige.passiveFor(s.owned, s.prestige); // (عمال + 5×منصّات) × (10 + مستوى) / 2؛ المستوى 0 = العمال×5 + المنصّات×25 كما كان
   for (const t of Object.keys(UPGRADES_DEF)) s.costs[t] = costFor(t, s.owned[t]);
   if (!s.adventure) s.adventure = defaultAdventure();
+  if (!s.ores || typeof s.ores !== 'object') s.ores = { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 };
+  if (!s.equipment || typeof s.equipment !== 'object') s.equipment = defaultEquipment();
+  if (!s.mines || typeof s.mines !== 'object') s.mines = defaultMines();
   s.adventure.zones = zonesFor(s.adventure);
   s.level = levelFromXp(s.xp);
   return s;
@@ -233,7 +253,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore', 'buy_equip', 'quest', 'prestige']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -273,13 +293,25 @@ function applyRun(user, op, now, timeline) {
   const bossKill = op.mode === 'boss' && op.boss === true && duration >= RUN_MIN_BOSS_SEC;
   const clamped = gems > maxObjects || combo > maxObjects || rawScore > score || (op.boss === true && !bossKill);
   const r = { status: clamped ? 'clamped' : 'ok', mode: op.mode, difficulty, duration, score, gems: Math.min(gems, maxObjects), combo: Math.min(combo, maxObjects), boss: bossKill, race: op.race === true, gold: 0, flagged: clamped };
-  // المكافأة: من النقاط التي يسمح بها زمن اللعب، بسقف الوضع، وبفاصل 20 ثانية بين جولتين مكافأتين
+  // المكافأة: من النقاط التي يسمح بها زمن اللعب، بسقف الوضع، وبفاصل 20 ثانية بين جولتين مكافأتين، ثم تحت السقف اليومي المشترك
+  // (10,000 ذهب/يوم UTC لجولات المنصّات والوضع الكلاسيكي وبيع الخامات معاً: sync.platformGold). هذا المسار قائم على ما يدّعيه العميل
+  // (لا إعادة تشغيل كجولات المنصّات)، فالسقف المشترك هو ما يمنع أن يصير نشر تقارير جولات وهمية أسهل طريق إلى الذهب.
   if (!r.race) {
     const basis = Math.min(score, duration * RUN_MAX_SCORE_PER_SEC);
     const gold = Math.min(modeCfg.cap, Math.floor(basis / 5 * modeCfg.scale)) + (bossKill ? 150 : 0);
     if (gold > 0) {
       if (endAt - timeline.lastRewardEnd < RUN_REWARD_GAP_SEC * 1000) r.reason = 'too_soon';
-      else { r.gold = gold; timeline.lastRewardEnd = endAt; s.gold += gold; s.totalEarned += gold; }
+      else {
+        const quota = dailyQuota(user.sync, gold, now);
+        r.dailyRemaining = quota.remaining;
+        if (quota.capped) r.reason = 'daily_cap';
+        // الفاصل الزمني يتقدّم فقط حين يُدفع ذهب فعلاً: جولة بلا دفع لا تؤخّر التالية
+        if (quota.gold > 0) {
+          r.gold = quota.gold; timeline.lastRewardEnd = endAt;
+          s.gold += quota.gold; s.totalEarned += quota.gold;
+          user.sync.platformGold = (Number(user.sync.platformGold) || 0) + quota.gold;
+        }
+      }
     }
   }
   const zonesBefore = a.zones;
@@ -304,14 +336,17 @@ const MISSION_POOL = [
   { key: 'runs', icon: '🎮', title: 'أكمل {n} جولات مغامرة', target: 3, gold: 200, xp: 50, mode: 'sum' },
   { key: 'gems', icon: '💎', title: 'التقط {n} جوهرة في المغامرة', target: 60, gold: 200, xp: 50, mode: 'sum' },
   { key: 'score', icon: '🏅', title: 'حقق {n} نقطة في جولة واحدة', target: 400, gold: 250, xp: 60, mode: 'max' },
-  { key: 'boss', icon: '👹', title: 'اهزم زعيم المنجم', target: 1, gold: 300, xp: 80, mode: 'sum' },
+  { key: 'boss', icon: '👹', title: 'اهزم زعيماً (الكلاسيكي أو منجم الزعيم)', target: 1, gold: 300, xp: 80, mode: 'sum' },
   { key: 'boost', icon: '🚀', title: 'فعّل التعزيز {n} مرات', target: 2, gold: 100, xp: 30, mode: 'sum' },
   { key: 'buy', icon: '🛒', title: 'اشترِ {n} ترقيات', target: 2, gold: 150, xp: 40, mode: 'sum' },
   { key: 'play_time', icon: '⏱️', title: 'العب {n} ثانية في المغامرة', target: 180, gold: 200, xp: 50, mode: 'sum' },
-  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء', target: 250, gold: 250, xp: 60, mode: 'max' },
+  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء الكلاسيكي', target: 250, gold: 250, xp: 60, mode: 'max' },
   { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة', target: 2, gold: 100, xp: 30, mode: 'sum' },
 ];
 const MISSION_BY_KEY = Object.fromEntries(MISSION_POOL.map((m) => [m.key, m]));
+// كل مهام المجموعتين قابلة للإنجاز من اللعب الظاهر: «اهزم زعيم المنجم» تغذّيها جولات المنصّات (زعيما منجمي الذهب والقلب) ووضع الزعيم
+// الكلاسيكي، و«نقاط في وضع البقاء» يغذّيها وضع البقاء الكلاسيكي. كانت المهمتان مستبعدتين من السحب ما دام الوضع الكلاسيكي مخفياً
+// (كانتا تظهران مستحيلتين في ~49% من الأيام وتضيع معهما مكافأة «أنجز الثلاث»)، وعادتا إليه حين ظهر في خريطة المناجم (الدفعة 3أ′).
 const MISSIONS_PER_DAY = 3;
 const MISSION_BONUS = { gold: 300, xp: 100 };
 
@@ -392,11 +427,11 @@ const WEEKLY_MISSION_POOL = [
   { key: 'runs', icon: '🎮', title: 'أكمل {n} جولات مغامرة هذا الأسبوع', target: 15, gold: 600, xp: 150, mode: 'sum' },
   { key: 'gems', icon: '💎', title: 'التقط {n} جوهرة في المغامرة هذا الأسبوع', target: 300, gold: 600, xp: 150, mode: 'sum' },
   { key: 'score', icon: '🏅', title: 'حقق {n} نقطة في جولة واحدة هذا الأسبوع', target: 650, gold: 700, xp: 180, mode: 'max' },
-  { key: 'boss', icon: '👹', title: 'اهزم زعيم المنجم {n} مرات هذا الأسبوع', target: 3, gold: 900, xp: 220, mode: 'sum' },
+  { key: 'boss', icon: '👹', title: 'اهزم زعيماً {n} مرات هذا الأسبوع (الكلاسيكي أو منجم الزعيم)', target: 3, gold: 900, xp: 220, mode: 'sum' },
   { key: 'boost', icon: '🚀', title: 'فعّل التعزيز {n} مرات هذا الأسبوع', target: 8, gold: 400, xp: 100, mode: 'sum' },
   { key: 'buy', icon: '🛒', title: 'اشترِ {n} ترقيات هذا الأسبوع', target: 6, gold: 500, xp: 120, mode: 'sum' },
   { key: 'play_time', icon: '⏱️', title: 'العب {n} ثانية في المغامرة هذا الأسبوع', target: 900, gold: 600, xp: 150, mode: 'sum' },
-  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء هذا الأسبوع', target: 400, gold: 700, xp: 180, mode: 'max' },
+  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء الكلاسيكي هذا الأسبوع', target: 400, gold: 700, xp: 180, mode: 'max' },
   { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة هذا الأسبوع', target: 8, gold: 500, xp: 120, mode: 'sum' },
 ];
 const WEEKLY_MISSION_BY_KEY = Object.fromEntries(WEEKLY_MISSION_POOL.map((m) => [m.key, m]));
@@ -465,7 +500,7 @@ const ACHIEVEMENTS = [
   { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', target: 1, gold: 100, xp: 30, value: (u) => num(advOf(u).bossWins) },
   { id: 'racer', icon: '⚔️', name: 'بطل السباقات', desc: 'افُز بسباق مباشر واحد', target: 1, gold: 50, xp: 20, value: (u, ctx) => num(ctx.raceWins) },
   { id: 'earner', icon: '🪙', name: 'صانع الذهب', desc: 'اكسب 500 ذهب من المغامرات', target: 500, gold: 100, xp: 30, value: (u) => num(advOf(u).rewardEarned) },
-  { id: 'upgrades10', icon: '🛠️', name: 'مهندس المنجم', desc: 'اشترِ 10 ترقيات إجمالاً', target: 10, gold: 150, xp: 40, value: (u) => Object.values(u.state.owned || {}).reduce((a, v) => a + num(v), 0) + Object.values(u.state.adventureUpgrades || {}).reduce((a, v) => a + num(v), 0) },
+  { id: 'upgrades10', icon: '🛠️', name: 'مهندس المنجم', desc: 'اشترِ 10 ترقيات إجمالاً', target: 10, gold: 150, xp: 40, value: (u) => Object.values(u.state.owned || {}).reduce((a, v) => a + num(v), 0) + Object.values(u.state.adventureUpgrades || {}).reduce((a, v) => a + num(v), 0) + Prestige.spentBy(u.state.prestige) },
   { id: 'missions10', icon: '📅', name: 'مثابر', desc: 'استلم 10 مهام يومية', target: 10, gold: 200, xp: 50, value: (u) => num(u.sync.missionsClaimed) },
   { id: 'streak7', icon: '🗓️', name: 'أسبوع كامل', desc: 'سلسلة مكافأة يومية 7 أيام', target: 7, gold: 300, xp: 60, value: (u) => num(u.dailyStreak) },
   { id: 'inviter', icon: '👥', name: 'صاحب الدعوة', desc: 'ادعُ صديقاً واحداً', target: 1, gold: 100, xp: 30, value: (u) => num(u.referralCount) },
@@ -488,6 +523,15 @@ function achievementsView(user, ctx = {}) {
     return { id: a.id, icon: a.icon, name: a.name, desc: a.desc, target: a.target, value, done: value >= a.target, claimed: Boolean(claimed[a.id]), gold: a.gold, xp: a.xp };
   });
   return { items, claimedCount: items.filter((i) => i.claimed).length, total: items.length };
+}
+// مهام المغامرة (quests.js): العدّادات في user.sync.quests تغذّيها جولات المنصّات المُعاد تشغيلها فقط، والانتصارات من state.mines.wins
+const questsView = (user) => Quests.view(user.sync.quests, user.state.mines?.wins);
+function claimQuest(user, id, now) {
+  const r = Quests.claim(user.sync.quests, user.state.mines?.wins, id, now);
+  if (r.status !== 'ok') return r;
+  const s = user.state;
+  s.gold += r.gold; s.totalEarned += r.gold;
+  return { ...r, xp: grantXp(s, r.xp) };
 }
 function claimAchievement(user, id, ctx, now) {
   const a = ACHIEVEMENT_BY_ID[id];
@@ -573,7 +617,7 @@ function applyArena(user, op, now) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0 });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, quests: Quests.normalize() });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -595,6 +639,7 @@ function ensureSync(user) {
     arena: normalizeArena(sync.arena),
     platformDay: typeof sync.platformDay === 'string' ? sync.platformDay : '',
     platformGold: Math.max(0, Math.floor(Number(sync.platformGold) || 0)),
+    quests: Quests.normalize(sync.quests),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
@@ -636,7 +681,7 @@ function parseOpsRequest(body) {
     const str = (v) => (typeof v === 'string' ? v.slice(0, 32) : '');
     ops.push({
       seq, type: raw.type, clicks: raw.clicks, boosted: raw.boosted, item: str(raw.item), key: str(raw.key), id: str(raw.id), game: str(raw.game),
-      score: raw.score, mode: str(raw.mode), boss: raw.boss === true,
+      score: raw.score, mode: str(raw.mode), boss: raw.boss === true, count: raw.count,
       difficulty: str(raw.difficulty), gems: raw.gems, combo: raw.combo, duration: raw.duration, race: raw.race === true, ago: raw.ago,
       matchNo: raw.matchNo, moves: Array.isArray(raw.moves) ? raw.moves.slice(0, ArenaRules.CONFIG.maxRounds + 1).map((m) => str(m)) : undefined,
     });
@@ -719,6 +764,38 @@ function applyOps(user, session, ops, now, ctx = {}) {
         goldDelta = -cost; detail = { key: op.key, level: lvl + 1 };
         break;
       }
+      case 'buy_equip': {
+        // معدات المناجم (المرحلة 3): ذهب + خام «سلّم» ثابت. التكلفة من القواعد المشتركة؛ الأثر يسري من الجولة التالية فقط
+        // (لقطة الجولة الجارية ثابتة). الأسعار والمستويات لا تأتي من العميل أبداً.
+        if (!PlatformRules.EQUIPMENT[op.key]) { r.status = 'invalid'; break; }
+        const eq = s.equipment || (s.equipment = defaultEquipment());
+        const lvl = Math.max(0, Math.floor(Number(eq[op.key]) || 0));
+        const cost = PlatformRules.equipCost(op.key, lvl);
+        if (!cost) { r.status = 'rejected'; r.reason = 'max'; break; }
+        r.cost = cost.gold; r.ores = cost.ores;
+        const lacksOre = Object.entries(cost.ores).some(([ore, n]) => (Number(s.ores?.[ore]) || 0) < n);
+        if (s.gold < cost.gold || lacksOre) { r.status = 'rejected'; r.reason = 'insufficient'; flagged = true; break; }
+        s.gold -= cost.gold;
+        for (const [ore, n] of Object.entries(cost.ores)) s.ores[ore] = Math.max(0, Math.floor(s.ores[ore]) - n);
+        eq[op.key] = lvl + 1;
+        r.level = lvl + 1;
+        r.xp = grantXp(s, cost.gold / XP_RULES.costPerXp);
+        trackMission(user, 'buy', 1, now);
+        goldDelta = -cost.gold; detail = { key: op.key, level: lvl + 1, ores: cost.ores };
+        break;
+      }
+      case 'prestige': {
+        // التبجيل: يصفّر العمال والمنصّات (وأسعارهم المشتقة) مقابل +10% دائمة من الدخل السلبي. الذهب والخامات والمعدات والمناجم والنقرات
+        // وترقيات المغامرة والخبرة لا تُمَسّ. الدخل المتراكم حتى هذه اللحظة دُفع قبل الدفعة (settlePassive) بالمضاعف القديم.
+        // التكرار يمنعه تسلسل العمليات، وتكراره بتسلسل جديد تمنعه المتطلبات نفسها (العدّادات صارت صفراً).
+        const c = Prestige.check(s.owned, s.prestige);
+        if (!c.ok) { r.status = 'rejected'; r.reason = c.reason; r.level = c.level; r.need = c.need; r.have = c.have; break; }
+        const gave = { bots: s.owned.bot, rigs: s.owned.rig };
+        s.owned.bot = 0; s.owned.rig = 0; s.prestige = c.level + 1; deriveStats(s);
+        Object.assign(r, { level: s.prestige, multiplier: Prestige.multiplier(s.prestige), passiveIncome: s.passiveIncome });
+        detail = { from: c.level, to: s.prestige, bots: gave.bots, rigs: gave.rigs, multiplier: r.multiplier };
+        break;
+      }
       case 'boost': {
         if (s.boostUntil > now) { r.status = 'active'; r.until = s.boostUntil; break; }
         if ((s.boostCooldownUntil || 0) > now) { r.status = 'cooldown'; r.retryAt = s.boostCooldownUntil; break; }
@@ -744,6 +821,7 @@ function applyOps(user, session, ops, now, ctx = {}) {
           if (r.mode === 'survival') trackMission(user, 'survival', r.score, now);
           goldDelta = r.gold;
           detail = { mode: r.mode, difficulty: r.difficulty, score: r.score, gems: r.gems, combo: r.combo, duration: r.duration, boss: r.boss, race: r.race, zones: r.zones };
+          if (r.reason === 'daily_cap') detail.capped = true;
         }
         break;
       }
@@ -776,10 +854,37 @@ function applyOps(user, session, ops, now, ctx = {}) {
         if (claim.status === 'ok') { goldDelta = claim.gold; detail = { key: claim.key, week: claim.week, xp: claim.xp }; }
         break;
       }
+      case 'quest': {
+        const claim = claimQuest(user, op.id, now);
+        Object.assign(r, claim);
+        if (claim.status === 'ok') { goldDelta = claim.gold; detail = { id: claim.id, xp: claim.xp }; }
+        break;
+      }
       case 'achievement': {
         const claim = claimAchievement(user, op.id, ctx, now);
         Object.assign(r, claim);
         if (claim.status === 'ok') { goldDelta = claim.gold; detail = { id: claim.id, xp: claim.xp }; }
+        break;
+      }
+      case 'sell_ore': {
+        const price = ORE_PRICES[op.key];
+        if (!price) { r.status = 'invalid'; break; }
+        const wanted = Math.floor(clampNum(op.count, 0, 1e9, 0));
+        if (wanted < 1) { r.status = 'rejected'; r.reason = 'empty'; break; }
+        const available = Math.max(0, Math.floor(s.ores?.[op.key] || 0));
+        if (available < 1) { r.status = 'rejected'; r.reason = 'insufficient'; break; }
+        // السقف اليومي يشمل ذهب بيع الخامات: لا يمكن الالتفاف على dailyQuota بتحويل الخامات.
+        const quota = dailyQuota(sync, wanted * price, now);
+        const sold = Math.min(available, wanted, Math.floor(quota.gold / price));
+        if (sold < 1) { r.status = 'rejected'; r.reason = 'daily_cap'; r.dailyRemaining = quota.remaining; break; }
+        const gold = sold * price;
+        s.ores[op.key] = available - sold;
+        s.gold += gold; s.totalEarned += gold;
+        sync.platformGold = (Number(sync.platformGold) || 0) + gold;
+        goldDelta = gold;
+        Object.assign(r, { count: sold, gold, ore: op.key, capped: quota.capped && sold < wanted,
+          dailyRemaining: Math.max(0, quota.remaining + (wanted - sold) * price) });
+        detail = { ore: op.key, count: sold, gold, dailyRemaining: r.dailyRemaining };
         break;
       }
       default: r.status = 'invalid';
@@ -882,6 +987,8 @@ function profileOf(user, isNew = false, extra = {}) {
     referralEarnings: user.referralEarnings,
     referredBy: user.referredBy,
     daily: dailyInfo(user),
+    dailyGold: dailyGoldView(user.sync, now),
+    quests: questsView(user),
     isNew,
     serverTime: now,
     ...extra,
@@ -1000,8 +1107,14 @@ function rateLimit(name, maxPerMinute) {
 // Render يضع بروكسي واحداً أمام الخدمة: نثق بآخر X-Forwarded-For يضيفه هو فقط، لا بما يرسله العميل
 app.set('trust proxy', CONFIG.trustProxyHops);
 app.use(securityHeaders({ production: IS_PRODUCTION }));
-app.use(express.json({ limit: '32kb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '64kb' })); // جولة زعيم طويلة ≈ 800-1500 مقطع حركة (≈ 23 بايت لكل مقطع)؛ السقف الفعلي 2400 مقطع في القواعد المشتركة
+// فن «الكهف» (صور المشهد والمعدّن والأيقونات) يُطلب دائماً برقم نسخة ?v= في الرابط، فيُخزَّن أسبوعاً دون إعادة تحقق؛
+// عند تغيير صورة يُرفع الرقم في index.html وcss وcave-art.js (يحرس ذلك اختبار في test/clicker-fx.test.js).
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (filePath.includes(`${path.sep}assets${path.sep}cave${path.sep}`)) res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+  },
+}));
 
 const asyncRoute = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => {
   console.error('خطأ API:', e);
@@ -1104,6 +1217,8 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
       referralCount: user.referralCount,
       referralEarnings: user.referralEarnings,
       daily: dailyInfo(user),
+      dailyGold: dailyGoldView(user.sync, now),
+      quests: questsView(user),
       serverTime: now,
     };
   });
@@ -1185,7 +1300,7 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
 // الخادم للحركات المسجّلة مع مكافأة افتراضية واحدة مضمونة المعاملة — نفس المصادقة
 // وتحديد المعدل ومعالجة الأخطاء المعتمدة أعلاه (platform-api.js).
 // ---------------------------------------------------------------------------
-mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, now: Date.now });
+mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, trackQuests: (user, facts) => Quests.addRun(user.sync.quests, facts), now: Date.now });
 
 // ---------------------------------------------------------------------------
 // ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص

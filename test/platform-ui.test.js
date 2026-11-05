@@ -159,7 +159,10 @@ test('platform UI: the page wires the scene — assets and every element the con
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
-    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick']) {
+    'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick',
+    'platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill',
+    'mission-milestones', 'milestone-count', 'ore-storage', 'ore-list', 'sell-all-ore', 'ore-total',
+    'ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'open-workshop-heading']) {
     assert.ok(ids.has(id), `#${id} must exist`);
   }
   // Action buttons only (no directional buttons 1 and 2 - replaced by virtual joystick)
@@ -169,6 +172,31 @@ test('platform UI: the page wires the scene — assets and every element the con
   for (const hero of ['miner', 'warrior', 'archer']) assert.ok(ids.has(`hero-btn-${hero}`), `#hero-btn-${hero} must exist`);
   // اللعبة الأصلية تبقى قائمة: نفس أزرارها ومعرّفاتها داخل الغلاف
   for (const id of ['game-canvas', 'game-overlay', 'game-overlay-btn', 'adv-pause-btn', 'adv-skill-btn', 'adv-mute-btn', 'adv-combo']) assert.ok(ids.has(id));
+});
+
+test('UI chrome uses inline SVG icons instead of emoji glyphs', () => {
+  assert.ok(html.includes('class="icon-sprite"'), 'the SVG sprite must be inlined in the page');
+  const buttons = [...html.matchAll(/<button\b[^>]*class="action-btn[^"]*"[^>]*>[\s\S]*?<\/button>/g)].map(m => m[0]);
+  assert.equal(buttons.length, 7, 'all seven platform controls must be found');
+  for (const button of buttons) {
+    assert.match(button, /<use href="#i-[a-z]+"\/>/, 'every control uses a sprite icon');
+    assert.doesNotMatch(button, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'no emoji glyph in a control button');
+  }
+  assert.doesNotMatch(html.match(/<nav class="bottom-nav[\s\S]*?<\/nav>/)?.[0] || '', /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'bottom navigation must not rely on emoji fonts');
+  assert.ok(html.includes('id="res-gems"') && html.includes('id="res-rocks"') && html.includes('id="res-foes"'), 'HUD counters are separate SVG chips');
+});
+
+test('platform UI: phase 1 impact feedback counters are exposed without changing simulation', async () => {
+  const page = bootPage();
+  assert.equal(page.topLevelError, null, page.topLevelError && `${page.topLevelError.message}\n${page.topLevelError.stack}`);
+  await page.settle();
+  const info = page.PlatformGame().inspect();
+  assert.equal(info.floatersSpawned, 0);
+  assert.equal(info.combo, 0);
+  assert.equal(info.hitStop, false);
+  assert.equal(info.milestones, 0);
+  assert.equal(typeof info.ores, 'object');
+  assert.equal(info.ores.copper, 0);
 });
 
 test('platform UI: the side-scroller is the focused default play view', async () => {
@@ -197,7 +225,9 @@ test('platform UI: a real round runs — server ticket, live physics from keys, 
   game = page.PlatformGame().inspect();
   // HUD يتحدث من داخل الإطارات
   assert.match(page.byId('platform-hearts').textContent, /♥/);
-  assert.match(page.byId('platform-resources').textContent, /💎 \d+\/3 · ⛏ \d+\/1 · 👾 \d+/, 'the live HUD tracks the actual exit requirements and defeated enemies');
+  for (const id of ['res-gems', 'res-rocks', 'res-foes']) {
+    assert.match(page.byId(id).textContent, /^\d+$/, `${id} shows a live HUD counter`);
+  } // the HUD tracks exit requirements and defeated enemies with SVG chips
   assert.ok(game.x > x0 + 50, `player must move right (x0=${x0}, x=${game.x})`);
   assert.equal(game.pose, 'run');
   assert.ok(game.tick > 10, 'fixed-step ticks advance');

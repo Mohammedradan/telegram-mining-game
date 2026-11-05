@@ -77,6 +77,41 @@ jobs:
           cat /tmp/platform-server.log
           exit 1
       - name: Run platform browser end-to-end tests
-        run: npm run test:browser
+        run: bash scripts/ci-run-e2e.sh "Platform E2E" test:browser
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run mining-screen (clicker) browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Clicker E2E" test:clicker
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run deep-dive browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Deep-dive E2E" test:deepdive
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run worlds-and-bosses browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Worlds-and-bosses E2E" test:bosses
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run guide browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Guide E2E" test:guide
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run classic-mode browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Classic-mode E2E" test:classic
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run adventure-quests browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Quests E2E" test:quests
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
+      - name: Run prestige browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Prestige E2E" test:prestige
         env:
           TEST_APP_URL: http://127.0.0.1:3000

@@ -289,33 +289,6 @@
     .mining-btn { transition: transform 0.05s ease-out; }
     .mining-btn:active { transform: scale(0.92); }
 
-    @keyframes mining-swing {
-      0%, 100% { transform: rotate(-5deg); }
-      50% { transform: rotate(5deg); }
-    }
-    
-    @keyframes pickaxe-swing {
-      0%, 100% { transform: rotate(-20deg); }
-      50% { transform: rotate(20deg); }
-    }
-    
-    .animate-mining-swing {
-      animation: mining-swing 1s ease-in-out infinite;
-    }
-    
-    .animate-pickaxe-swing {
-      animation: pickaxe-swing 0.5s ease-in-out infinite;
-    }
-    
-    @keyframes sparkle {
-      0%, 100% { opacity: 0.3; transform: scale(0.8); }
-      50% { opacity: 1; transform: scale(1.2); }
-    }
-    
-    .animate-sparkle {
-      animation: sparkle 0.8s ease-in-out infinite;
-    }
-
     .floating-text {
       position: absolute;
       animation: floatUp 0.8s ease-out forwards;
@@ -338,15 +311,126 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=3">
+  <link rel="stylesheet" href="/platform.css?v=10">
+  <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
+  <link rel="stylesheet" href="/cave.css?v=1">
+  <link rel="stylesheet" href="/clicker.css?v=9">
+  <link rel="stylesheet" href="/deep-dig.css?v=3">
+  <link rel="stylesheet" href="/guide.css?v=1">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
+
+  <!-- مشهد الكهف خلف الواجهة: يظهر فقط مع تبويب التعدين (clicker.css) -->
+  <div class="ck-scene" aria-hidden="true"></div>
+
+  <!-- أيقونات متجهية موحّدة: واجهة المنجم لا تعتمد على خطوط الإيموجي -->
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14" stroke-width="3.6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7" stroke-width="3"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" stroke-width="3"/></symbol>
+    <symbol id="i-jump" viewBox="0 0 24 24"><path d="M12 20V4m-6 7 6-7 6 7M5 20h14"/></symbol>
+    <symbol id="i-pickaxe" viewBox="0 0 24 24">
+      <path d="M4 7Q10.5 2.5 17 7"/><path d="m4 7-1.5 2.5M17 7l1.5 2.5"/>
+      <path d="M10.5 4.8 7.5 19.5"/><path d="m6.2 18.7 2.9.8"/>
+    </symbol>
+    <symbol id="i-swords" viewBox="0 0 24 24">
+      <path d="M4 3.5 19 19M20 3.5 5 19"/>
+      <path d="m13 18 4.5-4.5M11 18l-4.5-4.5"/>
+    </symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2.5 5.5 13.5h5.2L9.5 21.5l9-12h-5.2l.2-7Z" fill="currentColor" fill-opacity=".22"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2.8c1.2 3 5.2 5.4 5.2 10a5.2 5.2 0 0 1-10.4 0c0-2 1-3.5 2-4.6.4 1.5 1.2 2.4 2.2 2.8C10.2 8.6 10.4 5.6 12 2.8Z" fill="currentColor" fill-opacity=".22"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24">
+      <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4.2 4.2 0 0 1 0 6M18.6 6.4a7.7 7.7 0 0 1 0 11.2"/>
+    </symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24">
+      <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m16.5 9.5 5 5m0-5-5 5"/>
+    </symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9.5 10h5M9.5 14h5"/></symbol>
+    <symbol id="i-bow" viewBox="0 0 24 24">
+      <path d="M7 3c7 3.5 7 14.5 0 18"/><path d="M7 3v18"/><path d="M3 12h15"/><path d="m14 8 4 4-4 4"/>
+    </symbol>
+    <symbol id="i-gem" viewBox="0 0 24 24"><path d="M6 4h12l4 5.5L12 20 2 9.5 6 4Z"/><path d="M2 9.5h20M8 4l-2 5.5 6 10.5 6-10.5L16 4"/></symbol>
+    <symbol id="i-gamepad" viewBox="0 0 24 24"><path d="M7.5 8h9a4.5 4.5 0 0 1 4.4 3.6l.9 4.2A2.6 2.6 0 0 1 17.3 19c-.8 0-1.5-.4-2-1l-1.3-1.6h-4L8.7 18c-.5.6-1.2 1-2 1a2.6 2.6 0 0 1-2.5-3.2l.9-4.2A4.5 4.5 0 0 1 7.5 8Z"/><path d="M7.5 11.5v3M6 13h3M16.5 12.5h.01M18.5 14.5h.01"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.3a3 3 0 0 1 0 5.4M17.5 14.2a5.5 5.5 0 0 1 3 4.8"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5"/><path d="M12 14v4M8.5 20h7M10 18h4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3Z"/><path d="m18.5 16 .7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"/></symbol>
+    <symbol id="i-boots" viewBox="0 0 24 24"><path d="M7 3h5v9l5 3v4H4v-4l3-2V3Z"/><path d="M4 19h13M7 8h5"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M8 7h8l2 12H6L8 7Z"/><path d="M9 7V5a3 3 0 0 1 6 0v2M9 11h6"/></symbol>
+    <symbol id="i-magnet" viewBox="0 0 24 24"><path d="M5 4v8a7 7 0 0 0 14 0V4"/><path d="M5 8h5M14 8h5M5 4h5M14 4h5"/></symbol>
+    <symbol id="i-drill" viewBox="0 0 24 24"><path d="m4 20 8-8"/><path d="M11 13 9 7l8-4 2 8-8 2Z"/><path d="m17 9 4 4"/></symbol>
+    <symbol id="i-robot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M8 13h.01M16 13h.01M9 17h6M2 12v4M22 12v4"/></symbol>
+    <symbol id="i-luck" viewBox="0 0 24 24"><path d="M12 12c-3-1-5-4-4-7 3 0 5 2 5 5"/><path d="M12 12c1-3 4-5 7-4 0 3-2 5-5 5"/><path d="M12 12c3 1 5 4 4 7-3 0-5-2-5-5"/><path d="M12 12c-1 3-4 5-7 4 0-3 2-5 5-5"/><path d="M12 12v8"/></symbol>
+    <symbol id="i-armor" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.4A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.5c0 5.8-7.5 10.4-7.5 10.4Z"/></symbol>
+    <symbol id="i-rope" viewBox="0 0 24 24"><path d="M12 21V5M6.5 10.5 12 5l5.5 5.5M8 21h8"/></symbol>
+    <symbol id="i-dive" viewBox="0 0 24 24"><path d="M12 3v13M6.5 11 12 16.5 17.5 11M5 21h14"/></symbol>
+    <symbol id="i-boss" viewBox="0 0 24 24"><path d="M4 4c0 4 1.5 6 3.5 7M20 4c0 4-1.5 6-3.5 7M7 10h10l1 6.5-3 3.5h-6l-3-3.5zM9.5 14.5h.01M14.5 14.5h.01M10.5 18h3"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M3 5.5c3-1 6-.8 9 1.2 3-2 6-2.2 9-1.2v13c-3-1-6-.8-9 1.2-3-2-6-2.2-9-1.2zM12 6.7v13M6 9.5c1.1-.2 2.2-.1 3.2.3M6 12.5c1.1-.2 2.2-.1 3.2.3M15 9.8c1-.4 2.1-.5 3.2-.3M15 12.8c1-.4 2.1-.5 3.2-.3"/></symbol>
+  </svg>
+
+  <!-- فنّ الكهف المتجهي: رسومات ملوّنة بتدرجات (بخلاف أيقونات الواجهة الخطية). الروبوت هنا طائرة الورشة المساعدة؛ أيقونتا الروبوت والنبتة في الميداليات مرسومتان (ملفات WebP) -->
+  <svg id="art-sprite" class="art-sprite" xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="ag-steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1f5f9"/><stop offset=".45" stop-color="#a5b4c8"/><stop offset="1" stop-color="#4b5a72"/></linearGradient>
+      <linearGradient id="ag-steel-d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b9ab3"/><stop offset="1" stop-color="#3a475c"/></linearGradient>
+      <linearGradient id="ag-helm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#c2670a"/></linearGradient>
+      <radialGradient id="ag-eye" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#f0fdff"/><stop offset=".4" stop-color="#22d3ee"/><stop offset="1" stop-color="#0e7490"/></radialGradient>
+      <radialGradient id="ag-ball" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#fff1f1"/><stop offset=".4" stop-color="#fb7185"/><stop offset="1" stop-color="#9f1239"/></radialGradient>
+      <radialGradient id="ag-gold" cx=".34" cy=".28" r=".85"><stop offset="0" stop-color="#fffbe0"/><stop offset=".3" stop-color="#fde047"/><stop offset=".68" stop-color="#f59e0b"/><stop offset="1" stop-color="#92400e"/></radialGradient>
+      <linearGradient id="ag-rim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff7c2"/><stop offset=".45" stop-color="#e8a317"/><stop offset="1" stop-color="#7c3d06"/></linearGradient>
+      <radialGradient id="ag-glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fde68a" stop-opacity=".55"/><stop offset="1" stop-color="#fde68a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="ag-glow-c" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#67e8f9" stop-opacity=".5"/><stop offset="1" stop-color="#67e8f9" stop-opacity="0"/></radialGradient>
+    </defs>
+
+    <!-- روبوت التعدين: خوذة صفراء ومصباح وعينان فيروزيتان -->
+    <symbol id="a-robot" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="url(#ag-glow-c)"/>
+      <rect x="31" y="6" width="2" height="8" fill="#64748b"/>
+      <circle cx="32" cy="6" r="3.6" fill="url(#ag-ball)" stroke="#7f1d1d" stroke-width=".9"/>
+      <path d="M15 27c0-10 7-16 17-16s17 6 17 16z" fill="url(#ag-helm)" stroke="#8a4a08" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M32 11.5v15" stroke="#b45309" stroke-width="1.6" opacity=".55"/>
+      <circle cx="32" cy="19" r="7.4" fill="#fde047" opacity=".3"/>
+      <circle cx="32" cy="19" r="4.6" fill="#fffbe0" stroke="#f59e0b" stroke-width="1.6"/>
+      <rect x="11.5" y="26" width="41" height="4.6" rx="2.3" fill="#f59e0b" stroke="#8a4a08" stroke-width="1.2"/>
+      <rect x="8.8" y="34" width="5.6" height="11" rx="2.2" fill="url(#ag-steel-d)" stroke="#1e293b" stroke-width="1.2"/>
+      <rect x="49.6" y="34" width="5.6" height="11" rx="2.2" fill="url(#ag-steel-d)" stroke="#1e293b" stroke-width="1.2"/>
+      <rect x="14" y="30.6" width="36" height="20" rx="6" fill="url(#ag-steel)" stroke="#1e293b" stroke-width="1.5"/>
+      <path d="M19 33.4h26" stroke="#fff" stroke-opacity=".6" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="18" y="35" width="28" height="11" rx="4.5" fill="#0a1124" stroke="#334155" stroke-width="1"/>
+      <circle cx="26" cy="40.5" r="5" fill="#22d3ee" opacity=".28"/>
+      <circle cx="38" cy="40.5" r="5" fill="#22d3ee" opacity=".28"/>
+      <circle cx="26" cy="40.5" r="3.5" fill="url(#ag-eye)"/>
+      <circle cx="38" cy="40.5" r="3.5" fill="url(#ag-eye)"/>
+      <circle cx="25" cy="39.4" r="1" fill="#fff"/>
+      <circle cx="37" cy="39.4" r="1" fill="#fff"/>
+      <path d="M27 48.4h10" stroke="#334155" stroke-width="1.5" stroke-linecap="round"/>
+      <rect x="27" y="50.6" width="10" height="3.4" fill="#475569"/>
+      <path d="M12.5 63c0-6.4 5-9.2 11.5-9.2h16c6.5 0 11.5 2.8 11.5 9.2z" fill="url(#ag-steel)" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="32" cy="58.6" r="2.1" fill="#22d3ee" stroke="#0e7490" stroke-width=".8"/>
+    </symbol>
+
+    <!-- عملة ذهبية للعدّاد -->
+    <symbol id="a-coin" viewBox="0 0 48 48">
+      <circle cx="24" cy="25.5" r="21" fill="#5a2d04" opacity=".5"/>
+      <circle cx="24" cy="24" r="21.5" fill="url(#ag-rim)"/>
+      <circle cx="24" cy="24" r="17.4" fill="url(#ag-gold)" stroke="#8a4a08" stroke-width="1.4"/>
+      <circle cx="24" cy="24" r="13.6" fill="none" stroke="#b45309" stroke-opacity=".7" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+      <path d="M24 14.6 29 22l-5 11.4L19 22z" fill="#fff7c2" stroke="#b45309" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M19 22h10M24 14.6V33" stroke="#d98a12" stroke-width=".9" opacity=".8"/>
+      <path d="M10.4 15.6A15 15 0 0 1 21 9" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+  </svg>
+
 
   <!-- Header Info -->
   <header class="app-header flex justify-between items-center bg-slate-900/80 border border-slate-800 px-3 py-2 rounded-2xl backdrop-blur-md">
     <div class="flex items-center gap-2">
       <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-xl shadow-lg shadow-amber-500/30">
-        ⛏️
+        <svg class="ui-icon logo-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
       </div>
       <div>
         <div id="username" class="font-bold text-sm text-slate-200">معدّن أسطوري</div>
@@ -358,7 +442,7 @@
     </div>
 
     <div class="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/50 text-right">
-      <div class="text-[10px] text-slate-400">المستوى</div>
+      <div class="ck-level-top"><span class="text-[10px] text-slate-400">المستوى</span><span id="xp-text" class="ck-xp-text"></span></div>
       <div id="level-badge" class="font-black text-amber-400 text-sm">1 (مبتدئ)</div>
       <div id="xp-bar" class="h-1 mt-1 rounded-full bg-slate-700/80 overflow-hidden" title="نقاط الخبرة — تُمنح من الخادم على نشاط موثوق" style="display:none">
         <div id="xp-fill" class="h-full bg-amber-400 rounded-full" style="width:0%"></div>
@@ -367,27 +451,38 @@
   </header>
 
   <!-- Total Balance Display -->
-  <div class="balance-strip flex items-center justify-center gap-2 rounded-xl bg-slate-950/30 px-3 py-1.5">
-    <span class="text-2xl text-amber-400">🪙</span>
-    <div class="leading-none">
-      <div class="text-slate-400 text-[9px] font-semibold mb-1">إجمالي الذهب</div>
-      <span id="gold-counter" class="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">0</span>
+  <div class="ck-hud">
+    <div class="balance-strip flex items-center justify-center gap-2 rounded-xl bg-slate-950/30 px-3 py-1.5">
+      <svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg>
+      <div class="leading-none">
+        <div class="text-slate-400 text-[9px] font-semibold mb-1">إجمالي الذهب</div>
+        <span id="gold-counter" class="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">0</span>
+      </div>
+      <div id="sync-status" class="sr-only" aria-live="polite">💾 حفظ محلي — جارٍ الاتصال بالخادم…</div>
     </div>
-    <div id="sync-status" class="sr-only" aria-live="polite">💾 حفظ محلي — جارٍ الاتصال بالخادم…</div>
+    <!-- كتم صوت المؤثرات: يظهر بجانب العدّاد في مشهد الكهف فقط -->
+    <button id="ck-sound" class="ck-sound" type="button" aria-pressed="false" aria-label="كتم أو تشغيل صوت النقر">
+      <svg class="ui-icon ck-ico-on" aria-hidden="true"><use href="#i-sound"/></svg>
+      <svg class="ui-icon ck-ico-off" aria-hidden="true"><use href="#i-muted"/></svg>
+    </button>
   </div>
 
   <!-- TAB 0: INTERACTIVE ADVENTURE GAME (الشاشة الرئيسية) -->
   <main id="tab-play" class="tab-content active flex-col flex-1 min-h-0 py-0 px-0.5">
     <div class="play-subnav grid grid-cols-4 gap-1 mb-2" role="tablist" aria-label="أقسام اللعب">
-      <button id="play-nav-adventure" onclick="switchPlayPanel('adventure')" class="play-subnav-btn active" role="tab" aria-selected="true">🎮 <span>المغامرة</span></button>
-      <button id="play-nav-missions" onclick="switchPlayPanel('missions')" class="play-subnav-btn" role="tab" aria-selected="false">✅ <span>المهام</span></button>
-      <button id="play-nav-customize" onclick="switchPlayPanel('customize')" class="play-subnav-btn" role="tab" aria-selected="false">✨ <span>تطوير</span></button>
-      <button id="play-nav-social" onclick="switchPlayPanel('social')" class="play-subnav-btn" role="tab" aria-selected="false">⚔️ <span>سباق</span></button>
+      <button id="play-nav-adventure" onclick="switchPlayPanel('adventure')" class="play-subnav-btn active" role="tab" aria-selected="true"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-gamepad"/></svg> <span>المغامرة</span></button>
+      <button id="play-nav-missions" onclick="switchPlayPanel('missions')" class="play-subnav-btn" role="tab" aria-selected="false"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-check"/></svg> <span>المهام</span></button>
+      <button id="play-nav-customize" onclick="switchPlayPanel('customize')" class="play-subnav-btn" role="tab" aria-selected="false"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-sparkle"/></svg> <span>تطوير</span></button>
+      <button id="play-nav-social" onclick="switchPlayPanel('social')" class="play-subnav-btn" role="tab" aria-selected="false"><svg class="ui-icon subnav-icon" aria-hidden="true"><use href="#i-swords"/></svg> <span>سباق</span></button>
     </div>
 
     <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
     <!-- 🧭 منجم المنصّة هو الشاشة الرئيسية - لعبة منصات ثنائية الأبعاد تفاعلية -->
     <div id="legacy-adventure" hidden class="flex flex-col gap-1.5 flex-1 min-h-0">
+    <div id="legacy-bar" class="flex items-center justify-between gap-2">
+      <button id="legacy-back" type="button" class="legacy-back flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl py-1.5 px-3 text-[11px] font-black active:scale-95"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>العودة إلى المنجم</span></button>
+      <div id="adv-daily" class="text-[10px] text-slate-400" aria-live="polite"></div>
+    </div>
     <div class="grid grid-cols-4 gap-1.5 text-center">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الوقت</div><div id="adv-time" class="font-black text-sky-300 text-sm">60</div></div>
@@ -434,36 +529,56 @@
     <div id="platform-scene">
       <div class="mine-heading">
         <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f4bf62,#e09a2d);display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(244,191,98,.35);flex-shrink:0">⛏️</div>
+          <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f4bf62,#e09a2d);display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(244,191,98,.35);flex-shrink:0"><svg class="ui-icon badge-icon" style="color:#4a3212" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
           <div>
             <div class="mine-kicker">عالم الكهوف · منصات · بلورات · أعداء</div>
             <h2>منجم الأعماق المتقدمة</h2>
           </div>
         </div>
         <div class="mine-heading-actions">
-          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت">🔊 صوت</button>
+          <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت"><svg class="ui-icon mute-icon mute-icon-on" aria-hidden="true"><use href="#i-sound"/></svg><svg class="ui-icon mute-icon mute-icon-off" aria-hidden="true"><use href="#i-muted"/></svg><span class="mute-label">صوت ✓</span></button>
+          <button id="open-workshop-heading" type="button" class="ws-mini-entry" aria-label="ورشة المعدّن"><svg class="ui-icon" aria-hidden="true"><use href="#i-drill"/></svg> ورشة</button>
         </div>
       </div>
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
-        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner">⛏️ عامل المنجم</button>
-        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior">⚔️ المحارب</button>
-        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer">🏹 رامي السهام</button>
+        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg> عامل المنجم</button>
+        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg> المحارب</button>
+        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg> رامي السهام</button>
       </div>
       <div class="mine-hud" aria-label="حالة الجولة">
         <span id="platform-hearts">♥ ♥ ♥</span>
-        <span id="platform-resources">بلورات 0 · صخور 0</span>
+        <span id="platform-resources" class="mine-resources">
+          <span class="res-chip" title="بلورات"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="res-gems">0</span>/3</span>
+          <span class="res-chip" title="صخور مُعدّنة"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span id="res-rocks">0</span>/1</span>
+          <span class="res-chip" title="أعداء مهزومون"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span id="res-foes">0</span></span>
+          <span class="res-chip" title="معالم الجولة"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg><span id="milestone-count">0/5</span></span>
+        </span>
         <span id="platform-progress">0% · 150ث</span>
       </div>
       <div class="mine-economy" aria-live="polite">
-        <span class="mine-gold"><span id="platform-gold">0</span> 🪙</span>
-        <span class="mine-energy"><span id="platform-energy">1000</span> ⚡</span>
+        <span class="mine-gold"><span id="platform-gold">0</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-coin"/></svg></span>
+        <span class="mine-energy"><span id="platform-energy">1000</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-bolt"/></svg></span>
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
+        <div id="platform-combo" class="mine-combo" aria-live="polite" hidden></div>
         <div id="platform-overlay" class="mine-overlay">
+          <button id="open-guide" type="button" class="guide-entry" data-guide-open data-news="0" hidden aria-haspopup="dialog" aria-label="المرشد العم سراج: الهدف والموسوعة والحكاية"><svg class="ui-icon" aria-hidden="true"><use href="#i-book"/></svg><span class="gd-sr" data-guide-label>المرشد</span><span class="guide-new" aria-hidden="true">جديد</span><i class="guide-dot" hidden aria-hidden="true"></i></button>
+          <div class="overlay-kicker"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg> جولة موثّقة · 150 ثانية</div>
           <h3 id="platform-title">منجم المنصّة</h3>
           <p id="platform-message">هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F · استخدم المهارة بـ Q.</p>
+          <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
+            <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span>اجمع 3 بلورات</span><b id="mission-gems">0/3</b></div>
+            <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>اكسر صخرة خام</span><b id="mission-rocks">0/1</b></div>
+            <div class="mission-row" hidden><svg class="ui-icon" aria-hidden="true"><use href="#i-boss"/></svg><span>اهزم الزعيم</span><b id="mission-boss">0/1</b></div>
+            <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg><span>معالم مكتشفة</span><b id="mission-milestones">0/5</b></div>
+            <div class="mission-progress"><i id="mission-fill"></i></div>
+          </div>
           <button id="platform-start" type="button">جولة جديدة</button>
+          <div class="overlay-row">
+            <button id="mine-select" type="button" class="mine-select" aria-haspopup="dialog" aria-label="اختيار المنجم"><span class="mine-select-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="mine-select-hits" data-mine-hits></span></button>
+            <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
+          </div>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
       </div>
@@ -476,13 +591,13 @@
 
         <!-- Action Buttons (Bottom Right) -->
         <div class="mine-controls-actions">
-          <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn">⏸</button>
-          <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><b>◀</b><span>يسار</span></button>
-          <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><b>▶</b><span>يمين</span></button>
-          <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><b>⤒</b><span>قفز</span></button>
-          <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><b>⛏</b><span>حفر</span></button>
-          <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><b>⚔️</b><span>ضرب</span></button>
-          <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><b>💥</b><span>قوة</span></button>
+          <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pause"/></svg></button>
+          <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-left"/></svg><span>يسار</span></button>
+          <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>يمين</span></button>
+          <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
+          <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
+          <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
+          <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
         </div>
       </div>
       <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز (Space)، تعدين (E)، هجوم (F)، مهارة (Q).</div>
@@ -537,6 +652,16 @@
       </div>
     </details>
 
+    <!-- مهام المغامرة (الدفعة 3ب): اثنتا عشرة مهمة تُستلم مرة واحدة، عدّاداتها من جولات المنصّات التي أعاد الخادم تشغيلها فقط -->
+    <details id="quests-box" class="quests-box bg-slate-900/90 border rounded-xl p-2.5">
+      <summary class="font-black text-xs cursor-pointer flex justify-between items-center">
+        <span class="quests-title"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>مغامرات المناجم</span>
+        <span id="quests-count" class="text-[10px] text-slate-400 font-normal"></span>
+      </summary>
+      <p class="quests-note">تُستلم كل مهمة مرة واحدة، وتتقدّم من جولات المناجم التي يتحقق منها الخادم فقط (لا الكلاسيكي ولا الحفر العميق). جوائزها خارج سقف الذهب اليومي.</p>
+      <div id="quests-list" class="quests-list"><p class="text-[10px] text-slate-500 text-center py-2">مهام المغامرة تُحمَّل من الخادم عند الاتصال.</p></div>
+    </details>
+
     </div>
     </section>
 
@@ -563,59 +688,82 @@
     </section>
   </main>
 
-  <!-- TAB 1: MINING (QUICK CLICK) -->
-  <main id="tab-mining" class="tab-content flex-col items-center justify-center relative my-auto">
-    <div id="click-area" class="relative flex items-center justify-center">
-      <!-- شخصيات تعدين على الجوانب -->
-      <div class="absolute -left-16 top-1/2 -translate-y-1/2 miner-character-left">
-        <div class="relative w-20 h-24">
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-amber-600 to-amber-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg">
-            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-amber-400 rounded-full shadow-md"></div>
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md"></div>
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-amber-300 rounded-full opacity-50 animate-pulse"></div>
-          </div>
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-amber-900 rounded-full shadow-inner"></div>
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-400 rounded-full animate-sparkle"></div>
+  <!-- TAB 1: MINING (QUICK CLICK) — مركز الكهف: ميداليات ترقية بحلقات تقدّم حول مدخل المنجم، صخرة خام تُنقر فتتفتت شرراً،
+       معدّن يتفاعل، وزر «إلى المنجم». العرض كله من public/clicker-fx.js؛ الذهب والطاقة والعمليات تبقى من handleMine/buyUpgrade/activateBoost. -->
+  <main id="tab-mining" class="tab-content flex-col items-center relative flex-1 ck-tab">
+    <div id="ck-stage" class="ck-stage" data-boost="0" data-frenzy="0" data-fresh="1">
+      <div class="ck-ambience" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <!-- ميداليات الترقية (تُبنى من clicker-fx.js): حلقة التقدّم = رصيدك ÷ سعر الترقية، وتخضرّ مع سهم حين تتاح -->
+      <div id="ck-nodes" class="ck-nodes" role="group" aria-label="ترقيات التعدين"></div>
+
+      <div id="click-area" class="ck-area">
+        <!-- طاقم المنجم (عرض فقط): مسيّرات بعدد ما اشتريتَه من «عامل آلي» ومنصات حفر بعدد «منصة التعدين»، تعمل على سقالة فوق الساحة؛ يبنيه clicker-fx.js -->
+        <div id="ck-crew" class="ck-crew" aria-hidden="true" hidden></div>
+        <!-- موقع الحفر: المعدّن يمشي بعصا التحكم (أو الأسهم) ويحفر الصخرة؛ المس الصخرة يعدّن أيضاً. المواضع يضبطها public/dig-site.js بـtransform،
+             وبدونه يبقى المعدّن والصخرة في مكانيهما الافتراضيين من CSS والنقر على الصخرة يعدّن كما كان -->
+        <div id="ck-world" class="ck-world">
+          <div id="ck-miner" class="ck-miner" data-pose="idle" data-face="1" data-act="idle" aria-hidden="true"><span class="ck-flip"><span id="ck-hero" class="ck-hero"></span></span><span class="ck-dust"><i></i><i></i></span><span class="ck-companion"><svg viewBox="0 0 64 64" focusable="false"><use href="#a-robot"/></svg></span></div>
+          <button id="mine-btn" type="button" aria-label="تعدين" aria-describedby="tap-hint" class="mining-btn ck-btn">
+            <span class="ck-bob"><span id="ck-ore" class="ck-ore" data-stage="0">
+              <span class="ck-glow" aria-hidden="true"></span>
+              <span class="ck-ore-img"></span>
+            </span></span>
+            <span id="ck-rockhp" class="ck-rockhp" aria-hidden="true"><i></i></span>
+          </button>
         </div>
+        <div id="ck-streak" class="ck-streak" aria-hidden="true" data-tier="1"><svg class="ui-icon"><use href="#i-flame"/></svg><span>سلسلة</span><b id="ck-streak-n">0</b></div>
+        <div id="ck-status" class="ck-status" aria-hidden="true" data-kind=""><svg class="ui-icon"><use id="ck-status-icon" href="#i-bolt"/></svg><span id="ck-status-text"></span></div>
+        <div id="ck-banner" class="ck-banner" aria-hidden="true"></div>
+        <!-- عصا التحكم (اسحب) وزر الحفر (اضغط مطوّلاً): يظهران حين يعمل dig-site.js فقط؛ الأسهم/WASD والمسافة تؤدي الدور نفسه على الحاسوب -->
+        <div id="ck-pad" class="ck-pad" role="group" aria-label="عصا تحكم المعدّن: اسحبها ليمشي" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"><span id="ck-stick" class="ck-stick"></span></div>
+        <button id="ck-dig" type="button" class="ck-dig cv-btn is-hot" aria-label="احفر: اضغط مطوّلاً ليحفر المعدّن الصخرة" aria-keyshortcuts="Space"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>احفر</span></button>
       </div>
-      
-      <div class="absolute -right-16 top-1/2 -translate-y-1/2 miner-character-right">
-        <div class="relative w-20 h-24">
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-blue-600 to-blue-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 0.5s;">
-            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-blue-400 rounded-full shadow-md"></div>
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 0.5s;"></div>
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-blue-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 0.5s;"></div>
-          </div>
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-blue-900 rounded-full shadow-inner"></div>
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-400 rounded-full animate-sparkle" style="animation-delay: 0.5s;"></div>
-        </div>
+
+      <p id="tap-hint" class="ck-hint"><span class="ck-hint-dig">حرّك العصا نحو الصخرة ليحفر المعدّن، أو </span>المس الصخرة — <span id="tap-cost">1</span> طاقة لكل ضربة</p>
+
+      <div class="ck-actions">
+        <!-- «إلى المنجم»: ينقل إلى جولة المنصّات (150 ثانية) ويبدأها إن لم تكن هناك جولة موقوفة -->
+        <button id="ck-go" type="button" class="ck-go cv-btn is-hot" aria-label="إلى المنجم — ابدأ جولة تعدين مدتها 150 ثانية">
+          <svg class="ui-icon ck-go-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
+          <span class="ck-go-text"><b>إلى المنجم</b><small>جولة 150 ثانية</small></span>
+        </button>
+        <button id="boost-btn" onclick="activateBoost()" type="button" class="ck-boost cv-btn cv-btn-violet" data-state="ready">
+          <i class="ck-boost-fill" aria-hidden="true"></i>
+          <svg class="ui-icon ck-boost-icon" aria-hidden="true"><use href="#i-bolt"/></svg>
+          <span class="ck-boost-label">تعزيز ×2</span>
+          <span class="ck-boost-time">0:30</span>
+        </button>
       </div>
-      
-      <div class="absolute -top-20 left-1/2 -translate-x-1/2 miner-character-top">
-        <div class="relative w-20 h-24">
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-16 bg-gradient-to-b from-green-600 to-green-800 rounded-t-lg animate-mining-swing origin-bottom shadow-lg" style="animation-delay: 1s;">
-            <div class="absolute top-2 left-1/2 -translate-x-1/2 w-8 h-8 bg-green-400 rounded-full shadow-md"></div>
-            <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-4 h-8 bg-gray-600 rounded-sm animate-pickaxe-swing origin-bottom shadow-md" style="animation-delay: 1s;"></div>
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-6 bg-green-300 rounded-full opacity-50 animate-pulse" style="animation-delay: 1s;"></div>
-          </div>
-          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-4 bg-green-900 rounded-full shadow-inner"></div>
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-green-400 rounded-full animate-sparkle" style="animation-delay: 1s;"></div>
-        </div>
-      </div>
-      
-      <button id="mine-btn" aria-label="تعدين" class="mining-btn relative w-56 h-56 sm:w-64 sm:h-64 rounded-full bg-gradient-to-b from-amber-400/20 to-transparent p-4 flex items-center justify-center focus:outline-none z-10">
-        <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-600 via-yellow-500 to-amber-300 flex items-center justify-center shadow-[0_0_50px_rgba(245,158,11,0.4)] border-4 border-yellow-200/40 pointer-events-none">
-          <span class="text-7xl sm:text-8xl drop-shadow-2xl">💎</span>
-        </div>
-      </button>
+
+      <div id="ck-live" class="sr-only" aria-live="polite"></div>
     </div>
-    <p id="tap-hint" class="text-xs text-slate-500 mt-3">اضغط على الجوهرة للتعدين — تُستهلك <span id="tap-cost">1</span> طاقة لكل نقرة</p>
-    <button id="boost-btn" onclick="activateBoost()" class="mt-3 w-full max-w-xs bg-gradient-to-r from-fuchsia-500 to-purple-600 disabled:opacity-40 disabled:grayscale font-black py-2.5 rounded-xl text-xs shadow-lg shadow-fuchsia-500/20 active:scale-95">🚀 تعزيز ×2</button>
   </main>
+
+  <!-- نافذة الترقية: تُفتح من ميدالية؛ الشراء بنفس buyUpgrade (عملية خادمية عادية) -->
+  <div id="ck-sheet" class="ck-sheet" hidden>
+    <div class="ck-sheet-card cv-frame" role="dialog" aria-modal="true" aria-labelledby="ck-sheet-title">
+      <button id="ck-sheet-close" class="ck-sheet-x" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      <div id="ck-sheet-art" class="ck-sheet-art" aria-hidden="true"></div>
+      <h3 id="ck-sheet-title" class="ck-sheet-title">فأس فولاذي</h3>
+      <p id="ck-sheet-desc" class="ck-sheet-desc">+1 لكل نقرة</p>
+      <div class="ck-sheet-stats">
+        <div><small>المستوى</small><b id="ck-sheet-owned">0</b></div>
+        <div><small>الحالي</small><b id="ck-sheet-now">1</b></div>
+        <div class="is-next"><small>التالي</small><b id="ck-sheet-next">2</b></div>
+      </div>
+      <div class="ck-sheet-cost" id="ck-sheet-costbox">
+        <svg class="ck-sheet-coin" aria-hidden="true"><use href="#a-coin"/></svg>
+        <b id="ck-sheet-cost">50</b>
+        <span id="ck-sheet-have" class="ck-sheet-have"></span>
+      </div>
+      <button id="ck-sheet-buy" class="cv-btn cv-btn-gold ck-sheet-buy" type="button">ترقية</button>
+    </div>
+  </div>
 
   <!-- TAB 2: UPGRADES / SHOP -->
   <main id="tab-shop" class="tab-content flex-col gap-3 flex-1 py-2 px-1">
     <h2 class="text-lg font-bold text-slate-200 mb-1">ترقية المعدات والمعدنين</h2>
+    <button id="open-workshop-shop" type="button" class="ws-shop-entry">ورشة المعدّن — ترقيات المعدات الدائمة</button>
 
     <!-- Upgrade 1: Click Power -->
     <div class="flex justify-between items-center bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
@@ -637,7 +785,7 @@
         <div class="text-3xl bg-slate-800 p-2 rounded-xl">🤖</div>
         <div>
           <div class="font-bold text-sm">عامل آلي <span id="owned-bot" class="text-[10px] text-amber-400 font-black"></span></div>
-          <div class="text-xs text-slate-400">+5 ذهب/ثانية</div>
+          <div class="text-xs text-slate-400">+<span id="gain-bot">5</span> ذهب/ثانية</div>
         </div>
       </div>
       <button onclick="buyUpgrade('bot')" id="btn-upgrade-bot" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
@@ -651,13 +799,36 @@
         <div class="text-3xl bg-slate-800 p-2 rounded-xl">⚡</div>
         <div>
           <div class="font-bold text-sm">منصة تعدين عملاقة <span id="owned-rig" class="text-[10px] text-amber-400 font-black"></span></div>
-          <div class="text-xs text-slate-400">+25 ذهب/ثانية</div>
+          <div class="text-xs text-slate-400">+<span id="gain-rig">25</span> ذهب/ثانية</div>
         </div>
       </div>
       <button onclick="buyUpgrade('rig')" id="btn-upgrade-rig" class="buy-btn bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow-md">
         <span>🪙</span> <span id="cost-upgrade-rig">1000</span>
       </button>
     </div>
+
+    <!-- التبجيل (الدفعة 3ج): +10% من الدخل السلبي لكل مستوى حتى 10 (×2)، مقابل تصفير العمال والمنصّات وأسعارهم؛ عملية خادمية واحدة -->
+    <section id="prestige-card" class="prestige-card" aria-labelledby="prestige-title">
+      <div class="prestige-head">
+        <span class="prestige-ico" aria-hidden="true"><svg class="ui-icon"><use href="#i-sparkle"/></svg></span>
+        <div class="prestige-titles"><h3 id="prestige-title">التبجيل</h3><p id="prestige-level" aria-live="polite"></p></div>
+        <b id="prestige-mult" class="prestige-mult"></b>
+      </div>
+      <p class="prestige-note">يصفّر العمال الآليين والمنصّات العملاقة وأسعارهم، ويرفع دخلك السلبي <b>10%</b> للأبد (حتى ×2 في المستوى 10). الذهب والخامات والمعدات والمناجم والنقرات لا تتأثر.</p>
+      <div id="prestige-needs" class="prestige-needs"></div>
+      <button id="prestige-btn" type="button" class="prestige-btn" disabled></button>
+    </section>
+
+    <!-- المرحلة 2: مخزن الخامات — يُمنح من جولات يعيد الخادم تشغيلها، ويُباع بسعر ثابت خادمياً -->
+    <section id="ore-storage" class="bg-slate-900/90 border border-amber-800/40 rounded-xl p-3 flex flex-col gap-2">
+      <div class="flex justify-between items-center">
+        <h3 class="font-black text-sm text-amber-300">مخزن الخامات</h3>
+        <span id="ore-total" class="text-[10px] text-slate-400">0 ذهب</span>
+      </div>
+      <div id="ore-list" class="flex flex-col gap-1.5"></div>
+      <button id="sell-all-ore" onclick="sellAllOre()" class="bg-gradient-to-r from-amber-500 to-yellow-400 disabled:opacity-40 disabled:grayscale text-slate-950 font-black py-2 rounded-lg text-xs active:scale-95">بيع كل الخامات</button>
+      <p id="ore-hint" class="text-[10px] text-slate-500">الخامات تصل بعد انتهاء جولة يتحقق منها الخادم. ذهب البيع محسوب ضمن السقف اليومي.</p>
+    </section>
 
     <button onclick="resetGame()" class="mt-2 text-[11px] text-slate-500 hover:text-red-400 underline self-center">إعادة تعيين التقدم</button>
   </main>
@@ -766,10 +937,11 @@
   <!-- Energy Section (Only on Mining Tab) -->
   <div id="energy-container" class="w-full mb-3" style="display:none">
     <div class="flex justify-between items-center text-xs font-bold text-slate-400 mb-1 px-1">
-      <span class="flex items-center gap-1">⚡ الطاقة</span>
+      <span class="flex items-center gap-1"><svg class="ui-icon ck-energy-icon" aria-hidden="true"><use href="#i-bolt"/></svg> الطاقة <small id="ck-regen" class="ck-regen">+3/ث</small></span>
       <span><span id="energy-counter">1000</span> / <span id="max-energy">1000</span></span>
     </div>
-    <div class="w-full h-3 bg-slate-800/90 rounded-full border border-slate-700/50 overflow-hidden p-[1px]">
+    <div id="energy-track" class="ck-energy-track" role="progressbar" aria-label="الطاقة" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+      <i id="energy-ghost" class="ck-energy-ghost" aria-hidden="true"></i>
       <div id="energy-bar" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 rounded-full transition-all duration-200" style="width: 100%;"></div>
     </div>
   </div>
@@ -777,36 +949,201 @@
   <!-- Bottom Navigation Bar -->
   <nav class="bottom-nav grid grid-cols-6 gap-1 bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl backdrop-blur-md">
     <button onclick="switchTab('play')" id="nav-play" class="flex flex-col items-center py-2 rounded-xl text-amber-400 bg-slate-800/80 transition-all">
-      <span class="text-lg">🎮</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-gamepad"/></svg>
       <span class="text-[9px] font-bold mt-0.5">اللعب</span>
     </button>
     <button onclick="switchTab('mining')" id="nav-mining" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">⛏️</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
       <span class="text-[9px] font-bold mt-0.5">تعدين</span>
     </button>
     <button onclick="switchTab('shop')" id="nav-shop" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">🛒</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-cart"/></svg>
       <span class="text-[11px] font-bold mt-0.5">ترقيات</span>
     </button>
     <button onclick="switchTab('friends')" id="nav-friends" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">👥</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-users"/></svg>
       <span class="text-[10px] font-bold mt-0.5">الأصدقاء</span>
     </button>
     <button onclick="switchTab('leaderboard')" id="nav-leaderboard" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">🏆</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-trophy"/></svg>
       <span class="text-[10px] font-bold mt-0.5">الصدارة</span>
     </button>
     <button onclick="switchTab('arena')" id="nav-arena" class="flex flex-col items-center py-2 rounded-xl text-slate-400 hover:text-white transition-all">
-      <span class="text-lg">⚔️</span>
+      <svg class="ui-icon nav-icon" aria-hidden="true"><use href="#i-swords"/></svg>
       <span class="text-[10px] font-bold mt-0.5">الساحة</span>
     </button>
   </nav>
 
+  <!-- طبقة مؤثرات التعدين الأمامية: جسيمات وأرقام طائرة فوق الواجهة كلها (لا تلتقط اللمس) -->
+  <canvas id="ck-fx" class="ck-fx" aria-hidden="true"></canvas>
+  <div id="ck-layer" class="ck-layer" aria-hidden="true"></div>
+
+  <!-- ورشة المعدّن (المرحلة 3): معدات دائمة بسعر ذهب + خام، يتحقق الخادم من كل ترقية وتسري من الجولة التالية -->
+  <div id="ws-overlay" class="ws-overlay" hidden aria-label="ورشة المعدّن">
+    <div class="ws-cave" aria-hidden="true"></div>
+    <div class="ws-top">
+      <div class="ws-chip ws-gold"><svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><span id="ws-gold">0</span></div>
+      <div class="ws-chip ws-ores"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="ws-ore-total">0</span></div>
+      <div class="ws-top-actions">
+        <button id="ws-sound" class="ws-icon-btn" type="button" aria-label="الصوت" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="#i-sound"/></svg></button>
+        <button id="ws-music" class="ws-icon-btn" type="button" aria-label="الموسيقى" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="#i-music"/></svg></button>
+        <button id="ws-close" class="ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <div id="ws-ore-row" class="ws-ore-row" aria-label="مخزن الخامات"></div>
+    <div class="ws-stage">
+      <div class="ws-ring">
+        <div class="ws-orbit" aria-hidden="true"></div>
+        <div class="ws-glow" aria-hidden="true"></div>
+        <div class="ws-pedestal" aria-hidden="true"></div>
+        <img id="ws-hero" class="ws-hero-canvas" src="/assets/cave/hero.webp?v=1" alt="" width="421" height="560" draggable="false" decoding="async">
+        <!-- مسيّرة الروبوت تظهر بجانب المعدّن عند ترقية «روبوت التعدين» -->
+        <span id="ws-drone" class="ws-drone" aria-hidden="true" hidden><svg viewBox="0 0 64 64" focusable="false"><use href="#a-robot"/></svg></span>
+        <div id="ws-nodes" class="ws-nodes"></div>
+      </div>
+    </div>
+    <div class="ws-bottom">
+      <div id="ws-summary" class="ws-summary"></div>
+      <button id="ws-mine" class="ws-mine-btn" type="button" aria-haspopup="dialog" aria-label="اختيار المنجم"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span class="ws-mine-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="ws-mine-hits" data-mine-hits></span></button>
+      <button id="ws-cta" class="ws-cta cv-btn is-hot" type="button"><svg class="ui-icon ws-cta-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>ابدأ التعدين</span></button>
+      <p id="ws-note" class="ws-note" aria-live="polite">تُشترى المعدات بالذهب والخامات ويتحقق الخادم من كل ترقية. تسري من جولتك القادمة.</p>
+    </div>
+    <div id="ws-modal" class="ws-modal" hidden>
+      <div class="ws-card cv-frame">
+        <div id="ws-card-icon" class="ws-card-icon" aria-hidden="true"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
+        <h3 id="ws-card-title">قوة المعول</h3>
+        <p id="ws-card-effect" class="ws-card-effect"></p>
+        <div class="ws-stats"><span>المستوى <b class="ws-level"><span id="ws-card-level">0</span><span class="ws-card-max">/5</span></b></span></div>
+        <div class="ws-effects"><p id="ws-card-now"></p><p id="ws-card-next"></p></div>
+        <div class="ws-costs" aria-label="تكلفة الترقية">
+          <span class="ws-cost" id="ws-cost-gold"><svg class="ws-cost-coin" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><b id="ws-card-cost">0</b></span>
+          <span class="ws-cost" id="ws-cost-ore"></span>
+        </div>
+        <button id="ws-upgrade" class="ws-upgrade cv-btn cv-btn-gold" type="button">ترقية</button>
+        <button id="ws-modal-close" class="ws-modal-close" type="button">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- خريطة المناجم (المرحلة 3): ستة مناجم تُفتح بالفوز بالسابق وبمعدات كافية؛ يتحقق الخادم من الفتح عند بدء الجولة -->
+  <div id="mines-overlay" class="mines-overlay" hidden role="dialog" aria-modal="true" aria-label="خريطة المناجم">
+    <div class="ws-cave" aria-hidden="true"></div>
+    <div class="mines-top">
+      <h2>خريطة المناجم</h2>
+      <button id="mines-close" class="ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </div>
+    <p class="mines-hint">كل منجم أصلب وأغنى بخاماته. افتح التالي بالفوز في السابق وبترقية معداتك في الورشة.</p>
+    <div id="mines-list" class="mines-list"></div>
+    <div id="mine-classic" class="mine-classic">
+      <div class="mine-classic-art" aria-hidden="true"><svg class="ui-icon"><use href="#i-cart"/></svg></div>
+      <div class="mine-classic-body">
+        <h3>الكلاسيكي: اللعبة الأصلية</h3>
+        <p>حرّك العربة والتقط الجواهر الساقطة. أربعة أوضاع: كلاسيك، البرق، البقاء، الزعيم. ذهبها يتقاسم سقف اليوم مع المناجم وبيع الخامات — متبقٍ اليوم: <b id="classic-left"></b></p>
+      </div>
+      <button id="classic-open" type="button" class="mine-pick" aria-label="العب الوضع الكلاسيكي">العب</button>
+    </div>
+  </div>
+
+  <!-- المرشد «العم سراج» (guide.js): الهدف التالي والموسوعة والحكاية. عرض فقط: يقرأ حالة اللاعب ولا يكتب شيئاً -->
+  <div id="guide-overlay" class="guide-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <div class="ws-cave" aria-hidden="true"></div>
+    <div class="gd-top">
+      <h2 id="guide-title">العم سراج<small>حارس المصباح</small></h2>
+      <button id="guide-close" class="ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="gd-tabs" role="tablist" aria-label="أقسام المرشد">
+      <button type="button" role="tab" class="gd-tab active" aria-selected="true" data-guide-tab="goal">الهدف</button>
+      <button type="button" role="tab" class="gd-tab" aria-selected="false" data-guide-tab="codex">الموسوعة</button>
+      <button type="button" role="tab" class="gd-tab" aria-selected="false" data-guide-tab="story">الحكاية</button>
+    </div>
+    <div id="guide-body" class="gd-body" role="tabpanel"></div>
+  </div>
+
+  <!-- الحفر العميق: بئر عمودي تنزل فيه بعصا التحكم وتجمع العروق وتقرّر متى تصعد. عميل فقط (لا ذهب ولا خادم):
+       النموذج deep-dig.js، الرسم deep-dig-render.js، الصوت cave-sound.js، التحكم deep-dig-ui.js -->
+  <div id="dd-overlay" class="dd-overlay" hidden role="dialog" aria-modal="true" aria-label="الحفر العميق" data-phase="closed">
+    <canvas id="dd-canvas" class="dd-canvas" aria-hidden="true"></canvas>
+
+    <div class="dd-hud">
+      <div class="dd-row">
+        <div id="dd-layerbox" class="dd-depth cv-frame" data-layer="-1"><small id="dd-layer">السطح</small><b id="dd-depth">0 م</b></div>
+        <div id="dd-hearts" class="dd-hearts" role="img" aria-label="الصحة"></div>
+        <span class="dd-spacer"></span>
+        <button id="dd-sound" class="dd-iconbtn ws-icon-btn" type="button" aria-label="الصوت" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="#i-sound"/></svg></button>
+        <button id="dd-close" class="dd-iconbtn ws-icon-btn" type="button" aria-label="إغلاق"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+      <div id="dd-bag" class="dd-bag cv-frame" role="group" aria-label="الحقيبة" data-full="">
+        <div class="dd-bag-head">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-bag"/></svg><b id="dd-bag-count">0/8</b>
+          <div class="dd-meter" aria-hidden="true"><i id="dd-bag-fill"></i></div>
+          <span class="dd-value" title="قيمة الغنيمة"><svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><b id="dd-value">0</b></span>
+        </div>
+        <div id="dd-chips" class="dd-chips" hidden></div>
+      </div>
+    </div>
+
+    <div id="dd-banner" class="dd-banner" aria-hidden="true"></div>
+    <div id="dd-live" class="sr-only" aria-live="polite"></div>
+
+    <div id="dd-pad" class="dd-pad" role="group" aria-label="عصا تحكم المعدّن: اسحبها ليمشي ويحفر" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"><span id="dd-stick" class="dd-stick"></span></div>
+    <button id="dd-rope" class="dd-rope cv-btn cv-btn-gold" type="button" aria-keyshortcuts="R" aria-label="الحبل: اصعد إلى السطح"><svg class="ui-icon" aria-hidden="true"><use href="#i-rope"/></svg><span>صعود</span></button>
+
+    <section id="dd-intro" class="dd-card cv-frame" aria-labelledby="dd-intro-title">
+      <img class="dd-card-art" src="/assets/cave/icons/dive.webp?v=1" alt="" width="96" height="96" draggable="false">
+      <h2 id="dd-intro-title">الحفر العميق</h2>
+      <p class="dd-lead">انزل في البئر بعصا التحكم، اجمع العروق اللامعة، وقرّر: أنزل أعمق أم أصعد بغنيمتك؟</p>
+      <p id="dd-intro-best" class="dd-best"></p>
+      <p id="dd-intro-gear" class="dd-gear"></p>
+      <ul class="dd-rules">
+        <li><b>اسحب العصا</b> للمشي والحفر — الصخر أصلب كلما نزلت.</li>
+        <li><b>الصخرة السائبة</b> تسقط إن حفرتَ تحتها، و<b>الغاز</b> يُحرق، و<b>الحمم</b> تُسخّن من الجوار.</li>
+        <li><b>الحبل</b> يرفعك بكل غنيمتك، و<b>الإغماء</b> يفقدك نصفها.</li>
+      </ul>
+      <p id="dd-intro-note" class="dd-note"></p>
+      <p class="dd-note">نسخة تجريبية: لا ذهب ولا مكافآت بعد — يُسجَّل أفضل عمق لديك فقط.</p>
+      <button id="dd-start" class="cv-btn cv-btn-gold dd-primary" type="button">ابدأ النزول</button>
+      <button id="dd-intro-back" class="cv-btn dd-secondary" type="button">رجوع للكهف</button>
+    </section>
+
+    <section id="dd-pause" class="dd-card cv-frame" hidden aria-labelledby="dd-pause-title">
+      <h2 id="dd-pause-title">توقّف مؤقت</h2>
+      <p class="dd-lead">تضيع غنيمة هذه الجولة إن خرجتَ الآن؛ لتحتفظ بها اصعد بالحبل.</p>
+      <button id="dd-resume" class="cv-btn cv-btn-green dd-primary" type="button">متابعة</button>
+      <button id="dd-quit" class="cv-btn dd-secondary" type="button">خروج بلا غنيمة</button>
+    </section>
+
+    <section id="dd-summary" class="dd-card cv-frame" hidden aria-labelledby="dd-sum-title" data-tone="safe">
+      <h2 id="dd-sum-title">عدتَ سالماً!</h2>
+      <p id="dd-sum-sub" class="dd-lead"></p>
+      <div class="dd-sum-depth"><small>أعمق نقطة</small><b id="dd-sum-depth">0 م</b><span id="dd-sum-best" class="dd-badge" hidden>رقم قياسي جديد</span></div>
+      <div id="dd-sum-loot" class="dd-chips dd-chips-lg"></div>
+      <div class="dd-sum-value"><svg class="ck-coin-art" aria-hidden="true" focusable="false"><use href="#a-coin"/></svg><small>قيمة الغنيمة</small><b id="dd-sum-value">0</b><span id="dd-sum-newvalue" class="dd-badge" hidden>أفضل غنيمة</span></div>
+      <p id="dd-sum-legend" class="dd-legend" hidden>حصلتَ على كنز «قلب الأسطورة»</p>
+      <p class="dd-note">لا تُضاف هذه الغنيمة إلى رصيدك في النسخة التجريبية.</p>
+      <button id="dd-again" class="cv-btn cv-btn-gold dd-primary" type="button">نزول جديد</button>
+      <button id="dd-back" class="cv-btn dd-secondary" type="button">رجوع للكهف</button>
+    </section>
+  </div>
+
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=10"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=3"></script>
-  <script src="/platform-renderer.js?v=3"></script>
+  <script src="/platform-rules.js?v=7"></script>
+  <script src="/prestige-rules.js?v=1"></script>
+  <script src="/platform-scenery.js?v=1"></script>
+  <script src="/platform-bosses.js?v=1"></script>
+  <script src="/platform-renderer.js?v=6"></script>
+  <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
+  <script src="/cave-art.js?v=3"></script>
+  <script src="/clicker-fx.js?v=6"></script>
+  <!-- موقع الحفر: المعدّن يمشي ويحفر بعصا التحكم؛ كل ضربة = handleMine واحد (الاقتصاد لم يتغير) -->
+  <script src="/dig-site.js?v=4"></script>
+  <!-- الحفر العميق: بئر عمودي بعصا التحكم. نموذج حتمي + مُرسِم Canvas + صوت مولَّد + واجهة؛ عميل فقط (لا ذهب ولا خادم) -->
+  <script src="/deep-dig.js?v=1"></script>
+  <script src="/cave-sound.js?v=1"></script>
+  <script src="/deep-dig-render.js?v=1"></script>
+  <script src="/deep-dig-ui.js?v=1"></script>
+  <script src="/guide.js?v=1"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -820,7 +1157,11 @@
       maxEnergy: 1000,
       owned: { click: 0, bot: 0, rig: 0 },
       costs: { click: 50, bot: 200, rig: 1000 },
+      prestige: 0,           // مستوى التبجيل (خادمي): +10% من الدخل السلبي لكل مستوى حتى 10
       adventureUpgrades: { magnet: 0, cart: 0, speed: 0, shield: 0, heart: 0, clock: 0, luck: 0, skill: 0 },
+      ores: { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 },
+      equipment: { pickaxe: 0, boots: 0, bag: 0, magnet: 0, drill: 0, robot: 0, luck: 0, armor: 0 }, // معدات المناجم (خادمية)
+      mines: { wins: [0, 0, 0, 0, 0, 0] },                                                        // انتصارات كل منجم (خادمية)
       boostUntil: 0,
       boostCooldownUntil: 0,
       dailyLastClaim: null,
@@ -828,7 +1169,8 @@
       lastSeen: Date.now()
     };
 
-    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades } };
+    let state = { ...DEFAULT_STATE, costs: { ...DEFAULT_STATE.costs }, owned: { ...DEFAULT_STATE.owned }, adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades },
+      ores: { ...DEFAULT_STATE.ores }, equipment: { ...DEFAULT_STATE.equipment }, mines: { wins: [...DEFAULT_STATE.mines.wins] } };
 
     let localOfflineGain = 0;
 
@@ -841,7 +1183,10 @@
           ...saved,
           costs: { ...DEFAULT_STATE.costs, ...(saved.costs || {}) },
           owned: { ...DEFAULT_STATE.owned, ...(saved.owned || {}) },
-          adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(saved.adventureUpgrades || {}) }
+          adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(saved.adventureUpgrades || {}) },
+          ores: { ...DEFAULT_STATE.ores, ...(saved.ores || {}) },
+          equipment: { ...DEFAULT_STATE.equipment, ...(saved.equipment || {}) },
+          mines: { wins: DEFAULT_STATE.mines.wins.map((v, i) => Number(saved.mines?.wins?.[i]) || v) }
         };
         // ترحيل الحفظ القديم: إن لم يوجد totalEarned اعتبر الرصيد الحالي هو المجموع
         if (!saved.totalEarned) state.totalEarned = Math.max(saved.gold || 0, (state.clickPower - 1) * 50 + state.passiveIncome * 20);
@@ -885,6 +1230,7 @@
     const levelBadge = document.getElementById('level-badge');
     const clickArea = document.getElementById('click-area');
     const fmt = (n) => Math.floor(n).toLocaleString('en-US');
+    const fmtRate = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 1 }); // ذهب/ثانية: 5.5 لا 5 بعد التبجيل
 
     let saveQueued = false;
     function save() {
@@ -970,6 +1316,9 @@
       costs: { ...DEFAULT_STATE.costs, ...(srv.costs || {}) },
       owned: { ...DEFAULT_STATE.owned, ...(srv.owned || {}) },
       adventureUpgrades: { ...DEFAULT_STATE.adventureUpgrades, ...(srv.adventureUpgrades || {}) },
+      ores: { ...DEFAULT_STATE.ores, ...(srv.ores || {}) },
+      equipment: { ...DEFAULT_STATE.equipment, ...(srv.equipment || {}) },
+      mines: { wins: (DEFAULT_STATE.mines?.wins || [0, 0, 0, 0, 0, 0]).map((v, i) => Number(srv.mines?.wins?.[i]) || v) },
     });
 
     // إعادة تطبيق عملية غير مؤكدة محلياً فوق حالة الخادم (نفس قواعد الواجهة)
@@ -989,7 +1338,14 @@
         s.owned[op.item] += 1;
         s.costs[op.item] = Math.floor(cost * growth);
         s.clickPower = 1 + s.owned.click;
-        s.passiveIncome = s.owned.bot * 5 + s.owned.rig * 25;
+        s.passiveIncome = PrestigeRules.passiveFor(s.owned, s.prestige);
+      } else if (op.type === 'prestige') {
+        // نفس ما يطبّقه الخادم: يصفّر العمال والمنصّات وأسعارهم فقط ويرفع المستوى (إن لم تتحقق المتطلبات لا يتغيّر شيء)
+        const c = PrestigeRules.check(s.owned, s.prestige);
+        if (!c.ok) return;
+        s.owned.bot = 0; s.owned.rig = 0; s.prestige = c.level + 1;
+        s.costs.bot = 200; s.costs.rig = 1000;
+        s.passiveIncome = PrestigeRules.passiveFor(s.owned, s.prestige);
       } else if (op.type === 'buy_adv') {
         const def = ADV_UPGRADE_DEFS[op.key];
         const lvl = s.adventureUpgrades[op.key] || 0;
@@ -999,12 +1355,19 @@
         if (s.gold < cost) return;
         s.gold -= cost;
         s.adventureUpgrades[op.key] = lvl + 1;
+      } else if (op.type === 'buy_equip') {
+        const lvl = Math.max(0, Math.floor(Number(s.equipment?.[op.key]) || 0));
+        const cost = window.PlatformRules?.equipCost?.(op.key, lvl);
+        if (!cost || !(s.gold >= cost.gold) || Object.entries(cost.ores).some(([k, n]) => (Number(s.ores?.[k]) || 0) < n)) return;
+        s.gold -= cost.gold;
+        for (const [k, n] of Object.entries(cost.ores)) s.ores[k] = (Number(s.ores[k]) || 0) - n;
+        s.equipment = { ...(s.equipment || {}), [op.key]: lvl + 1 };
       } else if (op.type === 'boost') {
         const now = Date.now();
         if (now < (s.boostUntil || 0) || now < (s.boostCooldownUntil || 0)) return;
         s.boostUntil = now + 30_000;
         s.boostCooldownUntil = now + 5 * 60_000;
-      } else if (op.type === 'reward' || op.type === 'run' || op.type === 'mission' || op.type === 'weekly_mission' || op.type === 'achievement' || op.type === 'arena') {
+      } else if (op.type === 'reward' || op.type === 'run' || op.type === 'mission' || op.type === 'weekly_mission' || op.type === 'achievement' || op.type === 'quest' || op.type === 'arena') {
         const g = Math.max(0, Math.floor(op.expected || 0));
         s.gold += g; s.totalEarned += g;
       }
@@ -1022,20 +1385,25 @@
         if (Number.isFinite(data.referralCount)) profile.referralCount = data.referralCount;
         if (Number.isFinite(data.referralEarnings)) profile.referralEarnings = data.referralEarnings;
         if (data.daily) profile.daily = data.daily;
+        if (data.dailyGold && Number.isFinite(data.dailyGold.remaining)) profile.dailyGold = data.dailyGold;
         if (data.progress && Number.isFinite(data.progress.level)) profile.progress = data.progress;
         if (data.missions && Array.isArray(data.missions.items)) profile.missions = data.missions;
         if (data.weeklyMissions && Array.isArray(data.weeklyMissions.items)) profile.weeklyMissions = data.weeklyMissions;
         if (data.achievements && Array.isArray(data.achievements.items)) profile.achievements = data.achievements;
+        if (data.quests && Array.isArray(data.quests.items)) profile.quests = data.quests;
         if (data.arena && typeof data.arena === 'object') profile.arena = data.arena; // تذكرة المباراة التالية وسجل الساحة المختوم
       }
       if (typeof renderMissions === 'function') renderMissions();
       if (typeof renderWeeklyMissions === 'function') renderWeeklyMissions();
       if (typeof updateArenaUI === 'function') updateArenaUI();
+      if (typeof updateClassicDaily === 'function') updateClassicDaily();
+      if (typeof renderQuests === 'function') renderQuests();
       // إحصاءات المغامرة والمناطق المفتوحة كما يحتسبها الخادم من جولات تحقق منها
       if (typeof adoptServerAdventure === 'function') adoptServerAdventure(data.state.adventure, data.race);
       if (typeof ADV !== 'undefined') ADV.playerW = 78 + (state.adventureUpgrades?.cart || 0) * 8;
       updateUI();
       if (typeof updateAdvUpgradesUI === 'function') updateAdvUpgradesUI();
+      if (typeof wsRefresh === 'function') wsRefresh();
       save();
     }
 
@@ -1081,11 +1449,14 @@
         }
         adoptServerState(data);
         const results = data.results || [];
+        if (typeof noteEquipResults === 'function') noteEquipResults(results.filter((r) => r.type === 'buy_equip'));
         const refused = results.filter((r) => r.status === 'rejected' || r.status === 'clamped');
         const runs = results.filter((r) => r.type === 'run');
         const missionsDone = results.filter((r) => r.type === 'mission' && r.status === 'ok');
         const weeklyDone = results.filter((r) => r.type === 'weekly_mission' && r.status === 'ok');
         const achievementsDone = results.filter((r) => r.type === 'achievement' && r.status === 'ok');
+        const questsDone = results.filter((r) => r.type === 'quest' && r.status === 'ok');
+        const prestigeDone = results.filter((r) => r.type === 'prestige' && r.status === 'ok');
         const arenaVerdicts = results.filter((r) => r.type === 'arena');
         if (typeof noteArenaVerdicts === 'function') noteArenaVerdicts(arenaVerdicts);
         if (data.levelUp && data.levelUp.to > data.levelUp.from) { setSyncStatus(`🎉 مستوى جديد: ${data.levelUp.to} — خبرتك من نشاط تحقق منه الخادم`); haptic('success'); }
@@ -1094,8 +1465,11 @@
         else if (refused.length) setSyncStatus(refused.some((r) => r.type === 'run') ? '🛡️ لم يُحتسب تقرير جولة لا يطابق زمن اللعب الحقيقي' : '🛡️ عدّل الخادم عملية غير مطابقة لرصيدك أو طاقتك');
         else if (weeklyDone.length) setSyncStatus(`🗓️ ${weeklyDone.some((r) => r.key === 'bonus') ? 'مكافأة إكمال مهام الأسبوع' : 'مهمة أسبوعية مكتملة'}: +${weeklyDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${weeklyDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
         else if (missionsDone.length) setSyncStatus(`🎯 ${missionsDone.some((r) => r.key === 'bonus') ? 'مكافأة إكمال مهام اليوم' : 'مهمة مكتملة'}: +${missionsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${missionsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
+        else if (prestigeDone.length) setSyncStatus(`🌟 تبجيل مُعتمد: المستوى ${prestigeDone[prestigeDone.length - 1].level} — دخلك السلبي ×${fmtRate(prestigeDone[prestigeDone.length - 1].multiplier)}`);
+        else if (questsDone.length) setSyncStatus(`🧭 مهمة مغامرة مُعتمدة: +${questsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${questsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
         else if (achievementsDone.length) setSyncStatus(`🏅 إنجاز مُعتمد: +${achievementsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙${achievementsDone.some((r) => r.xp) ? ` +${achievementsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة` : ''}`);
         else if (runs.some((r) => r.unlocked)) setSyncStatus(`🗺️ فُتحت منطقة جديدة — تقدّمك محفوظ في حسابك (${runs[runs.length - 1].zones}/3)`);
+        else if (runs.some((r) => r.reason === 'daily_cap')) setSyncStatus(`🪙 بلغت سقف الذهب اليومي المشترك (${fmt(profile?.dailyGold?.cap || 10000)}): حُفظت الجولة وإحصاؤها ${runs.some((r) => r.gold > 0) ? 'ودُفع الباقي فقط' : 'دون ذهب إضافي'} — يتجدّد السقف ${classicResetTime()}`);
         else if (runs.some((r) => r.reason === 'too_soon')) setSyncStatus('⏱️ جولة متسارعة: حُفظت إحصاؤها دون جائزة ذهب');
         else setSyncStatus(runs.length ? '☁️ محفوظ على الخادم — جولتك أُضيفت إلى سجلك' : '☁️ محفوظ على الخادم');
         if (refused.length) haptic('error');
@@ -1518,6 +1892,104 @@
       save();
     }
 
+    // 🌟 التبجيل (الدفعة 3ج): المتطلب والمضاعف من prestige-rules.js نفسه الذي يحسب به الخادم؛ هنا عرض وتأكيد بلمستين، والخادم يقرّر
+    let prestigeConfirmUntil = 0, prestigeSig = '';
+    function renderPrestige(force) {
+      const card = document.getElementById('prestige-card');
+      if (!card) return;
+      const v = PrestigeRules.view(state.owned, state.prestige);
+      const confirming = v.ready && Date.now() < prestigeConfirmUntil;
+      const sig = [v.level, v.have.bots, v.have.rigs, v.ready ? 1 : 0, confirming ? 1 : 0, serverMode ? 1 : 0].join('|');
+      if (!force && sig === prestigeSig) return;
+      prestigeSig = sig;
+      const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+      set('prestige-level', `المستوى ${v.level} من ${v.max}${v.level ? ` · دخلك السلبي +${v.bonusPct}%` : ''}`);
+      set('prestige-mult', `×${fmtRate(v.multiplier)}`);
+      const needs = document.getElementById('prestige-needs');
+      if (needs) {
+        needs.innerHTML = v.next ? [['i-robot', 'العمال الآليون', v.have.bots, v.next.bots], ['i-drill', 'المنصّات العملاقة', v.have.rigs, v.next.rigs]].map(([icon, label, have, need]) => {
+          const ok = have >= need, pct = Math.max(0, Math.min(100, Math.floor(have / need * 100)));
+          return `<div class="prestige-need ${ok ? 'ok' : ''}"><span class="prestige-need-label"><svg class="ui-icon" aria-hidden="true"><use href="#${icon}"/></svg>${label}</span><div class="prestige-bar" aria-hidden="true"><i style="width:${pct}%"></i></div><b>${fmt(have)}/${fmt(need)}</b></div>`;
+        }).join('') : '<p class="prestige-note">بلغت أقصى مستوى: دخلك السلبي ضعف ما كان.</p>';
+      }
+      const btn = document.getElementById('prestige-btn');
+      if (!btn) return;
+      btn.dataset.state = v.maxed ? 'max' : confirming ? 'confirm' : v.ready ? 'ready' : 'locked';
+      btn.disabled = !serverMode || !v.ready;
+      btn.textContent = !serverMode ? 'التبجيل يتطلب اتصالاً بالخادم'
+        : v.maxed ? `المستوى الأقصى ×${fmtRate(v.multiplier)}`
+        : confirming ? `اضغط مرة أخرى للتأكيد: يُصفَّر ${fmt(v.have.bots)} عاملاً و${fmt(v.have.rigs)} منصّة`
+        : v.ready ? `تبجيل ← ×${fmtRate(v.nextMultiplier)}`
+        : `يلزمك ${fmt(v.next.bots)} عاملاً و${fmt(v.next.rigs)} منصّة`;
+    }
+    function prestigeTap() {
+      const v = PrestigeRules.view(state.owned, state.prestige);
+      if (!serverMode || !v.ready) { haptic('error'); return; }
+      if (Date.now() >= prestigeConfirmUntil) {            // أول لمسة: تأكيد (يُصفّر العمال والمنصّات، فلا يحدث بلمسة واحدة)
+        prestigeConfirmUntil = Date.now() + 6000;
+        renderPrestige(true); haptic('warning');
+        setTimeout(() => renderPrestige(true), 6100);       // ينتهي التأكيد وحده
+        return;
+      }
+      prestigeConfirmUntil = 0;
+      const op = { type: 'prestige' };
+      applyOpLocally(state, op);                            // نفس التصفير الذي سيطبّقه الخادم، فيظهر فوراً
+      enqueueOp(op);
+      haptic('success');
+      renderPrestige(true); updateUI(); save();
+    }
+    document.getElementById('prestige-btn')?.addEventListener('click', prestigeTap);
+
+    // 🧭 مهام المغامرة (الدفعة 3ب): الخادم يعدّ التقدّم من جولاته المُعاد تشغيلها ويعرض الاثنتي عشرة؛ هنا عرض واستلام فقط.
+    // الأيقونات SVG (رمز من الصفحة أو نقطة لون الخام) بلا إيموجي.
+    function questIconHtml(icon) {
+      if (typeof icon === 'string' && icon.startsWith('ore:')) return `<i class="ore-dot ore-${icon.slice(4).replace(/[^a-z]/g, '')}"></i>`;
+      return `<svg class="ui-icon" aria-hidden="true"><use href="#${String(icon || 'i-pickaxe').replace(/[^a-z-]/g, '')}"/></svg>`;
+    }
+    function renderQuests() {
+      const list = document.getElementById('quests-list'), count = document.getElementById('quests-count');
+      const qs = serverMode && profile?.quests;
+      if (!list || !qs || !Array.isArray(qs.items)) return;
+      const ready = qs.items.filter((i) => i.done && !i.claimed).length;
+      if (count) {
+        count.textContent = `${qs.claimedCount}/${qs.total}${ready ? ` · ${ready} جاهزة` : ''}`;
+        count.classList.toggle('quests-ready', ready > 0);
+      }
+      const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const sig = JSON.stringify(qs.items.map((i) => [i.id, i.value, i.claimed]));
+      if (list.dataset.sig === sig) return;
+      list.dataset.sig = sig;
+      list.innerHTML = qs.items.map((i) => {
+        const pct = Math.max(0, Math.min(100, Math.floor((i.value / i.target) * 100)));
+        const state = i.claimed ? 'claimed' : i.done ? 'ready' : '';
+        const action = i.claimed
+          ? '<span class="quest-done"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg>استُلمت</span>'
+          : i.done ? `<button type="button" class="quest-claim" data-quest-claim="${esc(i.id)}">استلم</button>`
+          : `<span class="quest-count">${fmt(i.value)}/${fmt(i.target)}</span>`;
+        return `<div class="quest-row ${state}" data-quest="${esc(i.id)}">
+          <span class="quest-ico" aria-hidden="true">${questIconHtml(i.icon)}</span>
+          <div class="quest-body"><b>${esc(i.title)}</b><small>${esc(i.desc)}</small><div class="quest-bar" aria-hidden="true"><i style="width:${pct}%"></i></div></div>
+          <div class="quest-side"><span class="quest-reward">+${fmt(i.gold)} ذهب · +${fmt(i.xp)} خبرة</span>${action}</div>
+        </div>`;
+      }).join('');
+    }
+    function claimQuest(id) {
+      const item = serverMode && profile?.quests?.items?.find((i) => i.id === id);
+      if (!item || item.claimed || !item.done) { haptic('error'); return; }
+      // تفاؤلياً: نعرض الذهب فوراً، والخادم يؤكد (أو يصحح) في المزامنة التالية
+      item.claimed = true; profile.quests.claimedCount = (profile.quests.claimedCount || 0) + 1;
+      state.gold += item.gold; state.totalEarned += item.gold;
+      enqueueOp({ type: 'quest', id, expected: item.gold });
+      haptic('success');
+      renderQuests();
+      updateUI();
+      save();
+    }
+    document.getElementById('quests-list')?.addEventListener('click', (e) => {
+      const btn = e.target?.closest?.('[data-quest-claim]');
+      if (btn) claimQuest(btn.getAttribute('data-quest-claim'));
+    });
+
     // 🗓️ مهام الأسبوع: يولّدها الخادم لكل أسبوع ISO ويحتسب تقدّمها من العمليات الموثوقة؛ هنا عرض واستلام فقط
     function renderWeeklyMissions() {
       const list = document.getElementById('weekly-missions-list');
@@ -1701,11 +2173,12 @@
     }
 
     function updateUI() {
-      goldCounter.innerText = fmt(state.gold);
+      // مع مؤثرات التعدين يتولى ClickerFX عدّاد الذهب (عدّ سلس للقفزات الكبيرة: مكافأة/بيع/شراء)؛ بدونها يبقى التحديث المباشر
+      if (!window.ClickerFX?.active) goldCounter.innerText = fmt(state.gold);
       energyCounter.innerText = fmt(state.energy);
       document.getElementById('max-energy').innerText = fmt(state.maxEnergy);
       energyBar.style.width = `${Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100))}%`;
-      profitCounter.innerText = `+${fmt(passiveGain())}${boostActive() ? ' 🚀' : ''}`;
+      profitCounter.innerText = `+${fmtRate(passiveGain())}`; // علامة ×2 أثناء التعزيز تأتي من CSS (body.ck-boost-on)
       document.getElementById('tap-cost').innerText = state.clickPower;
       document.getElementById('current-click-power').innerText = state.clickPower;
 
@@ -1716,21 +2189,42 @@
       dailyBtn.disabled = !daily.canClaim;
       dailyBtn.innerText = daily.canClaim ? `🎁 مكافأة يومية +${fmt(daily.reward)}` : `🎁 استُلمت اليوم ✓ (سلسلة ${daily.streak || 1})`;
       const boostBtn = document.getElementById('boost-btn') || {};
+      // حالة الزر بصرياً عبر data-state (جاهز/فعّال/تهدئة): أثناء التعزيز يبدو مفعّلاً متوهجاً لا رمادياً معطّلاً
+      const setBoost = (stateName, label, time) => {
+        if (boostBtn.dataset && boostBtn.dataset.state !== stateName) boostBtn.dataset.state = stateName;
+        const l = boostBtn.querySelector?.('.ck-boost-label');
+        const t = boostBtn.querySelector?.('.ck-boost-time');
+        if (l) { l.textContent = label; if (t) t.textContent = time; } else boostBtn.innerText = time ? `${label} (${time})` : label;
+      };
       if (boostActive()) {
         boostBtn.disabled = true;
-        boostBtn.innerText = `🚀 تعزيز ×2 (${Math.ceil((state.boostUntil - now) / 1000)}ث)`;
+        const left = Math.ceil((state.boostUntil - now) / 1000);
+        setBoost('active', 'تعزيز ×2 فعّال', `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
       } else if (now < (state.boostCooldownUntil || 0)) {
         boostBtn.disabled = true;
         const s = Math.ceil((state.boostCooldownUntil - now) / 1000);
-        boostBtn.innerText = `🚀 تعزيز (${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')})`;
+        setBoost('cooldown', 'جاهز بعد', `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
       } else {
         boostBtn.disabled = false;
-        boostBtn.innerText = '🚀 تعزيز ×2';
+        setBoost('ready', 'تعزيز ×2', '0:30');
       }
 
       // إحصائيات الدعوات
       document.getElementById('ref-count').innerText = fmt(profile?.referralCount || 0);
       document.getElementById('ref-earnings').innerText = fmt(profile?.referralEarnings || 0);
+
+      // المرحلة 2: مخزن الخامات — الأرقام من حالة الخادم الموثوقة فقط.
+      const oreList = document.getElementById('ore-list');
+      if (oreList) {
+        const rows = Object.entries(ORE_DEFS).filter(([k]) => Math.max(0, Math.floor(state.ores?.[k] || 0)) > 0);
+        const total = rows.reduce((sum, [k, def]) => sum + Math.floor(state.ores[k]) * def.price, 0);
+        oreList.innerHTML = rows.length ? rows.map(([k, def]) => {
+          const n = Math.floor(state.ores[k]);
+          return `<div class="ore-row"><span>${def.name}</span><b>×${fmt(n)}</b><span>${fmt(n * def.price)} ذهب</span><button onclick="sellOre('${k}', ${n})" class="ore-sell">بيع</button></div>`;
+        }).join('') : '<p class="text-[10px] text-slate-500 text-center py-2">لا خامات بعد — العب جولة منصّات لتجمعها.</p>';
+        document.getElementById('ore-total').innerText = `${fmt(total)} ذهب`;
+        document.getElementById('sell-all-ore').disabled = !rows.length || !serverMode;
+      }
 
       for (const type of ['click', 'bot', 'rig']) {
         document.getElementById(`cost-upgrade-${type}`).innerText = fmt(state.costs[type]);
@@ -1738,12 +2232,17 @@
         const ownedEl = document.getElementById(`owned-${type}`);
         ownedEl.innerText = state.owned[type] > 0 ? `×${state.owned[type]}` : '';
       }
+      for (const [type, one] of [['bot', { bot: 1 }], ['rig', { rig: 1 }]]) {
+        const gainEl = document.getElementById(`gain-${type}`), text = fmtRate(PrestigeRules.passiveFor(one, state.prestige));
+        if (gainEl && gainEl.textContent !== text) gainEl.textContent = text;
+      }
+      renderPrestige();
 
       // المستوى: من نقاط خبرة يمنحها الخادم على نشاط موثوق (تعدين، شراء، جولات، يومية، دعوات)؛
       // دون خادم يبقى مشتقاً محلياً من إجمالي المكاسب كما كان
       const prog = serverMode && profile?.progress ? profile.progress : null;
       const level = prog ? prog.level : Math.floor(state.totalEarned / 5000) + 1;
-      const titles = ['مبتدئ 🔥', 'هاوٍ ⛏️', 'محترف 💪', 'خبير 👑', 'أسطورة 🏆'];
+      const titles = ['مبتدئ', 'هاوٍ', 'محترف', 'خبير', 'أسطورة'];
       levelBadge.innerText = `${level} (${titles[Math.min(titles.length - 1, Math.floor((level - 1) / 3))]})`;
       const xpBar = document.getElementById('xp-bar');
       if (xpBar) {
@@ -1754,22 +2253,41 @@
           levelBadge.title = xpBar.title;
         }
       }
+      const xpText = document.getElementById('xp-text');
+      if (xpText) xpText.textContent = prog ? `${fmt(prog.current)}/${fmt(prog.needed)} XP` : '';
+
+      // مؤثرات تبويب التعدين (عرض فقط): حالة الطاقة والتعزيز والهدف التالي وعدّ الذهب والاحتفال بالمستوى
+      window.ClickerFX?.sync({
+        gold: state.gold, energy: state.energy, maxEnergy: state.maxEnergy, clickPower: state.clickPower,
+        boostUntil: state.boostUntil || 0, boostCooldownUntil: state.boostCooldownUntil || 0,
+        costs: state.costs, owned: state.owned, passive: passiveGain(), level, levelSource: prog ? 'server' : 'local', now,
+        workshop: workshopHint(), deepDive: deepDiveHint(), robot: Math.max(0, Math.floor(Number(state.equipment && state.equipment.robot) || 0)),
+      });
+      window.Guide?.refresh?.();
     }
 
+    // أنواع الاهتزاز: light/medium/heavy/rigid/soft (ضربات) وsuccess/warning/error (إشعارات) وselection؛ الافتراضي light
+    const HAPTIC_VIBRATE = { light: 10, soft: 8, selection: 6, medium: 18, rigid: 14, heavy: [28, 20, 28], success: [12, 40, 12], warning: [20, 30, 20], error: [30, 30, 30] };
     function haptic(type) {
       try {
         if (tg?.HapticFeedback) {
-          if (type === 'success' || type === 'error') tg.HapticFeedback.notificationOccurred(type);
-          else tg.HapticFeedback.impactOccurred('light');
+          if (type === 'success' || type === 'error' || type === 'warning') tg.HapticFeedback.notificationOccurred(type);
+          else if (type === 'selection') tg.HapticFeedback.selectionChanged?.();
+          else tg.HapticFeedback.impactOccurred(['light', 'medium', 'heavy', 'rigid', 'soft'].includes(type) ? type : 'light');
         } else if (navigator.vibrate) {
-          navigator.vibrate(type === 'error' ? [30, 30, 30] : 10);
+          navigator.vibrate(HAPTIC_VIBRATE[type] ?? 10);
         }
       } catch (e) {}
     }
 
     // --- Mining Click Action (يدعم اللمس المتعدد عبر pointer events) ---
     function handleMine(e) {
-      if (state.energy < state.clickPower) { haptic('error'); return; }
+      // موضع اللمس في إحداثيات الشاشة؛ من لوحة المفاتيح (بلا إحداثيات) يكون مركز الجوهرة
+      const rect = clickArea.getBoundingClientRect();
+      const focus = (document.getElementById('ck-ore') || clickArea).getBoundingClientRect(); // مركز الصخرة لا مركز الساحة كلها
+      const cx = e.clientX ?? (focus.left + focus.width / 2);
+      const cy = e.clientY ?? (focus.top + focus.height / 2);
+      if (state.energy < state.clickPower) { haptic('error'); window.ClickerFX?.denied({ x: cx, y: cy }); return false; }
 
       const gain = clickGain(); // ×2 أثناء التعزيز كما يعرض الزر
       state.energy -= state.clickPower;
@@ -1781,12 +2299,14 @@
 
       haptic('light');
 
-      const rect = clickArea.getBoundingClientRect();
-      const x = (e.clientX ?? (rect.left + rect.width / 2)) - rect.left;
-      const y = (e.clientY ?? (rect.top + rect.height / 2)) - rect.top;
-      createFloatingText(`+${gain}`, x, y);
+      // المؤثرات (إمالة، أرقام، جسيمات، سلسلة، صوت) عرض فقط؛ إن لم تتوفر يبقى الرقم الطائر القديم
+      if (window.ClickerFX?.active) window.ClickerFX.tap({ x: cx, y: cy, gain, boosted: boostActive() });
+      else createFloatingText(`+${gain}`, cx - rect.left, cy - rect.top);
       updateUI();
       save();
+      // موقع الحفر: لمسة مباشرة على الصخرة تُصيبها ويمشي إليها المعدّن؛ ضربات المعدّن نفسه (dig) تُحتسب لها بعد القبول لا هنا
+      if (!e.dig) window.DigSite?.onTap?.({ x: cx, y: cy });
+      return true;
     }
 
     function createFloatingText(text, x, y) {
@@ -1803,7 +2323,17 @@
       }
     }
 
-    document.getElementById('mine-btn').addEventListener('pointerdown', handleMine);
+    (function wireMineButton() {
+      const btn = document.getElementById('mine-btn');
+      btn.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return; // الزر الأيمن/الأوسط لا يعدّن
+        handleMine(e);
+      });
+      // لوحة المفاتيح: Enter/Space يعدّنان (الزر كان يستجيب لـ pointerdown فقط)؛ الاستمرار بالضغط لا يكرّر النقر
+      btn.addEventListener('keydown', (e) => {
+        if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); handleMine(e); }
+      });
+    })();
     document.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // ================= 🎮 لعبة مغامرة المنجم التفاعلية =================
@@ -2130,6 +2660,8 @@
     }
 
     function updateAdventureUI() {
+      const legacyBack = document.getElementById('legacy-back');
+      if (legacyBack) legacyBack.hidden = Boolean(adv.mode === 'race' && typeof race !== 'undefined' && race.inRace);
       document.getElementById('adv-score').innerText = Math.floor(adv.score);
       document.getElementById('adv-time').innerText = adv.gameMode === 'survival' && adv.running ? '∞' : Math.max(0, Math.ceil(adv.timeLeft));
       document.getElementById('adv-lives').innerText = '❤️'.repeat(Math.max(0, adv.lives)) || '💀';
@@ -2616,7 +3148,10 @@
       if (inRace) window.PlatformGame?.showPlatform?.(); // restore the side-scroller after a race
       const rewardCap = adv.gameMode === 'survival' ? 150 : 100;
       const victoryBonus = adv.bossDefeated ? 150 : 0;
-      const reward = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)
+      const claimed = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)
+      // السقف اليومي المشترك: الخادم يقصّ الدفع، فنعرض ما سيدفعه فعلاً بدل رقم ثم تصحيحه عند المزامنة
+      const room = classicRoom(), reward = Math.min(claimed, room), cut = claimed > reward;
+      if (reward > 0 && classicPurse()) { const d = classicPurse(); profile.dailyGold = { day: d.day, cap: d.cap, used: d.used + reward, remaining: Math.max(0, d.remaining - reward) }; }
       const unlockedZonesBeforeRun = getUnlockedAdventureZones();
       if (adv.bossDefeated) advStats.bossWins += 1;
       if (inRace) raceSendFinish(finalScore);
@@ -2653,6 +3188,7 @@
       updateAdvSettingsUI();
       document.getElementById('game-overlay-text').innerHTML =
         `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>` +
+        (cut ? `<span class="text-sky-300">سقف الذهب اليوم مشترك مع المناجم وبيع الخامات: ${reward ? `دُفع لك الباقي فقط (${reward} من ${claimed})` : `لا ذهب إضافي اليوم (كان ${claimed})`} — يتجدّد ${classicResetTime()}</span><br>` : '') +
         `🎯 التقطت ${adv.caught} · دقة ${accuracy}٪ · أعلى سلسلة ×${adv.maxCombo}<br>` +
         `الوضع: ${advModeCfg().label} · الصعوبة: ${advDiffCfg().label}<br>` +
         `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}<br>` +
@@ -2666,7 +3202,7 @@
       btn.innerText = inRace ? '⏳ بانتظار الخصم…' : '🔁 العب مرة أخرى';
       btn.setAttribute('onclick', 'startAdventure()');
       overlay.style.display = 'flex';
-      haptic(reward > 0 ? 'success' : 'error');
+      haptic(claimed > 0 ? 'success' : 'error');
       updateUI();
       save();
       updateAdventureUI();
@@ -2863,10 +3399,28 @@
     }
 
     // --- Upgrade Logic ---
+    // أسعار الخامات من نفس ملف القواعد المشترك (للعرض فقط؛ الخادم هو من يمنح الذهب).
+    const ORE_DEFS = (window.PlatformRules && window.PlatformRules.ORES) || { copper: { name: 'نحاس', price: 2 } };
+    function sellOre(key, count) {
+      if (!serverMode) { alert('بيع الخامات يحتاج اتصالاً بالخادم.'); return; }
+      const n = Math.max(1, Math.floor(count || 0));
+      if (!(key in ORE_DEFS) || !Number.isFinite(n)) return;
+      enqueueOp({ type: 'sell_ore', key, count: n });
+      haptic('success');
+    }
+    function sellAllOre() {
+      for (const key of Object.keys(ORE_DEFS)) {
+        const n = Math.max(0, Math.floor(state.ores?.[key] || 0));
+        if (n > 0) sellOre(key, n);
+      }
+    }
+
+    // name/desc/icon وbase/gain/unit تعرضها ميداليات ونافذة الترقية في تبويب التعدين (عرض فقط)؛ المنطق (apply/growth) لم يتغير
     const UPGRADES = {
-      click: { apply: () => { state.clickPower += 1; },      growth: 1.5 },
-      bot:   { apply: () => { state.passiveIncome += 5; },   growth: 1.4 },
-      rig:   { apply: () => { state.passiveIncome += 25; },  growth: 1.3 }
+      click: { apply: () => { state.clickPower += 1; },      growth: 1.5, name: 'فأس فولاذي',        desc: '+1 لكل نقرة',   icon: 'i-pickaxe', base: 1, gain: 1,  unit: 'لكل نقرة' },
+      // بعد التبجيل يعطي كل عامل/منصّة أكثر من 5/25: الأثر المعروض = 5 أو 25 × مضاعف المستوى، والتطبيق يعيد الحساب بقاعدة الخادم نفسها
+      bot:   { apply: () => { state.passiveIncome = PrestigeRules.passiveFor(state.owned, state.prestige); },  growth: 1.4, name: 'عامل آلي',          get desc() { return `+${fmtRate(this.gain)} ذهب/ثانية`; },  icon: 'i-robot',   base: 0, get gain() { return PrestigeRules.passiveFor({ bot: 1 }, state.prestige); },  unit: 'ذهب/ثانية' },
+      rig:   { apply: () => { state.passiveIncome = PrestigeRules.passiveFor(state.owned, state.prestige); },  growth: 1.3, name: 'منصة تعدين عملاقة', get desc() { return `+${fmtRate(this.gain)} ذهب/ثانية`; }, icon: 'i-drill',   base: 0, get gain() { return PrestigeRules.passiveFor({ rig: 1 }, state.prestige); }, unit: 'ذهب/ثانية' }
     };
 
     function buyUpgrade(type) {
@@ -2894,8 +3448,9 @@
     // --- Auto Income & Energy Regeneration Loop ---
     setInterval(() => {
       if (state.passiveIncome > 0) {
-        state.gold += state.passiveIncome / 10;
-        state.totalEarned += state.passiveIncome / 10;
+        const tick = passiveGain() / 10; // ×2 أثناء التعزيز كما يحتسب الخادم الدخل داخل نافذته (والرقم المعروض في الشريط)
+        state.gold += tick;
+        state.totalEarned += tick;
       }
       // تجديد الطاقة: 3/ثانية
       if (state.energy < state.maxEnergy) {
@@ -2942,6 +3497,8 @@
       activeBtn.classList.remove('text-slate-400');
 
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
+      window.ClickerFX?.onTab?.(tabId); // يُفرغ المؤثرات العالقة عند المغادرة ويُنعش العرض عند الدخول
+      window.DigSite?.onTab?.(tabId);   // يوقف المعدّن عند المغادرة ويعيد قياس الساحة عند الدخول
       if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
@@ -2992,6 +3549,343 @@
       }
     }
 
+    // ============================================================
+    // ورشة المعدّن (المرحلة 3): معدات دائمة بسعر ذهب + خام، مدعومة بالخادم.
+    // الأسعار والتأثيرات من public/platform-rules.js نفسه؛ الخادم يعيد حسابها ويرفض أي عملية لا تطابق رصيدك،
+    // والأثر يسري من الجولة التالية (لقطة الجولة الجارية ثابتة).
+    // ============================================================
+    const WS_RULES = window.PlatformRules; // ملف القواعد المشترك؛ غيابه يعطّل الورشة والخريطة فقط ولا يُسقط بقية اللعبة
+    const WORKSHOP_ITEMS = WS_RULES ? WS_RULES.EQUIPMENT_ORDER.map((id) => ({ id, ...WS_RULES.EQUIPMENT[id] })) : [];
+    let wsOpenFlag = false, wsAudio = null, wsMusicTimer = 0;
+    let wsSoundOn = true, wsMusicOn = false, wsActiveItem = null;
+    const WS_DEFAULT_NOTE = 'تُشترى المعدات بالذهب والخامات ويتحقق الخادم من كل ترقية. تسري من جولتك القادمة.';
+    const wsLevel = (id) => Math.max(0, Math.min(WS_RULES.MAX_EQUIP_LEVEL, Math.floor(Number(state.equipment?.[id]) || 0)));
+    const hitsWord = (n) => (n === 1 ? 'ضربة واحدة' : n === 2 ? 'ضربتان' : n <= 10 ? `${n} ضربات` : `${n} ضربة`);
+    const wsNote = (text) => { const n = document.getElementById('ws-note'); if (n) n.textContent = text || WS_DEFAULT_NOTE; };
+    // هل تكفي الأرصدة الحالية للترقية التالية؟ (للعرض فقط — الخادم هو الحكم)
+    function wsAfford(id) {
+      const cost = WS_RULES.equipCost(id, wsLevel(id));
+      if (!cost) return { max: true, ok: false, cost: null, goldOk: false, lacking: [] };
+      const goldOk = (Number(state.gold) || 0) >= cost.gold;
+      const lacking = Object.entries(cost.ores).filter(([k, n]) => (Number(state.ores?.[k]) || 0) < n).map(([k]) => k);
+      return { max: false, ok: goldOk && !lacking.length, cost, goldOk, lacking };
+    }
+
+    function wsNodePos(i) {
+      const a = (-90 + i * 45) * Math.PI / 180;
+      return { x: 50 + 41 * Math.cos(a), y: 50 + 41 * Math.sin(a) };
+    }
+    // ميدالية المعدة: حلقة التقدّم = رصيد الذهب ÷ سعر الترقية، وتخضرّ مع سهم حين يكفي الذهب والخامات، وتكتمل ذهبياً عند المستوى الأقصى
+    function wsMedal(id, icon, lvl, a) {
+      const mstate = a.max ? 'max' : a.ok ? 'ready' : 'poor';
+      const progress = a.max ? 1 : a.cost ? Math.min(1, (Number(state.gold) || 0) / Math.max(1, a.cost.gold)) : 0;
+      const art = window.CaveArt;
+      if (art?.medalHTML) return art.medalHTML({ id, icon, level: lvl, progress, state: mstate });
+      return `<svg class="ui-icon" aria-hidden="true"><use href="#${icon}"/></svg><span class="ws-node-lvl">${lvl}</span>`;
+    }
+    function wsRenderHero() {
+      const drone = document.getElementById('ws-drone');
+      if (drone) drone.hidden = !(WS_RULES && wsLevel('robot') >= 1);
+    }
+    function wsRenderNodes() {
+      const host = document.getElementById('ws-nodes');
+      if (!host) return;
+      host.innerHTML = WORKSHOP_ITEMS.map((it, i) => {
+        const pos = wsNodePos(i), lvl = wsLevel(it.id), a = wsAfford(it.id);
+        const cls = ['ws-node', a.max ? 'is-max' : '', a.ok ? 'can-buy' : ''].filter(Boolean).join(' ');
+        return `<button class="${cls}" type="button" data-ws-item="${it.id}" style="left:${pos.x}%;top:${pos.y}%" aria-label="${it.name} — المستوى ${lvl}${a.ok ? ' — ترقية متاحة' : ''}" title="${it.name}">${wsMedal(it.id, it.icon, lvl, a)}</button>`;
+      }).join('');
+      wsRenderHero();
+    }
+    function wsRenderTop() {
+      const gold = document.getElementById('ws-gold');
+      if (gold) gold.textContent = fmt(Math.floor(state.gold || 0));
+      const ores = document.getElementById('ws-ore-total');
+      if (ores) ores.textContent = fmt(Object.values(state.ores || {}).reduce((a, v) => a + Math.max(0, Number(v) || 0), 0));
+      const row = document.getElementById('ws-ore-row');
+      if (row) row.innerHTML = Object.entries(WS_RULES.ORES).map(([k, d]) => `<span class="ws-ore-chip" title="${d.name}"><i class="ore-dot ore-${k}"></i>${d.name}<b>${fmt(Math.max(0, Number(state.ores?.[k]) || 0))}</b></span>`).join('');
+      const summary = document.getElementById('ws-summary');
+      if (summary) {
+        const total = WORKSHOP_ITEMS.reduce((a, it) => a + wsLevel(it.id), 0);
+        const zone = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
+        const hits = WS_RULES.hitsToBreak(hero, zone, state.equipment);
+        summary.innerHTML = `<span>المعدات المطوّرة <b>${total}/${WORKSHOP_ITEMS.length * WS_RULES.MAX_EQUIP_LEVEL}</b></span><span>كسر صخرة المنجم <b>${hitsWord(hits)}</b></span>`;
+      }
+      minesLabels();
+    }
+    function wsRefresh() {
+      if (!wsOpenFlag) return;
+      wsRenderNodes(); wsRenderTop();
+      if (wsActiveItem && !document.getElementById('ws-modal').hidden) wsOpenItem(wsActiveItem.id, false);
+    }
+    function wsBeep(freq, dur = 0.12, vol = 0.04, force = false) {
+      if (!wsSoundOn && !force) return;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!wsAudio) wsAudio = new AC();
+        wsAudio.resume?.();
+        const osc = wsAudio.createOscillator(), gain = wsAudio.createGain();
+        osc.frequency.value = freq; osc.type = 'triangle';
+        gain.gain.setValueAtTime(vol, wsAudio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, wsAudio.currentTime + dur);
+        osc.connect(gain); gain.connect(wsAudio.destination);
+        osc.start(); osc.stop(wsAudio.currentTime + dur);
+      } catch (_) {}
+    }
+    const WS_NOTES = [392, 440, 494, 523, 494, 440];
+    function wsToggleMusic() {
+      wsMusicOn = !wsMusicOn;
+      document.getElementById('ws-music')?.setAttribute('aria-pressed', String(wsMusicOn));
+      if (wsMusicTimer) { clearInterval(wsMusicTimer); wsMusicTimer = 0; }
+      if (wsMusicOn) {
+        let i = 0;
+        wsMusicTimer = setInterval(() => { if (wsOpenFlag) wsBeep(WS_NOTES[i++ % WS_NOTES.length], 0.22, 0.02, true); }, 420);
+        wsBeep(523, 0.15, 0.03, true);
+      }
+    }
+    function wsOpen() {
+      const overlay = document.getElementById('ws-overlay');
+      if (!overlay) return;
+      try { window.PlatformGame?.pause(); } catch (_) {}
+      wsOpenFlag = true; overlay.hidden = false; wsNote('');
+      wsRenderNodes(); wsRenderTop(); wsBeep(440, 0.1);
+      document.getElementById('ws-close')?.focus({ preventScroll: true });
+    }
+    function wsClose() {
+      const overlay = document.getElementById('ws-overlay');
+      if (!overlay || overlay.hidden) return;
+      wsOpenFlag = false; overlay.hidden = true;
+      if (wsMusicTimer) { clearInterval(wsMusicTimer); wsMusicTimer = 0; }
+      wsMusicOn = false;
+      document.getElementById('ws-music')?.setAttribute('aria-pressed', 'false');
+      document.getElementById('ws-modal').hidden = true;
+      try { window.PlatformGame?.refresh?.(); } catch (_) {} // مشهد الانتظار يعكس المعدات الجديدة
+    }
+    function wsOpenItem(id, sound = true) {
+      const item = WORKSHOP_ITEMS.find(x => x.id === id);
+      if (!item) return;
+      wsActiveItem = item;
+      const lvl = wsLevel(id), a = wsAfford(id);
+      document.getElementById('ws-card-icon').innerHTML = wsMedal(item.id, item.icon, lvl, a);
+      document.getElementById('ws-card-title').textContent = item.name;
+      document.getElementById('ws-card-effect').textContent = item.blurb;
+      document.getElementById('ws-card-level').textContent = String(lvl);
+      document.getElementById('ws-card-now').textContent = `الحالي: ${WS_RULES.effectText(id, lvl)}`;
+      document.getElementById('ws-card-next').textContent = a.max ? 'وصلت إلى المستوى الأقصى.' : `التالي: ${WS_RULES.effectText(id, lvl + 1)}`;
+      const goldChip = document.getElementById('ws-cost-gold'), oreChip = document.getElementById('ws-cost-ore');
+      document.getElementById('ws-card-cost').textContent = a.cost ? fmt(a.cost.gold) : '—';
+      goldChip.classList.toggle('lack', Boolean(a.cost) && !a.goldOk);
+      oreChip.innerHTML = a.cost ? Object.entries(a.cost.ores).map(([k, n]) => `<i class="ore-dot ore-${k}"></i>${WS_RULES.ORES[k].name} <b>${fmt(Math.floor(Number(state.ores?.[k]) || 0))}/${n}</b>`).join(' ') : '';
+      oreChip.classList.toggle('lack', a.lacking.length > 0);
+      const btn = document.getElementById('ws-upgrade');
+      btn.disabled = a.max || !a.ok || !serverMode;
+      btn.textContent = !serverMode ? 'تتطلب الترقية اتصالاً بالخادم' : a.max ? 'المستوى الأقصى'
+        : !a.goldOk ? 'الذهب غير كافٍ' : a.lacking.length ? `ينقصك ${a.lacking.map((k) => WS_RULES.ORES[k].name).join(' و')}` : 'ترقية';
+      document.getElementById('ws-modal').hidden = false;
+      if (sound) wsBeep(560, 0.08);
+    }
+    function wsUpgrade() {
+      if (!wsActiveItem) return;
+      const id = wsActiveItem.id, a = wsAfford(id);
+      if (!serverMode || a.max || !a.ok) { wsBeep(200, 0.12, 0.04); haptic('error'); return; }
+      // عرض فوري بنفس القواعد؛ الخادم يؤكد أو يصحّح عند أول مزامنة (adoptServerState يعيد البناء من حالته)
+      applyOpLocally(state, { type: 'buy_equip', key: id });
+      enqueueOp({ type: 'buy_equip', key: id });
+      haptic('success'); updateUI(); save();
+      wsRenderNodes(); wsRenderTop(); wsOpenItem(id, false);
+      wsNote(`${wsActiveItem.name}: المستوى ${wsLevel(id)} — بانتظار تأكيد الخادم…`);
+      wsBeep(720, 0.14);
+    }
+    // حكم الخادم على ترقيات المعدات (يُستدعى من مزامنة العمليات)
+    function noteEquipResults(results) {
+      if (!results.length) return;
+      const refused = results.find((r) => r.status === 'rejected');
+      const ok = results.filter((r) => r.status === 'ok');
+      if (refused) wsNote(refused.reason === 'max' ? 'هذه المعدة في مستواها الأقصى.' : 'رفض الخادم ترقية لا يغطيها رصيدك الحقيقي — صُحّحت الأرصدة.');
+      else if (ok.length) { const last = ok[ok.length - 1]; wsNote(`ترقية مؤكدة من الخادم: المستوى ${last.level} — تسري من جولتك القادمة.`); }
+      wsRefresh();
+    }
+    function wsStart() {
+      wsClose();
+      try { switchTab('play'); switchPlayPanel('adventure'); } catch (_) {}
+      const start = document.getElementById('platform-start');
+      if (start && !start.disabled) start.click();
+    }
+    // «إلى المنجم» في تبويب التعدين: ينتقل إلى جولة المنصّات ويبدأها، إلا إن كانت هناك جولة موقوفة فيقرر اللاعب (متابعة أو إعادة)
+    function goToMine() {
+      try { switchTab('play'); switchPlayPanel('adventure'); } catch (_) {}
+      const resume = document.getElementById('platform-resume');
+      const start = document.getElementById('platform-start');
+      if (resume && !resume.hidden) return;
+      if (start && !start.disabled) start.click();
+    }
+    // ميدالية الورشة في تبويب التعدين: هل تكفي الأرصدة الآن لترقية أي معدة؟ (للعرض فقط — الخادم هو الحكم)
+    function workshopHint() {
+      try {
+        if (!serverMode || !WS_RULES) return null;
+        return { ready: WORKSHOP_ITEMS.some((it) => wsAfford(it.id).ok) };
+      } catch (_) { return null; }
+    }
+    // ميدالية الحفر العميق: حلقتها = أفضل عمق ÷ عمق الصندوق (يُحفظ محلياً، لا علاقة له بالخادم)
+    function deepDiveHint() {
+      try { return window.DeepDigUI && window.DeepDigUI.active ? { progress: window.DeepDigUI.progress(), best: window.DeepDigUI.bestDepth() } : null; } catch (_) { return null; }
+    }
+
+    // ============================================================
+    // خريطة المناجم: اختيار المنجم المفتوح. الخادم يعيد التحقق من الفتح عند بدء الجولة.
+    // ============================================================
+    let minesOpenFlag = false, minesOpener = null;
+    function minesLabels() {
+      const z = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
+      const mine = WS_RULES.MINES[z] || WS_RULES.MINES[0];
+      const hits = WS_RULES.hitsToBreak(hero, z, state.equipment);
+      document.querySelectorAll('[data-mine-name]').forEach((n) => { n.textContent = mine.name; });
+      document.querySelectorAll('[data-mine-hits]').forEach((n) => { n.textContent = `الصخرة: ${hitsWord(hits)}`; });
+    }
+    // الخطر المميّز لكل عالم (نص عرض فقط؛ الخطر نفسه معرَّف في مستوى المنجم بالقواعد المشتركة)
+    const WORLD_DANGER = { stone: 'فتحات بخار وحفرة أشواك', iron: 'مكبس سحق موقوت', gold: 'غبار ذهبي ينفث', crystal: 'بلّورات تنبثق بإيقاعات مختلفة', lava: 'نوافير حمم فوق الفجوات', legend: 'مكبس سحق وحارس القلب' };
+    function minesRender() {
+      const host = document.getElementById('mines-list');
+      if (!host) return;
+      const selected = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
+      host.innerHTML = WS_RULES.MINES.map((m, i) => {
+        const st = WS_RULES.mineStatus(i, state.mines, state.equipment), zone = WS_RULES.ZONES[i];
+        const hits = WS_RULES.hitsToBreak(hero, i, state.equipment);
+        const ores = [...new Set(Object.values(m.tier))].map((o) => `<span class="mine-ore"><i class="ore-dot ore-${o}"></i>${WS_RULES.ORES[o].name}</span>`).join('');
+        const needs = st.unlocked ? '' : `<ul class="mine-needs">${st.needs.map((n) => `<li class="${n.ok ? 'ok' : 'no'}"><svg class="ui-icon" aria-hidden="true"><use href="#${n.ok ? 'i-check' : 'i-close'}"/></svg>${n.label}</li>`).join('')}</ul>`;
+        const label = i === selected ? 'المنجم الحالي' : st.unlocked ? 'اختيار' : 'مقفل';
+        const cls = ['mine-card', i === selected ? 'selected' : '', st.unlocked ? '' : 'locked'].filter(Boolean).join(' ');
+        return `<article class="${cls}" data-mine-card="${i}" style="--mine-a:${zone.sky[2]};--mine-b:${zone.glow}">
+          <div class="mine-card-art" aria-hidden="true"><span>${i + 1}</span></div>
+          <div class="mine-card-body">
+            <h3>${m.name}</h3><p>${m.blurb}</p>
+            <div class="mine-meta"><span>الصخرة: ${hitsWord(hits)}</span><span>انتصارات: <b>${st.wins}</b></span></div>
+            <div class="mine-world"><span class="mine-danger"><svg class="ui-icon" aria-hidden="true"><use href="#i-flame"/></svg>${WORLD_DANGER[m.id] || ''}</span>${WS_RULES.levelFor(i).boss ? `<span class="mine-boss"><svg class="ui-icon" aria-hidden="true"><use href="#i-boss"/></svg>زعيم: ${WS_RULES.levelFor(i).boss.name}</span>` : ''}</div>
+            <div class="mine-ores">${ores}</div>${needs}
+          </div>
+          <button type="button" class="mine-pick" data-mine-pick="${i}" ${st.unlocked && i !== selected ? '' : 'disabled'}>${label}</button>
+        </article>`;
+      }).join('');
+    }
+    // ---------- الوضع الكلاسيكي (الدفعة 3أ′): اللعبة الأصلية من خريطة المناجم، وذهبها تحت السقف اليومي المشترك (10,000) ----------
+    // المحفظة المشتركة تقرؤها من profile.dailyGold (يرسلها الخادم مع كل ردّ)، والخادم هو من يقصّ الدفع فعلاً؛ هنا عرض وتوقّع فقط.
+    // محفظة الأمس محفظة كاملة اليوم (قد تبقى الصفحة مفتوحة عبر منتصف الليل UTC فلا يصل ردّ يجدّدها)؛ مجهولة = لا توقّع والخادم يقرّر
+    const classicPurse = () => {
+      const d = profile?.dailyGold;
+      if (!d || !Number.isFinite(d.remaining)) return null;
+      const day = new Date().toISOString().slice(0, 10);
+      return d.day === day ? d : { day, used: 0, cap: d.cap, remaining: d.cap };
+    };
+    const classicRoom = () => { const d = classicPurse(); return d ? Math.max(0, d.remaining) : Infinity; };
+    function classicResetTime() {
+      const d = new Date(), next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); // منتصف الليل UTC
+      try { return new Date(next).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' }); } catch (_) { return 'منتصف الليل (UTC)'; }
+    }
+    function updateClassicDaily() {
+      const d = classicPurse();
+      const left = document.getElementById('classic-left'), bar = document.getElementById('adv-daily');
+      const text = d ? `${fmt(d.remaining)} من ${fmt(d.cap)}` : '10,000';
+      if (left && left.textContent !== text) left.textContent = text;
+      const line = d ? `سقف اليوم المشترك: متبقٍ ${fmt(d.remaining)} من ${fmt(d.cap)}` : 'سقف اليوم المشترك: 10,000';
+      if (bar && bar.textContent !== line) bar.textContent = line;
+    }
+    function openClassic() {
+      if (typeof race !== 'undefined' && race.inRace) return; // لا يُغادَر سباق جارٍ
+      minesClose();
+      window.PlatformGame?.showLegacy?.();
+      updateClassicDaily(); updateAdventureUI();
+      try { document.getElementById('game-overlay-btn')?.focus({ preventScroll: true }); } catch (_) {}
+    }
+    function leaveClassic() {
+      if (typeof race !== 'undefined' && race.inRace) return;
+      if (adv.running && !adv.paused) setAdventurePaused(true); // الجولة الجارية تبقى موقوفة وتُستأنف من الكلاسيكي
+      window.PlatformGame?.showPlatform?.();
+      try { document.getElementById('mine-select')?.focus({ preventScroll: true }); } catch (_) {}
+    }
+    function minesOpen() {
+      const overlay = document.getElementById('mines-overlay');
+      if (!overlay) return;
+      try { window.PlatformGame?.pause(); } catch (_) {}
+      minesOpener = document.activeElement; // يعود التركيز إلى الزر الذي فتح الخريطة عند الإغلاق
+      minesOpenFlag = true; overlay.hidden = false; minesRender(); updateClassicDaily();
+      document.getElementById('mines-close')?.focus({ preventScroll: true });
+    }
+    function minesClose() {
+      const overlay = document.getElementById('mines-overlay');
+      if (!overlay || overlay.hidden) return;
+      minesOpenFlag = false; overlay.hidden = true;
+      try { minesOpener?.focus?.({ preventScroll: true }); } catch (_) {}
+      minesOpener = null;
+    }
+    (function wsInit() {
+      if (!WS_RULES) return;
+      for (const id of ['open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop']) {
+        document.getElementById(id)?.addEventListener('click', wsOpen);
+      }
+      for (const id of ['mine-select', 'ws-mine']) document.getElementById(id)?.addEventListener('click', minesOpen);
+      document.getElementById('mines-close')?.addEventListener('click', minesClose);
+      document.getElementById('classic-open')?.addEventListener('click', openClassic);
+      document.getElementById('legacy-back')?.addEventListener('click', leaveClassic);
+      document.getElementById('mines-list')?.addEventListener('click', (e) => {
+        const pick = e.target?.closest?.('[data-mine-pick]');
+        if (!pick || pick.disabled) return;
+        const z = Number(pick.getAttribute('data-mine-pick'));
+        const st = WS_RULES.mineStatus(z, state.mines, state.equipment);
+        if (!st?.unlocked) return;
+        window.PlatformGame?.setZone?.(z);
+        minesClose(); minesLabels(); wsBeep(620, 0.1);
+      });
+      window.addEventListener('platform-config-change', () => { minesLabels(); if (minesOpenFlag) minesRender(); if (wsOpenFlag) wsRenderTop(); });
+      document.getElementById('ws-close')?.addEventListener('click', wsClose);
+      document.getElementById('ws-cta')?.addEventListener('click', wsStart);
+      document.getElementById('ws-nodes')?.addEventListener('click', (e) => {
+        const node = e.target?.closest?.('[data-ws-item]');
+        if (node) wsOpenItem(node.getAttribute('data-ws-item'));
+      });
+      document.getElementById('ws-modal-close')?.addEventListener('click', () => { document.getElementById('ws-modal').hidden = true; });
+      document.getElementById('ws-modal')?.addEventListener('click', (e) => {
+        if (e.target?.id === 'ws-modal') document.getElementById('ws-modal').hidden = true;
+      });
+      document.getElementById('ws-upgrade')?.addEventListener('click', wsUpgrade);
+      document.getElementById('ws-sound')?.addEventListener('click', () => {
+        wsSoundOn = !wsSoundOn;
+        const btn = document.getElementById('ws-sound');
+        btn?.setAttribute('aria-pressed', String(wsSoundOn));
+        btn?.querySelector('use')?.setAttribute('href', wsSoundOn ? '#i-sound' : '#i-muted');
+        wsBeep(wsSoundOn ? 520 : 300, 0.1, 0.04, true);
+      });
+      document.getElementById('ws-music')?.addEventListener('click', wsToggleMusic);
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (minesOpenFlag) minesClose();
+        else if (!document.getElementById('ws-overlay').hidden) wsClose();
+      });
+      minesLabels();
+    })();
+
+    window.openWorkshop = wsOpen;
+    window.closeWorkshop = wsClose;
+    window.openMines = minesOpen;
+    window.closeMines = minesClose;
+
+    // مؤثرات تبويب التعدين (عرض فقط): إن غاب الملف أو تعطّل يبقى المسار القديم
+    // الحفر العميق (عميل فقط): المعدات تُقرأ من state.equipment فقط ولا يكتب ذهباً ولا عمليات؛ إن تعطّل لا تظهر ميداليته
+    const deepDiveReady = !!window.DeepDigUI?.init({
+      getEquipment: () => state.equipment, haptic,
+      onOpen: () => { try { window.PlatformGame?.pause(); } catch (_) {} },
+      onClose: () => { try { window.ClickerFX?.syncSound?.(); } catch (_) {} updateUI(); },
+      onMute: () => { try { window.ClickerFX?.syncSound?.(); } catch (_) {} },
+    });
+    window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null, deepDive: deepDiveReady ? () => window.DeepDigUI.open() : null });
+    // موقع الحفر: كل ضربة للمعدّن تمرّ من handleMine نفسه (طاقة + ذهب + عملية mine)؛ يعيد false حين ترفضها قلة الطاقة
+    window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic });
+    // المرشد (عرض فقط): يقرأ state ولا يكتب ذهباً ولا عمليات؛ يبدأ بعد اعتماد حالة الخادم كي لا يبدو اللاعب القديم جديداً
+    window.Guide?.init({
+      getState: () => state, getZone: () => window.PlatformGame?.getZone?.() ?? 0,
+      pause: () => { try { window.PlatformGame?.pause(); } catch (_) {} },
+      openWorkshop: WS_RULES ? wsOpen : null, setZone: (z) => window.PlatformGame?.setZone?.(z),
+    });
     updateUI();
     updateArenaUI();
     updateAdventureUI();
@@ -3001,10 +3895,11 @@
     setTimeout(resizeAdventureCanvas, 50);
     // جسر منجم المنصّة ينتظر انحسم bootstrap (نجاحاً أو فشلاً) قبل أن يُعرف إن كان للاعب هوية خادمية
     window.platformReady = bootstrap(); // محاولة المزامنة مع الخادم — عند الفشل نكمل محلياً
+    window.platformReady.then(() => window.Guide?.start?.());
   </script>
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=4"></script>
+  <script src="/platform-game.js?v=8"></script>
 </body>
 </html>
