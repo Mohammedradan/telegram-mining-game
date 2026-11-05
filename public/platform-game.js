@@ -157,6 +157,13 @@
   let joystickY = 0; // -1 to 1
   let joystickPointerId = null;
 
+  // وصف مكافأة المبارزة يُبنى من القواعد نفسها فلا ينحرف النص عن الحساب الخادمي
+  try {
+    const note = document.getElementById('duel-reward-note');
+    const lowest = R.duelReward(0), deepest = R.duelReward(R.MINES.length - 1);
+    if (note && Number.isFinite(lowest)) note.textContent = `مكافأة المبارزة الحيّة: ${lowest}–${deepest} ذهباً حسب عمق المنجم · بسقف يومي مستقل لا يمسّ أرباح التعدين.`;
+  } catch (_) {}
+
   const storageKey = () => `platform-run:v1:${owner}`;
   const say = text => { const s = el('platform-status'); if (s) s.textContent = text; };
   const visible = () => !document.hidden && !el('platform-scene').hidden && el('play-panel-adventure').classList.contains('active') && el('tab-play').classList.contains('active');
