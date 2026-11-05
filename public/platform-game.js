@@ -280,7 +280,8 @@
     const chipText = el('goal-chip-text'), chipBox = el('goal-chip'), chipUse = el('goal-chip-use');
     if (gs && chipText) {
       const value = gs.id === 'speed' ? `${Math.min(gs.target, gs.now)}/${gs.target}ث` : `${Math.min(gs.target, gs.now)}/${gs.target}`;
-      chipText.textContent = `${gs.name} ${value}`;
+      const goalDef = R.GOALS?.[sim.goal || 0];
+      chipText.textContent = `${goalDef?.short || gs.name} ${value}`;
       if (chipBox) {
         chipBox.classList.toggle('done', Boolean(gs.done));
         chipBox.title = gs.done ? `الهدف محقّق: ${gs.name}` : `هدف الجولة: ${gs.name}`;
