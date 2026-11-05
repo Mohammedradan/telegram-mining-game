@@ -474,7 +474,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=19">
+  <link rel="stylesheet" href="/platform.css?v=20">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -795,9 +795,9 @@
                 <span>اهتزاز الهاتف</span>
                 <button type="button" id="ctl-haptics" class="active" aria-pressed="true">مفعّل</button>
               </div>
-              <div class="ctl-row" role="group" aria-label="عصا التحكم على الشاشة">
-                <span>العصا</span>
-                <button type="button" id="ctl-stick" class="active" aria-pressed="true">ظاهرة على الشاشة</button>
+              <div class="ctl-row" role="group" aria-label="أزرار اللمس">
+                <span>أزرار اللمس</span>
+                <button type="button" id="ctl-stick" class="active" aria-pressed="true">تلقائي</button>
               </div>
               <div class="ctl-row">
                 <span>مواضع الأزرار</span>
@@ -842,6 +842,7 @@
           <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
         </div>
       </div>
+      <div id="platform-keyhint" class="mine-keyhint" hidden>التحكم بلوحة المفاتيح: الأسهم/WASD حركة · Space قفز · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر. لإظهار أزرار اللمس: «إعدادات التحكم».</div>
       <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. العصا على الشاشة للحركة (اسحبها بإبهامك أو بالماوس) · الأسهم/WASD أيضًا · Space قفز · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
@@ -4377,6 +4378,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=20"></script>
+  <script src="/platform-game.js?v=21"></script>
 </body>
 </html>

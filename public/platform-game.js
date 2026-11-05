@@ -142,8 +142,22 @@
   const KEY_HINTS = 'الأسهم/WASD حركة · Space قفز · J ضرب خفيف (سلسلة) · L ضربة قوية · V مراوغة · S صدّ · Q مهارة · E حفر';
 
   // إعدادات التحكم (حجم العصا وشفافيتها وحساسيتها والاهتزاز) — تُحفظ محليًا فقط ولا تمسّ حساب اللاعب.
-  // stick: العصا على الشاشة — كانت مخفية فوق 768px فلا وسيلة حركة باللمس على شاشة عريضة.
-  const CONTROL_DEFAULTS = { size: 'md', opacity: 'md', sensitivity: 'md', haptics: true, stick: 'show' };
+  // touchPad: أزرار اللمس (العصا + أزرار القتال).
+  //   auto  = تظهر على الجوال والتابلت (مؤشر خشن) وتختفي على الكمبيوتر (مؤشر دقيق) — الافتراضي
+  //   show  = تظهر دائمًا (لمن يريد اللمس على شاشة كبيرة)
+  //   hide  = تختفي دائمًا (لوحة المفاتيح فقط)
+  const CONTROL_DEFAULTS = { size: 'md', opacity: 'md', sensitivity: 'md', haptics: true, touchPad: 'auto' };
+  const TOUCH_ORDER = ['auto', 'show', 'hide'];
+  const coarsePointer = () => {
+    try { if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true; } catch (_) {}
+    return (navigator.maxTouchPoints || 0) > 0;
+  };
+  function touchPadVisible() {
+    const mode = controlSettings.touchPad || 'auto';
+    if (mode === 'show') return true;
+    if (mode === 'hide') return false;
+    return coarsePointer();
+  }
   let controlSettings = { ...CONTROL_DEFAULTS };
   try {
     const saved = JSON.parse(localStorage.getItem('platform-controls') || 'null');
@@ -1096,11 +1110,18 @@
     document.querySelectorAll('[data-ctl-sensitivity]').forEach(b => b.classList.toggle('active', b.dataset.ctlSensitivity === controlSettings.sensitivity));
     const hapticBtn = el('ctl-haptics');
     if (hapticBtn) { hapticBtn.setAttribute('aria-pressed', String(controlSettings.haptics !== false)); hapticBtn.classList.toggle('active', controlSettings.haptics !== false); }
-    // العصا: ظاهرة افتراضيًا على كل المقاسات (لمس أو ماوس)؛ تُخفى فقط باختيار اللاعب
-    const stickShown = controlSettings.stick !== 'hide';
-    if (box?.classList) box.classList.toggle('no-stick', !stickShown);
+    // أزرار اللمس: تُخفى تلقائيًا على الكمبيوتر (لوحة المفاتيح)، وتظهر على الجوال والتابلت
+    const padShown = touchPadVisible();
+    if (box?.classList) box.classList.toggle('touch-hidden', !padShown);
     const stickBtn = el('ctl-stick');
-    if (stickBtn) { stickBtn.setAttribute('aria-pressed', String(stickShown)); stickBtn.classList.toggle('active', stickShown); stickBtn.textContent = stickShown ? 'ظاهرة على الشاشة' : 'مخفية'; }
+    if (stickBtn) {
+      const mode = controlSettings.touchPad || 'auto';
+      stickBtn.setAttribute('aria-pressed', String(padShown));
+      stickBtn.classList.toggle('active', padShown);
+      stickBtn.textContent = mode === 'auto' ? 'تلقائي' : padShown ? 'ظاهرة دائمًا' : 'مخفية دائمًا';
+    }
+    const keyHint = el('platform-keyhint');
+    if (keyHint) keyHint.hidden = padShown;
   }
   function saveControlSettings() {
     try { localStorage.setItem('platform-controls', JSON.stringify(controlSettings)); } catch (_) {}
@@ -1110,7 +1131,13 @@
   document.querySelectorAll('[data-ctl-opacity]').forEach(b => b.addEventListener('click', () => { controlSettings.opacity = b.dataset.ctlOpacity; saveControlSettings(); }));
   document.querySelectorAll('[data-ctl-sensitivity]').forEach(b => b.addEventListener('click', () => { controlSettings.sensitivity = b.dataset.ctlSensitivity; saveControlSettings(); }));
   el('ctl-haptics')?.addEventListener('click', () => { controlSettings.haptics = controlSettings.haptics === false; saveControlSettings(); });
-  el('ctl-stick')?.addEventListener('click', () => { controlSettings.stick = controlSettings.stick === 'hide' ? 'show' : 'hide'; saveControlSettings(); });
+  el('ctl-stick')?.addEventListener('click', () => {
+    const i = TOUCH_ORDER.indexOf(controlSettings.touchPad || 'auto');
+    controlSettings.touchPad = TOUCH_ORDER[(i + 1) % TOUCH_ORDER.length];
+    saveControlSettings();
+  });
+  // تغيّر نوع المؤشر (تدوير الجهاز، لوحة مفاتيح تُوصل بالتابلت): نعيد التقييم في وضع auto
+  try { window.matchMedia?.('(pointer: coarse)')?.addEventListener?.('change', () => applyControlSettings()); } catch (_) {}
   applyControlSettings();
 
   // --- تخصيص مواضع التحكم (سحب) — يُحفظ في localStorage لهذا الجهاز فقط ---
@@ -1368,7 +1395,9 @@
 
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
-    pause, onShow, showArenaPreview, hideArenaPreview, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
+    pause, onShow, showArenaPreview, hideArenaPreview,
+    // حالة المسرح الاستعراضي (لاختبار بصري حقيقي: هل يتقدّم؟ من الخصم المعروض؟)
+    arenaInspect: () => ({ zone: arenaZone, tick: arenaSim?.tick ?? 0, running: Boolean(arenaRaf), rival: arenaSim?.enemies?.[0]?.name || null }), setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
     showLegacy: () => {
       pause();

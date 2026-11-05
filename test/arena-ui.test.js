@@ -285,16 +285,33 @@ test('arena UI: abandoning a stale run is safe and never drops a result waiting 
   assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
 });
 
-test('controls: the on-screen stick is available on every screen size and can be hidden explicitly', () => {
+test('controls: touch buttons follow the device — shown on phones/tablets, hidden on desktop, with a manual override', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
-  // كان مخفيًا فوق 768px فلا وسيلة حركة باللمس على شاشة عريضة (أو في معاينة سطح المكتب)
-  const stickBase = /\.virtual-joystick\{([^}]*)\}/.exec(css)?.[1] || '';
-  assert.match(stickBase, /display:block/, 'the stick renders on wide screens too');
-  assert.doesNotMatch(css, /max-width:768px\)\{\.virtual-joystick\{display:none/, 'the old wide-screen hide rule is gone');
-  assert.match(css, /\.mine-controls\.no-stick \.virtual-joystick\{display:none\}/, 'hiding is an explicit choice');
-  assert.match(html, /id="ctl-stick"[^>]*aria-pressed="true"/, 'the settings panel offers the toggle, shown by default');
-  assert.match(game, /stick: 'show'/, 'the default is stored with the other control settings');
-  assert.match(game, /classList\.toggle\('no-stick'/, 'and it is applied to the pad');
-  assert.match(html, /العصا على الشاشة للحركة/, 'the stage hint points at the stick, not the keyboard alone');
+  // الجهاز الخشن (لمس) يُظهر اللوحة، والمؤشر الدقيق (كمبيوتر) يُخفيها تلقائيًا
+  assert.match(game, /touchPad: 'auto'/, 'the default follows the device');
+  assert.match(game, /matchMedia\('\(pointer: coarse\)'\)/, 'coarse pointers (phones/tablets) are detected');
+  assert.match(game, /maxTouchPoints/, 'and touch-only devices are detected even without media queries');
+  assert.match(game, /const TOUCH_ORDER = \['auto', 'show', 'hide'\]/, 'the manual override is three-state');
+  assert.match(css, /\.mine-controls\.touch-hidden \.virtual-joystick\{display:none\}/);
+  assert.match(css, /\.mine-controls\.touch-hidden \.action-btn:not\(\.pause-btn\)\{display:none\}/, 'the pause button stays reachable on desktop');
+  // ولا قاعدة قديمة تُخفي العصا على الشاشات العريضة
+  assert.doesNotMatch(css, /max-width:768px\)\{\.virtual-joystick\{display:none/);
+  assert.match(html, /id="ctl-stick"[^>]*aria-pressed="true"/, 'the settings panel exposes the override');
+  assert.match(html, /id="platform-keyhint"[^>]*hidden/, 'desktop gets a keyboard hint instead of the pad');
+  assert.match(html, /العصا على الشاشة للحركة/, 'the stage hint still mentions the stick for touch devices');
+});
+
+test('boot: opening the app never starts a run or spends anything (no auto-play)', async () => {
+  const page = boot();
+  assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
+  await new Promise((r) => setTimeout(r, 5));
+  page.runTimers();
+  const game = page.ctx.PlatformGame;
+  assert.equal(game.busy().running, false, 'no run starts on boot');
+  assert.equal(game.busy().pending, false, 'and nothing is submitted on boot');
+  // المسرح الاستعراضي في الساحة هو الوحيد الذي يتحرك تلقائيًا
+  const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(src, /function arenaFrame/, 'the arena preview has its own loop');
+  assert.doesNotMatch(src, /function startArenaPreviewTab|autoStart/, 'there is no auto-start path');
 });
