@@ -975,7 +975,13 @@
     } else if (sim.status === 'playing') {
       try {
         const current = await request('/api/platform/start', { resume: true }); // استئناف: لا يستبدل الجولة بتغيّر المعدات
-        if (current.id !== ticket.id) { ticket = null; say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.'); return; }
+        if (current.id !== ticket.id) {
+          // التذكرة المحفوظة لم تعد جولة الخادم النشطة: نُفرغ كل حالة الجولة حتى لا يبقى اللاعب محبوسًا
+          // خلف جولة منتهية الصلاحية (لا «جولة جارية» وهمية تمنع بدء مبارزة).
+          ticket = null; inputs = []; running = false; paused = false;
+          say('انتهت صلاحية الحفظ السابق؛ ابدأ جولة جديدة.');
+          return;
+        }
         running = true; paused = false; pause();
       } catch (_) { running = true; paused = false; pause(); say('تعذّر الاتصال؛ جولتك محفوظة محليًا ويمكنك متابعتها. ستُرسل النتيجة عند عودة الشبكة قبل انتهاء التذكرة.'); }
     }
@@ -1324,6 +1330,29 @@
       try { localStorage.setItem('platform-mode', selectedMode); } catch (_) {}
       if (Number.isInteger(zone) && zone >= 0 && zone < (R.MINES?.length || 1)) setZone(zone, false);
       start();
+      return true;
+    },
+    // حالة الجولة كما تراها الواجهة: هل هناك جولة جارية أو نتيجة تنتظر الخادم؟
+    busy: () => ({ running, paused, pending: Boolean(pending), submitting }),
+    // التخلّي عن جولة غير منتهية: لا مكافأة لها أصلاً (المكافأة تُحسب من إعادة تشغيل الخادم عند الإنهاء)،
+    // فهي لا تُنقص شيئًا من الحساب — لكنها تفتح الطريق لبدء مبارزة بدل البقاء محبوسًا في جولة قديمة.
+    // نتيجة بانتظار الخادم (pending) لا تُهمل أبدًا: تُرسل أولًا.
+    abandon() {
+      if (pending || submitting || starting) return false;
+      if (!running && !ticket) return false;
+      running = false; paused = false;
+      cancelAnimationFrame(raf); raf = 0;
+      ticket = null; inputs = [];
+      try { localStorage.removeItem(storageKey()); } catch (_) {}
+      el('platform-start').disabled = false;
+      resetFeedback();
+      overlay('منجم المنصّة', 'تخلّينا عن الجولة السابقة بلا مكافأة. اضغط «جولة جديدة» للبدء من جديد.');
+      draw();
+      return true;
+    },
+    resumeRun() {
+      if (!running) return false;
+      paused = false; resume();
       return true;
     },
     setMode(mode) {

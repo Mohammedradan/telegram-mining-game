@@ -240,7 +240,25 @@ test('arena UI: the live duel is the primary entry, the classic duel sits in a c
   }
   // زر المبارزة لا يفشل صامتًا: الرسالة تظهر على الساحة نفسها
   assert.match(html, /id="arena-live-banner"[^>]*aria-live="polite"/);
-  assert.match(html, /function startArenaDuel[\s\S]{0,900}notify\('لديك جولة جارية/, 'a blocked duel explains itself on the arena');
+  // زر المبارزة لا يفشل صامتًا: تنبيه بحالة الجولة + إجراءان فعليان (متابعة أو تخلٍّ)
+  assert.match(html, /function refreshArenaDuelState[\s\S]{0,1400}لديك جولة جارية في المنجم/, 'a blocked duel explains itself on the arena');
+  assert.match(html, /id="arena-resume-btn"[^>]*onclick="resumeActiveRun\(\)"/);
+  assert.match(html, /id="arena-abandon-btn"[^>]*onclick="abandonAndDuel\(\)"/);
+  assert.match(html, /function abandonAndDuel\(\)[\s\S]{0,220}game\.abandon\(\)/, 'and it clears the stale run instead of trapping the player');
+  assert.match(html, /id="arena-next-rival"/, 'the arena fills its space with the next rival and reward');
+});
+
+test('arena UI: abandoning a stale run is safe and never drops a result waiting for the server', async () => {
+  const page = boot();
+  assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
+  await new Promise((r) => setTimeout(r, 0));
+  page.runTimers();
+  const game = page.ctx.PlatformGame;
+  assert.equal(typeof game.abandon, 'function');
+  assert.deepEqual(Object.keys(game.busy()).sort(), ['paused', 'pending', 'running', 'submitting']);
+  // لا شيء جارٍ: التخلّي لا يفعل شيئًا (لا يمسّ جولة غير موجودة)
+  assert.equal(game.abandon(), false);
+  assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
 });
 
 test('controls: the on-screen stick is available on every screen size and can be hidden explicitly', () => {
