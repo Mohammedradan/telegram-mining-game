@@ -272,6 +272,7 @@
     .arena-stage-banner.loss { color: #fecaca; border-color: rgba(239, 68, 68, .65); }
 
     /* ===== ساحة تفاعلية: تخطيط مضغوط، نيّة معلنة، وحكم فوق المسرح ===== */
+    #tab-arena { overflow: hidden; }
     .arena-head { flex: 0 0 auto; text-align: center; line-height: 1.4; }
     .arena-battle-stage { flex: 0 0 clamp(200px, 33vh, 300px); }
     /* قبل المباراة: زر بدء واحد واضح بدل أربعة أزرار معطّلة تبدو ميتة */
@@ -304,10 +305,10 @@
     .arena-live-banner button[hidden] { display: none; }
     .arena-live-banner button:active { transform: scale(.97); }
     /* لوحة الساحة: تملأ ما تبقّى بمعلومة مفيدة بدل فراغ أسود */
-    /* تملأ المساحة المتبقية فعليًا (لا فراغ أسود تحت البطاقات) */
-    .arena-brief { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1.25fr; gap: 6px; min-height: 0; align-items: stretch; }
+    /* اللوحة بارتفاعها الطبيعي (لا تُسحق عندما يُفتح النظام الكلاسيكي)، والكلاسيكي يأخذ ما تبقّى */
+    .arena-brief { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1.25fr; gap: 6px; align-items: stretch; }
     .ab-card {
-      display: flex; flex-direction: column; gap: 3px; padding: 8px 9px; border-radius: 11px; overflow: auto;
+      display: flex; flex-direction: column; gap: 3px; padding: 8px 9px; border-radius: 11px;
       background: rgba(15, 23, 42, .72); border: 1px solid rgba(94, 124, 146, .3); text-align: right; min-height: 0;
     }
     .ab-kicker { font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .2px; }
@@ -318,7 +319,7 @@
     .ab-tip .ui-icon { width: 13px; height: 13px; flex-shrink: 0; color: #f4bf62; margin-top: 1px; }
     @media (max-width: 430px) { .arena-brief { grid-template-columns: 1fr; } .ab-tips { display: none; } }
     /* النظام الكلاسيكي: قسم ثانوي قابل للفتح — المبارزة الحيّة هي المدخل الأساسي */
-    .classic-system { flex: 0 0 auto; margin-top: 6px; border-radius: 11px; background: rgba(15, 23, 42, .6); border: 1px solid rgba(94, 124, 146, .32); }
+    .classic-system { flex: 1 1 auto; min-height: 0; overflow: auto; margin-top: 6px; border-radius: 11px; background: rgba(15, 23, 42, .6); border: 1px solid rgba(94, 124, 146, .32); }
     .classic-system > summary {
       cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
       padding: 7px 10px; border-radius: 11px; font-size: 10.5px; font-weight: 900; color: #cbd9e2;
@@ -1876,6 +1877,11 @@
       if (!game.startDuel(tier)) { refreshArenaDuelState(); return; }
       if (live) live.hidden = true;
       switchTab('play');
+      // المبارزة تبدأ بلا انتظار: نُظهر مشهد المنصّة (لا الشاشة الأولى) ونعود إلى لوحة المغامرة،
+      // ثم نوقظ حلقة الرسم إن كانت الجولة قد بدأت قبل ظهور التبويب.
+      try { switchPlayPanel('adventure'); } catch (_) {}
+      game.showPlatform?.();
+      setTimeout(() => game.onShow?.(), 30);
       haptic('success');
     }
 
@@ -3917,7 +3923,7 @@
       window.DigSite?.onTab?.(tabId);   // يوقف المعدّن عند المغادرة ويعيد قياس الساحة عند الدخول
       if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
-      if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); }, 30);
+      if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); window.PlatformGame?.onShow?.(); }, 30);
       if (tabId === 'arena') { updateArenaUI(); syncArenaMode(); renderArenaIntent(); } // يعيد ضبط الحالة المرئية عند الدخول
       if (tabId === 'leaderboard') loadLeaderboard();
       if (tabId === 'arena') updateArenaUI();
@@ -4317,6 +4323,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=18"></script>
+  <script src="/platform-game.js?v=19"></script>
 </body>
 </html>

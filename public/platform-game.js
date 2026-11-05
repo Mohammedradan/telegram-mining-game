@@ -496,9 +496,19 @@
   function schedule() { if (!raf && running && !paused && visible()) raf = requestAnimationFrame(frame); }
 
   function resume() {
-    if (!running || !visible()) return;
+    if (!running) return;
     paused = false; clearInput(); accumulator = 0; last = 0; hitStopUntil = 0;
-    el('platform-overlay').hidden = true; audioUnlock(); schedule(); canvas.focus({ preventScroll: true });
+    // الغلاف يُخفى دائمًا عند الاستئناف: بدء المبارزة من الساحة قد يسبق ظهور المشهد بجزء من الثانية،
+    // وكان هذا يترك اللاعب على «شاشة البداية» رغم أن الجولة بدأت على الخادم.
+    el('platform-overlay').hidden = true; audioUnlock();
+    if (!visible()) return; // الإطارات لا تُشغَّل إلا في مشهد مرئي؛ onShow يعيدها عند الدخول
+    schedule(); canvas.focus({ preventScroll: true });
+  }
+  // يُنادى عند فتح تبويب اللعب: يعيد تشغيل الحلقة إن كانت الجولة جارية ومتوقفة على الظهور فقط
+  function onShow() {
+    if (!running || paused) { draw(); return; }
+    el('platform-overlay').hidden = true;
+    schedule(); draw();
   }
 
   function record(mask) {
@@ -1293,7 +1303,7 @@
 
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
-    pause, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
+    pause, onShow, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
     showLegacy: () => {
       pause();
@@ -1306,7 +1316,7 @@
       const scene = el('platform-scene'), legacy = el('legacy-adventure');
       if (legacy) legacy.hidden = true;
       if (scene) scene.hidden = false;
-      hud(); draw();
+      hud(); onShow();
     },
     inspect: () => ({
       tick: sim.tick, status: sim.status, pose: sim.player.pose,

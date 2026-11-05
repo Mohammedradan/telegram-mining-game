@@ -270,6 +270,8 @@ test('arena UI: abandoning a stale run is safe and never drops a result waiting 
   const busy = game.busy();
   assert.equal(busy.running, true, 'a run is genuinely in progress');
   assert.equal(busy.pending, false);
+  // الشاشة الأولى (الغلاف) تختفي فور بدء المبارزة، ولو كان التبويب قد ظهر بعد لحظة من الأمر
+  assert.equal(page.byId('platform-overlay').hidden, true, 'the start overlay is gone once the duel begins');
   assert.equal(game.abandon(), true, 'a live run can be dropped from the arena');
   assert.equal(game.busy().running, false, 'and the engine is free again');
   // وبعد التخلّي تبدأ مبارزة جديدة فورًا بدل البقاء محبوسًا
