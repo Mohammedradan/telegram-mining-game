@@ -254,7 +254,10 @@ test('arena UI: the live duel is the primary entry, the classic duel sits in a c
   // المسرح الحيّ + سلّم المبارزين: مشهد لعب فعلي بدل مستطيل فارغ
   assert.match(html, /<canvas id="arena-preview"/, 'the arena renders the real engine scene');
   assert.match(html, /id="arena-ladder"[^>]*role="list"/, 'and a rival ladder fills the rest of the screen');
-  assert.match(html, /function renderArenaLadder[\s\S]{0,1600}row\.onclick = \(\) => pickRival\(zone\)/, 'each row really selects its rival');
+  // الصف المفتوح يختار خصمه، والمقفل يشرح شرطه فقط (ولا يحوّل زر البدء إلى زر صامت)
+  assert.match(html, /row\.onclick = status\.unlocked \? \(\) => pickRival\(zone\) : \(\) => explainLockedRival\(status\)/);
+  assert.match(html, /function refreshArenaCta[\s\S]{0,600}btn\.disabled = locked/, 'the start button reflects a locked pick instead of doing nothing');
+  assert.match(html, /id="arena-duel-btn"[\s\S]{0,300}<\/button>\s*<span id="arena-record"/, 'the start button and record sit below the stage, not over the scene');
   assert.match(html, /function pickRival[\s\S]{0,200}renderArenaLadder\(\)/, 'picking a rival re-renders the stage');
   assert.match(html, /showArenaPreview\?\.\(arenaSelectedZone\)/, 'and the live stage follows the selection');
   assert.match(html, /duelReward\?\./, 'the reward shown comes from the rules, not a hardcoded number');

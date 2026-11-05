@@ -1340,6 +1340,16 @@
     arenaSeed = (arenaSeed * 1103515245 + 12345) % 2147483647;
     arenaSim = R.create(currentHero, arenaSeed, { zone: arenaZone, mode: 'duel' });
     arenaOver = 0;
+    // إطار المعاينة: البطل والخصم في كادر واحد (الجولة الحقيقية تبدأ من مواقعها الطبيعية)
+    const p = arenaSim.player, rival = arenaSim.enemies[0];
+    if (rival) {
+      const minX = Number.isFinite(rival.minX) ? rival.minX : 280;
+      const maxX = Number.isFinite(rival.maxX) ? rival.maxX : 460;
+      rival.x = Math.max(minX, Math.min(maxX, 380));
+      rival.vx = 0;
+      p.x = Math.max(24, rival.x - 150);
+      p.vx = 0;
+    }
   }
   // مدخلات اللاعب الآلي: يلاحق الخصم، يقفز فوق الموجة، ويضرب عند المدى
   function arenaDemoMask(simNow) {

@@ -288,7 +288,7 @@
     .arena-duel-btn:active { transform: scale(.97); }
     /* ===== مسرح الساحة: مشهد اللعب الحقيقي، لا مستطيل فارغ ===== */
     .arena-stage {
-      position: relative; flex: 1 1 auto; min-height: 210px; border-radius: 14px; overflow: hidden;
+      position: relative; flex: 1 1 auto; aspect-ratio: 16 / 9; max-height: 46vh; min-height: 176px; border-radius: 14px; overflow: hidden;
       border: 1px solid rgba(94, 124, 146, .45); background: #0a1220;
       box-shadow: inset 0 0 40px rgba(0, 0, 0, .55);
     }
@@ -304,16 +304,16 @@
     }
     .as-chip.rival { border-color: rgba(244, 114, 114, .6); color: #ffe0e0; }
     .as-vs { font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .5px; }
-    .as-foot {
-      position: absolute; inset: auto 8px 8px 8px; display: flex; align-items: center; gap: 8px;
-    }
+    .as-bar { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+    .as-bar .arena-duel-btn { flex: 1 1 auto; padding: 10px 14px; border-radius: 11px; font-size: 13px; font-weight: 900; }
+    .as-bar .arena-duel-btn:disabled { opacity: .55; filter: grayscale(.35); }
     .as-record {
       font-size: 9.5px; font-weight: 800; color: #cbd9e2; padding: 4px 8px; border-radius: 8px;
       background: rgba(6, 14, 24, .8); border: 1px solid rgba(94, 124, 146, .4); white-space: nowrap;
     }
-    .as-foot .arena-duel-btn { flex: 1 1 auto; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 900; }
     /* سلّم المبارزين: صفوف مضغوطة تُظهر الخصم والمنجم والمكافأة وحالة الفتح */
-    .arena-ladder { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; }
+    .arena-ladder { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; min-height: 0; }
+    .al-row { flex: 0 0 auto; }
     .al-row {
       display: flex; align-items: center; gap: 8px; width: 100%; text-align: right;
       padding: 7px 9px; border-radius: 11px; border: 1px solid rgba(94, 124, 146, .32);
@@ -474,7 +474,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=20">
+  <link rel="stylesheet" href="/platform.css?v=21">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -1119,10 +1119,10 @@
         <span class="as-vs">VS</span>
         <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
       </div>
-      <div class="as-foot">
-        <span id="arena-record" class="as-record">0 فوز · 0 خسارة</span>
-        <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn">ابدأ المبارزة</button>
-      </div>
+    </div>
+    <div class="as-bar">
+      <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn">ابدأ المبارزة</button>
+      <span id="arena-record" class="as-record">0 فوز · 0 خسارة</span>
     </div>
     <div id="arena-live-banner" class="arena-live-banner" hidden aria-live="polite">
       <span id="arena-live-text"></span>
@@ -1869,7 +1869,8 @@
         row.setAttribute('role', 'listitem');
         row.className = `al-row${zone === arenaSelectedZone ? ' active' : ''}${status.unlocked ? '' : ' locked'}`;
         row.dataset.zone = String(zone);
-        row.onclick = () => pickRival(zone);
+        // الصف المقفل يشرح شرطه ولا يصبح مختارًا: زر البدء يجب أن يبقى يعمل دائمًا
+        row.onclick = status.unlocked ? () => pickRival(zone) : () => explainLockedRival(status);
         const blocked = (status.needs || []).filter((n) => !n.ok).map((n) => n.label).join(' · ');
         row.innerHTML = `
           <span class="al-avatar" aria-hidden="true"><svg class="ui-icon"><use href="#i-swords"/></svg></span>
@@ -1882,11 +1883,37 @@
         box.appendChild(row);
       });
       window.PlatformGame?.showArenaPreview?.(arenaSelectedZone);
+      refreshArenaCta();
     }
     function pickRival(zone) {
       arenaSelectedZone = Number(zone) || 0;
+      const live = document.getElementById('arena-live-banner');
+      if (live) live.hidden = true;
       renderArenaLadder();
       haptic('light');
+    }
+    function explainLockedRival(status) {
+      const live = document.getElementById('arena-live-banner');
+      const text = document.getElementById('arena-live-text');
+      if (!live || !text) return;
+      const blocked = ((status && status.needs) || []).filter((n) => !n.ok).map((n) => n.label).join(' · ');
+      live.hidden = false;
+      text.textContent = `هذا المبارز مقفل — يحتاج: ${blocked}. ابدأ بمبارز مفتوح، ويُفتح هذا تلقائيًا عند استيفاء الشرط.`;
+      const resumeBtn = document.getElementById('arena-resume-btn');
+      const abandonBtn = document.getElementById('arena-abandon-btn');
+      if (resumeBtn) resumeBtn.hidden = true;
+      if (abandonBtn) abandonBtn.hidden = true;
+      haptic('error');
+    }
+    // زر البدء يعكس الحالة: مقفلة أم جاهزة (لا يبقى زرًا صامتًا)
+    function refreshArenaCta() {
+      const btn = document.getElementById('arena-duel-btn');
+      if (!btn) return;
+      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) || {};
+      const status = RULES?.mineStatus?.(arenaSelectedZone, st.mines, st.equipment);
+      const locked = Boolean(status && status.unlocked === false);
+      btn.disabled = locked;
+      btn.textContent = locked ? 'مبارز مقفل' : 'ابدأ المبارزة';
     }
 
     // حالة زر المبارزة: إن كانت هناك جولة جارية تُعرض أزرار فعلية بدل رسالة صامتة
@@ -4378,6 +4405,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=21"></script>
+  <script src="/platform-game.js?v=22"></script>
 </body>
 </html>
