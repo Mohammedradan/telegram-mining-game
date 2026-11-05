@@ -13,6 +13,7 @@ const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, de
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
 const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
+const Quests = require('./quests');
 // قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
 const PlatformRules = require('./public/platform-rules');
 
@@ -248,7 +249,7 @@ function deriveStats(s) {
 // تعزيز، مكافأة جولة) بأرقام تسلسلية لكل جلسة، والخادم يحاكي القيود الفيزيائية
 // (الطاقة وتجددها، معدل النقر، الأسعار المشتقة، نافذة التعزيز) ويتجاهل التكرار.
 // ---------------------------------------------------------------------------
-const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore', 'buy_equip']);
+const OP_TYPES = new Set(['mine', 'buy', 'buy_adv', 'boost', 'reward', 'run', 'mission', 'weekly_mission', 'achievement', 'arena', 'sell_ore', 'buy_equip', 'quest']);
 // جولة مغامرة: الوضع يحدد المدة القصوى وسقف المكافأة ومعاملها (مطابق للواجهة)
 const ADV_RUN_MODES = {
   classic: { maxSec: 60, scale: 1, cap: 100 },
@@ -519,6 +520,15 @@ function achievementsView(user, ctx = {}) {
   });
   return { items, claimedCount: items.filter((i) => i.claimed).length, total: items.length };
 }
+// مهام المغامرة (quests.js): العدّادات في user.sync.quests تغذّيها جولات المنصّات المُعاد تشغيلها فقط، والانتصارات من state.mines.wins
+const questsView = (user) => Quests.view(user.sync.quests, user.state.mines?.wins);
+function claimQuest(user, id, now) {
+  const r = Quests.claim(user.sync.quests, user.state.mines?.wins, id, now);
+  if (r.status !== 'ok') return r;
+  const s = user.state;
+  s.gold += r.gold; s.totalEarned += r.gold;
+  return { ...r, xp: grantXp(s, r.xp) };
+}
 function claimAchievement(user, id, ctx, now) {
   const a = ACHIEVEMENT_BY_ID[id];
   if (!a) return { status: 'invalid' };
@@ -603,7 +613,7 @@ function applyArena(user, op, now) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0 });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, quests: Quests.normalize() });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -625,6 +635,7 @@ function ensureSync(user) {
     arena: normalizeArena(sync.arena),
     platformDay: typeof sync.platformDay === 'string' ? sync.platformDay : '',
     platformGold: Math.max(0, Math.floor(Number(sync.platformGold) || 0)),
+    quests: Quests.normalize(sync.quests),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
@@ -827,6 +838,12 @@ function applyOps(user, session, ops, now, ctx = {}) {
         if (claim.status === 'ok') { goldDelta = claim.gold; detail = { key: claim.key, week: claim.week, xp: claim.xp }; }
         break;
       }
+      case 'quest': {
+        const claim = claimQuest(user, op.id, now);
+        Object.assign(r, claim);
+        if (claim.status === 'ok') { goldDelta = claim.gold; detail = { id: claim.id, xp: claim.xp }; }
+        break;
+      }
       case 'achievement': {
         const claim = claimAchievement(user, op.id, ctx, now);
         Object.assign(r, claim);
@@ -955,6 +972,7 @@ function profileOf(user, isNew = false, extra = {}) {
     referredBy: user.referredBy,
     daily: dailyInfo(user),
     dailyGold: dailyGoldView(user.sync, now),
+    quests: questsView(user),
     isNew,
     serverTime: now,
     ...extra,
@@ -1184,6 +1202,7 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
       referralEarnings: user.referralEarnings,
       daily: dailyInfo(user),
       dailyGold: dailyGoldView(user.sync, now),
+      quests: questsView(user),
       serverTime: now,
     };
   });
@@ -1265,7 +1284,7 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
 // الخادم للحركات المسجّلة مع مكافأة افتراضية واحدة مضمونة المعاملة — نفس المصادقة
 // وتحديد المعدل ومعالجة الأخطاء المعتمدة أعلاه (platform-api.js).
 // ---------------------------------------------------------------------------
-mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, now: Date.now });
+mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, trackQuests: (user, facts) => Quests.addRun(user.sync.quests, facts), now: Date.now });
 
 // ---------------------------------------------------------------------------
 // ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص

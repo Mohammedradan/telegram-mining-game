@@ -155,7 +155,26 @@ async function main() {
       assert.ok(me.achievements.items.find(i => i.id === 'boss').done, 'the achievement nobody could reach before is unlocked');
       const loot = R.oreSummary(expected);
       for (const [ore, n] of Object.entries(loot)) assert.equal(state.ores[ore], n, `${ore} credited exactly as replayed`);
-      report.fights.push({ zone: flow.zone, hero: flow.hero, reduced: flow.reduced, ticks, segments: inputs.length, bossHpAtFirstStun: hpAtStun, bossWins: state.adventure.bossWins, ores: loot });
+      // the adventure quests follow from the same replay (batch 3b): the right boss under its own key, this round's enemies and ores — and the
+      // missions panel already shows them (the finish receipt refreshed the page, no reload) and pays a claim with one tap
+      const bossQuest = flow.zone === 2 ? 'colossus' : 'warden', otherBoss = flow.zone === 2 ? 'warden' : 'colossus';
+      const qs = Object.fromEntries(me.quests.items.map(i => [i.id, i]));
+      assert.equal(qs[bossQuest].done, true, 'the boss quest of this mine is done'); assert.equal(qs[otherBoss].done, false, 'and the other boss is not');
+      assert.equal(qs.first_rock.done, expected.mined >= 1, 'rocks mined, from the replay');
+      assert.equal(qs.guards_50.value, Math.min(50, expected.defeated), 'enemies defeated, from the replay');
+      for (const [ore, id, target] of [['copper', 'copper_40', 40], ['iron', 'iron_30', 30], ['gold', 'gold_25', 25], ['crystal', 'crystal_20', 20], ['lava', 'lava_15', 15]]) assert.equal(qs[id].value, Math.min(target, loot[ore]), `${ore} for the quests = the ${ore} the server credited`);
+      assert.equal(qs.win_stone.done, flow.wins[0] >= 1 || false, 'a win in mine 1 comes from the mines record');
+      assert.deepEqual(await page.evaluate(id => { const i = profile.quests.items.find(x => x.id === id); return { done: i.done, claimed: i.claimed }; }, bossQuest), { done: true, claimed: false }, 'the page already knows (the receipt refreshed it)');
+      await page.evaluate(() => { switchPlayPanel('missions'); document.getElementById('quests-box').open = true; });
+      assert.match(await page.locator(`[data-quest="${bossQuest}"]`).getAttribute('class'), /ready/);
+      const goldBefore = await page.evaluate(() => Math.floor(state.gold));
+      await page.locator(`[data-quest-claim="${bossQuest}"]`).click();
+      await page.waitForFunction(() => SYNC.pending.length === 0 && !SYNC.inflight, null, { timeout: 30000 });
+      const paid = await page.evaluate(async () => (await window.PlatformBridge.request('/api/me')));
+      assert.equal(paid.quests.items.find(i => i.id === bossQuest).claimed, true);
+      assert.equal(Math.floor(paid.state.gold), goldBefore + qs[bossQuest].gold, `the ${bossQuest} quest paid its ${qs[bossQuest].gold} gold`);
+      assert.equal(paid.state.xp, state.xp + qs[bossQuest].xp, `and its ${qs[bossQuest].xp} XP`);
+      report.fights.push({ zone: flow.zone, hero: flow.hero, reduced: flow.reduced, ticks, segments: inputs.length, bossHpAtFirstStun: hpAtStun, bossWins: state.adventure.bossWins, ores: loot, quest: { id: bossQuest, gold: qs[bossQuest].gold, xp: qs[bossQuest].xp } });
       assert.deepEqual(errors, []);
       await ctx.close();
     }

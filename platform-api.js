@@ -40,7 +40,7 @@ function mineProgress(user) {
 
 // Only virtual gold, never a competitive/financial payout. Deterministic replay
 // proves legal physics, not a human player: automation remains possible.
-function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, now = Date.now }) {
+function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, trackQuests = () => {}, now = Date.now }) {
   const lifetime = 30 * 60 * 1000;
   // body اختياري: { zone?: 0..5, resume?: true }.
   //  - المنجم يُتحقَّق من فتحه خادمياً، والمعدات تُقرأ من حالة اللاعب الخادمية لا من العميل، وتُثبَّت لقطتها في الجولة.
@@ -120,6 +120,8 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       a.bestScore = Math.max(a.bestScore, score); a.rewardEarned += gold;
       a.zones = a.gems >= 75 || a.bossWins >= 1 ? 3 : a.gems >= 25 || a.runs >= 3 ? 2 : 1;
       for (const [key, value] of [['runs', 1], ['gems', state.collected], ['score', score], ['play_time', Math.floor(duration)]]) trackMission(user, key, value, now());
+      // مهام المغامرة: عدّادات من هذه الجولة المُعاد تشغيلها فقط (صخور، أعداء، خامات، سقوط زعيم بمفتاحه)
+      trackQuests(user, { mined: state.mined, defeated: state.defeated, ores, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
       user.revision++; user.updatedAt = now();
       const receipt = { id: run.id, won: state.status === 'won', zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
         ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
