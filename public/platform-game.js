@@ -48,7 +48,8 @@
   let floaters = [], floatersSpawned = 0, combo = 0, comboUntil = 0, comboPeak = 0, beams = [];
   let frameTime = 0, hitStopUntil = 0, lastHitStop = -1e9;
   // أسماء نيّة الخصم: يُعلَن الهجوم قبل وقوعه بكلمة واحدة مفهومة (العدالة أساس القتال)
-  const INTENT_LABEL = { slash: 'ضربة قريبة', wave: 'موجة — اقفز', overhead: 'كاسرة — اقفز أو رُوغ', charge: 'اندفاع!' };
+  const INTENT_LABEL = { slash: 'ضربة قريبة', wave: 'موجة — اقفز', overhead: 'كاسرة — اقفز أو رُوغ', charge: 'اندفاع!',
+    slam: 'موجة — اقفز', pound: 'صدمة أرضية — اقفز!', sweep: 'ضربة قريبة — صدّها' };
   const keys = new Set(), pointers = new Map();
   // Preserve a quick jump/mine tap until one simulation step consumes it. Sources
   // are separate so cancelling a finger cannot erase a keyboard or another finger.
@@ -975,7 +976,7 @@
   // --- Input: pointer + keyboard, prevent page scroll ---
   for (const button of document.querySelectorAll('[data-platform-input]')) {
     button.addEventListener('pointerdown', e => {
-      e.preventDefault(); if (!running || paused) return;
+      e.preventDefault(); if (layoutEditing || !running || paused) return;
       const mask = Number(button.dataset.platformInput);
       audioUnlock(); button.setPointerCapture?.(e.pointerId); pointers.set(e.pointerId, mask);
       queueAction(`pointer:${e.pointerId}`, mask); button.dataset.down = 'true';
@@ -1028,7 +1029,7 @@
 
     joystick.addEventListener('pointerdown', e => {
       e.preventDefault();
-      if (!running || paused) return;
+      if (layoutEditing || !running || paused) return;
       audioUnlock();
       joystickActive = true;
       joystickPointerId = e.pointerId;
@@ -1081,6 +1082,77 @@
   document.querySelectorAll('[data-ctl-sensitivity]').forEach(b => b.addEventListener('click', () => { controlSettings.sensitivity = b.dataset.ctlSensitivity; saveControlSettings(); }));
   el('ctl-haptics')?.addEventListener('click', () => { controlSettings.haptics = controlSettings.haptics === false; saveControlSettings(); });
   applyControlSettings();
+
+  // --- تخصيص مواضع التحكم (سحب) — يُحفظ في localStorage لهذا الجهاز فقط ---
+  // لا يمسّ الحساب ولا يُرسل للخادم، ولا يغيّر أي بت إدخال: الإزاحة بصرية بحتة (style.translate).
+  const LAYOUT_KEY = 'platform-control-layout';
+  const LAYOUT_LIMIT = 150; // أقصى إزاحة لكل عنصر بالبكسل، فلا يهرب عن حدود الشاشة
+  const clampOff = v => Math.max(-LAYOUT_LIMIT, Math.min(LAYOUT_LIMIT, Math.round(Number(v) || 0)));
+  let controlLayout = {};
+  try {
+    const savedLayout = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+    if (savedLayout && typeof savedLayout === 'object') {
+      for (const [k, v] of Object.entries(savedLayout)) {
+        if (v && Number.isFinite(Number(v.x)) && Number.isFinite(Number(v.y))) controlLayout[k] = { x: clampOff(v.x), y: clampOff(v.y) };
+      }
+    }
+  } catch (_) { controlLayout = {}; }
+  let layoutEditing = false;
+  const layoutKeyOf = node => (joystick && node === joystick) ? 'joy' : String(node?.dataset?.platformInput ?? '');
+  function applyControlLayout() {
+    const targets = [joystick, ...document.querySelectorAll('[data-platform-input]')].filter(Boolean);
+    for (const node of targets) {
+      const off = controlLayout[layoutKeyOf(node)];
+      if (node.style) node.style.translate = off ? `${off.x}px ${off.y}px` : '';
+    }
+  }
+  function saveControlLayout() { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(controlLayout)); } catch (_) {} }
+  function setLayoutEditing(on) {
+    layoutEditing = Boolean(on);
+    document.querySelector('.mine-controls')?.classList?.toggle('ctl-editing', layoutEditing);
+    const btn = el('ctl-edit');
+    if (btn) { btn.classList.toggle('active', layoutEditing); btn.setAttribute('aria-pressed', String(layoutEditing)); }
+    const hint = el('ctl-layout-hint'); if (hint) hint.hidden = !layoutEditing;
+    if (layoutEditing) { clearInput(); pause(); say('وضع التحريك: اسحب العصا والأزرار إلى موضعها المريح.'); }
+    else say('توقف التحريك؛ المواضع محفوظة على هذا الجهاز.');
+  }
+  el('ctl-edit')?.addEventListener('click', () => setLayoutEditing(!layoutEditing));
+  el('ctl-reset')?.addEventListener('click', () => {
+    controlLayout = {}; try { localStorage.removeItem(LAYOUT_KEY); } catch (_) {}
+    controlSettings = { ...CONTROL_DEFAULTS }; saveControlSettings(); applyControlLayout();
+    say('أُعيد الوضع الافتراضي للتحكم.');
+  });
+  // السحب نفسه: حركة الإصبع تترجم العنصر فقط، ولا تُسجَّل كإدخال لعب (الحارسان أعلاه يمنعان ذلك).
+  function bindLayoutDrag(node) {
+    if (!node) return;
+    node.addEventListener('pointerdown', e => {
+      if (!layoutEditing) return;
+      e.preventDefault(); e.stopPropagation();
+      const key = layoutKeyOf(node);
+      const base = controlLayout[key] || { x: 0, y: 0 };
+      const ox = e.clientX, oy = e.clientY;
+      let moved = false;
+      node.setPointerCapture?.(e.pointerId);
+      const onMove = ev => {
+        if (ev.pointerId !== e.pointerId) return;
+        if (!moved && Math.abs(ev.clientX - ox) + Math.abs(ev.clientY - oy) > 3) moved = true;
+        controlLayout[key] = { x: clampOff(base.x + ev.clientX - ox), y: clampOff(base.y + ev.clientY - oy) };
+        applyControlLayout();
+      };
+      const onUp = ev => {
+        if (ev.pointerId !== e.pointerId) return;
+        node.removeEventListener('pointermove', onMove);
+        node.removeEventListener('pointerup', onUp);
+        node.removeEventListener('pointercancel', onUp);
+        if (moved) { saveControlLayout(); say('حُفظ الموضع على هذا الجهاز.'); }
+      };
+      node.addEventListener('pointermove', onMove);
+      node.addEventListener('pointerup', onUp);
+      node.addEventListener('pointercancel', onUp);
+    });
+  }
+  for (const node of [joystick, ...document.querySelectorAll('[data-platform-input]')]) bindLayoutDrag(node);
+  applyControlLayout();
 
   // Prevent scrolling while interacting with canvas
   canvas.addEventListener('touchmove', e => { if (running) e.preventDefault(); }, { passive: false });
@@ -1173,7 +1245,7 @@
   });
   el('coach-skip')?.addEventListener('click', closeCoach);
 
-  el('platform-start').addEventListener('click', start);
+  el('platform-start').addEventListener('click', () => { setLayoutEditing(false); start(); });
   el('platform-resume').addEventListener('click', resume);
   el('platform-pause').addEventListener('click', () => { if (paused) resume(); else pause(); });
   el('platform-retry').addEventListener('click', submit);

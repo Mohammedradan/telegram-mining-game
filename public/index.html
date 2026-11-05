@@ -411,7 +411,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=16">
+  <link rel="stylesheet" href="/platform.css?v=17">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -732,6 +732,12 @@
                 <span>اهتزاز الهاتف</span>
                 <button type="button" id="ctl-haptics" class="active" aria-pressed="true">مفعّل</button>
               </div>
+              <div class="ctl-row">
+                <span>مواضع الأزرار</span>
+                <button type="button" id="ctl-edit" aria-pressed="false">تحريك</button>
+                <button type="button" id="ctl-reset">استعادة الوضع الافتراضي</button>
+              </div>
+              <p class="ctl-hint" id="ctl-layout-hint" hidden>اسحب العصا والأزرار إلى الموضع المريح لإبهامك، ثم أوقف التحريك. المواضع تُحفظ على هذا الجهاز فقط ولا تؤثر في حسابك ولا في نتيجة المعركة.</p>
             </div>
           </details>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
@@ -1315,10 +1321,10 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=10"></script>
+  <script src="/platform-rules.js?v=11"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
-  <script src="/platform-bosses.js?v=3"></script>
+  <script src="/platform-bosses.js?v=4"></script>
   <script src="/platform-renderer.js?v=8"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
@@ -4179,6 +4185,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=14"></script>
+  <script src="/platform-game.js?v=15"></script>
 </body>
 </html>

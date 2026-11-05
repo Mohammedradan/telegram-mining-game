@@ -617,7 +617,7 @@ function applyArena(user, op, now) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, quests: Quests.normalize() });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, duelDay: '', duelGold: 0, quests: Quests.normalize() });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -639,6 +639,8 @@ function ensureSync(user) {
     arena: normalizeArena(sync.arena),
     platformDay: typeof sync.platformDay === 'string' ? sync.platformDay : '',
     platformGold: Math.max(0, Math.floor(Number(sync.platformGold) || 0)),
+    duelDay: typeof sync.duelDay === 'string' ? sync.duelDay : '',
+    duelGold: Math.max(0, Math.floor(Number(sync.duelGold) || 0)),
     quests: Quests.normalize(sync.quests),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;

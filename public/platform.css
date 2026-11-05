@@ -626,6 +626,12 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .ctl-row button{font-size:10px;font-weight:800;padding:3px 8px;border-radius:8px;border:1px solid rgba(94,124,146,.4);background:rgba(19,36,48,.8);color:#cbd9e2}
 .ctl-row button.active{background:linear-gradient(135deg,#b7791f,#8a5a14);border-color:#f4bf62;color:#fff6dd}
 .ctl-row button:active{transform:scale(.96)}
+.ctl-hint{margin:2px 0 0;font-size:10px;line-height:1.55;color:#9fb4c4}
+/* وضع تحريك الأزرار: إطار متقطّع واضح، وشفافية كاملة حتى يرى اللاعب ما يسحبه */
+.mine-controls.ctl-editing{--ctl-opacity:1}
+.mine-controls.ctl-editing .action-btn,.mine-controls.ctl-editing .virtual-joystick{outline:1px dashed rgba(244,191,98,.8);outline-offset:2px;cursor:grab;touch-action:none;opacity:1}
+.mine-controls.ctl-editing .action-btn:active{transform:none}
+.mine-controls.ctl-editing .action-btn span{color:#f6d69a}
 @media(max-width:420px){.ctl-row > span{min-width:44px;font-size:9px}.ctl-row button{padding:3px 6px;font-size:9px}}
 
 /* على الهواتف العصا وحدها تكفي للحركة: أزرار يسار/يمين مكرّرة وتأكل مساحة القتال */

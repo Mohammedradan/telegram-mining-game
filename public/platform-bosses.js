@@ -297,6 +297,26 @@
       const gx = cx, gy = e.y - 18;
       c.strokeStyle = `rgba(255,120,110,${0.6 + 0.4 * Math.sin(s.tick * 0.7)})`; c.lineWidth = 2.4;
       c.beginPath(); c.moveTo(gx - 7, gy - 7); c.lineTo(gx + 7, gy + 7); c.moveTo(gx + 7, gy - 7); c.lineTo(gx - 7, gy + 7); c.stroke();
+    } else if (e.attack === 'pound') {
+      // «الصدمة الأرضية»: حلقة حول الزعيم تنمو مع الإنذار، ولا يوقفها الدرع
+      const radius = (e.ai.pound && e.ai.pound.radius) || 96, cx = e.x + e.w / 2;
+      c.strokeStyle = `rgba(255,70,50,${0.55 + 0.4 * Math.sin(s.tick * 0.6)})`;
+      c.lineWidth = 3.4; c.setLineDash([10, 8]);
+      c.beginPath(); c.ellipse(cx, 300, Math.max(6, radius * t), 10 * (0.4 + t), 0, 0, TAU); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = `rgba(255,80,60,${0.14 + 0.12 * t})`;
+      c.beginPath(); c.ellipse(cx, 300, Math.max(4, radius * t), 24 * t, 0, 0, TAU); c.fill();
+      c.strokeStyle = `rgba(255,130,110,${0.5 + 0.3 * Math.sin(s.tick * 0.9)})`; c.lineWidth = 2.4;
+      const gx = cx, gy = e.y - 18;
+      c.beginPath(); c.moveTo(gx - 7, gy - 7); c.lineTo(gx + 7, gy + 7); c.moveTo(gx + 7, gy - 7); c.lineTo(gx - 7, gy + 7); c.stroke();
+    } else if (e.attack === 'sweep') {
+      // ضربة قريبة سريعة: شريط قصير أمام الزعيم (يُصدّ)
+      const reach = (e.ai.sweep && e.ai.sweep.reach) || 84, dir = e.aim || 1;
+      const x0 = dir > 0 ? e.x + e.w : e.x - reach;
+      c.fillStyle = `rgba(255,170,80,${0.35 * t * pulse})`;
+      c.fillRect(x0, e.y + 6, reach, 300 - e.y - 6);
+      c.fillStyle = `rgba(255,235,190,${0.7 * t})`;
+      for (let i = 0; i < 3; i++) { const px = dir > 0 ? x0 + reach - 10 - i * 18 : x0 + 10 + i * 18; c.beginPath(); c.moveTo(px, 300 - e.h / 2 - 6); c.lineTo(px + dir * 11, 300 - e.h / 2); c.lineTo(px, 300 - e.h / 2 + 6); c.fill(); }
     } else if (e.attack === 'wave') {
       const wv = ai.wave, reach = wv.ttl * wv.speed / 60, dir = e.aim || 1;
       const x0 = dir > 0 ? e.x + e.w : e.x - reach;
@@ -367,6 +387,13 @@
     c.fillStyle = 'rgba(255,255,255,.25)'; c.fillRect(x + 3, y + 1, Math.max(0, bw * ratio - 6), 2);
     c.fillStyle = 'rgba(0,0,0,.45)'; for (let i = 1; i < 8; i++) c.fillRect(x + bw * i / 8 - 0.5, y, 1, 8);
     if (stunned && !reduced) { c.strokeStyle = `rgba(255,214,102,${0.5 + Math.sin(s.tick * 0.35) * 0.4})`; c.lineWidth = 2; c.beginPath(); c.roundRect(x - 3, y - 15, bw + 6, 28, 9); c.stroke(); }
+    if (b.state === 'windup' && !b.dead) {
+      const label = b.attack === 'pound' ? 'صدمة أرضية — اقفز!' : b.attack === 'sweep' ? 'ضربة قريبة — صدّها' : b.attack === 'charge' ? 'اندفاع — تنحَّ' : 'موجة — اقفز';
+      c.font = '900 9px system-ui, sans-serif'; c.fillStyle = b.attack === 'pound' ? '#ff9b7a' : '#ffd0a8';
+      c.fillText(label, w / 2, y + 20);
+      c.restore();
+      return;
+    }
     c.font = '800 8px system-ui, sans-serif'; c.fillStyle = stunned ? '#ffd166' : '#8fb0c4';
     c.fillText(b.dead ? 'سقط!'
       : stunned && b.armored === false ? 'ترنّح — اضربه الآن'

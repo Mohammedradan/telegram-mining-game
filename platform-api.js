@@ -16,6 +16,16 @@ function dailyQuota(sync, potential, at = Date.now()) {
   return { day, gold: allowed, capped: allowed < potential, remaining: Math.max(0, DAILY_GOLD_CAP - used - allowed) };
 }
 
+// سقف يومي مستقل للمبارزات (منفصل تماماً عن سقف التعدين أعلاه): القتال مهارة لا مزرعة.
+// 400 ذهباً/يوم ≈ خمس مبارزات ناجحة في أعمق منجم — كافٍ للتشجيع، وصغير جداً أمام اقتصاد التعدين.
+const DAILY_DUEL_CAP = 400;
+function duelQuota(sync, potential, at = Date.now()) {
+  const day = new Date(at).toISOString().slice(0, 10);
+  if (sync.duelDay !== day) { sync.duelDay = day; sync.duelGold = 0; }
+  const used = Math.max(0, Number(sync.duelGold) || 0);
+  const allowed = Math.max(0, Math.min(Number(potential) || 0, DAILY_DUEL_CAP - used));
+  return { day, gold: allowed, capped: allowed < potential, remaining: Math.max(0, DAILY_DUEL_CAP - used - allowed), cap: DAILY_DUEL_CAP };
+}
 // عرض فقط (لا يعدّل الدفتر): كم استُهلك من سقف اليوم المشترك بين جولات المنصّات والوضع الكلاسيكي وبيع الخامات.
 // عدّاد يوم قديم لا يُحتسب (يُصفَّر عند أول دفع في اليوم الجديد داخل dailyQuota).
 function dailyGoldView(sync, at = Date.now()) {
@@ -110,10 +120,13 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const potential = breakdown.total; // نفس سقف الـ100: المعالم تفتح أجزاءً منه، والفوز يدفع الباقي
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
       const a = user.state.adventure;
-      const quota = dailyQuota(user.sync, tooSoon ? 0 : potential, now());
+      // مكافآت المبارزة تُسحب من سقفها المستقل، ومكافآت التعدين من سقفه اليومي — لا يزاحم أحدهما الآخر.
+      const duelMode = config.mode === 'duel';
+      const quota = duelMode ? duelQuota(user.sync, tooSoon ? 0 : potential, now()) : dailyQuota(user.sync, tooSoon ? 0 : potential, now());
       const gold = tooSoon ? 0 : quota.gold;
       if (gold) {
-        user.sync.platformGold = (Number(user.sync.platformGold) || 0) + gold;
+        if (duelMode) user.sync.duelGold = (Number(user.sync.duelGold) || 0) + gold;
+        else user.sync.platformGold = (Number(user.sync.platformGold) || 0) + gold;
         user.sync.lastRewardAt.adventure = now();
       }
       user.state.gold += gold; user.state.totalEarned += gold;
@@ -152,7 +165,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
         choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true,
         ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
-        dailyRemaining: quota.remaining, ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
+        dailyRemaining: quota.remaining, ...(duelMode ? { duelCap: quota.cap } : {}), ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
@@ -169,4 +182,4 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     res.json(result);
   }));
 }
-module.exports = { mountPlatform, dailyQuota, dailyGoldView, DAILY_GOLD_CAP, ORE_PRICES, configOfRun };
+module.exports = { mountPlatform, dailyQuota, dailyGoldView, DAILY_GOLD_CAP, DAILY_DUEL_CAP, duelQuota, ORE_PRICES, configOfRun };

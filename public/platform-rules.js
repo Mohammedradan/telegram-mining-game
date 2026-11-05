@@ -74,7 +74,8 @@
     softScale: 55,      // المشي التناظري: 55% من سرعة الجري
   });
   const DUEL = Object.freeze({
-    reward: 60, guardSlow: 55,
+    // مكافأة أساسية ثابتة + خطوة صغيرة لكل عمق (تحدٍّ أصعب = عائد أعلى قليلاً)، بحد أقصى 80.
+    reward: 60, rewardStep: 4, guardSlow: 55,
     // ساحة المبارزة داخل أول قطعة أرض صلبة في المستوى (0..560) — لا فجوات ولا أخطار بيئية حولها.
     rival: Object.freeze({ id: 80, w: 44, h: 64, hp: 34, hpPerZone: 6, patrol: 78, charge: 205, wake: 0, minX: 210, maxX: 470, windup: 38, recover: 46 }),
     // ضربة قريبة تُصدّ، وضربة كاسرة للدرع تُتفادى بالقفز أو المراوغة أو الابتعاد.
@@ -265,7 +266,9 @@
       checkpoints: [{ from: 1000, to: 1040, at: 1010 }, { from: 1600, to: 1640, at: 1610 }],
       signs: [680, 1430],
       boss: { kind: 'colossus', name: 'عملاق الذهب', w: 58, h: 66, minX: 1800, maxX: 2440, wake: 1750, maxHp: 17, patrolSpeed: 42, chargeSpeed: 0,
-        ai: { walk: 90, windup: 40, recover: 80, enragedWalk: 60, enragedWindup: 30, attacks: ['slam'], wave: { speed: 230, w: 30, h: 22, ttl: 64 } } },
+        ai: { walk: 90, windup: 40, recover: 80, enragedWalk: 60, enragedWindup: 30,
+          attacks: ['slam'], enragedAttacks: ['slam', 'pound'], finalAttacks: ['sweep', 'pound', 'slam'],
+          pound: { radius: 96 }, sweep: { reach: 84 }, wave: { speed: 230, w: 30, h: 22, ttl: 64 } } },
     },
     // المنجم 3 — البلّور: ثلاث فجوات وثلاثة أخطار قصيرة (فتحة بلّور، أشواك موقوتة بطور مختلف، حفرة).
     {
@@ -315,7 +318,10 @@
       checkpoints: [{ from: 700, to: 760, at: 710 }, { from: 1680, to: 1720, at: 1690 }],
       signs: [500, 1140],
       boss: { kind: 'warden', name: 'حارس القلب', w: 56, h: 46, minX: 1840, maxX: 2450, wake: 1800, maxHp: 29, patrolSpeed: 50, chargeSpeed: 215,
-        ai: { walk: 60, windup: 44, recover: 70, enragedWalk: 40, enragedWindup: 32, chargeTicks: 70, attacks: ['charge', 'slam'], enragedAttacks: ['charge', 'slam', 'charge'], wave: { speed: 250, w: 30, h: 22, ttl: 64 } } },
+        ai: { walk: 60, windup: 44, recover: 70, enragedWalk: 40, enragedWindup: 32, chargeTicks: 70,
+          attacks: ['charge', 'slam'], enragedAttacks: ['charge', 'slam', 'charge'],
+          finalAttacks: ['sweep', 'pound', 'charge', 'slam'], pound: { radius: 104 }, sweep: { reach: 88 },
+          wave: { speed: 250, w: 30, h: 22, ttl: 64 } } },
     },
   ];
   const deepFreeze = o => { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) deepFreeze(v); } return o; };
@@ -419,6 +425,16 @@
       yieldPercent: 100 + 15 * L.bag,
       luck: L.luck,
       robot: L.robot > 0 ? { period: 190 - 28 * L.robot, damage: 1 + L.robot, range: 170 } : null,
+      // ===== V8.2: أثر المعدات على القتال (محدود ومقروء) =====
+      // الفأس: +1 ضرر لكل مستويين (بحد أقصى +2). الدرع: نَفَس درع أطول (+10 لكل مستوى).
+      // المثقاب: مهلة مراوغة ومهارة أقصر (بحد أدنى آمن). الأحذية: سرعة الحركة (محسوبة أعلاه).
+      // كل القيم أعداد صحيحة ومحسوبة من اللقطة المثبّتة في التذكرة، فإعادة تشغيل الخادم متطابقة.
+      combat: {
+        damage: Math.min(2, Math.floor(L.pickaxe / 2)),
+        guardStamina: 10 * L.armor,
+        dodgeCooldown: Math.max(30, COMBAT.dodge.cooldown - 3 * L.drill),
+        skillCooldown: Math.max(90, hero.skillCooldown - 8 * L.drill),
+      },
     };
   }
   const NO_BONUS = 'بلا إضافة';
@@ -576,8 +592,16 @@
     b.vx = 0; b.state = 'recover'; b.timer = ticks;
     s.events.push({ type: 'boss_stun', ticks, x: b.x + b.w / 2, y: b.y, id: b.id });
   }
+  // ===== V8: الزعماء على نموذج القتال الجديد، تدريجياً وبنفس عقد V5 =====
+  // ثلاث مراحل لكل زعيم (هادئ ← مهتاج عند 50% ← أخير عند 33%)، ولكل مرحلة ترتيب هجماتها.
+  // الهجمات القديمة كما هي (slam موجتان، charge اندفاع)، ويُضاف:
+  //   pound: صدمة أرضية حول الزعيم لا يوقفها الدرع — تُقفز أو تُبتعد، وإنذارها أطول.
+  //   sweep: ضربة قريبة سريعة تُصدّ بالدرع.
+  // الدرع (لا ضرر إلا في مرحلة الاستراحة) لم يُمسّ، ولا تتغيّر أحداث الخادم ولا الغنائم.
+  const bossList = (ai, b) => (b.final && ai.finalAttacks ? ai.finalAttacks
+    : b.enraged && ai.enragedAttacks ? ai.enragedAttacks : ai.attacks);
   function startWindup(s, b) {
-    const p = s.player, ai = b.ai, list = b.enraged && ai.enragedAttacks ? ai.enragedAttacks : ai.attacks;
+    const p = s.player, ai = b.ai, list = bossList(ai, b);
     b.aim = p.x + p.w / 2 >= b.x + b.w / 2 ? 1 : -1;
     b.facing = b.aim; b.vx = 0;
     b.attack = list[b.cycle % list.length]; b.cycle++;
@@ -589,6 +613,28 @@
     if (b.attack === 'charge') {
       b.state = 'charge'; b.timer = ai.chargeTicks; b.vx = b.aim * Math.round(b.chargeSpeed * fast);
       s.events.push({ type: 'boss_charge', x: b.x + b.w / 2, y: b.y, id: b.id });
+      return;
+    }
+    if (b.attack === 'pound') {
+      // «الصدمة الأرضية»: انفجار نصف قطري حول الزعيم لا يوقفه الدرع (تُقفز أو تُراوغ أو تُبتعد)،
+      // ومعه موجة واحدة باتجاه اللاعب حتى لا يصبح البقاء بعيداً تماماً ملاذاً آمناً.
+      const radius = (ai.pound && ai.pound.radius) || 96, cx = b.x + b.w / 2;
+      const box = { x: cx - radius, y: 300 - 70, w: radius * 2, h: 70 };
+      s.events.push({ type: 'boss_slam', attack: 'pound', unblockable: true, x: cx, y: 300, id: b.id });
+      if (s.player.hearts > 0 && overlap(box, s.player)) hurt(s, cx, { unblockable: true });
+      const wv = ai.wave;
+      s.waves.push({ x: b.aim > 0 ? b.x + b.w : b.x - wv.w, y: 300 - wv.h, w: wv.w, h: wv.h,
+        vx: b.aim * Math.round(wv.speed * fast), ttl: wv.ttl, kind: 'wave' });
+      stun(s, b, ai.recover);
+      return;
+    }
+    if (b.attack === 'sweep') {
+      // ضربة قريبة سريعة: يُصدّها الدرع، ويُبتعد عنها
+      const reach = (ai.sweep && ai.sweep.reach) || 82;
+      const box = { x: b.aim > 0 ? b.x + b.w : b.x - reach, y: b.y + 4, w: reach, h: b.h };
+      s.events.push({ type: 'boss_slam', attack: 'sweep', x: b.x + b.w / 2, y: 300 - b.h / 2, id: b.id });
+      if (s.player.hearts > 0 && overlap(box, s.player)) hurt(s, b.x + b.w / 2);
+      stun(s, b, Math.max(22, Math.round(ai.recover * 0.55)));
       return;
     }
     const wv = ai.wave, speed = Math.round(wv.speed * fast);
@@ -604,6 +650,8 @@
       s.events.push({ type: 'boss_wake', x: cx, y: b.y, id: b.id });
     }
     if (!b.enraged && b.hp * 2 <= b.maxHp) { b.enraged = true; s.events.push({ type: 'boss_enrage', x: cx, y: b.y, id: b.id }); }
+    // المرحلة الأخيرة (الثلث الأخير من الصحة): ترتيب هجمات أخطر واستراحة أقصر — يُعلَن للعميل بنفس حدث الاهتياج
+    if (!b.final && b.hp * 3 <= b.maxHp) { b.final = true; s.events.push({ type: 'boss_enrage', final: true, x: cx, y: b.y, id: b.id }); }
     b.timer--;
     if (b.state === 'walk') {
       const dir = p.x + p.w / 2 >= cx ? 1 : -1;
@@ -622,7 +670,7 @@
       } else if (b.timer <= 0) stun(s, b, ai.recover);
     } else if (b.state === 'recover') {
       b.vx = 0;
-      if (b.timer <= 0) { b.state = 'walk'; b.timer = b.enraged ? ai.enragedWalk : ai.walk; }
+      if (b.timer <= 0) { b.state = 'walk'; b.timer = b.final ? Math.round(ai.enragedWalk * 0.8) : b.enraged ? ai.enragedWalk : ai.walk; }
     }
   }
 
@@ -655,7 +703,7 @@
         jumpBuffer: 0,
         attack: 0,
         attackCooldown: stats.attackCooldown,
-        damage: hero.damage,
+        damage: hero.damage + stats.combat.damage,
         attackRange: hero.attackRange,
         miningPower: stats.miningPower,
         miningReach: stats.miningReach,
@@ -664,12 +712,13 @@
         yieldPercent: stats.yieldPercent,
         robot: stats.robot,
         skillCooldown: 0,
-        skillMaxCooldown: hero.skillCooldown,
+        skillMaxCooldown: stats.combat.skillCooldown,
+        dodgeCooldown: stats.combat.dodgeCooldown,
         pose: 'idle',
         landTimer: 0,
-        guard: { active: false, blocks: 0, timer: 0, stamina: GUARD.max, maxStamina: GUARD.max, broken: 0 },
+        guard: { active: false, blocks: 0, timer: 0, stamina: GUARD.max + stats.combat.guardStamina, maxStamina: GUARD.max + stats.combat.guardStamina, broken: 0 },
         // V8: حالة القتال — سلسلة الضربات والضربة الجارية والضربة الثقيلة والمراوغة
-        combo: 0, comboTimer: 0, swing: null, heavyCooldown: 0,
+        combo: 0, comboTimer: 0, swing: null, heavyCooldown: 0, attackBuffer: 0, attackBuffered: 'light',
         dodge: { ticks: 0, cooldown: 0, dir: 1 },
       },
       checkpoint: 64,
@@ -682,7 +731,7 @@
         const chaseSpeed = Math.round((e.chaseSpeed || 65) * mine.enemySpeed / 100);
         return {
           ...e,
-          ...(e.boss ? { state: 'sleep', timer: 0, cycle: 0, enraged: false, aim: 1, attack: null, chargeSpeed: Math.round((e.chargeSpeed || 0) * mine.enemySpeed / 100) } : {}),
+          ...(e.boss ? { state: 'sleep', timer: 0, cycle: 0, enraged: false, final: false, aim: 1, attack: null, chargeSpeed: Math.round((e.chargeSpeed || 0) * mine.enemySpeed / 100) } : {}),
           maxHp, patrolSpeed, chaseSpeed,
           hp: maxHp,
           vx: patrolSpeed * dir,
@@ -1065,7 +1114,7 @@
     // المراوغة: اندفاع أرضي قصير بمناعة (12 إطاراً) ومهلة 46 إطاراً — لا حصانة دائمة، بل نافذة توقيت.
     if ((mask & INPUT.DODGE) && p.dodge.cooldown <= 0 && p.dodge.ticks <= 0 && !p.swing && !p.guard.active && p.guard.broken <= 0) {
       p.dodge.ticks = COMBAT.dodge.ticks;
-      p.dodge.cooldown = COMBAT.dodge.cooldown;
+      p.dodge.cooldown = p.dodgeCooldown || COMBAT.dodge.cooldown;
       p.dodge.dir = direction || p.facing;
       p.facing = p.dodge.dir;
       p.invulnerable = Math.max(p.invulnerable, COMBAT.dodge.iframes);
@@ -1084,7 +1133,7 @@
         s.events.push({ type: 'guard_break', x: p.x + p.w / 2, y: p.y });
       }
     } else {
-      p.guard.stamina = Math.min(GUARD.max, p.guard.stamina + GUARD.regen);
+      p.guard.stamina = Math.min(p.guard.maxStamina, p.guard.stamina + GUARD.regen);
     }
     if (p.guard.timer > 0) p.guard.timer--;
     // SOFT (512) = دفع جزئي للعصا ← مشي 55% من السرعة؛ الدفع الكامل جري. المراوغة تتجاوز الاثنين.
@@ -1120,6 +1169,23 @@
         if (d <= p.robot.range && d < best) { best = d; target = rock; }
       }
       if (target) hitRock(s, target, p.robot.damage, 'robot');
+    }
+
+    // ===== V8.1: لا تضيع ضغطة =====
+    // ضغطة تصل قبل انتهاء التبريد أو أثناء ضربة جارية تُخزَّن حتى 6 إطارات وتُنفَّذ في أول لحظة ممكنة.
+    // الحساب هنا داخل المحاكاة نفسها، فيُعاد على الخادم بنفس النتيجة تماماً (الإدخال المسجّل لا يتغيّر).
+    // يعمل في وضع المبارزة وحده: جولات التعدين القديمة تُعيد إنتاج فيزياء V3 حرفياً حتى مع مدخلات عشوائية.
+    if (s.mode === 'duel') {
+      if (p.attack > 0 || p.swing) {
+        if (mask & INPUT.HEAVY) { p.attackBuffer = 6; p.attackBuffered = 'heavy'; }
+        else if (mask & INPUT.ATTACK) { p.attackBuffer = 6; p.attackBuffered = 'light'; }
+      }
+      if (p.attackBuffer > 0) {
+        if (p.attack <= 0 && !p.swing && !dodging && !p.guard.active) {
+          if (p.attackBuffered === 'heavy' && p.heavyCooldown <= 0) { mask |= INPUT.HEAVY; p.attackBuffer = 0; }
+          else if (p.attackBuffered === 'light') { mask |= INPUT.ATTACK; p.attackBuffer = 0; }
+        } else p.attackBuffer--;
+      }
     }
 
     const chainHero = !CHARACTERS[p.hero].ranged;
@@ -1440,7 +1506,7 @@
   // والخسارة تحتفظ بما فتحته فعلاً فقط. لا توجد مكافأة إضافية فوق السقف.
   function rewardBreakdown(s) {
     if (s.mode === 'duel') {
-      const potential = s.status === 'won' ? DUEL.reward : 0;
+      const potential = s.status === 'won' ? duelReward(s.zone) : 0;
       return { potential, milestoneGold: 0, finalGold: potential, total: potential };
     }
     const potential = Math.min(100, 40 + s.collected * 4 + s.mined * 6);
@@ -1448,6 +1514,8 @@
     const finalGold = s.status === 'won' ? Math.max(0, potential - milestoneGold) : 0;
     return { potential, milestoneGold, finalGold, total: milestoneGold + finalGold };
   }
+  // مكافأة المبارزة: 60 + 4 لكل مستوى عمق (60..80). لا تتضخم مع التكرار، والسقف اليومي المستقل خادمي.
+  const duelReward = zone => DUEL.reward + DUEL.rewardStep * Math.max(0, Math.min(MINES.length - 1, Number(zone) || 0));
   const rewardFor = s => rewardBreakdown(s).total;
   const oreSummary = s => {
     const out = emptyOres();
@@ -1463,7 +1531,7 @@
     // V6: أهداف الجولة والمفترق والعرق النادر
     GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,
     // V7: وضع المبارزة الحيّة + الصدّ
-    MODES, DUEL, GUARD, COMBAT, MAX_MASK, RIVALS, rivalFor, duelStatus, duelEnemy,
+    MODES, DUEL, GUARD, COMBAT, MAX_MASK, RIVALS, rivalFor, duelStatus, duelEnemy, duelReward,
     // المرحلة 3
     MINES, ZONES, EQUIPMENT, EQUIPMENT_ORDER, MAX_EQUIP_LEVEL, ORE_LADDER,
     normalizeConfig, normalizeLoadout, normalizeProgress, loadoutStats, equipCost, effectText, hitsToBreak, mineStatus, mineUnlocked,
