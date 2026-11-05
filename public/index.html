@@ -304,9 +304,10 @@
     .arena-live-banner button[hidden] { display: none; }
     .arena-live-banner button:active { transform: scale(.97); }
     /* لوحة الساحة: تملأ ما تبقّى بمعلومة مفيدة بدل فراغ أسود */
-    .arena-brief { flex: 0 1 auto; display: grid; grid-template-columns: 1fr 1.25fr; gap: 6px; min-height: 0; }
+    /* تملأ المساحة المتبقية فعليًا (لا فراغ أسود تحت البطاقات) */
+    .arena-brief { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1.25fr; gap: 6px; min-height: 0; align-items: stretch; }
     .ab-card {
-      display: flex; flex-direction: column; gap: 3px; padding: 8px 9px; border-radius: 11px;
+      display: flex; flex-direction: column; gap: 3px; padding: 8px 9px; border-radius: 11px; overflow: auto;
       background: rgba(15, 23, 42, .72); border: 1px solid rgba(94, 124, 146, .3); text-align: right; min-height: 0;
     }
     .ab-kicker { font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .2px; }
