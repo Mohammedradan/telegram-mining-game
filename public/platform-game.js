@@ -330,6 +330,8 @@
       btn.classList.toggle('skill-cooldown', left > 0);
       btn.style.opacity = left > 0 ? '0.56' : '';
     };
+    // في المبارزة يختفي زر الحفر (لا صخور) لتبقى أزرار القتال واسعة على شاشات الهاتف.
+    document.querySelector('.mine-controls')?.classList?.toggle('duel-mode', sim.mode === 'duel');
     cdButton(128, sim.player.dodge?.cooldown, 'مراوغة');
     cdButton(256, sim.player.heavyCooldown, 'قوي');
     // low health pulse on hearts HUD

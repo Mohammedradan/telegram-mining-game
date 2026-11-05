@@ -239,6 +239,10 @@ test('V8 client wiring: dodge/heavy buttons, analog joystick bit, and saved cont
   assert.match(html, /data-ctl-sensitivity=/, 'and change stick sensitivity');
   assert.match(css, /\.action-btn\.dodge-btn\{/);
   assert.match(css, /\.action-btn\.heavy-btn\{/);
+  // على الهاتف تكفي العصا للحركة، وفي المبارزة يختفي زر الحفر: أزرار القتال تبقى واسعة بلا حجب للمشهد
+  assert.match(css, /@media\(max-width:768px\)\{\.mine-controls-actions \.move-btn\{display:none\}\}/);
+  assert.match(css, /\.mine-controls\.duel-mode \.mine-btn\{display:none\}/);
+  assert.match(game, /classList\?\.toggle\('duel-mode'/, 'the pad itself drops the mining button during a duel');
   assert.match(bosses, /function duelist\(/, 'the rival has its own vector character, not the boss art');
   assert.match(bosses, /e\.attack === 'overhead'/, 'the unblockable attack gets its own warning lane');
 });

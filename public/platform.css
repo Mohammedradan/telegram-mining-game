@@ -627,3 +627,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .ctl-row button.active{background:linear-gradient(135deg,#b7791f,#8a5a14);border-color:#f4bf62;color:#fff6dd}
 .ctl-row button:active{transform:scale(.96)}
 @media(max-width:420px){.ctl-row > span{min-width:44px;font-size:9px}.ctl-row button{padding:3px 6px;font-size:9px}}
+
+/* على الهواتف العصا وحدها تكفي للحركة: أزرار يسار/يمين مكرّرة وتأكل مساحة القتال */
+@media(max-width:768px){.mine-controls-actions .move-btn{display:none}}
+/* في المبارزة لا تعدين: زر الحفر يختفي لتبقى أزرار القتال واسعة ومتباعدة */
+.mine-controls.duel-mode .mine-btn{display:none}
