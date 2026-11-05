@@ -236,8 +236,56 @@ test('V6 UI: the page ships the goal picker, the summary and the first-run coach
   assert.equal(/\.mine-overlay\.fit-4 \.overlay-goals\{display:none\}/.test(css), false, 'the goal picker is never hidden by the fit ladder');
   assert.equal(/\.mine-overlay\.fit-\d[^{]*#platform-start\{display:none\}/.test(css), false, 'the start button is never hidden by the fit ladder');
   assert.match(css, /\.mine-overlay\.overlay-scrolls\{/, 'the scrollbar only appears when overflow is truly unavoidable');
+  // V6.3b: القياس يُعاد بعد اكتمال التنسيق (خط عربي/ظهور المشهد) وبعد التحميل
+  assert.match(game, /function refitOverlayLater\(\)/, 'a late re-measure guards fonts and scene reveal');
+  assert.match(game, /document\.fonts\.ready/, 'the webfont load triggers a new fit measurement');
+  assert.match(game, /addEventListener\('load', \(\) => scheduleOverlayFit\(\)\)/, 'the page load triggers a new fit measurement');
+  assert.equal(/overlay-goals-label/.test(html), false, 'the duplicated goal label is gone; the lead line names the choice');
   const block = css.slice(css.indexOf('/* ===== V6:'));
   assert.ok(block.length > 500, 'the V6 styles are present');
   assert.equal(/backdrop-filter/.test(block), false, 'the new styles never use backdrop-filter');
   assert.equal(/[🎮💎⛏️🪙]/.test(html.slice(html.indexOf('id="platform-goals"'), html.indexOf('id="platform-coach"'))), false, 'the new UI text uses no emoji');
+});
+
+test('V6.3 fit ladder: drops content step by step and stops as soon as nothing overflows', () => {
+  const game = read('public/platform-game.js');
+  const start = game.indexOf('const FIT_STEPS');
+  const end = game.indexOf('let overlayFitFrame');
+  assert.ok(start > 0 && end > start, 'the fit helpers are a self-contained block');
+  const src = game.slice(start, end);
+  assert.match(src, /function syncOverlayFit/, 'the block carries the fit function');
+  // غطاء وهمي: ارتفاع محتواه 600px والمتاح 400px، وكل درجة من السلّم تُقصّ منه 60-80px.
+  const heights = { 'fit-1': 540, 'fit-2': 500, 'fit-3': 430, 'fit-4': 340 };
+  const order = ['fit-1', 'fit-2', 'fit-3', 'fit-4'];
+  const build = (available) => {
+    const classes = new Set();
+    const box = {
+      hidden: false,
+      clientHeight: available,
+      get scrollHeight() {
+        let h = 600;
+        for (const c of order) if (classes.has(c)) h = heights[c];
+        return h;
+      },
+      classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c), toggle: (c) => classes.add(c) },
+    };
+    const fit = new Function('el', `${src}\nreturn { syncOverlayFit };`)(() => box);
+    fit.syncOverlayFit();
+    return [...classes];
+  };
+  // لا فيض أصلًا: لا تُضاف أي درجة
+  assert.deepEqual(build(700), [], 'a tall stage keeps the full card');
+  // فيض بسيط: درجة واحدة تكفي
+  assert.deepEqual(build(560), ['fit-1'], 'one step is enough when the overflow is small');
+  // فيض متوسط ثم كبير: السلّم يمشي بالترتيب ويتوقف عند أول احتواء
+  assert.deepEqual(build(400), ['fit-1', 'fit-2', 'fit-3', 'fit-4'], 'a short stage walks the whole ladder in order');
+  // فيض لا يُحل: يظهر شريط التمرير كملاذ أخير فقط
+  assert.deepEqual(build(200), ['fit-1', 'fit-2', 'fit-3', 'fit-4', 'overlay-scrolls'], 'the scrollbar is the last resort, never the first');
+  // غطاء مخفي: لا قياس ولا فئات
+  assert.deepEqual((() => {
+    const box = { hidden: true, clientHeight: 400, scrollHeight: 900, classList: { add() {}, remove() {}, toggle() {} } };
+    const fit = new Function('el', `${src}\nreturn { syncOverlayFit };`)(() => box);
+    fit.syncOverlayFit();
+    return [];
+  })(), [], 'a hidden overlay is left untouched');
 });

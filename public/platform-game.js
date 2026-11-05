@@ -338,6 +338,14 @@
     if (typeof requestAnimationFrame === 'function') overlayFitFrame = requestAnimationFrame(run);
     else run();
   }
+  // ارتفاع الغطاء يتغيّر بعد أول إطار أحيانًا: خط عربي يُحمّل، أو مشهد يظهر بعد الاتصال،
+  // أو شريط علوي يعيد الترتيب. إعادة قياس واحدة متأخرة تمنع أن يبقى التمرير الذي «ظهر لاحقًا».
+  function refitOverlayLater() {
+    if (typeof document !== 'undefined' && document?.fonts?.ready?.then) {
+      try { document.fonts.ready.then(() => scheduleOverlayFit()).catch(() => {}); } catch (_) {}
+    }
+    if (typeof setTimeout === 'function') setTimeout(() => { overlayFitFrame = 0; syncOverlayFit(); }, 260);
+  }
 
   function overlay(title, text, resume = false) {
     const help = el('overlay-help');
@@ -352,6 +360,7 @@
     el('platform-resume').hidden = !resume;
     el('platform-start').textContent = running ? 'إعادة من البداية' : 'جولة جديدة';
     scheduleOverlayFit();
+    refitOverlayLater();
   }
 
   // ===== V6: هدف الجولة =====
@@ -990,6 +999,8 @@
   if (resizeObserver) resizeObserver.observe(canvas);
   else window.addEventListener('resize', () => { syncStageDensity(); draw(); });
   syncStageDensity();
+  // أول قياس قد يسبق ظهور المشهد أو تحميل الخط: نعيده عند اكتمال تحميل الصفحة.
+  window.addEventListener('load', () => scheduleOverlayFit());
   // اختيار الهدف (V6): لا يبدأ جولة ولا يمسّ تذكرة جارية، فقط يغيّر هدف الجولة القادمة.
   document.querySelectorAll('.goal-option').forEach(btn => {
     btn.addEventListener('click', () => {

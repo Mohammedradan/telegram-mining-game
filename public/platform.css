@@ -449,7 +449,6 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .res-chip.goal-chip.done .ui-icon{color:#7dffd4}
 
 .overlay-goals{display:flex;flex-direction:column;gap:6px;width:100%;max-width:440px}
-.overlay-goals-label{font-size:9.5px;letter-spacing:.6px;color:#e9b969;font-weight:800}
 .goal-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .mine-overlay .goal-option{display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 4px;border-radius:11px;background:linear-gradient(160deg,rgba(30,47,58,.95),rgba(18,31,40,.95));border:1px solid #40505a;color:#cfe0e2;box-shadow:none;transition:transform .15s,opacity .15s,border-color .15s;text-shadow:none;min-height:0}
 .mine-overlay .goal-option .ui-icon{width:16px;height:16px;color:#8fb6c4}
@@ -495,7 +494,6 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 
 /* ===== V6.1: تكثيف شاشة البدء وشريط الحالة (بلا تمرير على الهاتف) ===== */
 .overlay-goals{gap:5px;max-width:420px}
-.overlay-goals-label{font-size:9px;letter-spacing:.5px;opacity:.95}
 .goal-options{gap:5px}
 .mine-overlay .goal-option{padding:6px 3px;gap:2px;border-radius:10px;min-height:0}
 .mine-overlay .goal-option .ui-icon{width:15px;height:15px}
@@ -554,7 +552,6 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-overlay .mission-row b{font-size:10px;color:#ffdf8a;margin:0}
 .mine-overlay .mission-row span{color:#c3d4dc}
 .mine-overlay .mission-progress{flex:1 0 100%;height:4px;margin-top:2px}
-.mine-overlay .overlay-goals-label{font-size:8.5px}
 .mine-overlay .goal-option{padding:5px 3px}
 .mine-overlay #platform-start{padding:8px 20px;font-size:11.5px}
 /* المشهد الضيّق (هاتف): أرقام فقط في شرائح المهمة، وبلا سطر فرعي في بطاقات الهدف */
@@ -593,7 +590,6 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-overlay.fit-1 .overlay-help:not([open]){display:none}
 .mine-overlay.fit-2 .overlay-kicker{display:none}
 .mine-overlay.fit-2 .goal-hint{display:none}
-.mine-overlay.fit-2 .overlay-goals-label{display:none}
 .mine-overlay.fit-3 .overlay-mission{display:none}
 .mine-overlay.fit-3 .goal-option i{display:none}
 .mine-overlay.fit-4{--ov-gap:4px;padding:8px 10px}
