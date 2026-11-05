@@ -86,6 +86,12 @@ function boot() {
     const u = String(url);
     if (u.startsWith('/api/me')) return { ok: true, status: 200, json: async () => me };
     if (u.startsWith('/api/ops')) return { ok: true, status: 200, json: async () => ({ ok: true, accepted: [], revision: 3, serverSeq: 0, state: me.state }) };
+    // تذكرة جولة صالحة: تسمح باختبار حالة «جولة جارية» ومنطق التخلّي عنها
+    if (u.startsWith('/api/platform/start')) return { ok: true, status: 200, json: async () => ({
+      id: 'run-probe', version: require('../public/platform-rules').VERSION, seed: 4242,
+      config: { zone: 0, goal: 0, mode: 'duel', loadout: { pickaxe: 0, boots: 0, bag: 0, magnet: 0, drill: 0, robot: 0, luck: 0, armor: 0 } },
+      startedAt: Date.now(), expiresAt: Date.now() + 1800000,
+    }) };
     return { ok: false, status: 404, json: async () => ({ error: 'not found' }) };
   };
   const ctx = {
@@ -258,6 +264,16 @@ test('arena UI: abandoning a stale run is safe and never drops a result waiting 
   assert.deepEqual(Object.keys(game.busy()).sort(), ['paused', 'pending', 'running', 'submitting']);
   // لا شيء جارٍ: التخلّي لا يفعل شيئًا (لا يمسّ جولة غير موجودة)
   assert.equal(game.abandon(), false);
+  // جولة بدأت فعلاً: التخلّي يحرّر الحالة كي لا يبقى اللاعب محبوسًا
+  assert.equal(game.startDuel(0), true, 'the duel starts');
+  await new Promise((r) => setTimeout(r, 5));
+  const busy = game.busy();
+  assert.equal(busy.running, true, 'a run is genuinely in progress');
+  assert.equal(busy.pending, false);
+  assert.equal(game.abandon(), true, 'a live run can be dropped from the arena');
+  assert.equal(game.busy().running, false, 'and the engine is free again');
+  // وبعد التخلّي تبدأ مبارزة جديدة فورًا بدل البقاء محبوسًا
+  assert.equal(game.startDuel(0), true);
   assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
 });
 
