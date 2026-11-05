@@ -78,6 +78,8 @@ async function main() {
     b.hidden = was; return m;
   }, hideGuide);
   const overlap = (a, b) => a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1;
+  // every title the round overlay shows (platform-game.js: start, pause, finish, restore); the longest wraps over two lines on a phone
+  const OVERLAY_TITLES = ['منجم المنصّة', 'استراحة عند المصباح', 'وصلت إلى قلب المنجم!', 'المصباح ينتظر عودتك', 'استرجاع نتيجة جولتك', 'جولة سابقة انتهت', 'انتهت الجولة — جرّب من جديد'];
   // the corner icon (and its "new" badge) must not cover anything else in the overlay
   const coversNothing = async (page, what) => {
     const rects = await page.evaluate(() => {
@@ -104,6 +106,7 @@ async function main() {
       const geo = { guide: await box(page, '#open-guide'), ov: await box(page, '#platform-overlay'), mine: await box(page, '#mine-select'), ws: await box(page, '#open-workshop-overlay') };
       assert.ok(geo.guide.l >= geo.ov.l && geo.guide.r <= geo.ov.r && geo.guide.t >= geo.ov.t, 'the icon sits in a corner inside the round overlay');
       assert.ok(geo.guide.w >= 36 && geo.guide.h >= 36 && geo.guide.w <= 44, `a tappable round icon (${geo.guide.w}x${geo.guide.h})`);
+      assert.ok(geo.guide.r - geo.ov.l <= 44 && geo.guide.b - geo.ov.t <= 44, 'inside the 44px corner square that only the capped caption pill may share a row with');
       assert.ok(geo.mine.w >= 90 && geo.ws.w >= 90, 'the two big buttons keep their room');
       assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), 'the guide icon changes neither the overlay height nor the width of its buttons');
       assert.equal(await page.locator('#open-guide .guide-new').isHidden(), true, 'no "new" badge for the intro chapter');
@@ -282,13 +285,27 @@ async function main() {
     }
 
     // ================================================================== 5) phones: nothing overflows, every control can be reached
-    // every check runs twice: with the font of this machine and with every glyph spread by 1.6px, because the CI runner's font is wider than
+    // every check runs twice: with the font of this machine and with every glyph spread by 1px (about a fifth wider text), because the CI runner's font is wider than
     // ours and a layout that fits only one font is a bug (the first version of the button row did exactly that)
     const phoneChecks = async (page, vp, tag) => {
       await page.locator('#open-guide').scrollIntoViewIfNeeded();
       const btn = await box(page, '#open-guide');
       assert.ok(btn.l >= 0 && btn.r <= vp.width && btn.t >= 0 && btn.h >= 34, `${tag}: the button is on screen and tappable (${btn.w}x${btn.h})`);
-      await coversNothing(page, tag);
+      const kicker = await box(page, '.overlay-kicker');
+      assert.ok(kicker.h >= 22, `${tag}: the caption pill keeps its height (${kicker.h}px): overflow hidden on a flex item let it shrink to 12px on a short screen`);
+      const title = await page.evaluate(() => document.getElementById('platform-title').textContent);
+      for (const text of OVERLAY_TITLES) {
+        await page.evaluate((t) => { document.getElementById('platform-title').textContent = t; }, text);
+        await coversNothing(page, `${tag} / "${text}"`);
+      }
+      await page.evaluate((t) => { document.getElementById('platform-title').textContent = t; }, title);
+      // a caption far longer than any font could make it: the pill is capped and clips its text, so it never reaches the icon and keeps one line
+      await page.evaluate(() => { document.querySelector('.overlay-kicker').append(` · ${'جولة موثّقة · 150 ثانية · '.repeat(4)}`); });
+      await coversNothing(page, `${tag} / a very long caption`);
+      const long = await box(page, '.overlay-kicker');
+      assert.ok(long.h <= kicker.h + 2, `${tag}: the long caption stays on one line (${long.h}px against ${kicker.h}px)`);
+      await page.evaluate(() => { const k = document.querySelector('.overlay-kicker'); k.removeChild(k.lastChild); });
+      assert.deepEqual(await box(page, '.overlay-kicker'), kicker, `${tag}: and the pill is back to its size afterwards`);
       assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), `${tag}: no height, no width taken from the overlay`);
       await openGuide(page);
       for (const name of ['goal', 'codex', 'story']) {
@@ -313,7 +330,7 @@ async function main() {
       await progress(page, { wins: [1, 1, 1, 0, 0, 0], equipment: { pickaxe: 2 }, gold: 10, ores: { copper: 1 } });
       await reload(page);
       await phoneChecks(page, vp, `${vp.width}x${vp.height}`);
-      await page.addStyleTag({ content: '*{letter-spacing:1.6px !important}' });
+      await page.addStyleTag({ content: '*{letter-spacing:1px !important}' });
       await phoneChecks(page, vp, `${vp.width}x${vp.height} wide font`);
       report.phones.push(`${vp.width}x${vp.height}`);
       assert.deepEqual(errors, []);

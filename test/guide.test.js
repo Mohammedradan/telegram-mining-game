@@ -554,7 +554,12 @@ test('wiring: markup, styles, script order and the hooks in the page', () => {
   const css = read('public', 'guide.css');
   for (const sel of ['.guide-overlay', '.gd-tab.active', '.gd-bubble', '.gd-chapter-row.fresh', '.guide-dot', '.guide-entry[data-news="1"]']) assert.ok(css.includes(sel), sel);
   const entry = /\.mine-overlay \.guide-entry \{[^}]*\}/.exec(css)[0];
-  for (const decl of [/position: absolute/, /top: 8px/, /inset-inline-end: 8px/, /width: 38px/, /height: 38px/, /border-radius: 50%/]) assert.match(entry, decl, `out of the layout flow, a 38px round icon: ${decl}`);
+  for (const decl of [/position: absolute/, /top: 4px/, /inset-inline-end: 4px/, /width: 36px/, /height: 36px/, /border-radius: 50%/]) assert.match(entry, decl, `out of the layout flow, a 36px round icon in the 44px corner: ${decl}`);
+  // the one thing that can grow into the corner with a wider font is the caption pill: it is capped, so it clips instead of reaching the icon
+  const kicker = /\.mine-overlay \.overlay-kicker \{[^}]*\}/.exec(css)[0];
+  for (const decl of [/max-width: calc\(100% - 100px\)/, /overflow: hidden/, /white-space: nowrap/, /min-width: 0/, /flex-shrink: 0/]) assert.match(kicker, decl, `the caption keeps clear of both corners (and is never squashed: overflow hidden alone lets a flex item shrink to 0): ${decl}`);
+  const badge = /\.guide-entry\[data-news="1"\] \.guide-new \{[^}]*\}/.exec(css)[0];
+  assert.match(badge, /top: calc\(100% - 10px\)/, 'the badge sits on the icon\'s lower edge, inside the corner square'); assert.match(badge, /line-height: 14px/);
   assert.match(css, /\.gd-sr \{[^}]*position: absolute[^}]*clip: rect\(0 0 0 0\)/, 'the label stays for screen readers');
   assert.match(css, /\.guide-new \{ display: none; \}/, 'the \"new\" badge is hidden by default');
   assert.match(css, /\.guide-entry\[data-news="1"\] \.guide-new \{[^}]*display: block; position: absolute/, 'and floats under the icon (no layout space) when a chapter is new');

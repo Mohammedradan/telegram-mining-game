@@ -3,28 +3,33 @@
 
 /* ---------- الزر داخل شاشة الجولة ---------- */
 /* أيقونة في زاوية الشاشة خارج تدفّق التخطيط: كان الزر في صفّ الأزرار يضيّق زرّي «المنجم» و«الورشة» فيلتفّ نص «الصخرة: ضربة واحدة»
-   بخط أعرض (قِيس في CI) وتزيد الشاشة سطراً. الزاوية لا تغيّر ارتفاع الشاشة ولا عرض أي زر، أياً كان الخط. */
+   بخط أعرض (قِيس في CI) وتزيد الشاشة سطراً. الزاوية لا تغيّر ارتفاع الشاشة ولا عرض أي زر، أياً كان الخط.
+   وهي (مع شارة «جديد») داخل مربع 44×44 في الزاوية لا يدخله غير شيء واحد قد يتمدد بعرض الخط: وسم «جولة موثّقة»، فله حدّ أقصى للعرض
+   يترك الزاويتين (يقصّ نصّه بدل أن يصل إلى الأيقونة). العنوان وما بعده يبدأ تحت هذا المربع دائماً (الوسم فوقه بارتفاعه الثابت). */
 .gd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* flex-shrink: 0 لازم مع overflow: hidden: بدونه يصير الحدّ الأدنى لارتفاعه الصفر فيُعصَر الوسم (12px بدل 27px) حين تطول الشاشة عن ارتفاعها (قِيس على 320×568).
+   ارتفاعه الطبيعي (27px) هو ما يُبقي العنوان تحت مربع الزاوية: ≥45px في الشاشات القصيرة (حشوة 12 وفاصل 6) و≥51px في الأطول. */
+.mine-overlay .overlay-kicker { flex-shrink: 0; min-width: 0; max-width: calc(100% - 100px); overflow: hidden; white-space: nowrap; }
 .mine-overlay .guide-entry {
-  position: absolute; top: 8px; inset-inline-end: 8px; z-index: 3; width: 38px; height: 38px; padding: 0; display: grid; place-items: center;
+  position: absolute; top: 4px; inset-inline-end: 4px; z-index: 3; width: 36px; height: 36px; padding: 0; display: grid; place-items: center;
   border-radius: 50%; color: #efe4ff; border: 2px solid #8670b8; text-shadow: none;
   background: radial-gradient(circle at 35% 28%, #5a4580, #261d3d); box-shadow: 0 3px 10px rgba(0, 0, 0, .5);
 }
 .mine-overlay .guide-entry:hover { transform: none; box-shadow: 0 3px 12px rgba(120, 90, 190, .55); }
-.guide-entry .ui-icon { width: 18px; height: 18px; }
+.guide-entry .ui-icon { width: 17px; height: 17px; }
 .guide-dot {
   position: absolute; top: -2px; inset-inline-start: -2px; width: 11px; height: 11px; border-radius: 50%;
   background: #ff6b5e; box-shadow: 0 0 0 2px #261d3d, 0 0 8px rgba(255, 107, 94, .85);
 }
 .guide-new { display: none; }
-/* فصل جديد: الزر يتحوّل إلى ذهبي وتظهر شارة «جديد» تحته ويفتح الفصل مباشرة */
+/* فصل جديد: الأيقونة تتحوّل إلى ذهبية وتظهر فوق حافتها السفلى شارة «جديد» وتفتح الفصل مباشرة */
 .mine-overlay .guide-entry[data-news="1"] {
   background: radial-gradient(circle at 35% 28%, #ffd98a, #e09a2d); color: #302119; border-color: #ffe2a2; box-shadow: 0 3px 14px rgba(245, 188, 96, .55);
 }
 .guide-entry[data-news="1"] .guide-dot { box-shadow: 0 0 0 2px #e09a2d, 0 0 8px rgba(255, 107, 94, .85); }
 .guide-entry[data-news="1"] .guide-new {
-  display: block; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 2px; padding: 1px 7px; border-radius: 999px;
-  font-size: 9px; font-weight: 900; line-height: 1.5; color: #fff; background: #e5564a; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+  display: block; position: absolute; top: calc(100% - 10px); left: 50%; transform: translateX(-50%); padding: 0 6px; border-radius: 999px;
+  font-size: 9px; font-weight: 900; line-height: 14px; color: #fff; background: #e5564a; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
 }
 
 /* ---------- النافذة ---------- */
