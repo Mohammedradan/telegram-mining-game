@@ -16,6 +16,14 @@ function dailyQuota(sync, potential, at = Date.now()) {
   return { day, gold: allowed, capped: allowed < potential, remaining: Math.max(0, DAILY_GOLD_CAP - used - allowed) };
 }
 
+// عرض فقط (لا يعدّل الدفتر): كم استُهلك من سقف اليوم المشترك بين جولات المنصّات والوضع الكلاسيكي وبيع الخامات.
+// عدّاد يوم قديم لا يُحتسب (يُصفَّر عند أول دفع في اليوم الجديد داخل dailyQuota).
+function dailyGoldView(sync, at = Date.now()) {
+  const day = new Date(at).toISOString().slice(0, 10);
+  const used = sync && sync.platformDay === day ? Math.min(DAILY_GOLD_CAP, Math.max(0, Math.floor(Number(sync.platformGold) || 0))) : 0;
+  return { day, used, cap: DAILY_GOLD_CAP, remaining: DAILY_GOLD_CAP - used };
+}
+
 // لقطة إعداد الجولة المخزّنة (المنجم + مستويات المعدات). جولات ما قبل المرحلة 3 بلا لقطة = الإعداد الافتراضي.
 function configOfRun(run) {
   let raw = null;
@@ -132,4 +140,4 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     res.json(result);
   }));
 }
-module.exports = { mountPlatform, dailyQuota, DAILY_GOLD_CAP, ORE_PRICES, configOfRun };
+module.exports = { mountPlatform, dailyQuota, dailyGoldView, DAILY_GOLD_CAP, ORE_PRICES, configOfRun };

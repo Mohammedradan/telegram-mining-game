@@ -12,7 +12,8 @@
     "test:clicker": "node scripts/test-clicker-browser.cjs",
     "test:deepdive": "node scripts/test-deepdive-browser.cjs",
     "test:bosses": "node scripts/test-bosses-browser.cjs",
-    "test:guide": "node scripts/test-guide-browser.cjs"
+    "test:guide": "node scripts/test-guide-browser.cjs",
+    "test:classic": "node scripts/test-classic-browser.cjs"
   },
   "engines": {
     "node": ">=22"

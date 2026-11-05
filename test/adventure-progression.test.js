@@ -20,7 +20,8 @@ test('locked zones cannot become the active zone before their milestone', () => 
 
 test('zone progression does not modify the seeded race reward rules', () => {
   assert.match(html, /adv\.mode !== 'race'/);
-  assert.match(html, /const reward = inRace \? 0/);
+  assert.match(html, /const claimed = inRace \? 0/, 'a race still claims nothing');
+  assert.match(html, /const room = classicRoom\(\), reward = Math\.min\(claimed, room\), cut = claimed > reward;/, 'and what is paid can only be lower than what is claimed (the shared daily cap), so a race pays 0');
 });
 
 test('end-of-run summary tells players what zones they unlocked or how to unlock the next one', () => {

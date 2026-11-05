@@ -479,6 +479,10 @@
     <section id="play-panel-adventure" class="play-panel active flex-col gap-1.5" role="tabpanel">
     <!-- 🧭 منجم المنصّة هو الشاشة الرئيسية - لعبة منصات ثنائية الأبعاد تفاعلية -->
     <div id="legacy-adventure" hidden class="flex flex-col gap-1.5 flex-1 min-h-0">
+    <div id="legacy-bar" class="flex items-center justify-between gap-2">
+      <button id="legacy-back" type="button" class="legacy-back flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-xl py-1.5 px-3 text-[11px] font-black active:scale-95"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>العودة إلى المنجم</span></button>
+      <div id="adv-daily" class="text-[10px] text-slate-400" aria-live="polite"></div>
+    </div>
     <div class="grid grid-cols-4 gap-1.5 text-center">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">النقاط</div><div id="adv-score" class="font-black text-amber-400 text-sm">0</div></div>
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl py-1.5"><div class="text-[9px] text-slate-400">الوقت</div><div id="adv-time" class="font-black text-sky-300 text-sm">60</div></div>
@@ -1008,6 +1012,14 @@
     </div>
     <p class="mines-hint">كل منجم أصلب وأغنى بخاماته. افتح التالي بالفوز في السابق وبترقية معداتك في الورشة.</p>
     <div id="mines-list" class="mines-list"></div>
+    <div id="mine-classic" class="mine-classic">
+      <div class="mine-classic-art" aria-hidden="true"><svg class="ui-icon"><use href="#i-cart"/></svg></div>
+      <div class="mine-classic-body">
+        <h3>الكلاسيكي: اللعبة الأصلية</h3>
+        <p>حرّك العربة والتقط الجواهر الساقطة. أربعة أوضاع: كلاسيك، البرق، البقاء، الزعيم. ذهبها يتقاسم سقف اليوم مع المناجم وبيع الخامات — متبقٍ اليوم: <b id="classic-left"></b></p>
+      </div>
+      <button id="classic-open" type="button" class="mine-pick" aria-label="العب الوضع الكلاسيكي">العب</button>
+    </div>
   </div>
 
   <!-- المرشد «العم سراج» (guide.js): الهدف التالي والموسوعة والحكاية. عرض فقط: يقرأ حالة اللاعب ولا يكتب شيئاً -->
@@ -1341,6 +1353,7 @@
         if (Number.isFinite(data.referralCount)) profile.referralCount = data.referralCount;
         if (Number.isFinite(data.referralEarnings)) profile.referralEarnings = data.referralEarnings;
         if (data.daily) profile.daily = data.daily;
+        if (data.dailyGold && Number.isFinite(data.dailyGold.remaining)) profile.dailyGold = data.dailyGold;
         if (data.progress && Number.isFinite(data.progress.level)) profile.progress = data.progress;
         if (data.missions && Array.isArray(data.missions.items)) profile.missions = data.missions;
         if (data.weeklyMissions && Array.isArray(data.weeklyMissions.items)) profile.weeklyMissions = data.weeklyMissions;
@@ -1350,6 +1363,7 @@
       if (typeof renderMissions === 'function') renderMissions();
       if (typeof renderWeeklyMissions === 'function') renderWeeklyMissions();
       if (typeof updateArenaUI === 'function') updateArenaUI();
+      if (typeof updateClassicDaily === 'function') updateClassicDaily();
       // إحصاءات المغامرة والمناطق المفتوحة كما يحتسبها الخادم من جولات تحقق منها
       if (typeof adoptServerAdventure === 'function') adoptServerAdventure(data.state.adventure, data.race);
       if (typeof ADV !== 'undefined') ADV.playerW = 78 + (state.adventureUpgrades?.cart || 0) * 8;
@@ -1417,6 +1431,7 @@
         else if (missionsDone.length) setSyncStatus(`🎯 ${missionsDone.some((r) => r.key === 'bonus') ? 'مكافأة إكمال مهام اليوم' : 'مهمة مكتملة'}: +${missionsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙 +${missionsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة`);
         else if (achievementsDone.length) setSyncStatus(`🏅 إنجاز مُعتمد: +${achievementsDone.reduce((a, r) => a + (r.gold || 0), 0)} 🪙${achievementsDone.some((r) => r.xp) ? ` +${achievementsDone.reduce((a, r) => a + (r.xp || 0), 0)} خبرة` : ''}`);
         else if (runs.some((r) => r.unlocked)) setSyncStatus(`🗺️ فُتحت منطقة جديدة — تقدّمك محفوظ في حسابك (${runs[runs.length - 1].zones}/3)`);
+        else if (runs.some((r) => r.reason === 'daily_cap')) setSyncStatus(`🪙 بلغت سقف الذهب اليومي المشترك (${fmt(profile?.dailyGold?.cap || 10000)}): حُفظت الجولة وإحصاؤها ${runs.some((r) => r.gold > 0) ? 'ودُفع الباقي فقط' : 'دون ذهب إضافي'} — يتجدّد السقف ${classicResetTime()}`);
         else if (runs.some((r) => r.reason === 'too_soon')) setSyncStatus('⏱️ جولة متسارعة: حُفظت إحصاؤها دون جائزة ذهب');
         else setSyncStatus(runs.length ? '☁️ محفوظ على الخادم — جولتك أُضيفت إلى سجلك' : '☁️ محفوظ على الخادم');
         if (refused.length) haptic('error');
@@ -2504,6 +2519,8 @@
     }
 
     function updateAdventureUI() {
+      const legacyBack = document.getElementById('legacy-back');
+      if (legacyBack) legacyBack.hidden = Boolean(adv.mode === 'race' && typeof race !== 'undefined' && race.inRace);
       document.getElementById('adv-score').innerText = Math.floor(adv.score);
       document.getElementById('adv-time').innerText = adv.gameMode === 'survival' && adv.running ? '∞' : Math.max(0, Math.ceil(adv.timeLeft));
       document.getElementById('adv-lives').innerText = '❤️'.repeat(Math.max(0, adv.lives)) || '💀';
@@ -2990,7 +3007,10 @@
       if (inRace) window.PlatformGame?.showPlatform?.(); // restore the side-scroller after a race
       const rewardCap = adv.gameMode === 'survival' ? 150 : 100;
       const victoryBonus = adv.bossDefeated ? 150 : 0;
-      const reward = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)
+      const claimed = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)
+      // السقف اليومي المشترك: الخادم يقصّ الدفع، فنعرض ما سيدفعه فعلاً بدل رقم ثم تصحيحه عند المزامنة
+      const room = classicRoom(), reward = Math.min(claimed, room), cut = claimed > reward;
+      if (reward > 0 && classicPurse()) { const d = classicPurse(); profile.dailyGold = { day: d.day, cap: d.cap, used: d.used + reward, remaining: Math.max(0, d.remaining - reward) }; }
       const unlockedZonesBeforeRun = getUnlockedAdventureZones();
       if (adv.bossDefeated) advStats.bossWins += 1;
       if (inRace) raceSendFinish(finalScore);
@@ -3027,6 +3047,7 @@
       updateAdvSettingsUI();
       document.getElementById('game-overlay-text').innerHTML =
         `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>` +
+        (cut ? `<span class="text-sky-300">سقف الذهب اليوم مشترك مع المناجم وبيع الخامات: ${reward ? `دُفع لك الباقي فقط (${reward} من ${claimed})` : `لا ذهب إضافي اليوم (كان ${claimed})`} — يتجدّد ${classicResetTime()}</span><br>` : '') +
         `🎯 التقطت ${adv.caught} · دقة ${accuracy}٪ · أعلى سلسلة ×${adv.maxCombo}<br>` +
         `الوضع: ${advModeCfg().label} · الصعوبة: ${advDiffCfg().label}<br>` +
         `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}<br>` +
@@ -3040,7 +3061,7 @@
       btn.innerText = inRace ? '⏳ بانتظار الخصم…' : '🔁 العب مرة أخرى';
       btn.setAttribute('onclick', 'startAdventure()');
       overlay.style.display = 'flex';
-      haptic(reward > 0 ? 'success' : 'error');
+      haptic(claimed > 0 ? 'success' : 'error');
       updateUI();
       save();
       updateAdventureUI();
@@ -3605,12 +3626,47 @@
         </article>`;
       }).join('');
     }
+    // ---------- الوضع الكلاسيكي (الدفعة 3أ′): اللعبة الأصلية من خريطة المناجم، وذهبها تحت السقف اليومي المشترك (10,000) ----------
+    // المحفظة المشتركة تقرؤها من profile.dailyGold (يرسلها الخادم مع كل ردّ)، والخادم هو من يقصّ الدفع فعلاً؛ هنا عرض وتوقّع فقط.
+    // محفظة الأمس محفظة كاملة اليوم (قد تبقى الصفحة مفتوحة عبر منتصف الليل UTC فلا يصل ردّ يجدّدها)؛ مجهولة = لا توقّع والخادم يقرّر
+    const classicPurse = () => {
+      const d = profile?.dailyGold;
+      if (!d || !Number.isFinite(d.remaining)) return null;
+      const day = new Date().toISOString().slice(0, 10);
+      return d.day === day ? d : { day, used: 0, cap: d.cap, remaining: d.cap };
+    };
+    const classicRoom = () => { const d = classicPurse(); return d ? Math.max(0, d.remaining) : Infinity; };
+    function classicResetTime() {
+      const d = new Date(), next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); // منتصف الليل UTC
+      try { return new Date(next).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' }); } catch (_) { return 'منتصف الليل (UTC)'; }
+    }
+    function updateClassicDaily() {
+      const d = classicPurse();
+      const left = document.getElementById('classic-left'), bar = document.getElementById('adv-daily');
+      const text = d ? `${fmt(d.remaining)} من ${fmt(d.cap)}` : '10,000';
+      if (left && left.textContent !== text) left.textContent = text;
+      const line = d ? `سقف اليوم المشترك: متبقٍ ${fmt(d.remaining)} من ${fmt(d.cap)}` : 'سقف اليوم المشترك: 10,000';
+      if (bar && bar.textContent !== line) bar.textContent = line;
+    }
+    function openClassic() {
+      if (typeof race !== 'undefined' && race.inRace) return; // لا يُغادَر سباق جارٍ
+      minesClose();
+      window.PlatformGame?.showLegacy?.();
+      updateClassicDaily(); updateAdventureUI();
+      try { document.getElementById('game-overlay-btn')?.focus({ preventScroll: true }); } catch (_) {}
+    }
+    function leaveClassic() {
+      if (typeof race !== 'undefined' && race.inRace) return;
+      if (adv.running && !adv.paused) setAdventurePaused(true); // الجولة الجارية تبقى موقوفة وتُستأنف من الكلاسيكي
+      window.PlatformGame?.showPlatform?.();
+      try { document.getElementById('mine-select')?.focus({ preventScroll: true }); } catch (_) {}
+    }
     function minesOpen() {
       const overlay = document.getElementById('mines-overlay');
       if (!overlay) return;
       try { window.PlatformGame?.pause(); } catch (_) {}
       minesOpener = document.activeElement; // يعود التركيز إلى الزر الذي فتح الخريطة عند الإغلاق
-      minesOpenFlag = true; overlay.hidden = false; minesRender();
+      minesOpenFlag = true; overlay.hidden = false; minesRender(); updateClassicDaily();
       document.getElementById('mines-close')?.focus({ preventScroll: true });
     }
     function minesClose() {
@@ -3627,6 +3683,8 @@
       }
       for (const id of ['mine-select', 'ws-mine']) document.getElementById(id)?.addEventListener('click', minesOpen);
       document.getElementById('mines-close')?.addEventListener('click', minesClose);
+      document.getElementById('classic-open')?.addEventListener('click', openClassic);
+      document.getElementById('legacy-back')?.addEventListener('click', leaveClassic);
       document.getElementById('mines-list')?.addEventListener('click', (e) => {
         const pick = e.target?.closest?.('[data-mine-pick]');
         if (!pick || pick.disabled) return;

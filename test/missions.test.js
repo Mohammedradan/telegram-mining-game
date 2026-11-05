@@ -1,7 +1,8 @@
 // اختبارات سحب المهام اليومية والأسبوعية.
-// مهمتا «اهزم زعيم المنجم» و«نقاط في وضع البقاء» لا يغذّيهما إلا الوضع الكلاسيكي المخفي، فلا يمكن إنجازهما من اللعب
-// الظاهر: كانتا تُسحبان كغيرهما (3 من 11) فتظهر مهمة مستحيلة في ~49% من الأيام وتضيع مكافأة «أنجز الثلاث».
-// هنا نتحقق من أن السحب الجديد لا يختارهما أبداً، وأن المهام المخزّنة سابقاً (قبل الإصلاح) تبقى صالحة وقابلة للاستلام.
+// مهمتا «اهزم زعيم المنجم» و«نقاط في وضع البقاء» كانتا لا تغذّيهما إلا الوضع الكلاسيكي المخفي، فلم يمكن إنجازهما من اللعب
+// الظاهر وكانتا تُستبعدان من السحب كي لا تظهر مهمة مستحيلة في ~49% من الأيام. بعد أن صار الوضع الكلاسيكي ظاهراً في خريطة المناجم
+// (الدفعة 3أ′) عادتا إلى السحب؛ هنا نتحقق من ذلك ومن أن كلتيهما تتقدّمان فعلاً من جولاتهما وتُستلمان، وأن المهام المخزّنة
+// سابقاً (قبل أي تغيير) تبقى صالحة وقابلة للاستلام.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('child_process');
@@ -26,7 +27,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mining-missions-'));
 const DB_FILE = path.join(tmpDir, 'game.db');
 const PG_URL = process.env.TEST_DATABASE_URL || '';
 const RUN = `${process.pid}_${Date.now().toString(36)}`; // PostgreSQL تُشارك بين ملفات الاختبار
-const UNREACHABLE = ['boss', 'survival'];
+const REACHABLE_AGAIN = ['boss', 'survival'];
 let child = null;
 let store = null;
 
@@ -82,11 +83,11 @@ after(async () => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-test('new daily and weekly picks never include a mission that only the hidden classic mode can finish', async () => {
-  // 36 لاعباً (أقل من حدّ 60 طلباً/دقيقة لـ /api/me). مع الكود القديم احتمال أن لا يحصل أحدهم على مهمة مستحيلة ≈ 0.509^36 ≈ 0.
+test('the pools are whole again: boss and survival missions are drawn, and a draw is always three different missions', async () => {
+  // 54 لاعباً (أقل من حدّ 60 طلباً/دقيقة لـ /api/me). احتمال ألا تظهر مهمة بعينها في 162 سحباً من 11 ≈ (8/11)^54 ≈ 3.7e-8
   const seenDaily = new Set();
   const seenWeekly = new Set();
-  for (let i = 0; i < 36; i++) {
+  for (let i = 0; i < 54; i++) {
     const j = await me(uid(`pick${i}`));
     const daily = j.missions.items.map((m) => m.key);
     const weekly = j.weeklyMissions.items.map((m) => m.key);
@@ -94,13 +95,49 @@ test('new daily and weekly picks never include a mission that only the hidden cl
     assert.equal(weekly.length, 3, 'ثلاث مهام أسبوعية');
     assert.equal(new Set(daily).size, 3, `مهام يومية مكررة: ${daily}`);
     assert.equal(new Set(weekly).size, 3, `مهام أسبوعية مكررة: ${weekly}`);
-    for (const key of [...daily, ...weekly]) assert.ok(!UNREACHABLE.includes(key), `سُحبت مهمة مستحيلة: ${key}`);
     daily.forEach((k) => seenDaily.add(k));
     weekly.forEach((k) => seenWeekly.add(k));
   }
-  // السحب ما زال متنوعاً: لم يتقلص إلى مجموعة صغيرة ثابتة (المتاح 9 من 11)
-  assert.ok(seenDaily.size >= 6, `تنوع يومي ضعيف: ${[...seenDaily]}`);
-  assert.ok(seenWeekly.size >= 6, `تنوع أسبوعي ضعيف: ${[...seenWeekly]}`);
+  for (const key of REACHABLE_AGAIN) {
+    assert.ok(seenDaily.has(key), `لم تُسحب المهمة اليومية ${key}`);
+    assert.ok(seenWeekly.has(key), `لم تُسحب المهمة الأسبوعية ${key}`);
+  }
+  assert.equal(seenDaily.size, 11, `المجموعة اليومية كاملة: ${[...seenDaily]}`);
+  assert.equal(seenWeekly.size, 11, `المجموعة الأسبوعية كاملة: ${[...seenWeekly]}`);
+});
+
+test('the revived missions really progress from the classic rounds that feed them, and can be claimed', async () => {
+  const id = uid('revived');
+  await me(id);
+  const day = new Date().toISOString().slice(0, 10);
+  await patchUser(`guest_${id}`, (u) => {
+    u.sync.missions = { day, items: [{ key: 'boss', progress: 0, claimed: false }, { key: 'survival', progress: 0, claimed: false }, { key: 'buy', progress: 0, claimed: false }], bonusClaimed: false };
+    u.sync.lastRunAt = Date.now() - 900_000; u.sync.lastRewardAt.adventure = Date.now() - 900_000;
+  });
+  const { body } = await sendOps(id, [
+    { type: 'run', mode: 'boss', difficulty: 'normal', score: 600, gems: 20, combo: 10, duration: 40, boss: true, ago: 200_000 },
+    { type: 'run', mode: 'survival', difficulty: 'normal', score: 260, gems: 3, combo: 2, duration: 40, boss: false, ago: 100_000 },
+  ]);
+  assert.deepEqual(body.results.map((r) => r.status), ['ok', 'ok']);
+  const byKey = Object.fromEntries(body.missions.items.map((m) => [m.key, m]));
+  assert.equal(byKey.boss.done, true, 'a classic boss kill finishes the boss mission');
+  assert.equal(byKey.survival.done, true, '260 points in survival finish a 250-point mission');
+  const claimed = await sendOps(id, [{ type: 'mission', key: 'boss' }, { type: 'mission', key: 'survival' }], { from: 3 });
+  assert.deepEqual(claimed.body.results.map((r) => [r.status, r.gold]), [['ok', 300], ['ok', 250]]);
+  // ومهمة الأسبوع كذلك تتغذّى من الجولات نفسها
+  const weekly = await me(id);
+  const week = weekly.weeklyMissions.week;
+  await patchUser(`guest_${id}`, (u) => {
+    u.sync.weeklyMissions = { week, items: [{ key: 'boss', progress: 2, claimed: false }, { key: 'survival', progress: 0, claimed: false }, { key: 'buy', progress: 0, claimed: false }], bonusClaimed: false };
+    u.sync.lastRunAt = Date.now() - 900_000; u.sync.lastRewardAt.adventure = Date.now() - 900_000;
+  });
+  const more = await sendOps(id, [
+    { type: 'run', mode: 'boss', difficulty: 'normal', score: 600, gems: 20, combo: 10, duration: 40, boss: true, ago: 200_000 },
+    { type: 'run', mode: 'survival', difficulty: 'normal', score: 420, gems: 3, combo: 2, duration: 40, boss: false, ago: 100_000 },
+  ], { from: 5 });
+  const w = Object.fromEntries(more.body.weeklyMissions.items.map((m) => [m.key, m]));
+  assert.equal(w.boss.done, true, 'the third kill of the week');
+  assert.equal(w.survival.done, true, '420 of the 400 points');
 });
 
 test('missions already stored with boss/survival (picked before the fix) stay valid, are not regenerated, and can still be claimed', async () => {

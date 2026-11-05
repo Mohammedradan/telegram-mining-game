@@ -12,7 +12,7 @@ const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, de
 // محرك الساحة مشترك مع المتصفح (يُقدَّم ثابتاً من public/) حتى تكون محاكاة الخادم مطابقة لما عرضه العميل
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
-const { mountPlatform, dailyQuota, ORE_PRICES } = require('./platform-api');
+const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
 // قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
 const PlatformRules = require('./public/platform-rules');
 
@@ -288,13 +288,25 @@ function applyRun(user, op, now, timeline) {
   const bossKill = op.mode === 'boss' && op.boss === true && duration >= RUN_MIN_BOSS_SEC;
   const clamped = gems > maxObjects || combo > maxObjects || rawScore > score || (op.boss === true && !bossKill);
   const r = { status: clamped ? 'clamped' : 'ok', mode: op.mode, difficulty, duration, score, gems: Math.min(gems, maxObjects), combo: Math.min(combo, maxObjects), boss: bossKill, race: op.race === true, gold: 0, flagged: clamped };
-  // المكافأة: من النقاط التي يسمح بها زمن اللعب، بسقف الوضع، وبفاصل 20 ثانية بين جولتين مكافأتين
+  // المكافأة: من النقاط التي يسمح بها زمن اللعب، بسقف الوضع، وبفاصل 20 ثانية بين جولتين مكافأتين، ثم تحت السقف اليومي المشترك
+  // (10,000 ذهب/يوم UTC لجولات المنصّات والوضع الكلاسيكي وبيع الخامات معاً: sync.platformGold). هذا المسار قائم على ما يدّعيه العميل
+  // (لا إعادة تشغيل كجولات المنصّات)، فالسقف المشترك هو ما يمنع أن يصير نشر تقارير جولات وهمية أسهل طريق إلى الذهب.
   if (!r.race) {
     const basis = Math.min(score, duration * RUN_MAX_SCORE_PER_SEC);
     const gold = Math.min(modeCfg.cap, Math.floor(basis / 5 * modeCfg.scale)) + (bossKill ? 150 : 0);
     if (gold > 0) {
       if (endAt - timeline.lastRewardEnd < RUN_REWARD_GAP_SEC * 1000) r.reason = 'too_soon';
-      else { r.gold = gold; timeline.lastRewardEnd = endAt; s.gold += gold; s.totalEarned += gold; }
+      else {
+        const quota = dailyQuota(user.sync, gold, now);
+        r.dailyRemaining = quota.remaining;
+        if (quota.capped) r.reason = 'daily_cap';
+        // الفاصل الزمني يتقدّم فقط حين يُدفع ذهب فعلاً: جولة بلا دفع لا تؤخّر التالية
+        if (quota.gold > 0) {
+          r.gold = quota.gold; timeline.lastRewardEnd = endAt;
+          s.gold += quota.gold; s.totalEarned += quota.gold;
+          user.sync.platformGold = (Number(user.sync.platformGold) || 0) + quota.gold;
+        }
+      }
     }
   }
   const zonesBefore = a.zones;
@@ -319,20 +331,17 @@ const MISSION_POOL = [
   { key: 'runs', icon: '🎮', title: 'أكمل {n} جولات مغامرة', target: 3, gold: 200, xp: 50, mode: 'sum' },
   { key: 'gems', icon: '💎', title: 'التقط {n} جوهرة في المغامرة', target: 60, gold: 200, xp: 50, mode: 'sum' },
   { key: 'score', icon: '🏅', title: 'حقق {n} نقطة في جولة واحدة', target: 400, gold: 250, xp: 60, mode: 'max' },
-  { key: 'boss', icon: '👹', title: 'اهزم زعيم المنجم', target: 1, gold: 300, xp: 80, mode: 'sum' },
+  { key: 'boss', icon: '👹', title: 'اهزم زعيماً (الكلاسيكي أو منجم الزعيم)', target: 1, gold: 300, xp: 80, mode: 'sum' },
   { key: 'boost', icon: '🚀', title: 'فعّل التعزيز {n} مرات', target: 2, gold: 100, xp: 30, mode: 'sum' },
   { key: 'buy', icon: '🛒', title: 'اشترِ {n} ترقيات', target: 2, gold: 150, xp: 40, mode: 'sum' },
   { key: 'play_time', icon: '⏱️', title: 'العب {n} ثانية في المغامرة', target: 180, gold: 200, xp: 50, mode: 'sum' },
-  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء', target: 250, gold: 250, xp: 60, mode: 'max' },
+  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء الكلاسيكي', target: 250, gold: 250, xp: 60, mode: 'max' },
   { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة', target: 2, gold: 100, xp: 30, mode: 'sum' },
 ];
 const MISSION_BY_KEY = Object.fromEntries(MISSION_POOL.map((m) => [m.key, m]));
-// مهام لا يمكن إنجازها من اللعب الظاهر حالياً: «اهزم زعيم المنجم» و«نقاط في وضع البقاء» لا يغذّيهما إلا الوضع
-// الكلاسيكي المخفي (#legacy-adventure)، بينما جولات المنصّات الظاهرة تغذّي runs/gems/score/play_time فقط.
-// كانت تُسحب كغيرها (3 من 11) فتظهر مهمة مستحيلة في ~49% من الأيام وتضيع معها مكافأة «أنجز الثلاث».
-// تبقى معرَّفة في المجموعتين كي تظل المهام المخزّنة سابقاً صالحة وقابلة للاستلام، لكنها لا تُسحب في اختيار جديد.
-// عند ظهور زعيم/وضع بقاء في اللعب الظاهر: أزل المفتاح من هذه المجموعة وغذِّه من مساره.
-const UNREACHABLE_MISSION_KEYS = new Set(['boss', 'survival']);
+// كل مهام المجموعتين قابلة للإنجاز من اللعب الظاهر: «اهزم زعيم المنجم» تغذّيها جولات المنصّات (زعيما منجمي الذهب والقلب) ووضع الزعيم
+// الكلاسيكي، و«نقاط في وضع البقاء» يغذّيها وضع البقاء الكلاسيكي. كانت المهمتان مستبعدتين من السحب ما دام الوضع الكلاسيكي مخفياً
+// (كانتا تظهران مستحيلتين في ~49% من الأيام وتضيع معهما مكافأة «أنجز الثلاث»)، وعادتا إليه حين ظهر في خريطة المناجم (الدفعة 3أ′).
 const MISSIONS_PER_DAY = 3;
 const MISSION_BONUS = { gold: 300, xp: 100 };
 
@@ -345,7 +354,7 @@ function hash32(str) {
 function pickMissions(userId, day) {
   let seed = hash32(`${userId}:${day}`) || 1;
   const next = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
-  const pool = MISSION_POOL.map((_, i) => i).filter((i) => !UNREACHABLE_MISSION_KEYS.has(MISSION_POOL[i].key));
+  const pool = MISSION_POOL.map((_, i) => i);
   const chosen = [];
   while (chosen.length < MISSIONS_PER_DAY && pool.length) chosen.push(pool.splice(Math.floor(next() * pool.length), 1)[0]);
   return chosen.map((i) => ({ key: MISSION_POOL[i].key, progress: 0, claimed: false }));
@@ -413,11 +422,11 @@ const WEEKLY_MISSION_POOL = [
   { key: 'runs', icon: '🎮', title: 'أكمل {n} جولات مغامرة هذا الأسبوع', target: 15, gold: 600, xp: 150, mode: 'sum' },
   { key: 'gems', icon: '💎', title: 'التقط {n} جوهرة في المغامرة هذا الأسبوع', target: 300, gold: 600, xp: 150, mode: 'sum' },
   { key: 'score', icon: '🏅', title: 'حقق {n} نقطة في جولة واحدة هذا الأسبوع', target: 650, gold: 700, xp: 180, mode: 'max' },
-  { key: 'boss', icon: '👹', title: 'اهزم زعيم المنجم {n} مرات هذا الأسبوع', target: 3, gold: 900, xp: 220, mode: 'sum' },
+  { key: 'boss', icon: '👹', title: 'اهزم زعيماً {n} مرات هذا الأسبوع (الكلاسيكي أو منجم الزعيم)', target: 3, gold: 900, xp: 220, mode: 'sum' },
   { key: 'boost', icon: '🚀', title: 'فعّل التعزيز {n} مرات هذا الأسبوع', target: 8, gold: 400, xp: 100, mode: 'sum' },
   { key: 'buy', icon: '🛒', title: 'اشترِ {n} ترقيات هذا الأسبوع', target: 6, gold: 500, xp: 120, mode: 'sum' },
   { key: 'play_time', icon: '⏱️', title: 'العب {n} ثانية في المغامرة هذا الأسبوع', target: 900, gold: 600, xp: 150, mode: 'sum' },
-  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء هذا الأسبوع', target: 400, gold: 700, xp: 180, mode: 'max' },
+  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء الكلاسيكي هذا الأسبوع', target: 400, gold: 700, xp: 180, mode: 'max' },
   { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة هذا الأسبوع', target: 8, gold: 500, xp: 120, mode: 'sum' },
 ];
 const WEEKLY_MISSION_BY_KEY = Object.fromEntries(WEEKLY_MISSION_POOL.map((m) => [m.key, m]));
@@ -427,7 +436,7 @@ const WEEKLY_MISSION_BONUS = { gold: 1000, xp: 300 };
 function pickWeeklyMissions(userId, week) {
   let seed = hash32(`weekly:${userId}:${week}`) || 1;
   const next = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
-  const pool = WEEKLY_MISSION_POOL.map((_, i) => i).filter((i) => !UNREACHABLE_MISSION_KEYS.has(WEEKLY_MISSION_POOL[i].key));
+  const pool = WEEKLY_MISSION_POOL.map((_, i) => i);
   const chosen = [];
   while (chosen.length < WEEKLY_MISSIONS_PER_WEEK && pool.length) chosen.push(pool.splice(Math.floor(next() * pool.length), 1)[0]);
   return chosen.map((i) => ({ key: WEEKLY_MISSION_POOL[i].key, progress: 0, claimed: false }));
@@ -785,6 +794,7 @@ function applyOps(user, session, ops, now, ctx = {}) {
           if (r.mode === 'survival') trackMission(user, 'survival', r.score, now);
           goldDelta = r.gold;
           detail = { mode: r.mode, difficulty: r.difficulty, score: r.score, gems: r.gems, combo: r.combo, duration: r.duration, boss: r.boss, race: r.race, zones: r.zones };
+          if (r.reason === 'daily_cap') detail.capped = true;
         }
         break;
       }
@@ -944,6 +954,7 @@ function profileOf(user, isNew = false, extra = {}) {
     referralEarnings: user.referralEarnings,
     referredBy: user.referredBy,
     daily: dailyInfo(user),
+    dailyGold: dailyGoldView(user.sync, now),
     isNew,
     serverTime: now,
     ...extra,
@@ -1172,6 +1183,7 @@ app.post('/api/ops', requireAuth, rateLimit('ops', 120), asyncRoute(async (req, 
       referralCount: user.referralCount,
       referralEarnings: user.referralEarnings,
       daily: dailyInfo(user),
+      dailyGold: dailyGoldView(user.sync, now),
       serverTime: now,
     };
   });
