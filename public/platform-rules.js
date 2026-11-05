@@ -4,7 +4,7 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 6;
+  const VERSION = 7; // V7: وضع المبارزة الحيّة (duel) + صدّ الهجمات (DEFEND)
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -46,8 +46,19 @@
   // «نسمة الخام»: فرصة موقوتة واحدة في منتصف الجولة على منصة المفترق (حتمية من رقم الإطار لا من العشوائية).
   const ORE_WIND_TICK = 60 * 40;
   const FPS = 60, DT = 1 / FPS, MAX_TICKS = 60 * 150;
-  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32 });
-  const MAX_MASK = 63;
+  // DEFEND (64): صدّ الهجمات القادمة — يشغل الحركة والهجوم معاً، فأمام اللاعب قرار دائم: أهجم أم أصد؟
+  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32, DEFEND: 64 });
+  const MAX_MASK = 127;
+  // أوضاع الجولة: mine = منجم التعدين (الافتراضي)، duel = مبارزة قتال حيّة على نفس محرك الحركة.
+  const MODES = Object.freeze(['mine', 'duel']);
+  // مبارزة: خصم واحد بذكاء الزعيم نفسه (مشي ← إنذار ← موجة أرضية أو اندفاع)، والفوز بإسقاطه.
+  // الصدّ له «نَفَس» محدود: لا يمكن الثبات خلف الدرع إلى الأبد — وهذه هي المساحة للمراوغة بالقفز.
+  const GUARD = Object.freeze({ max: 150, regen: 1, breakTicks: 48 });
+  const DUEL = Object.freeze({
+    reward: 60, guardSlow: 55,
+    // ساحة المبارزة داخل أول قطعة أرض صلبة في المستوى (0..560) — لا فجوات ولا أخطار بيئية حولها.
+    rival: Object.freeze({ id: 80, w: 44, h: 64, hp: 22, hpPerZone: 5, patrol: 78, charge: 205, wake: 0, minX: 210, maxX: 470, windup: 38, recover: 46 }),
+  });
 
   const CHARACTERS = Object.freeze({
     miner: {
@@ -348,7 +359,8 @@
     const src = input && typeof input === 'object' ? input : {};
     const zone = Number.isInteger(src.zone) && src.zone >= 0 && src.zone < MINES.length ? src.zone : 0;
     const goal = Number.isInteger(src.goal) && src.goal >= 0 && src.goal < GOALS.length ? src.goal : 0;
-    return { zone, goal, loadout: normalizeLoadout(src.loadout) };
+    const mode = MODES.includes(src.mode) ? src.mode : 'mine';
+    return { zone, goal, mode, loadout: normalizeLoadout(src.loadout) };
   }
   // تكلفة الترقية من المستوى الحالي إلى التالي (null عند المستوى الأقصى أو معدّة غير معروفة).
   function equipCost(id, level) {
@@ -453,6 +465,27 @@
     };
   }
 
+  // ===== المبارزة: خصم واحد على أرض المنجم نفسها =====
+  // لا صخور ولا بلورات ولا حرّاس آخرين ولا بوابة: النصر بإسقاط الخصم، والخسارة بنفاد القلوب.
+  // الدالة حتمية تماماً (لا عشوائية): نفس البذرة = نفس اتجاه الخصم وموقعه.
+  function duelEnemy(zone, seed) {
+    const r = DUEL.rival, lvl = Math.max(0, Math.min(99, Number(zone) || 0));
+    const rnd = prng((Number(seed) >>> 0) || 1);
+    const maxHp = r.hp + r.hpPerZone * lvl;
+    const startX = r.minX + Math.round(rnd() * 130);
+    const walkJitter = Math.round(rnd() * 10);
+    const cycleStart = Math.floor(rnd() * 2);
+    return {
+      id: r.id, type: 'rival', boss: true, armored: false, kind: 'rival', name: 'مبارز الظلال', cycleStart,
+      x: startX, y: 300 - r.h, w: r.w, h: r.h,
+      minX: r.minX, maxX: r.maxX, wake: r.wake, maxHp,
+      patrolSpeed: r.patrol, chaseSpeed: r.patrol, chargeSpeed: r.charge,
+      damage: 1, flying: false,
+      // موجتان أرضيتان بعد إنذار (تُتجنَّبان بالقفز أو تُصدّان)، واندفاع عند الغضب.
+      ai: { walk: 30 + walkJitter, windup: r.windup, recover: r.recover, enragedWalk: 24, enragedWindup: 22, chargeTicks: 30,
+        attacks: ['slam'], enragedAttacks: ['charge', 'slam'], wave: { speed: 190, w: 28, h: 20, ttl: 52 } },
+    };
+  }
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const activeHazard = (h, tick) => (tick + (h.phase || 0)) % h.period < h.active;
   const canExit = s => s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
@@ -499,7 +532,7 @@
   // صحته لا تعود، والعودة بعد الإصابة إلى راية مدخل الساحة، فالمعركة تُحسم بالمثابرة لا بالحظ. غنيمته خامات فقط (لا ذهب).
   const BOSS_SLOTS = Object.freeze({ mid: 1, rare: 2 });
   // الزعيم مدرَّع خارج مرحلة الاستراحة (بعد هجومه): الضربة تُرَدّ بضرر 0 ويُعرض ذلك للاعب. غير الزعماء يتلقون الضرر كاملاً دائماً.
-  const blow = (enemy, amount) => (enemy.boss && enemy.state !== 'recover' ? 0 : amount);
+  const blow = (enemy, amount) => (enemy.boss && enemy.armored !== false && enemy.state !== 'recover' ? 0 : amount);
   // الاستراحة هي النافذة الوحيدة التي يُصاب فيها الزعيم؛ حدث boss_stun يُعلم العميل (صوت ونجوم) ولا يغيّر شيئاً في الحساب
   function stun(s, b, ticks) {
     b.vx = 0; b.state = 'recover'; b.timer = ticks;
@@ -561,7 +594,7 @@
     const stats = loadoutStats(hero.id, cfg.loadout);
     const layout = layoutFor(seed, cfg.zone, cfg.loadout.luck), level = levelFor(cfg.zone);
     const perch = perchAt(level);
-    return {
+    const s = {
       seed: seed === undefined || seed === null ? null : Number(seed) >>> 0,
       zone: cfg.zone,
       goal: cfg.goal,
@@ -596,6 +629,7 @@
         skillMaxCooldown: hero.skillCooldown,
         pose: 'idle',
         landTimer: 0,
+        guard: { active: false, blocks: 0, timer: 0, stamina: GUARD.max, maxStamina: GUARD.max, broken: 0 },
       },
       checkpoint: 64,
       rocks: layout.rocks.map(r => ({ ...r, hp: mine.rockHp, maxHp: mine.rockHp })),
@@ -640,7 +674,23 @@
       ores: emptyOres(),
       lastMask: 0,
       events: [],
+      mode: cfg.mode,
+      // مبارزة: خصم واحد، لا تعدين ولا بوابة — النصر بإسقاطه
+      duel: cfg.mode === 'duel' ? { rivalId: DUEL.rival.id, name: 'مبارز الظلال', arena: { x0: 24, x1: 540 } } : null,
     };
+    if (cfg.mode === 'duel') {
+      const rival = duelEnemy(cfg.zone, seed);
+      s.rocks = [];
+      s.gems = [];
+      s.hazards = [];
+      s.perch = null; s.vein = null; s.fork = null; s.veinBroken = false; s.choice = null;
+      s.bossId = 0; s.milestones = [];
+      s.enemies = [{ ...rival, state: 'sleep', timer: 0, cycle: rival.cycleStart || 0, enraged: false, aim: -1, attack: null,
+        hp: rival.maxHp, vx: 0, vy: 0, facing: -1, attackCooldown: 0, hurtCooldown: 0, dead: false, alert: true }];
+      s.player.x = 64;
+      s.checkpoint = 64;
+    }
+    return s;
   }
 
   // ضربة على صخرة من اللاعب أو من الروبوت: عند الكسر تُضاف الخامات (مضروبة بنسبة الحقيبة، مقرّبة للأعلى).
@@ -657,9 +707,18 @@
     s.events.push({ type: 'collect', x: rock.x, y: rock.y });
   }
 
-  function hurt(s) {
+  // الصدّ: درعٌ أمامي يشغل الحركة والهجوم. يحمي من ضربات الخصم والموجات الأرضية،
+  // ولا يحمي من الأخطار البيئية (بخار/حفرة/سقوط) — فهذه تعليم مستوى لا قتال.
+  function hurt(s, fromX) {
     const p = s.player;
-    if (p.invulnerable) return;
+    if (p.guard?.active && fromX !== undefined && !p.invulnerable) {
+      p.guard.blocks = (p.guard.blocks || 0) + 1;
+      p.guard.timer = 8;
+      p.invulnerable = 12; // مهلة قصيرة تمنع تراكم الضرر في الإطار نفسه
+      s.events.push({ type: 'guard', x: p.x + p.w / 2, y: p.y, fromX });
+      return false;
+    }
+    if (p.invulnerable) return false;
     p.hearts--; s.damage++; p.invulnerable = p.hurtInvulnerable || 90;
     s.events.push({ type: 'hurt', x: p.x, y: p.y });
     p.x = s.checkpoint; p.y = 240; p.vx = 0; p.vy = 0;
@@ -668,6 +727,22 @@
       p.pose = 'dead';
       s.events.push({ type: 'game_over', x: p.x, y: p.y });
     }
+    return true;
+  }
+
+  // حالة المبارزة: صحة الخصم وتقدّم القتال (تُعرض في الواجهة وتُختم في الإيصال).
+  function duelStatus(s) {
+    const rival = (s.enemies || []).find(e => e.type === 'rival') || (s.enemies || [])[0] || null;
+    return {
+      id: 'duel', name: 'مبارزة',
+      now: rival ? Math.max(0, rival.maxHp - Math.max(0, rival.hp)) : 0,
+      target: rival ? rival.maxHp : 1,
+      done: s.status === 'won',
+      rivalHp: rival ? Math.max(0, rival.hp) : 0,
+      rivalMaxHp: rival ? rival.maxHp : 0,
+      hearts: Math.max(0, s.player?.hearts || 0),
+      blocks: s.player?.guard?.blocks || 0,
+    };
   }
 
   // ===== العرق النادر =====
@@ -759,7 +834,24 @@
     p.coyote = p.grounded ? 6 : Math.max(0, p.coyote - 1);
     p.jumpBuffer = (mask & INPUT.JUMP) && !(s.lastMask & INPUT.JUMP) ? 6 : Math.max(0, p.jumpBuffer - 1);
     const direction = ((mask & INPUT.RIGHT) ? 1 : 0) - ((mask & INPUT.LEFT) ? 1 : 0);
-    p.vx = direction * p.speed;
+    // الصدّ: فعّال على الأرض وبلا ضربة جارية، ويستهلك «نَفَساً» محدوداً؛ عند نفاده ينكسر الدرع
+    // لثوانٍ قصيرة فيصير القفز والمراوغة بديلاً حقيقياً. يبطئ الحركة إلى 45%.
+    const wantGuard = Boolean(mask & INPUT.DEFEND) && p.grounded && !p.attack;
+    const guarding = wantGuard && p.guard.broken <= 0 && p.guard.stamina > 0;
+    p.guard.active = guarding;
+    if (p.guard.broken > 0) p.guard.broken--;
+    if (guarding) {
+      p.guard.stamina = Math.max(0, p.guard.stamina - 1);
+      if (!p.guard.stamina) {
+        p.guard.broken = GUARD.breakTicks;
+        p.guard.active = false;
+        s.events.push({ type: 'guard_break', x: p.x + p.w / 2, y: p.y });
+      }
+    } else {
+      p.guard.stamina = Math.min(GUARD.max, p.guard.stamina + GUARD.regen);
+    }
+    if (p.guard.timer > 0) p.guard.timer--;
+    p.vx = direction * p.speed * (p.guard.active ? (100 - DUEL.guardSlow) / 100 : 1);
     if (direction) p.facing = direction;
     if (p.jumpBuffer && p.coyote) {
       p.vy = p.jumpSpeed; p.grounded = false; p.coyote = 0; p.jumpBuffer = 0;
@@ -888,6 +980,8 @@
       else if (p.vx < 0) p.x = box.x + box.w;
     }
     p.x = Math.max(0, Math.min(level.width - p.w, p.x));
+    // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
+    if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
     p.vy = Math.min(680, p.vy + 1200 * DT);
     p.y += p.vy * DT;
     const wasGrounded = p.grounded; p.grounded = false;
@@ -969,8 +1063,8 @@
       // Enemy attacking player
       if (p.hearts > 0 && overlap(p, enemy)) {
         if (!p.invulnerable && enemy.attackCooldown <= 0) {
-          hurt(s);
-          enemy.attackCooldown = 60;
+          hurt(s, enemy.x + enemy.w / 2);
+          enemy.attackCooldown = enemy.armored === false ? 66 : 60;
           s.events.push({ type: 'enemy_attack', x: enemy.x, y: enemy.y, enemyId: enemy.id });
         }
       }
@@ -1007,12 +1101,17 @@
       else hurt(s);
     }
     for (const hazard of s.hazards || level.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
-    for (const wave of s.waves) if (overlap(p, wave)) hurt(s);
-    if (s.status === 'playing' && canExit(s) && overlap(p, level.exit)) {
+    for (const wave of s.waves) if (overlap(p, wave)) hurt(s, wave.x + wave.w / 2);
+    if (s.status === 'playing' && s.mode !== 'duel' && canExit(s) && overlap(p, level.exit)) {
       s.status = 'won'; s.events.push({ type: 'win', x: p.x, y: p.y });
     }
+    // المبارزة تُحسم بإسقاط الخصم فقط (لا بوابة ولا أهداف تعدين)
+    if (s.mode === 'duel' && s.status === 'playing' && s.enemies.length && s.enemies.every(e => e.dead)) {
+      s.status = 'won';
+      s.events.push({ type: 'duel_win', x: p.x + p.w / 2, y: p.y });
+    }
     if (s.tick >= MAX_TICKS && s.status === 'playing') {
-      s.status = 'lost';
+      s.status = s.mode === 'duel' ? 'lost' : 'lost';
       p.pose = 'dead';
     }
 
@@ -1024,7 +1123,7 @@
       !p.grounded ? (p.vy < 0 ? 'jump' : 'fall') :
       direction ? 'run' : 'idle';
 
-    updateMilestones(s);
+    if (s.mode !== 'duel') updateMilestones(s);
     s.lastMask = mask;
     return s;
   }
@@ -1061,7 +1160,8 @@
   function cameraFor(s, width) {
     const p = s.player, pc = p.x + p.w / 2;
     let left = pc - width * 0.35;
-    const boss = s.bossId && !s.bossDefeated ? s.enemies.find(e => e.id === s.bossId) : null;
+    const boss = s.mode === 'duel' ? (s.enemies.find(e => !e.dead) || null)
+      : s.bossId && !s.bossDefeated ? s.enemies.find(e => e.id === s.bossId) : null;
     if (boss && !boss.dead && boss.state !== 'sleep') {
       const bc = boss.x + boss.w / 2;
       const lo = Math.max(bc + BOSS_VIEW_HALF + 8 - width, pc - width * 0.88), hi = Math.min(bc - BOSS_VIEW_HALF - 8, pc - width * 0.12);
@@ -1072,6 +1172,10 @@
   // المكافأة الإجمالية لم تتغير عند الفوز: المعالم تفتح أجزاءً من نفس سقف الـ100،
   // والخسارة تحتفظ بما فتحته فعلاً فقط. لا توجد مكافأة إضافية فوق السقف.
   function rewardBreakdown(s) {
+    if (s.mode === 'duel') {
+      const potential = s.status === 'won' ? DUEL.reward : 0;
+      return { potential, milestoneGold: 0, finalGold: potential, total: potential };
+    }
     const potential = Math.min(100, 40 + s.collected * 4 + s.mined * 6);
     const milestoneGold = Math.min(potential, (s.milestones?.length || 0) * MILESTONE_GOLD);
     const finalGold = s.status === 'won' ? Math.max(0, potential - milestoneGold) : 0;
@@ -1091,6 +1195,8 @@
     rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
     // V6: أهداف الجولة والمفترق والعرق النادر
     GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,
+    // V7: وضع المبارزة الحيّة + الصدّ
+    MODES, DUEL, GUARD, duelStatus, duelEnemy,
     // المرحلة 3
     MINES, ZONES, EQUIPMENT, EQUIPMENT_ORDER, MAX_EQUIP_LEVEL, ORE_LADDER,
     normalizeConfig, normalizeLoadout, normalizeProgress, loadoutStats, equipCost, effectText, hitsToBreak, mineStatus, mineUnlocked,

@@ -136,7 +136,7 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-renderer.js'), 'utf8');
-  assert.equal(require('../public/platform-rules').VERSION, 6);
+  assert.equal(require('../public/platform-rules').VERSION, 7);
   for (const id of ['ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'ws-upgrade', 'ws-note', 'ws-ore-row', 'ws-mine',
     'ws-card-now', 'ws-card-next', 'ws-cost-gold', 'ws-cost-ore', 'open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop',
     'mine-select', 'mines-overlay', 'mines-list', 'mines-close']) {
@@ -162,7 +162,7 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(html, /window\.openMines = minesOpen/);
   assert.ok(html.indexOf('id="mine-select"') > html.indexOf('id="platform-overlay"'), 'the selector lives in the start overlay');
   // المتحكم: المنجم المختار يُرسل عند البدء، واللقطة المخزنة تُستخدم في الاستعادة والتشغيل
-  assert.match(game, /request\('\/api\/platform\/start', \{ zone: selectedZone, goal: selectedGoal \}\)/);
+  assert.match(game, /request\('\/api\/platform\/start', \{ zone: selectedZone, goal: selectedGoal, mode: selectedMode \}\)/);
   assert.match(game, /request\('\/api\/platform\/start', \{ resume: true \}\)/);
   assert.match(game, /R\.create\(currentHero, seedOf\(ticket\), configFor\(ticket\)\)/);
   assert.match(game, /R\.replay\(stored\.inputs, currentHero, seedOf\(stored\.ticket\), storedConfig\)/);
@@ -176,8 +176,8 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.doesNotMatch(renderer, /R\.LEVEL\./, 'the renderer reads the level of the run, never the global first level');
   assert.match(renderer, /drawDrone\(c, s\.player/);
   // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
-  assert.match(html, /platform-rules\.js\?v=8/);
-  assert.match(html, /platform-game\.js\?v=12/);
+  assert.match(html, /platform-rules\.js\?v=9/);
+  assert.match(html, /platform-game\.js\?v=13/);
   assert.match(html, /platform-renderer\.js\?v=7/);
   assert.match(html, /platform-scenery\.js\?v=1/);
   assert.match(html, /platform-bosses\.js\?v=1/);

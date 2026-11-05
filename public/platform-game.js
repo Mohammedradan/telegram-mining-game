@@ -28,10 +28,16 @@
     const savedGoal = Number(localStorage.getItem('platform-goal'));
     if (Number.isInteger(savedGoal) && savedGoal >= 0 && savedGoal < (R.GOALS?.length || 1)) selectedGoal = savedGoal;
   } catch (_) {}
+  // V7: وضع الجولة — 'mine' (الافتراضي) أو 'duel' (مبارزة قتال حيّة على نفس محرك الحركة).
+  let selectedMode = 'mine';
+  try {
+    const savedMode = localStorage.getItem('platform-mode');
+    if (R.MODES?.includes(savedMode)) selectedMode = savedMode;
+  } catch (_) {}
   const liveLoadout = () => {
     try { return R.normalizeLoadout(typeof state !== 'undefined' && state ? state.equipment : null); } catch (_) { return R.normalizeLoadout(null); }
   };
-  const configFor = (t) => (t?.config ? R.normalizeConfig(t.config) : R.normalizeConfig({ zone: selectedZone, goal: selectedGoal, loadout: liveLoadout() }));
+  const configFor = (t) => (t?.config ? R.normalizeConfig(t.config) : R.normalizeConfig({ zone: selectedZone, goal: selectedGoal, mode: selectedMode, loadout: liveLoadout() }));
 
   let sim = R.create(currentHero, undefined, configFor(null)), inputs = [], ticket = null, owner = null;
   const seedOf = (t) => (t?.id ? R.seedFromId(t.id) : undefined);
@@ -124,6 +130,7 @@
     KeyE: 8, KeyX: 8,
     KeyF: 16, KeyJ: 16, KeyZ: 16,
     KeyQ: 32, KeyK: 32, KeyC: 32,
+    KeyS: 64, ArrowDown: 64, ShiftLeft: 64, ShiftRight: 64,
   };
 
   // Virtual Joystick State
@@ -243,10 +250,25 @@
       chip('res-gems', Math.min(3, sim.collected));
       chip('res-rocks', Math.min(1, sim.mined));
       chip('res-foes', sim.defeated || 0);
+      if (sim.mode === 'duel') {
+        const rival = sim.enemies.find((e) => e.type === 'rival') || sim.enemies[0];
+        chip('res-gems', Math.max(0, rival ? Math.ceil(rival.hp) : 0));
+        chip('res-rocks', 0);
+        chip('res-foes', sim.player.guard?.blocks || 0);
+      }
     }
     const progEl = el('platform-progress');
     const zoneName = R.ZONES?.[sim.zone || 0]?.name;
-    if (progEl) progEl.textContent = `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.levelFor(sim.zone).exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+    if (progEl) progEl.textContent = sim.mode === 'duel'
+      ? (() => {
+        const rival = sim.enemies.find((e) => e.type === 'rival') || sim.enemies[0];
+        const hp = rival ? Math.max(0, Math.ceil(rival.hp)) : 0;
+        const max = rival ? rival.maxHp : 0;
+        const g = sim.player.guard || { stamina: 0, maxStamina: 1 };
+        const guardPct = Math.round(100 * g.stamina / Math.max(1, g.maxStamina));
+        return `مبارزة · صحة الخصم ${hp}/${max} · نَفَس الدرع ${guardPct}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+      })()
+      : `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.levelFor(sim.zone).exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
     // Update gold and energy from main game state
     try {
@@ -819,12 +841,15 @@
       await bridge.ready(); owner = bridge.user();
       if (owner) {
         // التذكرة الحالية (جولة موقوفة مثلاً) لا تُستبدل إلا بعد نجاح الطلب والتحقق من نسخة المستوى
-        const issued = await request('/api/platform/start', { zone: selectedZone, goal: selectedGoal });
+        const issued = await request('/api/platform/start', { zone: selectedZone, goal: selectedGoal, mode: selectedMode });
         if (issued.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
         ticket = issued;
         const mine = R.MINES[ticket.config?.zone ?? selectedZone];
         const goalDef = R.GOALS?.[ticket.config?.goal ?? selectedGoal];
-        say(`${mine ? `${mine.name}: ` : ''}هدف الجولة «${goalDef?.name || ''}» — ${goalDef?.hint || ''}. شرط الخروج: 3 بلورات وصخرة${R.levelFor(ticket.config?.zone ?? selectedZone).boss ? '، ثم اهزم الزعيم' : ''}. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
+        const duelTicket = (ticket.config?.mode || selectedMode) === 'duel';
+        say(duelTicket
+          ? `مبارزة حيّة ضد «مبارز الظلال» — تحرّك، اقفز فوق الموجة، اضرب في النافذة، وادفع الدرع بـ S عند الإنذار.`
+          : `${mine ? `${mine.name}: ` : ''}هدف الجولة «${goalDef?.name || ''}» — ${goalDef?.hint || ''}. شرط الخروج: 3 بلورات وصخرة${R.levelFor(ticket.config?.zone ?? selectedZone).boss ? '، ثم اهزم الزعيم' : ''}. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
       const summaryBox = el('platform-summary');
       if (summaryBox) summaryBox.hidden = true;
@@ -1105,6 +1130,23 @@
       statusText: el('platform-status')?.textContent || '',
     }),
     feed, resetFeed() { feedIndex = 0; feedFrame = 0; },
+    // يبدأ مبارزة حيّة من شاشة الساحة: نفس محرك الحركة، وضع duel فقط.
+    startDuel(zone = 0) {
+      if (running || pending) { say('أكمل الجولة الحالية أولًا.'); return false; }
+      selectedMode = 'duel';
+      try { localStorage.setItem('platform-mode', selectedMode); } catch (_) {}
+      if (Number.isInteger(zone) && zone >= 0 && zone < (R.MINES?.length || 1)) setZone(zone, false);
+      start();
+      return true;
+    },
+    setMode(mode) {
+      if (!R.MODES?.includes(mode) || running) return false;
+      selectedMode = mode;
+      try { localStorage.setItem('platform-mode', selectedMode); } catch (_) {}
+      refreshPreview();
+      return true;
+    },
+    mode: () => selectedMode,
   };
 
   el('platform-start').disabled = true;

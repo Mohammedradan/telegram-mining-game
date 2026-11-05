@@ -56,6 +56,11 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     if (wantedGoal !== undefined && !(Number.isInteger(wantedGoal) && wantedGoal >= 0 && wantedGoal < Rules.GOALS.length)) {
       return res.status(400).json({ error: 'هدف جولة غير معروف' });
     }
+    // V7: وضع الجولة — منجم تعدين (mine) أو مبارزة قتال حيّة (duel). يُثبَّت في التذكرة مثل المنجم.
+    const wantedMode = req.body?.mode;
+    if (wantedMode !== undefined && !Rules.MODES.includes(wantedMode)) {
+      return res.status(400).json({ error: 'وضع جولة غير معروف' });
+    }
     const resume = req.body?.resume === true;
     const result = await store.withUsers([req.player.id], async () => {
       const user = await prepare(req.player);
@@ -67,7 +72,8 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const current = run ? configOfRun(run) : null;
       const zone = wanted ?? current?.zone ?? 0;
       const goal = wantedGoal ?? current?.goal ?? 0;
-      const stale = Boolean(run) && !resume && (zone !== current.zone || goal !== current.goal || !sameLoadout(current.loadout, loadout));
+      const mode = wantedMode ?? current?.mode ?? 'mine';
+      const stale = Boolean(run) && !resume && (zone !== current.zone || goal !== current.goal || mode !== current.mode || !sameLoadout(current.loadout, loadout));
       if (!run || stale) {
         // الفتح يُتحقَّق منه قبل أي استبدال: طلب منجم مقفل لا يُسقط جولة نشطة سليمة
         const status = Rules.mineStatus(zone, user.state.mines, loadout);
@@ -75,7 +81,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
           return { status: 403, error: `المنجم مقفل: ${status.needs.filter((n) => !n.ok).map((n) => n.label).join('، ')}`, needs: status.needs };
         }
         if (run) { run.status = 'expired'; await store.savePlatformRun(run); }
-        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing', config_json: JSON.stringify({ zone, goal, loadout }) };
+        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing', config_json: JSON.stringify({ zone, goal, mode, loadout }) };
         await store.savePlatformRun(run);
       }
       return { id: run.id, version: run.version, seed: Rules.seedFromId(run.id), config: configOfRun(run), startedAt: Number(run.started_at), expiresAt: Number(run.started_at) + lifetime };
@@ -114,9 +120,18 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       // الخامات تُمنح من نتيجة إعادة التشغيل فقط — لا يُقبل أي رصيد خامات من العميل.
       const wallet = user.state.ores || (user.state.ores = {});
       for (const [k, v] of Object.entries(ores)) wallet[k] = Math.max(0, (Number(wallet[k]) || 0) + v);
+      const duelWon = config.mode === 'duel' && state.status === 'won';
       const xp = grantXp(user.state, state.status === 'won' ? 20 + state.collected : 0);
       const mines = mineProgress(user);
-      if (state.status === 'won') mines.wins[config.zone] = Math.min(1_000_000, mines.wins[config.zone] + 1);
+      // المبارزة ليست فوزاً في المنجم: لا تُفتح بها مناجم ولا تُحتسب في تقدّمها.
+      if (state.status === 'won' && config.mode !== 'duel') mines.wins[config.zone] = Math.min(1_000_000, mines.wins[config.zone] + 1);
+      // سجل الساحة الخادمي يتحرك من مبارزة أعاد الخادم تشغيلها فقط (لا من نتيجة يعلنها العميل).
+      const arenaRec = user.sync.arena?.record;
+      if (config.mode === 'duel' && arenaRec) {
+        const key = state.status === 'won' ? 'wins' : state.status === 'lost' ? 'losses' : 'draws';
+        arenaRec[key] = Math.min(1_000_000, (Number(arenaRec[key]) || 0) + 1);
+        if (duelWon) trackMission(user, 'arena', 1, now());
+      }
       a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
       if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
       // سقوط زعيم المنجم أعاد المحرك تشغيله بنفس المسار؛ يُحتسب حتى لو خسر اللاعب بعده في طريق الخروج. هذا ما يُحيي إنجاز «قاتل الزعماء».
@@ -130,9 +145,10 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       trackQuests(user, { mined: state.mined, defeated: state.defeated, ores, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
       user.revision++; user.updatedAt = now();
       // V6: نتيجة الهدف وقرار المخاطرة تُقرأ من إعادة التشغيل نفسها (لا من العميل) وتُعرض في شاشة الختام.
-      const goal = Rules.goalStatus(state);
+      const goal = config.mode === 'duel' ? Rules.duelStatus(state) : Rules.goalStatus(state);
       const choice = state.choice || state.fork?.choice || null;
-      const receipt = { id: run.id, won: state.status === 'won', zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
+      const receipt = { id: run.id, won: state.status === 'won', mode: config.mode, zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
+        ...(config.mode === 'duel' ? { duel: { rivalHp: goal.rivalHp, rivalMaxHp: goal.rivalMaxHp, hearts: goal.hearts, blocks: goal.blocks }, arena: { ...arenaRec } } : {}),
         goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
         choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true,
         ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,

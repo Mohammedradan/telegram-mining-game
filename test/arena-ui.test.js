@@ -207,3 +207,20 @@ test('arena UI: a real match — announce, approach, strike, enemy turn, then a 
   assert.equal(page.arena().state().battle.active, true);
   assert.deepEqual(page.errors, [], 'no runtime errors during the whole flow');
 });
+
+test('arena UI: the action-duel launcher hands control to the movement engine', async () => {
+  const page = boot();
+  assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
+  await new Promise((r) => setTimeout(r, 0));
+  page.runTimers();
+  page.arena().tab();
+  const game = page.ctx.PlatformGame;
+  assert.ok(game && typeof game.startDuel === 'function', 'the movement engine exposes startDuel');
+  assert.equal(typeof game.mode, 'function');
+  game.startDuel(0);
+  assert.equal(game.mode(), 'duel', 'the engine switches to the duel mode');
+  page.runTimers();
+  const tab = page.byId('tab-play');
+  assert.equal(tab.classList.contains('active'), true, 'the player lands on the real action stage');
+  assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
+});

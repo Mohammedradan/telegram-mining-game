@@ -280,6 +280,13 @@
     .arena-fighting #arena-controls { display: flex; }
     .arena-turn { flex: 0 0 auto; min-height: 16px; }
     .arena-cta { flex: 0 0 auto; animation: arenaCtaIn .26s ease-out; }
+    .arena-duel-btn {
+      background: linear-gradient(135deg, #7c3aed, #db2777); color: #fdf2f8; border: 1px solid #f0abfc;
+      box-shadow: 0 6px 18px rgba(219, 39, 119, .35);
+    }
+    .arena-duel-btn:active { transform: scale(.97); }
+    /* زر الصدّ في لوحة التحكم: نفس حجم بقية الأزرار بهوية دفاعية */
+    .action-btn.guard-btn { background: linear-gradient(160deg, #1d4ed8, #0f2f7a); border-color: #60a5fa; }
     @keyframes arenaCtaIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
     /* بطاقة النيّة: خطة الخصم لهذا الدور، بجوار نص الدور (لا تتقاطع مع لوحتي الصحة على الهاتف) */
@@ -458,6 +465,7 @@
     <symbol id="i-armor" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6l-7-3Z" fill="currentColor" fill-opacity=".18"/><path d="M12 3 5 6v6c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6l-7-3Z"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.4A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.5c0 5.8-7.5 10.4-7.5 10.4Z"/></symbol>
     <symbol id="i-rope" viewBox="0 0 24 24"><path d="M12 21V5M6.5 10.5 12 5l5.5 5.5M8 21h8"/></symbol>
     <symbol id="i-dive" viewBox="0 0 24 24"><path d="M12 3v13M6.5 11 12 16.5 17.5 11M5 21h14"/></symbol>
@@ -726,6 +734,7 @@
           <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
           <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
           <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
+          <button type="button" data-platform-input="64" aria-label="صدّ" class="action-btn guard-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>صدّ</span></button>
           <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
         </div>
       </div>
@@ -1000,6 +1009,8 @@
     <div class="arena-head">
       <h2 class="text-base font-bold text-slate-200">⚔️ ساحة القتال</h2>
       <p class="text-[10px] text-slate-400">اقرأ نيّة الخصم ثم اختر حركتك · الفوز <b class="text-amber-400">+50 🪙</b> · <span id="arena-record">0 فوز · 0 خسارة</span></p>
+      <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn mt-1.5 w-full rounded-xl py-2 text-xs font-black">⚡ مبارزة حيّة — حرّك واقفز واضرب بنفسك</button>
+      <p class="text-[9px] text-slate-500 mt-1">تحكّم كامل: الأسهم للحركة · مسافة للقفز · F للضرب · S للصدّ · Q للمهارة</p>
     </div>
 
     <!-- مسرح المعركة: الشخصيتان متقابلتان وتتحركان داخل ساحة واحدة -->
@@ -1273,7 +1284,7 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=8"></script>
+  <script src="/platform-rules.js?v=9"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=1"></script>
@@ -1693,6 +1704,16 @@
       { min: 8, icon: '🧝‍♂️', name: 'حارس الكهف' },
       { min: 13, icon: '👹', name: 'سيد الساحة' },
     ];
+    // ⚡ المبارزة الحيّة: تفتح محرك الحركة نفسه (وضع duel) في تبويب اللعب — قتال أكشن حقيقي
+    // بنفس تحكم الكيبورد/اللمس، ونتيجتها تُعاد على الخادم بنفس مسار جولات المنصّات.
+    function startArenaDuel(zone = 0) {
+      const game = window.PlatformGame;
+      if (!game?.startDuel) { showArenaBanner('حدّث الصفحة لتفعيل المبارزة الحيّة'); return; }
+      if (!game.startDuel(zone)) return;
+      switchTab('play');
+      haptic('success');
+    }
+
     function arenaEnemyFighter(level = 1) {
       return ARENA_FIGHTERS.reduce((chosen, fighter) => level >= fighter.min ? fighter : chosen, ARENA_FIGHTERS[0]);
     }
@@ -4117,6 +4138,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=12"></script>
+  <script src="/platform-game.js?v=13"></script>
 </body>
 </html>

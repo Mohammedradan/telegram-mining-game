@@ -25,7 +25,7 @@ const pressMine = (s, frames = 20) => { R.step(s, R.INPUT.MINE); const events = 
 const tick = (s, n) => { for (let i = 0; i < n; i++) R.step(s, 0); };
 
 test('V6 goals: three run goals, safe normalisation, and a config that keeps the goal', () => {
-  assert.equal(R.VERSION, 6);
+  assert.equal(R.VERSION, 7);
   assert.equal(R.GOALS.length, 3);
   assert.deepEqual(R.GOALS.map(g => g.id), ['ore', 'vein', 'speed']);
   for (const g of R.GOALS) { assert.ok(g.name.length > 2); assert.ok(g.blurb.length > 5); assert.ok(g.hint.length > 5); }

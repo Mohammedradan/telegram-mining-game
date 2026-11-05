@@ -183,7 +183,7 @@ test('platform UI: the page wires the scene — assets and every element the con
 test('UI chrome uses inline SVG icons instead of emoji glyphs', () => {
   assert.ok(html.includes('class="icon-sprite"'), 'the SVG sprite must be inlined in the page');
   const buttons = [...html.matchAll(/<button\b[^>]*class="action-btn[^"]*"[^>]*>[\s\S]*?<\/button>/g)].map(m => m[0]);
-  assert.equal(buttons.length, 7, 'all seven platform controls must be found');
+  assert.equal(buttons.length, 8, 'all eight platform controls must be found (guard included)');
   for (const button of buttons) {
     assert.match(button, /<use href="#i-[a-z]+"\/>/, 'every control uses a sprite icon');
     assert.doesNotMatch(button, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'no emoji glyph in a control button');
@@ -384,7 +384,7 @@ test('V6 UI: the goal picker changes the next run only, persists locally, and ri
   page.fire(page.byId('platform-start'), 'click');
   await page.settle();
   assert.equal(page.log.platformStarts, 1);
-  assert.deepEqual(page.log.platformStartBodies[0], { zone: 0, goal: 1 }, 'the server receives the chosen goal');
+  assert.deepEqual(page.log.platformStartBodies[0], { zone: 0, goal: 1, mode: 'mine' }, 'the server receives the chosen goal and mode');
   // أثناء الجولة: تغيير الهدف مرفوض ولا يمسّ الجولة الجارية أو تذكرتها
   assert.equal(page.PlatformGame().setGoal(2), false, 'the goal cannot change mid-run');
   assert.equal(page.PlatformGame().getGoal(), 1, 'the running goal stays as the ticket pinned it');
