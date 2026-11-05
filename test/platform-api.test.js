@@ -248,9 +248,9 @@ async function historicalWith(name, config, hero = 'miner') {
 test('phase 3 API: start issues the config snapshot and defaults to the first mine with no gear', async () => {
   const res = await post('cfg-default', 'start');
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body.config, { zone: 0, loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
+  assert.deepEqual(res.body.config, { zone: 0, goal: 0, loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
   assert.equal(res.body.version, R.VERSION);
-  assert.equal(R.VERSION, 5);
+  assert.equal(R.VERSION, 6);
   const row = await store.getPlatformRun(res.body.id);
   assert.deepEqual(JSON.parse(row.config_json), res.body.config, 'the snapshot is persisted with the run');
 });

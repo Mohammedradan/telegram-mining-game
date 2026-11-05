@@ -4,7 +4,7 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 5;
+  const VERSION = 6;
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -31,6 +31,20 @@
     { id: 'chest',      label: 'صندوق الكنز',     slots: { rare: 2, mid: 1 }, check: s => s.chestFound === true },
   ]);
   const CHEST_SLOTS = Object.freeze({ common: 2, mid: 2, rare: 2 });
+  // ===== V6: أهداف الجولة الثلاثة + مفترق المخاطرة + العرق النادر =====
+  // الهدف يُختار قبل الجولة ويُثبَّت في تذكرة الخادم مثل المنجم والمعدات، فيُعاد التشغيل به ولا يمكن تبديله بعد البدء.
+  // المكافأة الذهبية لم تُمسّ (نفس سقف الـ100 اليومي)؛ الجديد يُدفع من **الخامات** التي تُصرف على معدات الورشة،
+  // لذلك لا تُخلق عملة ولا سقف جديد. كل الأرقام صحيحة وحتمية.
+  const GOALS = Object.freeze([
+    { id: 'ore', name: 'جمع الخام', blurb: 'حقيبة ممتلئة: كل بلّورة وصخرة تُحتسب قبل البوابة', hint: 'املأ الحقيبة ثم اعبر البوابة' },
+    { id: 'vein', name: 'العرق النادر', blurb: 'ثلاث ضربات متتابعة تكسر العرق قبل أن يتصلّب', hint: 'اصعد إلى المنصة العالية واضرب العرق النادر بسرعة' },
+    { id: 'speed', name: 'سباق البوابة', blurb: 'اعبر البوابة قبل 75 ثانية', hint: 'لا تتوقّف: الطريق والبوابة قبل 75 ثانية' },
+  ]);
+  // هدف الخام يتدرّج مع العمق لأن الخامات نفسها أغلى هناك (الكمية واحدة).
+  const oreTarget = zone => 14 + 2 * (Number.isInteger(zone) && zone > 0 ? zone : 0);
+  const SPEED_TICKS = 60 * 75;
+  // «نسمة الخام»: فرصة موقوتة واحدة في منتصف الجولة على منصة المفترق (حتمية من رقم الإطار لا من العشوائية).
+  const ORE_WIND_TICK = 60 * 40;
   const FPS = 60, DT = 1 / FPS, MAX_TICKS = 60 * 150;
   const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32 });
   const MAX_MASK = 63;
@@ -333,7 +347,8 @@
   function normalizeConfig(input) {
     const src = input && typeof input === 'object' ? input : {};
     const zone = Number.isInteger(src.zone) && src.zone >= 0 && src.zone < MINES.length ? src.zone : 0;
-    return { zone, loadout: normalizeLoadout(src.loadout) };
+    const goal = Number.isInteger(src.goal) && src.goal >= 0 && src.goal < GOALS.length ? src.goal : 0;
+    return { zone, goal, loadout: normalizeLoadout(src.loadout) };
   }
   // تكلفة الترقية من المستوى الحالي إلى التالي (null عند المستوى الأقصى أو معدّة غير معروفة).
   function equipCost(id, level) {
@@ -442,6 +457,42 @@
   const activeHazard = (h, tick) => (tick + (h.phase || 0)) % h.period < h.active;
   const canExit = s => s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
 
+  // ===== ساحة المفترق: موضع مشتق من تضاريس المنجم نفسه (لا عشوائية ولا تعديل على الأرض) =====
+  // قطعة أرض مستوية قرب راية المنتصف، بعيدة عن الأخطار والصخور والبوابة. فوقها شيئان غير صلبين
+  // (لا يُغيّران فيزياء المستوى): **العرق النادر** يساراً و**صندوق المفترق** يميناً.
+  function perchAt(level) {
+    const cps = level.checkpoints || [];
+    const cp = cps[cps.length - 1] || { at: Math.round(level.width * 0.5) };
+    const ground = (level.platforms || []).filter(p => p.h >= 80);
+    const spans = level.rockSpans || [];
+    const groundAt = x => ground.some(g => x - 6 >= g.x && x + 92 <= g.x + g.w);
+    const hazardClear = x => (level.hazards || []).every(h => x + 92 < h.x - 70 || x > h.x + h.w + 70);
+    const rockClear = x => spans.every(list => list.every(([a, b]) => x + 92 < a - 8 || x > b + 8));
+    const exitClear = x => x + 92 < level.exit.x - 100;
+    const from = Math.max(8, cp.at - 40), to = cp.at + 160;
+    for (let x = from; x <= to; x += 8) if (groundAt(x) && hazardClear(x) && rockClear(x) && exitClear(x)) return { x, y: 300, w: 92 };
+    for (let x = from; x <= to; x += 8) if (groundAt(x) && hazardClear(x) && exitClear(x)) return { x, y: 300, w: 92 };
+    return null;
+  }
+  const oreTotal = s => {
+    let n = 0;
+    for (const k of ORE_ORDER) n += Math.max(0, Math.floor((s.ores || {})[k] || 0));
+    return n;
+  };
+  // حالة الهدف كما تُعرض في الواجهة وتُختم في الإيصال. تُحسب من حالة المحاكاة نفسها فقط.
+  function goalStatus(s) {
+    const goal = GOALS[s.goal || 0] || GOALS[0];
+    if (goal.id === 'ore') {
+      const target = oreTarget(s.zone || 0), now = oreTotal(s);
+      return { id: goal.id, name: goal.name, now, target, done: now >= target };
+    }
+    if (goal.id === 'vein') {
+      const v = s.vein || { hp: 3, maxHp: 3 };
+      return { id: goal.id, name: goal.name, now: Math.max(0, v.maxHp - Math.max(0, v.hp)), target: v.maxHp, done: s.veinBroken === true };
+    }
+    return { id: goal.id, name: goal.name, now: Math.ceil((s.tick || 0) / FPS), target: Math.round(SPEED_TICKS / FPS), done: s.status === 'won' && s.tick <= SPEED_TICKS };
+  }
+
   // ===== الزعيم =====
   // دورة حتمية بلا أي عشوائية: مشي نحو اللاعب ← إنذار يُرى ويُسمع ← هجوم ← استراحة. الهجمات: «صدمة» (موجتان أرضيتان تجريان من جانبيه
   // وتُتجنَّبان بالقفز) و«اندفاع» (يجري باتجاه يُثبَّت عند بدء الإنذار حتى الجدار). عند نصف صحته يهتاج: أسرع وإنذاره أقصر.
@@ -509,9 +560,11 @@
     const cfg = normalizeConfig(config), mine = MINES[cfg.zone];
     const stats = loadoutStats(hero.id, cfg.loadout);
     const layout = layoutFor(seed, cfg.zone, cfg.loadout.luck), level = levelFor(cfg.zone);
+    const perch = perchAt(level);
     return {
       seed: seed === undefined || seed === null ? null : Number(seed) >>> 0,
       zone: cfg.zone,
+      goal: cfg.goal,
       loadout: cfg.loadout,
       version: VERSION,
       tick: 0,
@@ -568,6 +621,14 @@
       }),
       projectiles: [],
       waves: [],
+      // منصة المفترق: العرق النادر (3 ضربات متتابعة) وصندوق المخاطرة (ضربة آمنة أو ثلاث ضربات جشعة).
+      // غير صلبة عمداً: لا تُغيّر فيزياء الأرض ولا حلول الجولات المختبرة.
+      perch,
+      vein: perch ? { x: perch.x, y: perch.y - 34, w: 24, h: 34, hp: 3, maxHp: 3, timer: 0, broken: false } : null,
+      veinBroken: false,
+      fork: perch ? { x: perch.x + 60, y: perch.y - 30, w: 30, h: 30, hits: 0, timer: 0, choice: null, locked: false } : null,
+      choice: null,
+      oreWind: false,
       bossId: (layout.enemies.find(e => e.boss) || {}).id || 0,
       bossDefeated: false,
       collected: 0,
@@ -609,10 +670,89 @@
     }
   }
 
+  // ===== العرق النادر =====
+  // كل ضربة تنقص نقطة وتعيد مؤقّت التصلّب (90 إطاراً). إن انتهى المؤقّت قبل الكسر يعود العرق صلباً بالكامل،
+  // فالمهارة هي الضرب المتتابع لا مجرد الوقوف والضغط. الكسر يمنح خاماً نادراً (وهو أغلى ما في المنجم).
+  const VEIN_SLOTS = Object.freeze({ rare: 2 });
+  function hitVein(s) {
+    const v = s.vein, mine = mineOf(s.zone);
+    if (!v || v.broken) return;
+    v.hp = Math.max(0, v.hp - 1);
+    v.timer = 90;
+    if (v.hp > 0) {
+      s.events.push({ type: 'vein_hit', x: v.x + v.w / 2, y: v.y + 8, hp: v.hp, maxHp: v.maxHp, ticks: v.timer });
+      return;
+    }
+    v.broken = true; s.veinBroken = true;
+    const ores = resolveSlots(mine, VEIN_SLOTS);
+    addOres(s.ores, ores);
+    s.events.push({ type: 'vein_break', x: v.x + v.w / 2, y: v.y + 8, ores });
+  }
+  // ===== صندوق المفترق: قرار المخاطرة =====
+  // الضربة الأولى = فتح آمن (خام متوسط + قلب مستعاد). من يضرب ثلاث ضربات قبل انتهاء مؤقّت 120 إطاراً
+  // يفتح الجيب الغني (خام نادر) لكنه يوقظ حارسين في مكانه: مكسب أكبر وثمن واضح. بعد المؤقّت يُقفل الصندوق على اختياره.
+  const FORK_SAFE_SLOTS = Object.freeze({ mid: 2 });
+  const FORK_RICH_SLOTS = Object.freeze({ rare: 2 });
+  function spawnForkGuards(s) {
+    const f = s.fork, mine = mineOf(s.zone), base = GUARDS.goblin;
+    for (let i = 0; i < 2; i++) {
+      const id = 70 + i, x = Math.max(20, Math.min(levelFor(s.zone).width - 60, f.x + (i ? 62 : -62)));
+      const maxHp = base.maxHp + mine.enemyHp;
+      const patrolSpeed = Math.round(base.patrolSpeed * mine.enemySpeed / 100);
+      const chaseSpeed = Math.round(base.chaseSpeed * mine.enemySpeed / 100);
+      s.enemies.push({ id, type: 'goblin', name: 'حارس الجيب', x, y: 300 - base.h, w: base.w, h: base.h,
+        minX: Math.max(0, x - 70), maxX: Math.min(levelFor(s.zone).width - base.w, x + 70),
+        maxHp, hp: maxHp, patrolSpeed, chaseSpeed, damage: 1, flying: false,
+        vx: patrolSpeed, vy: 0, facing: 1, attackCooldown: 0, hurtCooldown: 0, dead: false, alert: false, greed: true });
+    }
+  }
+  function hitFork(s) {
+    const f = s.fork, mine = mineOf(s.zone);
+    if (!f || f.locked) return;
+    f.hits++; f.timer = 120;
+    if (f.hits === 1) {
+      const ores = resolveSlots(mine, FORK_SAFE_SLOTS);
+      addOres(s.ores, ores);
+      const p = s.player, healed = p.hearts < p.maxHearts;
+      if (healed) p.hearts = Math.min(p.maxHearts, p.hearts + 1);
+      f.choice = 'safe'; s.choice = 'safe';
+      s.events.push({ type: 'fork_safe', x: f.x + f.w / 2, y: f.y, ores, healed });
+      return;
+    }
+    if (f.hits >= 3 && f.choice !== 'rich') {
+      const ores = resolveSlots(mine, FORK_RICH_SLOTS);
+      addOres(s.ores, ores);
+      f.choice = 'rich'; f.locked = true; s.choice = 'rich';
+      spawnForkGuards(s);
+      s.events.push({ type: 'fork_rich', x: f.x + f.w / 2, y: f.y, ores, guards: 2 });
+    }
+  }
+
   function step(s, mask) {
     if (s.status !== 'playing') return s;
     s.events = []; s.tick++;
     const p = s.player, level = levelFor(s.zone);
+    // مؤقّتات محتوى V6: تصلّب العرق، إغلاق المفترق، ونسمة الخام الموقوتة.
+    if (s.vein && !s.vein.broken && s.vein.timer > 0) {
+      s.vein.timer--;
+      if (s.vein.timer === 0 && s.vein.hp < s.vein.maxHp) {
+        s.vein.hp = s.vein.maxHp;
+        s.events.push({ type: 'vein_harden', x: s.vein.x + s.vein.w / 2, y: s.vein.y + 8 });
+      }
+    }
+    if (s.fork && !s.fork.locked && s.fork.timer > 0) {
+      s.fork.timer--;
+      if (s.fork.timer === 0) {
+        s.fork.locked = true;
+        s.events.push({ type: 'fork_lock', x: s.fork.x + s.fork.w / 2, y: s.fork.y, choice: s.fork.choice });
+      }
+    }
+    if (!s.oreWind && s.perch && s.tick >= ORE_WIND_TICK) {
+      const mine = mineOf(s.zone), top = s.perch.y - 62, span = Math.max(12, (s.perch.w - 24) / 2);
+      for (let i = 0; i < 3; i++) s.gems.push({ x: s.perch.x + 12 + i * span, y: top, taken: false, bonus: true, ore: mine.tier.mid });
+      s.oreWind = true;
+      s.events.push({ type: 'ore_wind', x: s.perch.x + s.perch.w / 2, y: s.perch.y - 40, gems: 3, ore: mine.tier.mid });
+    }
     if (p.invulnerable > 0) p.invulnerable--;
     if (p.attack > 0) p.attack--;
     if (p.skillCooldown > 0) p.skillCooldown--;
@@ -632,7 +772,10 @@
       const reach = p.miningReach || 54;
       const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - reach, y: p.y - 8, w: reach, h: p.h + 16 };
       const rock = s.rocks.find(r => r.hp > 0 && overlap(hitbox, r));
+      // أولوية الضربة: صخرة الخام ثم العرق النادر ثم صندوق المفترق (كلها في المدى نفسه).
       if (rock) hitRock(s, rock, p.miningPower, 'player');
+      else if (s.vein && !s.vein.broken && overlap(hitbox, s.vein)) hitVein(s);
+      else if (s.fork && !s.fork.locked && overlap(hitbox, s.fork)) hitFork(s);
       else s.events.push({ type: 'mine_miss', x: p.x + (p.facing > 0 ? p.w + 10 : -10), y: p.y + 15 });
     }
 
@@ -856,8 +999,8 @@
         const bundle = resolveSlots(mine, CHEST_SLOTS);
         addOres(s.ores, bundle);
         s.events.push({ type: 'chest', x: gem.x, y: gem.y, ores: bundle });
-      } else addOres(s.ores, { [mine.tier.common]: 1 });
-      s.events.push({ type: 'collect', x: gem.x, y: gem.y });
+      } else addOres(s.ores, { [gem.ore || mine.tier.common]: 1 });
+      s.events.push({ type: 'collect', x: gem.x, y: gem.y, bonus: Boolean(gem.bonus) });
     }
     if (p.y > level.height + 50) {
       if (p.invulnerable) { p.x = s.checkpoint; p.y = 240; p.vx = p.vy = 0; }
@@ -946,6 +1089,8 @@
     BOSS_SLOTS, MAX_SEGMENTS,
     VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
     rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
+    // V6: أهداف الجولة والمفترق والعرق النادر
+    GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,
     // المرحلة 3
     MINES, ZONES, EQUIPMENT, EQUIPMENT_ORDER, MAX_EQUIP_LEVEL, ORE_LADDER,
     normalizeConfig, normalizeLoadout, normalizeProgress, loadoutStats, equipCost, effectText, hitsToBreak, mineStatus, mineUnlocked,

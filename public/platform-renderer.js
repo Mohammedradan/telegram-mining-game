@@ -823,12 +823,77 @@
       }
     }
 
+    // ---- V6: العرق النادر وصندوق المفترق (عنصران غير صلبين على أرض المفترق) ----
+    if (s.perch) {
+      // عمود ضوء خفيف يدلّ على ساحة المفترق قبل الوصول إليها
+      const px = s.perch.x + 46;
+      if (px > camera - 40 && px < camera + w + 40 && !reduced) {
+        const beam = c.createLinearGradient(0, 120, 0, 300);
+        beam.addColorStop(0, 'rgba(255,209,102,0)');
+        beam.addColorStop(1, 'rgba(255,209,102,0.16)');
+        c.fillStyle = beam;
+        c.fillRect(px - 16, 120, 32, 180);
+      }
+      const mark = (x, y, color) => {
+        c.save(); c.globalAlpha = 0.9;
+        c.fillStyle = color;
+        c.beginPath(); c.moveTo(x, y); c.lineTo(x + 6, y + 7); c.lineTo(x - 6, y + 7); c.closePath(); c.fill();
+        c.restore();
+      };
+    }
+    if (s.vein) {
+      const v = s.vein;
+      if (v.x > camera - 40 && v.x < camera + w + 40) {
+        if (v.broken) {
+          c.fillStyle = '#3a3550';
+          c.beginPath(); c.ellipse(v.x + v.w / 2, v.y + v.h - 2, 14, 3, 0, 0, Math.PI * 2); c.fill();
+        } else {
+          const pulse = reduced ? 1 : 0.75 + Math.sin(s.tick * 0.16) * 0.25;
+          c.globalAlpha = pulse;
+          rareCrystal(c, v.x + v.w / 2, v.y + 16, reduced ? 0 : Math.sin(s.tick * 0.07) * 2);
+          c.globalAlpha = 1;
+          // شقوق التقدّم: ثلاث شققات تُطفأ بكل ضربة
+          for (let i = 0; i < v.maxHp; i++) {
+            const on = i < v.hp;
+            c.fillStyle = on ? '#c4b5fd' : '#403a55';
+            c.beginPath(); c.arc(v.x + 5 + i * 7, v.y - 6, 2.2, 0, Math.PI * 2); c.fill();
+          }
+          if (v.timer > 0 && !reduced) {
+            const t = Math.min(1, v.timer / 90);
+            round(c, v.x + 1, v.y - 15, 22, 3, 1.5, '#241f38');
+            round(c, v.x + 1, v.y - 15, 22 * t, 3, 1.5, '#a78bfa');
+          }
+        }
+      }
+    }
+    if (s.fork) {
+      const f = s.fork;
+      if (f.x > camera - 40 && f.x < camera + w + 40) {
+        const tone = f.choice === 'rich' ? '#c084fc' : f.choice === 'safe' ? '#6ee7b7' : '#f4bf62';
+        round(c, f.x, f.y + 12, f.w, f.h - 12, 5, '#6b4a2a');
+        round(c, f.x + 2, f.y + 14, f.w - 4, 7, 3, tone);
+        strokeRound(c, f.x, f.y + 12, f.w, f.h - 12, 5, f.locked ? '#6b7a80' : tone, 1.5);
+        c.fillStyle = f.locked ? '#9fb4c4' : '#ffe6a8';
+        c.fillRect(f.x + f.w / 2 - 2, f.y + 20, 4, 6);
+        if (!f.locked && !reduced) {
+          c.fillStyle = tone;
+          c.globalAlpha = 0.35 + Math.sin(s.tick * 0.2) * 0.2;
+          c.beginPath(); c.arc(f.x + f.w / 2, f.y + f.h / 2, 17, 0, Math.PI * 2); c.fill();
+          c.globalAlpha = 1;
+        }
+        if (f.timer > 0 && !f.locked && !reduced) {
+          round(c, f.x - 2, f.y - 8, f.w + 4, 3, 1.5, '#2a1f14');
+          round(c, f.x - 2, f.y - 8, (f.w + 4) * Math.min(1, f.timer / 120), 3, 1.5, '#ff9b5a');
+        }
+      }
+    }
+
     // ---- Gems ----
     for (const gem of s.gems) {
       if (gem.taken || gem.x < camera - 20 || gem.x > camera + w + 20) continue;
       const bob = reduced ? 0 : Math.sin(s.tick * 0.08 + gem.x * 0.02) * 3;
       // alternate colors for variety: every 3rd is rare purple
-      const isRare = (gem.x % 400) < 80; // pseudo-rare based on position hash
+      const isRare = (gem.x % 400) < 80 || gem.bonus === true; // pseudo-rare based on position hash (+ موجة الخام V6)
       if (isRare && !reduced) {
         rareCrystal(c, gem.x, gem.y, bob);
         // sparkle particles around rare

@@ -22,10 +22,16 @@
     const savedZone = Number(localStorage.getItem('platform-zone'));
     if (Number.isInteger(savedZone) && savedZone >= 0 && savedZone < (R.MINES?.length || 1)) selectedZone = savedZone;
   } catch (_) {}
+  // V6: هدف الجولة المختار (تفضيل محلي) — يُثبَّت في تذكرة الخادم عند البدء ولا يُقبل تبديله بعدها.
+  let selectedGoal = 0;
+  try {
+    const savedGoal = Number(localStorage.getItem('platform-goal'));
+    if (Number.isInteger(savedGoal) && savedGoal >= 0 && savedGoal < (R.GOALS?.length || 1)) selectedGoal = savedGoal;
+  } catch (_) {}
   const liveLoadout = () => {
     try { return R.normalizeLoadout(typeof state !== 'undefined' && state ? state.equipment : null); } catch (_) { return R.normalizeLoadout(null); }
   };
-  const configFor = (t) => (t?.config ? R.normalizeConfig(t.config) : R.normalizeConfig({ zone: selectedZone, loadout: liveLoadout() }));
+  const configFor = (t) => (t?.config ? R.normalizeConfig(t.config) : R.normalizeConfig({ zone: selectedZone, goal: selectedGoal, loadout: liveLoadout() }));
 
   let sim = R.create(currentHero, undefined, configFor(null)), inputs = [], ticket = null, owner = null;
   const seedOf = (t) => (t?.id ? R.seedFromId(t.id) : undefined);
@@ -269,6 +275,19 @@
       comboEl.hidden = !live;
       if (live) comboEl.textContent = `×${combo}`;
     }
+    // شريحة الهدف: الهدف المختار وتقدّمه من حالة المحاكاة نفسها (لا تُحسب من الواجهة).
+    const gs = R.goalStatus ? R.goalStatus(sim) : null;
+    const chipText = el('goal-chip-text'), chipBox = el('goal-chip'), chipUse = el('goal-chip-use');
+    if (gs && chipText) {
+      const value = gs.id === 'speed' ? `${Math.min(gs.target, gs.now)}/${gs.target}ث` : `${Math.min(gs.target, gs.now)}/${gs.target}`;
+      chipText.textContent = `${gs.name} ${value}`;
+      if (chipBox) {
+        chipBox.classList.toggle('done', Boolean(gs.done));
+        chipBox.title = gs.done ? `الهدف محقّق: ${gs.name}` : `هدف الجولة: ${gs.name}`;
+      }
+      if (chipUse) chipUse.setAttribute('href', gs.id === 'ore' ? '#i-bag' : gs.id === 'vein' ? '#i-gem' : '#i-bolt');
+    }
+    tickEventBanner();
     const mg = el('mission-gems'), mr = el('mission-rocks'), mf = el('mission-fill'), mb = el('mission-boss');
     if (mg) mg.textContent = `${Math.min(3, sim.collected)}/3`;
     if (mr) mr.textContent = `${Math.min(1, sim.mined)}/1`;
@@ -292,6 +311,49 @@
     el('platform-message').textContent = text;
     el('platform-resume').hidden = !resume;
     el('platform-start').textContent = running ? 'إعادة من البداية' : 'جولة جديدة';
+  }
+
+  // ===== V6: هدف الجولة =====
+  function setGoal(goal, announce = true) {
+    // لا تبديل لهدف جولة جارية: التذكرة الخادمية مثبّتة عليه أصلاً، وهذا يمنع اختلاف المعاينة عن المحاكاة.
+    if (running || pending || submitting) return false;
+    const g = Number(goal);
+    if (!Number.isInteger(g) || g < 0 || g >= (R.GOALS?.length || 1) || g === selectedGoal) return false;
+    selectedGoal = g;
+    try { localStorage.setItem('platform-goal', String(g)); } catch (_) {}
+    syncGoalButtons();
+    refreshPreview();
+    if (announce) haptic('light');
+    return true;
+  }
+  function syncGoalButtons() {
+    document.querySelectorAll('.goal-option').forEach(btn => {
+      const on = Number(btn.dataset.goal) === selectedGoal;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-checked', String(on));
+    });
+    const def = R.GOALS?.[selectedGoal];
+    const hint = el('goal-hint');
+    if (hint && def) hint.textContent = `${def.hint} — ${def.blurb}.`;
+  }
+
+  // ===== V6: لافتة حدث قصيرة داخل المشهد (بلا نوافذ تحجب اللعب) =====
+  let eventUntil = 0;
+  function eventBanner(title, text, ticks = 240) {
+    const box = el('platform-event');
+    if (!box) return;
+    const t = el('platform-event-title'), b = el('platform-event-text');
+    if (t) t.textContent = title;
+    if (b) b.textContent = text ? ` ${text}` : '';
+    box.hidden = false;
+    box.classList.add('show');
+    eventUntil = sim.tick + ticks;
+  }
+  function tickEventBanner() {
+    if (!eventUntil || sim.tick < eventUntil) return;
+    eventUntil = 0;
+    const box = el('platform-event');
+    if (box) { box.classList.remove('show'); box.hidden = true; }
   }
 
   function pause() {
@@ -356,7 +418,7 @@
         requestHitStop(45);
       } else if (event.type === 'collect') {
         const fromRock = broken.length > 0;
-        pushFloater(event.x + 10, event.y - 6, fromRock ? '+2' : '+1', fromRock ? '#7dffd4' : '#b9a6ff');
+        pushFloater(event.x + 10, event.y - 6, event.bonus ? '+خام' : fromRock ? '+2' : '+1', event.bonus ? '#ffd166' : fromRock ? '#7dffd4' : '#b9a6ff');
         bumpCombo();
         if (combo >= 2) pushFloater(sim.player.x + (sim.player.w || 20) / 2, sim.player.y - 14, `×${combo}`, '#ffd166', 13);
       } else if (event.type === 'hit') {
@@ -396,6 +458,33 @@
         pushFloater(event.x, event.y - 10, 'صندوق!', '#ffd166', 13);
         feedback('صندوق كنز — ذهب خام وبلّور وحمم أُضيفت لمخزنك بعد انتهاء الجولة.');
         spawnBurst(event.x, event.y, '#ffd166', 18);
+      } else if (event.type === 'vein_hit') {
+        pushFloater(event.x, event.y - 10, `-1 · ${event.hp}/${event.maxHp}`, '#c4b5fd', 12);
+        feedback(`العرق النادر ${event.hp}/${event.maxHp} — أكمل الضرب قبل أن يتصلّب (${Math.ceil((event.ticks || 90) / R.FPS)} ثانية).`);
+      } else if (event.type === 'vein_harden') {
+        pushFloater(event.x, event.y - 14, 'تصلّب!', '#9fb4c4', 12);
+        feedback('تصلّب العرق النادر من جديد — اضربه ثلاث ضربات متتابعة لكسره.');
+      } else if (event.type === 'vein_break') {
+        const loot = Object.entries(event.ores || {}).filter(([, n]) => n > 0).map(([k, n]) => `${R.ORES[k]?.name || k} ${n}`).join('، ');
+        pushFloater(event.x, event.y - 16, 'العرق النادر!', '#ffd166', 14);
+        if (loot) pushFloater(event.x, event.y - 34, loot, '#9fe8ff', 11);
+        eventBanner('العرق النادر', `كسرته! ${loot ? `${loot} إلى مخزنك` : ''}.`, 260);
+        doShake(0.35); haptic('win'); spawnBurst(event.x, event.y, '#c4b5fd', 22);
+      } else if (event.type === 'fork_safe') {
+        pushFloater(event.x, event.y - 12, 'فتح آمن', '#7dffd4', 13);
+        eventBanner('المفترق — أمان', event.healed ? 'خام متوسط وقلب مستعاد. اضربه مرتين أخريين بسرعة للجيب الغني — على مسؤوليتك.' : 'خام متوسط في حقيبتك. اضربه مرتين أخريين بسرعة للجيب الغني — على مسؤوليتك.', 300);
+      } else if (event.type === 'fork_rich') {
+        const loot = Object.entries(event.ores || {}).filter(([, n]) => n > 0).map(([k, n]) => `${R.ORES[k]?.name || k} ${n}`).join('، ');
+        pushFloater(event.x, event.y - 16, 'الجيب الغني!', '#ffd166', 14);
+        if (loot) pushFloater(event.x, event.y - 34, loot, '#9fe8ff', 11);
+        eventBanner('المفترق — جشع', `خام نادر ${loot ? `${loot} ` : ''}— لكن ${event.guards || 2} من حرّاس الجيب استيقظوا.`, 340);
+        doShake(0.4); haptic('heavy');
+      } else if (event.type === 'fork_lock') {
+        pushFloater(event.x, event.y - 12, event.choice === 'safe' ? 'اخترت الأمان' : 'انتهى الوقت', '#9fb4c4', 11);
+      } else if (event.type === 'ore_wind') {
+        eventBanner('نسمة الخام', 'ثلاث بلورات ظهرت قرب المفترق — اقفز والتقطها قبل أن تذهب مع الريح.', 320);
+        feedback('نسمة خام: ثلاث بلورات فوق أرض المفترق — اقفز لالتقاطها.');
+        spawnBurst(event.x, event.y, '#ffd166', 16);
       }
 
       if (!reduced) {
@@ -545,6 +634,7 @@
       const oreLine = Object.entries(result.ores || {}).filter(([, v]) => v > 0)
         .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
       const mineName = R.MINES[result.zone || 0]?.name;
+      renderSummary(null, result);
       const unlockLine = opened.length ? ` فُتح منجم جديد: ${opened.map(z => R.MINES[z].name).join('، ')}.` : '';
       el('platform-message').textContent = `${mineName ? `${mineName} · ` : ''}${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة: +${result.gold} ذهب (منها ${result.milestoneGold || 0} من المعالم) · ${result.milestones?.length || 0} معالم · خامات أُضيفت للمخزن: ${oreLine}.${unlockLine}`;
       pending = null; ticket = null; shake = 0;
@@ -557,12 +647,79 @@
     } finally { submitting = false; }
   }
 
+  // ===== V6: ملخص الجولة وسطر «لماذا جولة أخرى؟» =====
+  const oreLineOf = ores => Object.entries(ores || {}).filter(([, v]) => v > 0)
+    .map(([k, v]) => `${R.ORES[k]?.name || k} ${v}`).join('، ') || 'لا خامات';
+  function summaryRow(label, value) {
+    const r = document.createElement('div'); r.className = 'run-row';
+    const l = document.createElement('span'); l.textContent = label;
+    const v = document.createElement('b'); v.textContent = value;
+    r.appendChild(l); r.appendChild(v);
+    return r;
+  }
+  function nextStepHint(receipt) {
+    let st = null;
+    try { st = typeof state !== 'undefined' && state ? state : null; } catch (_) { st = null; }
+    if (st && R.mineStatus) {
+      for (let z = 0; z < (R.MINES?.length || 0); z++) {
+        const status = R.mineStatus(z, st.mines, st.equipment);
+        if (status && !status.unlocked) {
+          const need = status.needs.find(n => !n.ok);
+          if (need) return `لماذا جولة أخرى؟ لفتح ${R.MINES[z].name}: ${need.label}.`;
+        }
+      }
+    }
+    if (st && R.EQUIPMENT_ORDER) {
+      const lvl = R.normalizeLoadout(st.equipment);
+      let best = null;
+      for (const id of R.EQUIPMENT_ORDER) {
+        const cost = R.equipCost(id, lvl[id]); if (!cost) continue;
+        const needGold = Math.max(0, cost.gold - (Number(st.gold) || 0));
+        const needOre = Object.entries(cost.ores || {}).map(([k, n]) => [k, Math.max(0, n - ((st.ores || {})[k] || 0))]).filter(([, n]) => n > 0);
+        const score = needGold + needOre.reduce((a, [, n]) => a + n * 12, 0);
+        if (!best || score < best.score) best = { id, cost, needGold, needOre, score };
+      }
+      if (best) {
+        const orePart = best.needOre.map(([k, n]) => `${R.ORES[k]?.name || k} ${n}`).join('، ');
+        if (!best.needGold && !orePart) return `جاهز الآن: رقِّ «${R.EQUIPMENT[best.id].name}» في الورشة — ${R.effectText(best.id, lvl[best.id] + 1)}.`;
+        const needs = [best.needGold ? `${best.needGold} ذهب` : '', orePart].filter(Boolean).join(' و');
+        return `لماذا جولة أخرى؟ «${R.EQUIPMENT[best.id].name}» تنتظرك: تحتاج ${needs} — ${R.EQUIPMENT[best.id].blurb}.`;
+      }
+    }
+    if (receipt && receipt.goal && !receipt.goal.done) return `لماذا جولة أخرى؟ أكمل هدف «${receipt.goal.name}» لتحصل على خام إضافي يسرّع ترقية الورشة.`;
+    return 'لماذا جولة أخرى؟ جرّب هدفًا مختلفًا: كسر العرق النادر أو الجشع في المفترق يمنحك خامًا نادرًا للورشة.';
+  }
+  // stateLike = حالة المحاكاة فوراً، وreceipt = نتيجة الخادم المؤكَّدة (تستبدلها عند وصولها)
+  function renderSummary(stateLike, receipt) {
+    const box = el('platform-summary'), rows = el('summary-rows');
+    if (!box || !rows) return;
+    const gs = receipt?.goal || (R.goalStatus && stateLike ? R.goalStatus(stateLike) : null);
+    const badge = el('summary-goal');
+    if (badge && gs) {
+      badge.textContent = gs.done ? `الهدف محقّق: ${gs.name}` : `الهدف: ${gs.name}`;
+      badge.className = `run-badge ${gs.done ? 'ok' : 'fail'}`;
+    }
+    rows.innerHTML = '';
+    if (gs) rows.appendChild(summaryRow(`هدف «${gs.name}»`, gs.id === 'speed' ? `${gs.done ? 'قبل المهلة' : `${gs.now}ث`} / ${gs.target}ث` : `${Math.min(gs.target, gs.now)}/${gs.target}`));
+    const choice = receipt ? receipt.choice : stateLike?.choice;
+    rows.appendChild(summaryRow('المفترق', choice === 'rich' ? 'جيب غني + حارسان' : choice === 'safe' ? 'فتح آمن' : 'لم تفتحه'));
+    rows.appendChild(summaryRow('العرق النادر', (receipt ? receipt.veinBroken : stateLike?.veinBroken) ? 'مكسور — خام نادر' : 'لم يُكسر'));
+    rows.appendChild(summaryRow('بلورات · صخور', `${receipt ? receipt.gems : (stateLike?.collected ?? 0)} · ${receipt ? receipt.mined : (stateLike?.mined ?? 0)}`));
+    rows.appendChild(summaryRow('الزمن', `${Math.floor(receipt ? receipt.duration : (stateLike?.tick || 0) / R.FPS)} ثانية`));
+    rows.appendChild(summaryRow('خامات الجولة', oreLineOf(receipt ? receipt.ores : (R.oreSummary && stateLike ? R.oreSummary(stateLike) : {}))));
+    if (receipt) rows.appendChild(summaryRow('المكافأة المؤكدة', `+${receipt.gold} ذهب · +${receipt.xp} خبرة`));
+    const next = el('summary-next');
+    if (next) next.textContent = nextStepHint(receipt);
+    box.hidden = false;
+  }
+
   function finish() {
     if (!running) return;
     running = false; paused = false; clearInput(); cancelAnimationFrame(raf); raf = 0;
     const won = sim.status === 'won';
     const oreText = Object.entries(R.oreSummary(sim)).filter(([, v]) => v > 0)
       .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
+    renderSummary(sim, null);
     overlay(won ? 'وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', `${sim.collected} بلورات · ${sim.mined} صخور · أعداء ${sim.defeated || 0} · ${Math.floor(sim.tick / R.FPS)} ثانية. ${won ? 'أحسنت! تجاوزت الحفر والأخطار وهزمت الوحوش.' : 'راقب ضربات الوحوش واقفز قبل الحفر. استخدم زر الهجوم أو المهارة للدفاع عن نفسك.'} · ${sim.milestones?.length || 0} معالم · خامات: ${oreText}.`);
     hud(); draw();
     if (ticket) {
@@ -610,12 +767,18 @@
       await bridge.ready(); owner = bridge.user();
       if (owner) {
         // التذكرة الحالية (جولة موقوفة مثلاً) لا تُستبدل إلا بعد نجاح الطلب والتحقق من نسخة المستوى
-        const issued = await request('/api/platform/start', { zone: selectedZone });
+        const issued = await request('/api/platform/start', { zone: selectedZone, goal: selectedGoal });
         if (issued.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
         ticket = issued;
         const mine = R.MINES[ticket.config?.zone ?? selectedZone];
-        say(`${mine ? `${mine.name}: ` : ''}الهدف 3 بلورات وصخرة واحدة${R.levelFor(ticket.config?.zone ?? selectedZone).boss ? '، ثم اهزم الزعيم' : ''}، ثم بوابة الخروج. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
+        const goalDef = R.GOALS?.[ticket.config?.goal ?? selectedGoal];
+        say(`${mine ? `${mine.name}: ` : ''}هدف الجولة «${goalDef?.name || ''}» — ${goalDef?.hint || ''}. شرط الخروج: 3 بلورات وصخرة${R.levelFor(ticket.config?.zone ?? selectedZone).boss ? '، ثم اهزم الزعيم' : ''}. ${R.CHARACTERS[currentHero]?.name || 'عامل المنجم'} — تحرّك، اقفز، وعدّن بحكمة.`);
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
+      const summaryBox = el('platform-summary');
+      if (summaryBox) summaryBox.hidden = true;
+      const eventBox = el('platform-event');
+      if (eventBox) { eventBox.hidden = true; eventBox.classList.remove('show'); }
+      eventUntil = 0;
       sim = R.create(currentHero, seedOf(ticket), configFor(ticket)); inputs = []; particles = []; shake = 0; resetImpact(); feedIndex = 0; feedFrame = 0; running = true; paused = false; save();
       resume();
     } catch (e) {
@@ -636,7 +799,8 @@
     document.querySelectorAll('.mine-hero-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.hero === currentHero);
     });
-    const storedConfig = configFor(stored.ticket); // لقطة المنجم والمعدات المثبّتة في التذكرة، لا الحالية
+    const storedConfig = configFor(stored.ticket); // لقطة المنجم والهدف والمعدات المثبّتة في التذكرة، لا الحالية
+    if (Number.isInteger(storedConfig.goal) && storedConfig.goal !== selectedGoal) { selectedGoal = storedConfig.goal; try { localStorage.setItem('platform-goal', String(selectedGoal)); } catch (_) {} syncGoalButtons(); }
     const replay = stored.inputs?.length ? R.replay(stored.inputs, currentHero, seedOf(stored.ticket), storedConfig) : { ok: true, state: R.create(currentHero, seedOf(stored.ticket), storedConfig) };
     if (!replay.ok) { say('ملف جولة غير صالح؛ يمكنك البدء مجددًا.'); return; }
     ticket = stored.ticket; inputs = stored.inputs || []; sim = replay.state;
@@ -761,6 +925,52 @@
   const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => draw()) : null;
   if (resizeObserver) resizeObserver.observe(canvas);
   else window.addEventListener('resize', draw);
+  // اختيار الهدف (V6): لا يبدأ جولة ولا يمسّ تذكرة جارية، فقط يغيّر هدف الجولة القادمة.
+  document.querySelectorAll('.goal-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (running || pending || submitting) { feedback('أنهِ الجولة الحالية أولًا لتغيير الهدف.'); return; }
+      setGoal(btn.dataset.goal);
+    });
+  });
+  syncGoalButtons();
+
+  // إرشاد أول مرة: ثلاث خطوات قصيرة، قابل للتخطّي، ولا يتكرر على الجهاز.
+  const coachSteps = [
+    { title: 'اختر هدفك أولًا', text: 'لكل جولة هدف: جمع خام، أو كسر العرق النادر، أو الوصول قبل 75 ثانية. الهدف يغيّر ما تفعله داخل المنجم لا الشكل فقط.' },
+    { title: 'في الطريق: عرق ومفترق', text: 'على أرض المفترق شيءان: العرق النادر (ثلاث ضربات متتابعة قبل أن يتصلّب) وصندوق المخاطرة (ضربة = فتح آمن، ثلاث ضربات سريعة = جيب غني مع حارسين).' },
+    { title: 'ثم البوابة', text: 'اجمع 3 بلورات واكسر صخرة ليُفتح الخروج. في الختام ترى ملخص قراراتك وخاماتك، وما الترقية التي تقربك من جولة أقوى.' },
+  ];
+  let coachIndex = 0;
+  const coachKey = 'platform-coach:v1';
+  const coachSeen = () => { try { return localStorage.getItem(coachKey) === '1'; } catch (_) { return true; } };
+  function showCoachStep() {
+    const step = coachSteps[coachIndex];
+    const box = el('platform-coach');
+    if (!box || !step) return;
+    box.hidden = false;
+    const n = el('coach-step'), t = el('coach-title'), x = el('coach-text'), next = el('coach-next');
+    if (n) n.textContent = `${coachIndex + 1}/${coachSteps.length}`;
+    if (t) t.textContent = step.title;
+    if (x) x.textContent = step.text;
+    if (next) next.textContent = coachIndex === coachSteps.length - 1 ? 'ابدأ' : 'التالي';
+  }
+  function closeCoach() {
+    const box = el('platform-coach');
+    if (box) box.hidden = true;
+    try { localStorage.setItem(coachKey, '1'); } catch (_) {}
+  }
+  function maybeCoach() {
+    const box = el('platform-coach');
+    if (!box) return;
+    if (coachSeen() || running || pending) { box.hidden = true; return; }
+    coachIndex = 0; showCoachStep();
+  }
+  el('coach-next')?.addEventListener('click', () => {
+    coachIndex++;
+    if (coachIndex >= coachSteps.length) closeCoach(); else showCoachStep();
+  });
+  el('coach-skip')?.addEventListener('click', closeCoach);
+
   el('platform-start').addEventListener('click', start);
   el('platform-resume').addEventListener('click', resume);
   el('platform-pause').addEventListener('click', () => { if (paused) resume(); else pause(); });
@@ -789,7 +999,7 @@
 
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
-    pause, setHero, setZone, refresh: refreshPreview, getZone: () => selectedZone, getHero: () => currentHero, unlockedMines,
+    pause, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
     showLegacy: () => {
       pause();
@@ -829,6 +1039,8 @@
   restore().catch(() => say('تعذّر استرجاع الجولة؛ يمكنك بدء رحلة جديدة.')).finally(() => {
     restoring = false; el('platform-start').disabled = Boolean(pending);
     refreshPreview();
+    // إرشاد أول مرة بعد جاهزية المشهد فقط (لا يحجب زر البدء ولا يتكرر بعد التخطّي).
+    maybeCoach();
     window.dispatchEvent(new CustomEvent('platform-config-change', { detail: { ready: true } }));
   });
 })();

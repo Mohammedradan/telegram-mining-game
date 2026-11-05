@@ -78,7 +78,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   let rafId = 0;
   const rafQueue = new Map();
   const windowListeners = [];
-  const log = { errors: [], alerts: [], fetches: [], platformStarts: 0, platformFinishBodies: [] };
+  const log = { errors: [], alerts: [], fetches: [], platformStarts: 0, platformFinishBodies: [], platformStartBodies: [] };
   const localStore = new Map();
   if (storedRun) localStore.set(`platform-run:v1:guest_boot`, JSON.stringify(storedRun));
 
@@ -91,7 +91,10 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
     if (u.startsWith('/api/ops')) return { ok: true, status: 200, json: async () => ({ ok: true, accepted: [], revision: me?.revision || 0, serverSeq: 0, state: me?.state, progress: me?.progress }) };
     if (u.startsWith('/api/platform/start')) {
       log.platformStarts++;
-      return { ok: true, status: 200, json: async () => ({ id: 'ticket-ui-1', version: R.VERSION, startedAt: Date.now(), expiresAt: Date.now() + 30 * 60 * 1000 }) };
+      const body = JSON.parse(options.body || '{}');
+      log.platformStartBodies.push(body);
+      // نفس عقد الخادم (V6): التذكرة تعيد لقطة المنجم والهدف والمعدات
+      return { ok: true, status: 200, json: async () => ({ id: 'ticket-ui-1', version: R.VERSION, config: R.normalizeConfig(body), startedAt: Date.now(), expiresAt: Date.now() + 30 * 60 * 1000 }) };
     }
     if (u.startsWith('/api/platform/finish')) {
       // نفس عقد الخادم: إعادة تشغيل الحركات بقواعد المشروع — المتصفح لا يفرض شيئاً
@@ -104,9 +107,12 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
       const profile = meResponse();
       profile.state = { ...profile.state, gold: profile.state.gold + gold, totalEarned: profile.state.totalEarned + gold, adventure: { runs: 1, gems: s.collected, zones: 1 } };
       profile.revision = 9;
+      const goal = R.goalStatus(s);
       return {
         ok: true, status: 200,
-        json: async () => ({ id: body.id, won: true, gold, xp: 20 + s.collected, score: s.collected * 25 + s.mined * 50 + 200, gems: s.collected, mined: s.mined, duration: s.tick / R.FPS, profile }),
+        json: async () => ({ id: body.id, won: true, gold, xp: 20 + s.collected, score: s.collected * 25 + s.mined * 50 + 200, gems: s.collected, mined: s.mined, duration: s.tick / R.FPS,
+          goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
+          choice: s.choice || null, veinBroken: s.veinBroken === true, oreWind: s.oreWind === true, ores: R.oreSummary(s), profile }),
       };
     }
     return { ok: false, status: 404, json: async () => ({ error: 'not found' }) };
@@ -363,4 +369,59 @@ test('platform UI: action buttons exist with correct labels', () => {
   for (const input of [4, 8, 16, 32]) {
     assert.ok(html.includes(`data-platform-input="${input}"`), `action button with input ${input} must exist`);
   }
+});
+
+// ===== V6: اختيار الهدف، الإرشاد الأول، وملخص الختام — عبر مسار اللعب الحقيقي =====
+test('V6 UI: the goal picker changes the next run only, persists locally, and rides the start ticket', async () => {
+  const page = bootPage();
+  await page.settle();
+  assert.equal(page.PlatformGame().getGoal(), 0, 'the first goal is selected by default');
+  assert.equal(page.PlatformGame().setGoal(1), true);
+  assert.equal(page.PlatformGame().getGoal(), 1);
+  assert.equal(page.localStore.get('platform-goal'), '1', 'the chosen goal is remembered on the device');
+  assert.equal(page.PlatformGame().setGoal(1), false, 're-selecting the same goal is a no-op');
+  assert.equal(page.PlatformGame().setGoal(9), false, 'an unknown goal is refused');
+  page.fire(page.byId('platform-start'), 'click');
+  await page.settle();
+  assert.equal(page.log.platformStarts, 1);
+  assert.deepEqual(page.log.platformStartBodies[0], { zone: 0, goal: 1 }, 'the server receives the chosen goal');
+  // أثناء الجولة: تغيير الهدف مرفوض ولا يمسّ الجولة الجارية أو تذكرتها
+  assert.equal(page.PlatformGame().setGoal(2), false, 'the goal cannot change mid-run');
+  assert.equal(page.PlatformGame().getGoal(), 1, 'the running goal stays as the ticket pinned it');
+  page.PlatformGame().pause();
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('V6 UI: the first-run coach shows once, can be skipped, and never returns', async () => {
+  const first = bootPage();
+  await first.settle();
+  assert.equal(first.byId('platform-coach').hidden, false, 'a brand-new device sees the short guide');
+  first.fire(first.byId('coach-next'), 'click');
+  assert.equal(first.byId('coach-step').textContent, '2/3');
+  first.fire(first.byId('coach-skip'), 'click');
+  assert.equal(first.byId('platform-coach').hidden, true, 'skipping closes it immediately');
+  assert.equal(first.localStore.get('platform-coach:v1'), '1', 'skipping is remembered');
+  assert.deepEqual(first.log.errors, []);
+
+  const again = bootPage();
+  again.localStore.set('platform-coach:v1', '1');
+  await again.settle();
+  assert.equal(again.byId('platform-coach').hidden, true, 'the guide does not repeat on the same device');
+});
+
+test('V6 UI: the run summary is filled from the verified server receipt, not from local numbers', async () => {
+  const { inputs, state } = solution(R.seedFromId('ticket-ui-9'));
+  const stored = { version: R.VERSION, ticket: { id: 'ticket-ui-9', version: R.VERSION, startedAt: Date.now(), expiresAt: Date.now() + 864e5 }, inputs, finished: true };
+  const page = bootPage({ storedRun: stored });
+  await page.settle();
+  const rows = page.byId('summary-rows').children.map(row => row.children.map(c => c.textContent).join(' '));
+  assert.ok(rows.length >= 5, 'the summary lists goal, fork, vein, gems and the ore wallet');
+  assert.ok(rows.some(r => r.includes(R.GOALS[0].name)), 'the goal row names the goal');
+  assert.ok(rows.some(r => r.includes('المفترق')), 'the decision is reported');
+  assert.ok(rows.some(r => r.includes('خامات الجولة')), 'the ore wallet is reported');
+  assert.ok(rows.some(r => new RegExp(`\\+${R.rewardFor(state)} ذهب`).test(r)), 'the confirmed gold matches the server replay');
+  assert.equal(page.byId('platform-summary').hidden, false);
+  assert.match(page.byId('summary-goal').textContent, new RegExp(R.GOALS[0].name));
+  assert.ok(/لماذا جولة أخرى/.test(page.byId('summary-next').textContent), 'the summary always explains the next run');
+  assert.deepEqual(page.log.errors, []);
 });

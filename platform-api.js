@@ -51,6 +51,11 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     if (wanted !== undefined && !(Number.isInteger(wanted) && wanted >= 0 && wanted < Rules.MINES.length)) {
       return res.status(400).json({ error: 'منجم غير معروف' });
     }
+    // V6: الهدف يُختار قبل الجولة ويُثبَّت في التذكرة مثل المنجم والمعدات (لا يمكن تبديله بعد البدء).
+    const wantedGoal = req.body?.goal;
+    if (wantedGoal !== undefined && !(Number.isInteger(wantedGoal) && wantedGoal >= 0 && wantedGoal < Rules.GOALS.length)) {
+      return res.status(400).json({ error: 'هدف جولة غير معروف' });
+    }
     const resume = req.body?.resume === true;
     const result = await store.withUsers([req.player.id], async () => {
       const user = await prepare(req.player);
@@ -61,7 +66,8 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       }
       const current = run ? configOfRun(run) : null;
       const zone = wanted ?? current?.zone ?? 0;
-      const stale = Boolean(run) && !resume && (zone !== current.zone || !sameLoadout(current.loadout, loadout));
+      const goal = wantedGoal ?? current?.goal ?? 0;
+      const stale = Boolean(run) && !resume && (zone !== current.zone || goal !== current.goal || !sameLoadout(current.loadout, loadout));
       if (!run || stale) {
         // الفتح يُتحقَّق منه قبل أي استبدال: طلب منجم مقفل لا يُسقط جولة نشطة سليمة
         const status = Rules.mineStatus(zone, user.state.mines, loadout);
@@ -69,7 +75,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
           return { status: 403, error: `المنجم مقفل: ${status.needs.filter((n) => !n.ok).map((n) => n.label).join('، ')}`, needs: status.needs };
         }
         if (run) { run.status = 'expired'; await store.savePlatformRun(run); }
-        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing', config_json: JSON.stringify({ zone, loadout }) };
+        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing', config_json: JSON.stringify({ zone, goal, loadout }) };
         await store.savePlatformRun(run);
       }
       return { id: run.id, version: run.version, seed: Rules.seedFromId(run.id), config: configOfRun(run), startedAt: Number(run.started_at), expiresAt: Number(run.started_at) + lifetime };
@@ -123,14 +129,19 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       // مهام المغامرة: عدّادات من هذه الجولة المُعاد تشغيلها فقط (صخور، أعداء، خامات، سقوط زعيم بمفتاحه)
       trackQuests(user, { mined: state.mined, defeated: state.defeated, ores, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
       user.revision++; user.updatedAt = now();
+      // V6: نتيجة الهدف وقرار المخاطرة تُقرأ من إعادة التشغيل نفسها (لا من العميل) وتُعرض في شاشة الختام.
+      const goal = Rules.goalStatus(state);
+      const choice = state.choice || state.fork?.choice || null;
       const receipt = { id: run.id, won: state.status === 'won', zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
+        goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
+        choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true,
         ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
         dailyRemaining: quota.remaining, ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
-        detail: { won: receipt.won, zone: config.zone, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
+        detail: { won: receipt.won, zone: config.zone, goal: receipt.goal, choice, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
           dailyRemaining: quota.remaining, ores, milestones: state.milestones || [],
           milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
           ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);
