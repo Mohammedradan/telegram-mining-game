@@ -224,3 +224,35 @@ test('arena UI: the action-duel launcher hands control to the movement engine', 
   assert.equal(tab.classList.contains('active'), true, 'the player lands on the real action stage');
   assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
 });
+
+test('arena UI: the live duel is the primary entry, the classic duel sits in a closed secondary section', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  // المدخل الأساسي هو المبارزة الحيّة: زرها قبل قسم النظام الكلاسيكي في نفس الشاشة
+  const duelBtn = html.indexOf('id="arena-duel-btn"');
+  const classic = html.indexOf('id="classic-system"');
+  assert.ok(duelBtn > 0 && classic > duelBtn, 'the action duel comes first, the classic section after it');
+  assert.match(html, /<details id="classic-system"/, 'the classic turn battle is a collapsible section');
+  assert.doesNotMatch(html.slice(classic, classic + 120), /\sopen\b/, 'and it starts closed — no scrolling by default');
+  const body = html.slice(classic, html.indexOf('</details>', classic));
+  for (const id of ['arena-battle-stage', 'arena-turn', 'arena-start-btn', 'arena-controls', 'arena-log']) {
+    assert.ok(body.includes(`id="${id}"`), `${id} still lives inside «النظام الكلاسيكي» (data and mechanics preserved)`);
+  }
+  // زر المبارزة لا يفشل صامتًا: الرسالة تظهر على الساحة نفسها
+  assert.match(html, /id="arena-live-banner"[^>]*aria-live="polite"/);
+  assert.match(html, /function startArenaDuel[\s\S]{0,900}notify\('لديك جولة جارية/, 'a blocked duel explains itself on the arena');
+});
+
+test('controls: the on-screen stick is available on every screen size and can be hidden explicitly', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  // كان مخفيًا فوق 768px فلا وسيلة حركة باللمس على شاشة عريضة (أو في معاينة سطح المكتب)
+  const stickBase = /\.virtual-joystick\{([^}]*)\}/.exec(css)?.[1] || '';
+  assert.match(stickBase, /display:block/, 'the stick renders on wide screens too');
+  assert.doesNotMatch(css, /max-width:768px\)\{\.virtual-joystick\{display:none/, 'the old wide-screen hide rule is gone');
+  assert.match(css, /\.mine-controls\.no-stick \.virtual-joystick\{display:none\}/, 'hiding is an explicit choice');
+  assert.match(html, /id="ctl-stick"[^>]*aria-pressed="true"/, 'the settings panel offers the toggle, shown by default');
+  assert.match(game, /stick: 'show'/, 'the default is stored with the other control settings');
+  assert.match(game, /classList\.toggle\('no-stick'/, 'and it is applied to the pad');
+  assert.match(html, /العصا على الشاشة للحركة/, 'the stage hint points at the stick, not the keyboard alone');
+});

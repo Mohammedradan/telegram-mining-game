@@ -285,6 +285,30 @@
       box-shadow: 0 6px 18px rgba(219, 39, 119, .35);
     }
     .arena-duel-btn:active { transform: scale(.97); }
+    /* بطاقة التحكم تحت زر المبارزة: توضّح أن الحركة بالعصا على الشاشة لا بلوحة المفاتيح وحدها */
+    .arena-ctl-hint {
+      margin: 6px 0 0; font-size: 9.5px; line-height: 1.6; color: #a8bccb;
+      background: rgba(2, 6, 23, .55); border: 1px dashed rgba(148, 163, 184, .35);
+      border-radius: 9px; padding: 5px 8px;
+    }
+    .arena-live-banner {
+      margin-top: 6px; padding: 6px 9px; border-radius: 9px; font-size: 10px; font-weight: 800;
+      background: rgba(120, 53, 15, .55); border: 1px solid rgba(244, 191, 98, .55); color: #fde8b8;
+    }
+    .arena-live-banner[hidden] { display: none; }
+    /* النظام الكلاسيكي: قسم ثانوي قابل للفتح — المبارزة الحيّة هي المدخل الأساسي */
+    .classic-system { flex: 0 0 auto; margin-top: 6px; border-radius: 11px; background: rgba(15, 23, 42, .6); border: 1px solid rgba(94, 124, 146, .32); }
+    .classic-system > summary {
+      cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding: 7px 10px; border-radius: 11px; font-size: 10.5px; font-weight: 900; color: #cbd9e2;
+    }
+    .classic-system > summary::-webkit-details-marker { display: none; }
+    .classic-system > summary::before { content: ''; width: 0; height: 0; border-inline-start: 4px solid transparent; border-inline-end: 4px solid transparent; border-top: 5px solid currentColor; opacity: .8; }
+    .classic-system[open] > summary::before { transform: rotate(180deg); }
+    .classic-system[open] > summary { color: #f6d69a; border-bottom: 1px solid rgba(94, 124, 146, .3); border-radius: 11px 11px 0 0; }
+    .classic-system .cs-sub { font-size: 9px; font-weight: 700; color: #94a3b8; }
+    .classic-system .cs-body { display: flex; flex-direction: column; gap: 6px; padding: 6px; }
+    .classic-system .arena-battle-stage { flex: 0 0 clamp(170px, 26vh, 240px); }
     /* زر الصدّ في لوحة التحكم: نفس حجم بقية الأزرار بهوية دفاعية */
     .action-btn.guard-btn { background: linear-gradient(160deg, #1d4ed8, #0f2f7a); border-color: #60a5fa; }
     @keyframes arenaCtaIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -411,7 +435,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=17">
+  <link rel="stylesheet" href="/platform.css?v=18">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -732,6 +756,10 @@
                 <span>اهتزاز الهاتف</span>
                 <button type="button" id="ctl-haptics" class="active" aria-pressed="true">مفعّل</button>
               </div>
+              <div class="ctl-row" role="group" aria-label="عصا التحكم على الشاشة">
+                <span>العصا</span>
+                <button type="button" id="ctl-stick" class="active" aria-pressed="true">ظاهرة على الشاشة</button>
+              </div>
               <div class="ctl-row">
                 <span>مواضع الأزرار</span>
                 <button type="button" id="ctl-edit" aria-pressed="false">تحريك</button>
@@ -775,7 +803,7 @@
           <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
         </div>
       </div>
-      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. الأسهم/WASD حركة · Space قفز · J ضرب خفيف (سلسلة) · L ضربة قوية · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
+      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. العصا على الشاشة للحركة (اسحبها بإبهامك أو بالماوس) · الأسهم/WASD أيضًا · Space قفز · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
         <button id="platform-discard" type="button" hidden>تجاهل الحفظ المحلي المعلّق</button>
@@ -1045,11 +1073,15 @@
   <main id="tab-arena" class="tab-content flex-col gap-2 flex-1 py-1 px-1 arena-idle">
     <div class="arena-head">
       <h2 class="text-base font-bold text-slate-200">⚔️ ساحة القتال</h2>
-      <p class="text-[10px] text-slate-400">اقرأ نيّة الخصم ثم اختر حركتك · الفوز <b class="text-amber-400">+50 🪙</b> · <span id="arena-record">0 فوز · 0 خسارة</span></p>
-      <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn mt-1.5 w-full rounded-xl py-2 text-xs font-black">⚡ مبارزة حيّة — حرّك واقفز واضرب بنفسك</button>
-      <p class="text-[9px] text-slate-500 mt-1">تحكّم كامل: الأسهم للحركة · مسافة للقفز · F للضرب · S للصدّ · Q للمهارة</p>
+      <p class="text-[10px] text-slate-400">مبارزة حيّة بيديك: تحرّك واضرب واقفز بنفسك · <span id="arena-record">0 فوز · 0 خسارة</span></p>
+      <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn mt-1.5 w-full rounded-xl py-2.5 text-sm font-black">ابدأ المبارزة الحيّة — تحكّم كامل</button>
+      <div id="arena-live-banner" class="arena-live-banner" hidden aria-live="polite"></div>
+      <p class="arena-ctl-hint">العصا على الشاشة للحركة (أو الأسهم/WASD) · قفز · ضرب · ضربة قوية · صدّ · مراوغة · مهارة — والخصم يعلن هجومه قبل أن يضرب.</p>
       <p class="text-[9px] text-slate-500 mt-1" id="duel-reward-note">مكافأة المبارزة الحيّة: 60–80 ذهباً حسب عمق المنجم · بسقف يومي مستقل لا يمسّ أرباح التعدين.</p>
     </div>
+    <details id="classic-system" class="classic-system">
+      <summary><span class="cs-title">النظام الكلاسيكي</span><span class="cs-sub">مبارزة بالأدوار · الفوز +50 ذهباً</span></summary>
+      <div class="cs-body">
 
     <!-- مسرح المعركة: الشخصيتان متقابلتان وتتحركان داخل ساحة واحدة -->
     <div id="arena-battle-stage" class="arena-battle-stage" aria-label="مسرح ساحة القتال">
@@ -1126,6 +1158,8 @@
     </div>
 
     <div id="arena-log" class="arena-log">سجل المباراة سيظهر هنا…</div>
+      </div><!-- /.cs-body -->
+    </details>
   </main>
 
   <!-- Energy Section (Only on Mining Tab) -->
@@ -1755,9 +1789,13 @@
     }
     function startArenaDuel(zone = null) {
       const game = window.PlatformGame;
-      if (!game?.startDuel) { showArenaBanner('حدّث الصفحة لتفعيل المبارزة الحيّة'); return; }
+      // رسالة على الساحة نفسها: زر المبارزة لا يفشل صامتًا إذا كانت هناك جولة جارية
+      const live = document.getElementById('arena-live-banner');
+      const notify = (text) => { if (live) { live.hidden = false; live.textContent = text; } };
+      if (!game?.startDuel) { notify('حدّث الصفحة (إعادة تحميل) لتفعيل المبارزة الحيّة.'); return; }
       const tier = Number.isInteger(zone) ? zone : deepestUnlockedMine();
-      if (!game.startDuel(tier)) return;
+      if (!game.startDuel(tier)) { notify('لديك جولة جارية — أكملها أو أعدها من تبويب «اللعب»، ثم عد للمبارزة الحيّة.'); return; }
+      if (live) live.hidden = true;
       switchTab('play');
       haptic('success');
     }
@@ -4186,6 +4224,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=16"></script>
+  <script src="/platform-game.js?v=17"></script>
 </body>
 </html>

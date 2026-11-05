@@ -142,7 +142,8 @@
   const KEY_HINTS = 'الأسهم/WASD حركة · Space قفز · J ضرب خفيف (سلسلة) · L ضربة قوية · V مراوغة · S صدّ · Q مهارة · E حفر';
 
   // إعدادات التحكم (حجم العصا وشفافيتها وحساسيتها والاهتزاز) — تُحفظ محليًا فقط ولا تمسّ حساب اللاعب.
-  const CONTROL_DEFAULTS = { size: 'md', opacity: 'md', sensitivity: 'md', haptics: true };
+  // stick: العصا على الشاشة — كانت مخفية فوق 768px فلا وسيلة حركة باللمس على شاشة عريضة.
+  const CONTROL_DEFAULTS = { size: 'md', opacity: 'md', sensitivity: 'md', haptics: true, stick: 'show' };
   let controlSettings = { ...CONTROL_DEFAULTS };
   try {
     const saved = JSON.parse(localStorage.getItem('platform-controls') || 'null');
@@ -1079,6 +1080,11 @@
     document.querySelectorAll('[data-ctl-sensitivity]').forEach(b => b.classList.toggle('active', b.dataset.ctlSensitivity === controlSettings.sensitivity));
     const hapticBtn = el('ctl-haptics');
     if (hapticBtn) { hapticBtn.setAttribute('aria-pressed', String(controlSettings.haptics !== false)); hapticBtn.classList.toggle('active', controlSettings.haptics !== false); }
+    // العصا: ظاهرة افتراضيًا على كل المقاسات (لمس أو ماوس)؛ تُخفى فقط باختيار اللاعب
+    const stickShown = controlSettings.stick !== 'hide';
+    if (box?.classList) box.classList.toggle('no-stick', !stickShown);
+    const stickBtn = el('ctl-stick');
+    if (stickBtn) { stickBtn.setAttribute('aria-pressed', String(stickShown)); stickBtn.classList.toggle('active', stickShown); stickBtn.textContent = stickShown ? 'ظاهرة على الشاشة' : 'مخفية'; }
   }
   function saveControlSettings() {
     try { localStorage.setItem('platform-controls', JSON.stringify(controlSettings)); } catch (_) {}
@@ -1088,6 +1094,7 @@
   document.querySelectorAll('[data-ctl-opacity]').forEach(b => b.addEventListener('click', () => { controlSettings.opacity = b.dataset.ctlOpacity; saveControlSettings(); }));
   document.querySelectorAll('[data-ctl-sensitivity]').forEach(b => b.addEventListener('click', () => { controlSettings.sensitivity = b.dataset.ctlSensitivity; saveControlSettings(); }));
   el('ctl-haptics')?.addEventListener('click', () => { controlSettings.haptics = controlSettings.haptics === false; saveControlSettings(); });
+  el('ctl-stick')?.addEventListener('click', () => { controlSettings.stick = controlSettings.stick === 'hide' ? 'show' : 'hide'; saveControlSettings(); });
   applyControlSettings();
 
   // --- تخصيص مواضع التحكم (سحب) — يُحفظ في localStorage لهذا الجهاز فقط ---
