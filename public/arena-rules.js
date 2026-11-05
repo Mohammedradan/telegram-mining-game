@@ -31,12 +31,15 @@
   function newBattle({ level, seed }) {
     const lvl = clampLevel(level);
     const s = Number(seed) >>> 0;
-    return {
+    const battle = {
       active: true, outcome: null, round: 1, level: lvl, seed: s, enemyTurns: 0, moves: [],
       rng: mulberry32(s),
       player: { hp: CONFIG.maxHp, maxHp: CONFIG.maxHp, energy: CONFIG.maxEnergy, defending: false },
       enemy: { hp: enemyHpFor(lvl), maxHp: enemyHpFor(lvl), energy: CONFIG.maxEnergy, defending: false, level: lvl },
+      enemyPlan: null,
     };
+    battle.enemyPlan = enemyDecide(battle); // خطة الدور الأول تُعلن قبل أن تختار
+    return battle;
   }
 
   // حركة قانونية: طاقة كافية، ولا علاج بصحة مكتملة
@@ -72,14 +75,25 @@
     return battle.outcome;
   }
 
-  // 🧠 قرارات الروبوت — المنطق التاريخي نفسه، لكن من البذرة؛ ولا يختار حركة لا يملك طاقتها
+  // 🧠 قرارات الروبوت — من البذرة، ولا يختار حركة لا يملك طاقتها.
+  // ملاحظة توازن: الخطة تُحسب الآن في بداية الدور (قبل حركة اللاعب) كي يستطيع قراءتها،
+  // وهذا يجعل الروبوت أبطأ بلحظة في تقدير صحته؛ رُفع حدّ العلاج من 35% إلى 41% ليعود
+  // معدل الفوز إلى ما كان عليه (‏50% بخطة لعبٍ مرجعية) فلا يتغيّر اقتصاد المكافأة.
   function enemyDecide(battle) {
     const e = battle.enemy; const p = battle.player; const rng = battle.rng;
-    if (e.hp <= e.maxHp * 0.35 && e.energy >= 4 && rng() < 0.7) return 'HEAL';           // أولوية البقاء
+    if (e.hp <= e.maxHp * 0.41 && e.energy >= 4 && rng() < 0.7) return 'HEAL';           // أولوية البقاء
     if (e.energy < 3) { const r = rng(); return (r < 0.8 || e.energy < 1) ? 'WAIT' : 'DEFEND'; } // إدارة الطاقة
     if (p.hp <= 15) return 'ATTACK';                                                       // إنهاء الخصم الضعيف
     if (e.hp <= e.maxHp * 0.5 && p.energy >= 3 && e.energy >= 1 && rng() < 0.3) return 'DEFEND'; // توقّع هجومك
     return rng() < 0.75 ? 'ATTACK' : (e.energy >= 4 && e.hp < e.maxHp ? 'HEAL' : 'WAIT');
+  }
+
+  // 👁️ نيّة الخصم للدور الحالي: هي خطته المعلنة فعلًا، لا توقّع.
+  // الخطة تُحسب مرة واحدة في بداية كل دور (بذرة ثابتة، نفس الترتيب في إعادة تشغيل الخادم)،
+  // ثم تُعرض للاعب قبل أن يختار، ويُنفّذها enemyMove كما هي. بلا استهلاك عشوائية إضافية.
+  function enemyIntent(battle) {
+    if (!battle || !battle.active) return null;
+    return ACTIONS.includes(battle.enemyPlan) ? battle.enemyPlan : null;
   }
 
   function playerMove(battle, action) {
@@ -92,10 +106,15 @@
     return ev;
   }
 
+  // يُنفّذ الخطة المعلنة (لا يقرّر من جديد)، ويسقط إلى قرار طازج فقط إن صارت الخطة غير قانونية.
   function enemyMove(battle) {
     if (!battle.active) return { error: 'inactive' };
-    const ev = applyMove(battle, battle.enemy, battle.player, enemyDecide(battle));
+    const planned = ACTIONS.includes(battle.enemyPlan) && canAct(battle.enemy, battle.enemyPlan) ? battle.enemyPlan : null;
+    const action = planned || enemyDecide(battle);
+    const ev = applyMove(battle, battle.enemy, battle.player, action);
     ev.actor = 'enemy';
+    ev.planned = Boolean(planned);
+    battle.enemyPlan = null;
     battle.enemyTurns += 1;
     settle(battle);
     return ev;
@@ -119,6 +138,7 @@
     if (battle.round > CONFIG.maxRounds) return judge(battle);
     battle.player.energy = Math.min(CONFIG.maxEnergy, battle.player.energy + CONFIG.regen);
     battle.enemy.energy = Math.min(CONFIG.maxEnergy, battle.enemy.energy + CONFIG.regen);
+    battle.enemyPlan = enemyDecide(battle);
     return { judged: false, round: battle.round };
   }
 
@@ -144,5 +164,5 @@
   // أدنى زمن حقيقي لمباراة: كل دور للروبوت يسبقه انتظار الواجهة
   const minDurationMs = (enemyTurns) => Math.max(0, Math.floor(enemyTurns)) * CONFIG.enemyDelayMs;
 
-  return { CONFIG, ACTIONS, mulberry32, enemyHpFor, newBattle, canAct, playerMove, enemyMove, nextRound, replay, minDurationMs };
+  return { CONFIG, ACTIONS, mulberry32, enemyHpFor, newBattle, canAct, playerMove, enemyMove, enemyIntent, nextRound, replay, minDurationMs };
 }));

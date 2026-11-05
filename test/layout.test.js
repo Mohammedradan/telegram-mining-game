@@ -70,7 +70,16 @@ test('arena shows illustrated sword fighters and action animations, not clipped 
   assert.match(html, /action === 'ATTACK' && !arenaInSwordRange\(\)/);
   assert.match(html, /if \(battle\?\.active\) return;/);
   assert.match(html, /startBtn\.disabled = Boolean\(battle\?\.active\)/);
-  assert.match(html, /⚔️ المعركة جارية — أكمل القتال/);
+  assert.match(html, /⚔️ المعركة جارية/);
+  // الساحة التفاعلية: نيّة معلنة + حكم فوق المسرح + حالة «قبل المباراة» بلا أزرار معطّلة
+  assert.match(html, /id="arena-intent"/);
+  assert.match(html, /id="arena-verdict"/);
+  assert.match(html, /id="arena-controls"/);
+  assert.match(style, /\.arena-idle #arena-controls \{ display: none; \}/);
+  assert.match(style, /\.arena-fighting #arena-start-btn \{ display: none; \}/);
+  assert.match(style, /\.arena-verdict\[hidden\] \{ display: none; \}/);
+  assert.match(html, /function renderArenaIntent\(\)/);
+  assert.match(html, /ArenaRules\.enemyIntent\(battle\)/);
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-player.png')));
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-enemy.png')));
 });
