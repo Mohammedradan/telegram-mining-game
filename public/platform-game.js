@@ -306,12 +306,52 @@
     return R.MINES.map((_, i) => i).filter(i => R.mineUnlocked(i, src.mines, src.equipment));
   }
 
+  // شاشة البدء: سطر واحد قصير، والشرح الكامل داخل «كيف ألعب؟» كي لا يفيض الغطاء بحاجة إلى تمرير.
+  const OVERLAY_LEAD = 'اختر هدف الجولة ثم ابدأ — واقرأ «كيف ألعب؟» إن كانت هذه أول مرة.';
+
+  // ===== V6.3: ضمان «بلا تمرير» بالقياس لا بالتقدير =====
+  // نقيس فيض الغطاء الفعلي (scrollHeight مقابل clientHeight) ونخفّف المحتوى درجةً درجة
+  // حتى يتوقف التمرير تمامًا. المقاسات الثابتة تخطئ مع الخط العربي وأحجام النوافذ المختلفة.
+  // الترتيب مقصود: نُخفي الشرح ثم الزينة ثم المهمة (المكرّرة في الشريط العلوي)، ولا نُخفي أبدًا
+  // أزرار الهدف أو زر البدء.
+  const FIT_STEPS = ['fit-1', 'fit-2', 'fit-3', 'fit-4'];
+  function overlayOverflows(ov) {
+    return ov.scrollHeight - ov.clientHeight > 1;
+  }
+  function syncOverlayFit() {
+    const ov = el('platform-overlay');
+    if (!ov || !ov.classList || ov.hidden || !ov.clientHeight) return;
+    for (const step of FIT_STEPS) ov.classList.remove(step);
+    let over = overlayOverflows(ov);
+    for (const step of FIT_STEPS) {
+      if (!over) break;
+      ov.classList.add(step);
+      over = overlayOverflows(ov);
+    }
+    // لا يظهر شريط التمرير إلا إذا بقي فيض حقيقي (مثل فتح الشرح اختياريًا).
+    if (over) ov.classList.add('overlay-scrolls'); else ov.classList.remove('overlay-scrolls');
+  }
+  let overlayFitFrame = 0;
+  function scheduleOverlayFit() {
+    if (overlayFitFrame) return;
+    const run = () => { overlayFitFrame = 0; syncOverlayFit(); };
+    if (typeof requestAnimationFrame === 'function') overlayFitFrame = requestAnimationFrame(run);
+    else run();
+  }
+
   function overlay(title, text, resume = false) {
+    const help = el('overlay-help');
+    if (help) {
+      help.open = false;
+      // نُزيل أثر الشرح المفتوح فورًا كي يُقاس الارتفاع الحقيقي لا ارتفاع شرح مطوي.
+      el('platform-overlay')?.classList?.remove('help-open');
+    }
     el('platform-overlay').hidden = false;
     el('platform-title').textContent = title;
     el('platform-message').textContent = text;
     el('platform-resume').hidden = !resume;
     el('platform-start').textContent = running ? 'إعادة من البداية' : 'جولة جديدة';
+    scheduleOverlayFit();
   }
 
   // ===== V6: هدف الجولة =====
@@ -324,6 +364,7 @@
     try { localStorage.setItem('platform-goal', String(g)); } catch (_) {}
     syncGoalButtons();
     refreshPreview();
+    scheduleOverlayFit();
     if (announce) haptic('light');
     return true;
   }
@@ -712,16 +753,17 @@
     const next = el('summary-next');
     if (next) next.textContent = nextStepHint(receipt);
     box.hidden = false;
+    scheduleOverlayFit();
   }
 
   function finish() {
     if (!running) return;
     running = false; paused = false; clearInput(); cancelAnimationFrame(raf); raf = 0;
     const won = sim.status === 'won';
-    const oreText = Object.entries(R.oreSummary(sim)).filter(([, v]) => v > 0)
-      .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
+    // سطر واحد قصير فقط: التفصيل كله في بطاقة الملخص تحته (لا تكرار، ولا غطاء يفيض).
+    const summaryLead = `${sim.collected} بلورات · ${sim.mined} صخور · ${Math.floor(sim.tick / R.FPS)} ثانية${won ? ' · هدف محقّق' : ''}`;
     renderSummary(sim, null);
-    overlay(won ? 'وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', `${sim.collected} بلورات · ${sim.mined} صخور · أعداء ${sim.defeated || 0} · ${Math.floor(sim.tick / R.FPS)} ثانية. ${won ? 'أحسنت! تجاوزت الحفر والأخطار وهزمت الوحوش.' : 'راقب ضربات الوحوش واقفز قبل الحفر. استخدم زر الهجوم أو المهارة للدفاع عن نفسك.'} · ${sim.milestones?.length || 0} معالم · خامات: ${oreText}.`);
+    overlay(won ? 'وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', summaryLead);
     hud(); draw();
     if (ticket) {
       pending = { id: ticket.id, inputs, hero: currentHero }; save(true); el('platform-start').disabled = true; submit();
@@ -777,6 +819,10 @@
       } else { ticket = null; say('تدريب بلا اتصال — لا مكافأة. يمكنك اللعب ثم إعادة المحاولة متصلًا.'); }
       const summaryBox = el('platform-summary');
       if (summaryBox) summaryBox.hidden = true;
+      const leadMsg = el('platform-message');
+      if (leadMsg) leadMsg.textContent = OVERLAY_LEAD;
+      const helpBox = el('overlay-help');
+      if (helpBox) helpBox.open = false;
       const eventBox = el('platform-event');
       if (eventBox) { eventBox.hidden = true; eventBox.classList.remove('show'); }
       eventUntil = 0;
@@ -923,9 +969,27 @@
   window.addEventListener('pagehide', () => { save(Boolean(pending)); pause(); });
   window.addEventListener('online', () => { if (pending) submit(); });
   // Resize observer for responsive canvas
-  const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => draw()) : null;
+  // كثافة الغطاء تتبع حجم المشهد الفعلي (لا حجم النافذة): بلا تمرير على الهواتف القصيرة.
+  const stageBox = canvas.parentElement;
+  function syncStageDensity() {
+    if (!stageBox?.classList) return;
+    const h = stageBox.clientHeight || 0, w = stageBox.clientWidth || 0;
+    stageBox.classList.toggle('stage-short', h > 0 && h < 400);
+    stageBox.classList.toggle('stage-tight', h > 0 && h < 340);
+    stageBox.classList.toggle('stage-narrow', w > 0 && w < 430);
+    stageBox.classList.toggle('stage-ultra', h > 0 && h < 300);
+    scheduleOverlayFit();
+  }
+  // فتح «كيف ألعب؟» يزيد الارتفاع: نعيد القياس، والشرح المفتوح لا يُخفى أبدًا.
+  const helpToggle = el('overlay-help');
+  if (helpToggle?.addEventListener) helpToggle.addEventListener('toggle', () => {
+    el('platform-overlay')?.classList?.toggle('help-open', Boolean(helpToggle.open));
+    scheduleOverlayFit();
+  });
+  const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { syncStageDensity(); draw(); }) : null;
   if (resizeObserver) resizeObserver.observe(canvas);
-  else window.addEventListener('resize', draw);
+  else window.addEventListener('resize', () => { syncStageDensity(); draw(); });
+  syncStageDensity();
   // اختيار الهدف (V6): لا يبدأ جولة ولا يمسّ تذكرة جارية، فقط يغيّر هدف الجولة القادمة.
   document.querySelectorAll('.goal-option').forEach(btn => {
     btn.addEventListener('click', () => {

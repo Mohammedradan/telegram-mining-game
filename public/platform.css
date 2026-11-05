@@ -536,3 +536,73 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   .mine-overlay h3{font-size:17px}
   .goal-hint{display:none}
 }
+
+/* ===== V6.2: غطاء البدء بلا تمرير — مهمة كشرائح، شرح قابل للطي، وتكيّف مع حجم المشهد ===== */
+.mine-overlay{scrollbar-width:thin;scrollbar-color:rgba(244,191,98,.4) transparent;overscroll-behavior:contain}
+.mine-overlay::-webkit-scrollbar{width:5px}
+.mine-overlay::-webkit-scrollbar-thumb{background:rgba(244,191,98,.35);border-radius:99px}
+.mine-overlay > p.overlay-lead{font-size:10px;line-height:1.45;opacity:.92;max-width:360px}
+.mine-overlay .overlay-help{width:min(360px,94%);font-size:9.5px;color:#9fb4c4}
+.mine-overlay .overlay-help summary{cursor:pointer;list-style:none;display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.32);color:#a9c3cf;font-weight:700;font-size:9.5px}
+.mine-overlay .overlay-help summary::-webkit-details-marker{display:none}
+.mine-overlay .overlay-help summary::marker{content:''}
+.mine-overlay .overlay-help[open] summary{color:#ffd166;border-color:rgba(244,191,98,.5)}
+.mine-overlay .overlay-help p{margin:5px 0 0;font-size:9.5px;line-height:1.55;color:#a9c3cf;max-width:100%}
+.mine-overlay .overlay-mission{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;padding:6px 8px}
+.mine-overlay .mission-row{flex:0 0 auto;gap:4px;font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(120,150,170,.22)}
+.mine-overlay .mission-row .ui-icon{width:12px;height:12px}
+.mine-overlay .mission-row b{font-size:10px;color:#ffdf8a;margin:0}
+.mine-overlay .mission-row span{color:#c3d4dc}
+.mine-overlay .mission-progress{flex:1 0 100%;height:4px;margin-top:2px}
+.mine-overlay .overlay-goals-label{font-size:8.5px}
+.mine-overlay .goal-option{padding:5px 3px}
+.mine-overlay #platform-start{padding:8px 20px;font-size:11.5px}
+/* المشهد الضيّق (هاتف): أرقام فقط في شرائح المهمة، وبلا سطر فرعي في بطاقات الهدف */
+.mine-stage.stage-narrow .mine-overlay .mission-row span{display:none}
+.mine-stage.stage-narrow .mine-overlay .goal-option i{display:none}
+/* المشهد القصير: نتخلّى عن التفاصيل الثانوية قبل أن نصل إلى التمرير */
+.mine-stage.stage-short .mine-overlay .goal-hint{display:none}
+.mine-stage.stage-short .mine-overlay .overlay-kicker{font-size:8.5px;padding:2px 8px}
+.mine-stage.stage-short .mine-overlay h3{font-size:18px}
+.mine-stage.stage-short .mine-overlay .overlay-mission{padding:5px 7px}
+.mine-stage.stage-tight .mine-overlay{--ov-gap:4px}
+.mine-stage.stage-tight .mine-overlay > p.overlay-lead{display:none}
+.mine-stage.stage-tight .mine-overlay .overlay-help{display:none}
+.mine-stage.stage-tight .mine-overlay h3{font-size:16px}
+/* بديل للمتصفحات التي لا تدعم استعلامات الحاوية: نفس التكثيف على الهاتف */
+@media(max-width:430px){
+  .mine-overlay .mission-row span{display:none}
+  .mine-overlay .goal-option i{display:none}
+  .mine-overlay .goal-hint{font-size:9px}
+}
+
+/* مشهد أشدّ ضيقاً: تبقى بطاقة الهدف وزر البدء فقط */
+.mine-stage.stage-ultra .mine-overlay .overlay-kicker{display:none}
+.mine-stage.stage-ultra .mine-overlay .overlay-mission{display:none}
+.mine-stage.stage-ultra .mine-overlay{--ov-gap:5px}
+
+/* ===== V6.3: «بلا تمرير» مضمون بالقياس =====
+   syncOverlayFit() يقيس الفيض الفعلي ويضيف fit-1..fit-4 بالتتابع، فتبقى أزرار الهدف
+   وزر البدء ظاهرة دائمًا، ويُخفى الشرح/الزينة/بطاقة المهمة (المكرّرة في الشريط العلوي) عند الحاجة. */
+.mine-overlay{overscroll-behavior:contain;scrollbar-width:none}
+.mine-overlay::-webkit-scrollbar{width:0;height:0}
+.mine-overlay.overlay-scrolls{scrollbar-width:thin;scrollbar-color:rgba(244,191,98,.4) transparent}
+.mine-overlay.overlay-scrolls::-webkit-scrollbar{width:5px;height:5px}
+.mine-overlay.overlay-scrolls::-webkit-scrollbar-thumb{background:rgba(244,191,98,.35);border-radius:99px}
+.mine-overlay.fit-1 > p.overlay-lead{display:none}
+.mine-overlay.fit-1 .overlay-help:not([open]){display:none}
+.mine-overlay.fit-2 .overlay-kicker{display:none}
+.mine-overlay.fit-2 .goal-hint{display:none}
+.mine-overlay.fit-2 .overlay-goals-label{display:none}
+.mine-overlay.fit-3 .overlay-mission{display:none}
+.mine-overlay.fit-3 .goal-option i{display:none}
+.mine-overlay.fit-4{--ov-gap:4px;padding:8px 10px}
+.mine-overlay.fit-4 h3{font-size:15px;line-height:1.15}
+.mine-overlay.fit-4 .overlay-help:not([open]){display:none}
+.mine-overlay.fit-4 .mine-select-label{display:none}
+/* شرح مفتوح باختيار اللاعب: يُقرأ داخل صندوقه الخاص بلا تمرير للغطاء كله. */
+.mine-overlay.help-open > p.overlay-lead{display:none}
+.mine-overlay.help-open .goal-hint{display:none}
+.mine-overlay.help-open .overlay-help[open]{background:rgba(8,20,30,.55);border:1px solid rgba(148,163,184,.25);border-radius:11px;padding:6px 9px}
+.mine-overlay.help-open .overlay-help[open] p{max-height:min(26vh,132px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-inline-end:3px}
+@media(prefers-reduced-motion:reduce){.mine-overlay{scroll-behavior:auto}}

@@ -213,6 +213,29 @@ test('V6 UI: the page ships the goal picker, the summary and the first-run coach
   assert.match(css, /\.run-summary\{/);
   assert.match(css, /\.mine-event\{/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/);
+  // V6.2: لا تمرير في غطاء البدء — الشرح داخل «كيف ألعب؟» والكثافة تتبع قياس المشهد
+  assert.match(html, /id="overlay-help"/);
+  assert.match(html, /<summary>كيف ألعب\؟<\/summary>/, 'the long instructions are behind an explicit toggle');
+  assert.match(html, /class="overlay-lead"/);
+  assert.match(game, /syncStageDensity\(\)/);
+  assert.match(game, /'stage-short'|"stage-short"/);
+  assert.match(game, /'stage-ultra'/);
+  assert.match(css, /\.mine-stage\.stage-short \.mine-overlay \.goal-hint\{display:none\}/);
+  assert.match(css, /\.mine-stage\.stage-ultra \.mine-overlay \.overlay-mission\{display:none\}/);
+  assert.match(css, /scrollbar-width:thin/, 'the overlay scrollbar is at least slim if a tiny screen still overflows');
+  // V6.3: «بلا تمرير» بالقياس — سلّم fit-1..fit-4 يُدار من JS حسب الفيض الفعلي
+  assert.match(game, /FIT_STEPS = \['fit-1', 'fit-2', 'fit-3', 'fit-4'\]/, 'the fit ladder is explicit');
+  assert.match(game, /function syncOverlayFit\(\)/, 'the overlay fit is measured, not guessed');
+  assert.match(game, /scrollHeight - ov\.clientHeight > 1/, 'the fit test compares real scroll height to real client height');
+  assert.match(game, /scheduleOverlayFit\(\)/, 'resize/summary/goal changes re-measure the fit');
+  assert.match(game, /addEventListener\('toggle'/, 'opening the help panel re-measures the fit');
+  for (const step of ['fit-1', 'fit-2', 'fit-3', 'fit-4']) assert.match(css, new RegExp(`\\.mine-overlay\\.${step}`), `css ships the ${step} fallback`);
+  assert.match(css, /\.mine-overlay\.fit-1 > p\.overlay-lead\{display:none\}/);
+  assert.match(css, /\.mine-overlay\.fit-3 \.overlay-mission\{display:none\}/, 'the duplicated mission card is the first thing dropped');
+  assert.match(css, /\.mine-overlay\.fit-2 \.goal-option|\.mine-overlay\.fit-4/, 'the ladder ends with a compact layout');
+  assert.equal(/\.mine-overlay\.fit-4 \.overlay-goals\{display:none\}/.test(css), false, 'the goal picker is never hidden by the fit ladder');
+  assert.equal(/\.mine-overlay\.fit-\d[^{]*#platform-start\{display:none\}/.test(css), false, 'the start button is never hidden by the fit ladder');
+  assert.match(css, /\.mine-overlay\.overlay-scrolls\{/, 'the scrollbar only appears when overflow is truly unavoidable');
   const block = css.slice(css.indexOf('/* ===== V6:'));
   assert.ok(block.length > 500, 'the V6 styles are present');
   assert.equal(/backdrop-filter/.test(block), false, 'the new styles never use backdrop-filter');
