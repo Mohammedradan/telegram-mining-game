@@ -8,7 +8,7 @@
   const clamp01 = v => Math.max(0, Math.min(1, v));
 
   // الجسم الفيزيائي أصغر من الرسم عمداً: ما يؤذيك هو مستطيل المحرك، والرسم أكبر منه ليبدو زعيماً (إصابات أكثر عدلاً لا أقل).
-  const SCALE = { colossus: 1.55, warden: 1.5 };
+  const SCALE = { colossus: 1.55, warden: 1.5, rival: 1.15 }; // خصم المبارزة أصغر من زعيم المنجم وأسرع قراءةً
 
   // مؤشر الحالة المشترك: ما الذي يفعله الآن وكم بقي (0..1) من حالته؟
   function phase(e) {
@@ -151,7 +151,8 @@
     if (e.kind === 'warden') warden(c, e, tick, reduced); else colossus(c, e, tick, reduced, e.dead);
     c.shadowBlur = 0;
     // armour sheen while it is invulnerable
-    if (!e.dead && e.state !== 'recover' && e.state !== 'sleep' && !reduced) {
+    // اللمعة تعني «مدرَّع الآن»؛ خصم المبارزة غير مدرَّع فلا تُعرض عليه أبدًا (لا إشارة مضلّلة).
+    if (!e.dead && e.armored !== false && e.state !== 'recover' && e.state !== 'sleep' && !reduced) {
       c.globalAlpha = 0.14 + 0.1 * Math.max(0, Math.sin(tick * 0.09 + 1));
       c.fillStyle = '#dff6ff'; c.beginPath(); c.roundRect(-26, -62, 20, 6, 3); c.fill();
     }
