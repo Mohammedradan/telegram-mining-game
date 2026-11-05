@@ -1858,6 +1858,9 @@
       const zones = ARENA_TIER_ZONES();
       if (arenaSelectedZone == null) arenaSelectedZone = deepestUnlockedMine();
       if (!zones.includes(arenaSelectedZone)) arenaSelectedZone = zones[0];
+      // لا يبقى الاختيار على مبارز مقفل أبدًا: زر البدء يجب أن يبدأ مبارزة حقيقية
+      const selStatus = RULES.mineStatus?.(arenaSelectedZone, st.mines, st.equipment);
+      if (selStatus && selStatus.unlocked === false) arenaSelectedZone = deepestUnlockedMine();
       box.innerHTML = '';
       zones.forEach((zone, i) => {
         const rival = RULES.rivalFor?.(zone) || RULES.RIVALS[i];
