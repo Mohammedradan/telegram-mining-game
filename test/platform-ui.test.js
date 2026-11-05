@@ -183,7 +183,7 @@ test('platform UI: the page wires the scene — assets and every element the con
 test('UI chrome uses inline SVG icons instead of emoji glyphs', () => {
   assert.ok(html.includes('class="icon-sprite"'), 'the SVG sprite must be inlined in the page');
   const buttons = [...html.matchAll(/<button\b[^>]*class="action-btn[^"]*"[^>]*>[\s\S]*?<\/button>/g)].map(m => m[0]);
-  assert.equal(buttons.length, 8, 'all eight platform controls must be found (guard included)');
+  assert.equal(buttons.length, 10, 'the V8 pad ships ten controls: move ×2, jump, mine, light, heavy, guard, dodge, skill, pause');
   for (const button of buttons) {
     assert.match(button, /<use href="#i-[a-z]+"\/>/, 'every control uses a sprite icon');
     assert.doesNotMatch(button, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'no emoji glyph in a control button');
@@ -265,11 +265,18 @@ test('platform UI: pausing clears a held virtual joystick so movement does not s
   page.fire(page.byId('platform-start'), 'click');
   await page.settle();
   const joystick = page.byId('virtual-joystick');
+  const rect = joystick.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+  const radius = Math.max(22, rect.width * 0.34);
   const startX = page.PlatformGame().inspect().x;
-  page.fire(joystick, 'pointerdown', { pointerId: 7, clientX: 240, clientY: 165 });
+  // دفعٌ كامل للعصا: جري بسرعة كاملة
+  page.fire(joystick, 'pointerdown', { pointerId: 7, clientX: centerX + radius, clientY: centerY });
   page.flushFrames(20);
-  const movedX = page.PlatformGame().inspect().x;
-  assert.ok(movedX > startX + 40, 'the virtual joystick moves the player');
+  const runX = page.PlatformGame().inspect().x;
+  assert.ok(runX > startX + 40, 'the virtual joystick moves the player');
+  // اللمس المتعدد: الإصبع الثاني يضغط الهجوم دون أن يوقف الحركة أو يفقد العصا
+  page.fire(joystick, 'pointermove', { pointerId: 7, clientX: centerX + radius, clientY: centerY });
+  page.PlatformGame().pause();
   page.PlatformGame().pause();
   const pausedX = page.PlatformGame().inspect().x;
   page.fire(page.byId('platform-resume'), 'click');

@@ -22,8 +22,8 @@ function hitsUntilBroken(s, limit = 1200) {
   return hits;
 }
 
-test('phase 3+V6+V7: the engine version is 7 and the config is normalised to safe values', () => {
-  assert.equal(R.VERSION, 7);
+test('phase 3+V6+V7+V8: the engine version is 8 and the config is normalised to safe values', () => {
+  assert.equal(R.VERSION, 8);
   assert.deepEqual(R.normalizeConfig(undefined), { zone: 0, goal: 0, mode: 'mine', loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
   assert.equal(R.normalizeConfig({ goal: 9 }).goal, 0, 'an unknown goal falls back to the first one');
   assert.equal(R.normalizeConfig({ goal: 2 }).goal, 2);

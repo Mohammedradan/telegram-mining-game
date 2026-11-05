@@ -411,7 +411,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=14">
+  <link rel="stylesheet" href="/platform.css?v=15">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -465,6 +465,8 @@
     <symbol id="i-armor" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
     <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-dash" viewBox="0 0 24 24"><path d="M4 8h9M2 12h8M4 16h7"/><path d="M14 5.5 21 12l-7 6.5V14h-3v-4h3V5.5Z" fill="currentColor" fill-opacity=".22"/></symbol>
+    <symbol id="i-heavy" viewBox="0 0 24 24"><path d="M3 3.5 14 14.5M10.5 18.5 15 14l4.5 4.5-4.5 4.5-4.5-4.5Z"/><path d="M7 19l-3.5 2 2-3.5"/><path d="m17 3 4 4-3 3-4-4 3-3Z" fill="currentColor" fill-opacity=".22"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6l-7-3Z" fill="currentColor" fill-opacity=".18"/><path d="M12 3 5 6v6c0 4.3 3 7.6 7 9 4-1.4 7-4.7 7-9V6l-7-3Z"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.4A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.5c0 5.8-7.5 10.4-7.5 10.4Z"/></symbol>
     <symbol id="i-rope" viewBox="0 0 24 24"><path d="M12 21V5M6.5 10.5 12 5l5.5 5.5M8 21h8"/></symbol>
@@ -672,7 +674,7 @@
           <p id="platform-message" class="overlay-lead">اختر هدف الجولة ثم ابدأ — واقرأ «كيف ألعب؟» إن كانت هذه أول مرة.</p>
           <details class="overlay-help" id="overlay-help">
             <summary>كيف ألعب؟</summary>
-            <p>هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F · استخدم المهارة بـ Q.</p>
+            <p>هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F (اضغطها بإيقاع فتتكوّن سلسلة من ثلاث ضربات) · الضربة الثقيلة L · المراوغة V · الصدّ S · المهارة Q. في المبارزة الحيّة: راقب إنذار الخصم — الموجة تُقفز، والضربة الكاسرة لا يوقفها الدرع فقفز أو رُغ.</p>
           </details>
           <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b id="mission-gems">0/3</b><span>اجمع 3 بلورات</span></div>
@@ -705,6 +707,33 @@
             <button id="mine-select" type="button" class="mine-select" aria-haspopup="dialog" aria-label="اختيار المنجم"><span class="mine-select-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="mine-select-hits" data-mine-hits></span></button>
             <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
           </div>
+          <details class="ctl-settings" id="ctl-settings">
+            <summary>إعدادات التحكم</summary>
+            <div class="ctl-rows">
+              <div class="ctl-row" role="group" aria-label="حجم عناصر التحكم">
+                <span>الحجم</span>
+                <button type="button" data-ctl-size="sm">صغير</button>
+                <button type="button" data-ctl-size="md" class="active">متوسط</button>
+                <button type="button" data-ctl-size="lg">كبير</button>
+              </div>
+              <div class="ctl-row" role="group" aria-label="شفافية عناصر التحكم">
+                <span>الشفافية</span>
+                <button type="button" data-ctl-opacity="sm">خافت</button>
+                <button type="button" data-ctl-opacity="md" class="active">متوسط</button>
+                <button type="button" data-ctl-opacity="lg">واضح</button>
+              </div>
+              <div class="ctl-row" role="group" aria-label="حساسية عصا التحكم">
+                <span>الحساسية</span>
+                <button type="button" data-ctl-sensitivity="lg">عالية</button>
+                <button type="button" data-ctl-sensitivity="md" class="active">متوسطة</button>
+                <button type="button" data-ctl-sensitivity="sm">هادئة</button>
+              </div>
+              <div class="ctl-row">
+                <span>اهتزاز الهاتف</span>
+                <button type="button" id="ctl-haptics" class="active" aria-pressed="true">مفعّل</button>
+              </div>
+            </div>
+          </details>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
         <div id="platform-coach" class="platform-coach" hidden role="dialog" aria-modal="false" aria-label="إرشاد أول مرة">
@@ -735,10 +764,12 @@
           <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
           <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
           <button type="button" data-platform-input="64" aria-label="صدّ" class="action-btn guard-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>صدّ</span></button>
+          <button type="button" data-platform-input="256" aria-label="ضربة قوية" class="action-btn heavy-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-heavy"/></svg><span>قوي</span></button>
+          <button type="button" data-platform-input="128" aria-label="مراوغة" class="action-btn dodge-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-dash"/></svg><span>مراوغة</span></button>
           <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
         </div>
       </div>
-      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. تحكّم بالأسهم أو الأزرار — قفز (Space)، تعدين (E)، هجوم (F)، مهارة (Q).</div>
+      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. الأسهم/WASD حركة · Space قفز · J ضرب خفيف (سلسلة) · L ضربة قوية · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
         <button id="platform-discard" type="button" hidden>تجاهل الحفظ المحلي المعلّق</button>
@@ -1284,11 +1315,11 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=9"></script>
+  <script src="/platform-rules.js?v=10"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
-  <script src="/platform-bosses.js?v=2"></script>
-  <script src="/platform-renderer.js?v=7"></script>
+  <script src="/platform-bosses.js?v=3"></script>
+  <script src="/platform-renderer.js?v=8"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
@@ -1706,10 +1737,20 @@
     ];
     // ⚡ المبارزة الحيّة: تفتح محرك الحركة نفسه (وضع duel) في تبويب اللعب — قتال أكشن حقيقي
     // بنفس تحكم الكيبورد/اللمس، ونتيجتها تُعاد على الخادم بنفس مسار جولات المنصّات.
-    function startArenaDuel(zone = 0) {
+    // المبارزة تبدأ بأعمق منجم مفتوح للاعب (إن لم يُحدَّد مستوى) — فيتقدّم سلّم المبارزين مع تقدّم التعدين،
+    // والعمق مثبَّت في تذكرة الخادم مثل أي جولة أخرى فلا يمكن تغييره بعد الإصدار.
+    function deepestUnlockedMine() {
+      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) ? state : {};
+      if (!RULES?.mineUnlocked) return 0;
+      let deepest = 0;
+      for (let z = 0; z < (RULES.MINES?.length || 1); z++) if (RULES.mineUnlocked(z, st.mines, st.equipment)) deepest = z;
+      return deepest;
+    }
+    function startArenaDuel(zone = null) {
       const game = window.PlatformGame;
       if (!game?.startDuel) { showArenaBanner('حدّث الصفحة لتفعيل المبارزة الحيّة'); return; }
-      if (!game.startDuel(zone)) return;
+      const tier = Number.isInteger(zone) ? zone : deepestUnlockedMine();
+      if (!game.startDuel(tier)) return;
       switchTab('play');
       haptic('success');
     }
@@ -4138,6 +4179,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=13"></script>
+  <script src="/platform-game.js?v=14"></script>
 </body>
 </html>

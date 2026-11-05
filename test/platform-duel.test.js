@@ -35,7 +35,7 @@ function duelRun(seed, zone = 0, hero = 'miner', opts = {}) {
 
 test('V7 duel: a duel round has one rival, no mining targets and its own status', () => {
   const s = R.create('miner', 7, { zone: 0, mode: 'duel' });
-  assert.equal(R.VERSION, 7, 'the engine version moved with the new mode');
+  assert.equal(R.VERSION, 8, 'the engine version moved with the new combat model');
   assert.deepEqual(R.MODES, ['mine', 'duel']);
   assert.equal(s.mode, 'duel');
   assert.equal(s.enemies.length, 1, 'a single rival, not a mine full of guards');
@@ -142,7 +142,8 @@ test('V7 client wiring: the arena can launch a real duel and the pad has a guard
   const game = read('public/platform-game.js');
   assert.match(html, /data-platform-input="64"[^>]*aria-label="صدّ"/, 'the touch pad ships a guard button');
   assert.match(html, /onclick="startArenaDuel\(\)"/, 'the arena tab can start the action duel');
-  assert.match(html, /function startArenaDuel\(zone = 0\)/);
+  assert.match(html, /function startArenaDuel\(zone = null\)/, 'the depth defaults to the deepest unlocked mine');
+  assert.match(html, /function deepestUnlockedMine\(\)/);
   assert.match(html, /switchTab\('play'\)/, 'the fight happens in the real action stage');
   assert.match(game, /startDuel\(zone = 0\)/);
   assert.match(game, /selectedMode = 'duel'/);

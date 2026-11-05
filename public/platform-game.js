@@ -47,6 +47,8 @@
   // المرحلة 1: مؤثرات عرض فقط — لا تدخل في R.step ولا في مسار الحركات المرسل للخادم.
   let floaters = [], floatersSpawned = 0, combo = 0, comboUntil = 0, comboPeak = 0, beams = [];
   let frameTime = 0, hitStopUntil = 0, lastHitStop = -1e9;
+  // أسماء نيّة الخصم: يُعلَن الهجوم قبل وقوعه بكلمة واحدة مفهومة (العدالة أساس القتال)
+  const INTENT_LABEL = { slash: 'ضربة قريبة', wave: 'موجة — اقفز', overhead: 'كاسرة — اقفز أو رُوغ', charge: 'اندفاع!' };
   const keys = new Set(), pointers = new Map();
   // Preserve a quick jump/mine tap until one simulation step consumes it. Sources
   // are separate so cancelling a finger cannot erase a keyboard or another finger.
@@ -131,7 +133,22 @@
     KeyF: 16, KeyJ: 16, KeyZ: 16,
     KeyQ: 32, KeyK: 32, KeyC: 32,
     KeyS: 64, ArrowDown: 64, ShiftLeft: 64, ShiftRight: 64,
+    // V8: المراوغة والضربة الثقيلة — مفاتيح مستقلة لا تلمس اختصارات اللعبة القديمة
+    KeyV: 128, KeyB: 128,
+    KeyL: 256, KeyU: 256,
   };
+  // أسماء المفاتيح للعرض في الإرشاد (تُبنى من keyMap نفسه فلا تتناقض معه)
+  const KEY_HINTS = 'الأسهم/WASD حركة · Space قفز · J ضرب خفيف (سلسلة) · L ضربة قوية · V مراوغة · S صدّ · Q مهارة · E حفر';
+
+  // إعدادات التحكم (حجم العصا وشفافيتها وحساسيتها والاهتزاز) — تُحفظ محليًا فقط ولا تمسّ حساب اللاعب.
+  const CONTROL_DEFAULTS = { size: 'md', opacity: 'md', sensitivity: 'md', haptics: true };
+  let controlSettings = { ...CONTROL_DEFAULTS };
+  try {
+    const saved = JSON.parse(localStorage.getItem('platform-controls') || 'null');
+    if (saved && typeof saved === 'object') controlSettings = { ...CONTROL_DEFAULTS, ...saved };
+  } catch (_) {}
+  const JOYSTICK_SENSITIVITY = { lg: 0.14, md: 0.2, sm: 0.28 }; // منطقة ميتة أصغر = استجابة أسرع
+  let joystickDeadZone = JOYSTICK_SENSITIVITY[controlSettings.sensitivity] || 0.2;
 
   // Virtual Joystick State
   let joystickActive = false;
@@ -191,6 +208,17 @@
         boss_stun: { freq: 700, dur: 0.14, type: 'sine', slide: 420 },
         boss_enrage: { freq: 210, dur: 0.5, type: 'sawtooth', slide: 92 },
         boss_death: { freq: 320, dur: 0.7, type: 'triangle', slide: 60 },
+        // V8: نبرات القتال الجديد — ضربة ثقيلة، مراوغة، صدّ، ترنّح
+        swing: { freq: 640, dur: 0.07, type: 'sawtooth', slide: 300 },
+        heavy: { freq: 190, dur: 0.2, type: 'square', slide: 90 },
+        dodge: { freq: 900, dur: 0.1, type: 'sine', slide: 320 },
+        guard: { freq: 1200, dur: 0.1, type: 'square', slide: 700 },
+        evade: { freq: 1320, dur: 0.09, type: 'sine', slide: 1700 },
+        stagger: { freq: 380, dur: 0.16, type: 'triangle', slide: 160 },
+        swing_hit: { freq: 760, dur: 0.1, type: 'sawtooth', slide: 300 },
+        enemy_stagger: { freq: 380, dur: 0.16, type: 'triangle', slide: 160 },
+        enemy_slash: { freq: 420, dur: 0.1, type: 'sawtooth', slide: 240 },
+        enemy_block: { freq: 980, dur: 0.08, type: 'square', slide: 620 },
       };
       const d = defs[type] || { freq: 300, dur: 0.12, type: 'sine', slide: 360 };
       const o = audio.createOscillator(), g = audio.createGain();
@@ -220,6 +248,7 @@
   }
 
   function haptic(kind) {
+    if (controlSettings && controlSettings.haptics === false) return;
     try {
       const tg = window.Telegram?.WebApp?.HapticFeedback;
       if (tg) {
@@ -266,7 +295,10 @@
         const max = rival ? rival.maxHp : 0;
         const g = sim.player.guard || { stamina: 0, maxStamina: 1 };
         const guardPct = Math.round(100 * g.stamina / Math.max(1, g.maxStamina));
-        return `مبارزة · صحة الخصم ${hp}/${max} · نَفَس الدرع ${guardPct}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+        const cb = sim.player.combo || 0;
+        const intent = rival && rival.state === 'windup' ? INTENT_LABEL[rival.attack] || 'هجوم' : '';
+        const rivalName = rival?.name || 'مبارزة';
+        return `${rivalName} · ${hp}/${max}${cb ? ` · سلسلة ×${cb}` : ''} · نَفَس الدرع ${guardPct}%${intent ? ` · ${intent}` : ''} · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
       })()
       : `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.levelFor(sim.zone).exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
@@ -288,6 +320,18 @@
       skillBtn.classList.toggle('skill-cooldown', cd > 0);
       skillBtn.style.opacity = cd > 0 ? '0.56' : '1';
     }
+    // أزرار القتال: مهلة المراوغة ومهلة الضربة الثقيلة تُعرض داخل الزر نفسه (لا HUD إضافي يحجب المشهد).
+    const cdButton = (id, ticks, label) => {
+      const btn = document.querySelector(`[data-platform-input="${id}"]`);
+      if (!btn) return;
+      const text = btn.querySelector('span');
+      const left = Math.max(0, ticks || 0);
+      if (text) text.textContent = left > 0 ? `${(left / R.FPS).toFixed(1)}ث` : label;
+      btn.classList.toggle('skill-cooldown', left > 0);
+      btn.style.opacity = left > 0 ? '0.56' : '';
+    };
+    cdButton(128, sim.player.dodge?.cooldown, 'مراوغة');
+    cdButton(256, sim.player.heavyCooldown, 'قوي');
     // low health pulse on hearts HUD
     if (heartsEl) heartsEl.style.animation = fullHearts === 1 && sim.player.hearts > 0 ? 'progressPulse 1s ease-in-out infinite' : '';
     // المرحلة 1: شارة السلسلة وبطاقة المهمة (عرض فقط).
@@ -496,13 +540,37 @@
         if (combo >= 2) pushFloater(sim.player.x + (sim.player.w || 20) / 2, sim.player.y - 14, `×${combo}`, '#ffd166', 13);
       } else if (event.type === 'hit') {
         if (event.damage === 0) pushFloater(event.x, event.y - 8, 'مدرّع', '#9fb4c4', 10); // درع الزعيم: لا ضرر خارج مرحلة الذهول
-        else { pushFloater(event.x, event.y - 8, `-${event.damage || 1}`, '#ff9b7a'); requestHitStop(35); }
+        else { pushFloater(event.x, event.y - 8, `-${event.damage || 1}`, event.heavy ? '#ffd166' : '#ff9b7a', event.heavy ? 15 : 12); requestHitStop(event.heavy ? 55 : 35); }
+      } else if (event.type === 'swing') {
+        // الرياح الجوية للضربة: الثقيلة أقوى وأثقل
+        if (event.heavy) { spawnBurst(event.x + (event.facing > 0 ? 30 : -30), event.y + 16, '#ffd166', 8); doShake(0.22); }
+      } else if (event.type === 'swing_hit') {
+        if (event.hits > 0) { requestHitStop(event.heavy ? 70 : 30); if (event.heavy) doShake(0.4); }
+      } else if (event.type === 'swing_miss') {
+        // لا شيء: الصوت وحده يكفي ليعرف اللاعب أن الضربة لم تصل
+      } else if (event.type === 'dodge') {
+        // أثر المراوغة: خط من الشظايا في اتجاه الحركة
+        if (!reduced) for (let i = 0; i < 7; i++) particles.push({ x: event.x - event.dir * (8 + i * 5), y: event.y + 18 + (i % 3) * 3,
+          vx: -event.dir * (0.6 + Math.random() * 0.8), vy: -0.4 - Math.random() * 0.5, life: 14 + i, color: i % 2 ? '#9fe8ff' : '#c7d2fe', size: 3.4 - i * 0.25, glow: true });
+      } else if (event.type === 'evade') {
+        pushFloater(event.x, event.y - 16, 'تفاديت!', '#9fe8ff', 13);
+        haptic('light');
+      } else if (event.type === 'enemy_stagger') {
+        pushFloater(event.x, event.y - 20, 'ترنّح!', '#ffe28a', 12);
+      } else if (event.type === 'guard') {
+        pushFloater(event.x, event.y - 18, 'صدّ!', '#93c5fd', 13);
+        doShake(0.25); haptic('light');
+      } else if (event.type === 'enemy_slash') {
+        if (!reduced) for (let i = 0; i < 6; i++) particles.push({ x: event.x + event.dir * 26, y: event.y + 26 + i * 2,
+          vx: event.dir * (0.8 + Math.random()), vy: -0.3, life: 12, color: '#ffb4a2', size: 2.6, glow: false });
       } else if (event.type === 'boss_wake') {
         const boss = sim.enemies.find(e => e.id === event.id);
         say(`${boss ? boss.name : 'الزعيم'} استيقظ — درعه لا يُخترق إلا حين يترنّح بعد هجومه: تفادَ الضربة ثم اضربه.`);
         pushFloater(event.x, event.y - 30, boss ? boss.name : 'الزعيم', '#ffd166', 13);
       } else if (event.type === 'boss_windup') {
-        pushFloater(event.x, event.y - 14, event.attack === 'charge' ? 'اندفاع!' : 'صدمة — اقفز!', '#ff9b7a', 12);
+        const label = event.unblockable ? 'كاسرة — اقفز أو رُوغ!' : (INTENT_LABEL[event.attack] || 'صدمة — اقفز!');
+        pushFloater(event.x, event.y - 14, label, event.unblockable ? '#ff6b6b' : '#ff9b7a', event.unblockable ? 14 : 12);
+        if (event.unblockable) { doShake(0.3); haptic('heavy'); }
       } else if (event.type === 'boss_stun') {
         pushFloater(event.x, event.y - 16, 'مذهول — اضربه!', '#ffe28a', 12);
       } else if (event.type === 'boss_enrage') {
@@ -671,10 +739,13 @@
       for (const v of pulses.values()) mask |= v; // quick taps survive until one physics step
       pulses.clear();
 
-      // Add joystick input to mask
+      // العصا التناظرية: منطقة ميتة تمنع الحركة غير المقصودة، ودفعٌ جزئي = مشي (SOFT) ودفعٌ كامل = جري.
       if (joystickActive) {
-        if (joystickX < -0.2) mask |= 1; // LEFT
-        if (joystickX > 0.2) mask |= 2; // RIGHT
+        const ax = Math.abs(joystickX), dead = joystickDeadZone;
+        if (ax > dead) {
+          mask |= joystickX < 0 ? 1 : 2; // LEFT / RIGHT
+          if (ax < 0.62) mask |= 512;    // SOFT: 55% من سرعة الجري
+        }
       }
 
       if (inputs.length >= R.MAX_SEGMENTS && inputs[inputs.length - 1].mask !== mask) {
@@ -918,13 +989,15 @@
   const joystick = el('virtual-joystick');
   const joystickHandle = joystick?.querySelector('.joystick-handle');
   if (joystick && joystickHandle) {
-    const maxRadius = 33; // Maximum distance from center
+    // نصف قطر الحركة يتبع حجم القاعدة الفعلي (يتغيّر مع إعداد الحجم)، فلا يخرج المقبض عن قاعدته.
+    const maxRadiusOf = () => Math.max(22, joystick.getBoundingClientRect().width * 0.34);
 
     const updateJoystick = (clientX, clientY) => {
       const rect = joystick.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
 
+      const maxRadius = maxRadiusOf();
       let dx = clientX - centerX;
       let dy = clientY - centerY;
       const distance = Math.sqrt(dx * dx + dy * dy);
@@ -980,6 +1053,32 @@
     joystick.addEventListener('lostpointercapture', resetJoystick);
     joystick.addEventListener('contextmenu', e => e.preventDefault());
   }
+
+  // تطبيق إعدادات التحكم على CSS: الحجم والشفافية فقط، فلا يتغيّر منطق اللعب ولا الحساب.
+  const CONTROL_SIZES = { sm: 0.86, md: 1, lg: 1.18 };
+  const CONTROL_OPACITY = { sm: 0.55, md: 0.78, lg: 1 };
+  function applyControlSettings() {
+    const box = document.querySelector('.mine-controls');
+    if (box?.style) {
+      box.style.setProperty('--ctl-scale', String(CONTROL_SIZES[controlSettings.size] || 1));
+      box.style.setProperty('--ctl-opacity', String(CONTROL_OPACITY[controlSettings.opacity] || 0.78));
+    }
+    joystickDeadZone = JOYSTICK_SENSITIVITY[controlSettings.sensitivity] || 0.2;
+    document.querySelectorAll('[data-ctl-size]').forEach(b => b.classList.toggle('active', b.dataset.ctlSize === controlSettings.size));
+    document.querySelectorAll('[data-ctl-opacity]').forEach(b => b.classList.toggle('active', b.dataset.ctlOpacity === controlSettings.opacity));
+    document.querySelectorAll('[data-ctl-sensitivity]').forEach(b => b.classList.toggle('active', b.dataset.ctlSensitivity === controlSettings.sensitivity));
+    const hapticBtn = el('ctl-haptics');
+    if (hapticBtn) { hapticBtn.setAttribute('aria-pressed', String(controlSettings.haptics !== false)); hapticBtn.classList.toggle('active', controlSettings.haptics !== false); }
+  }
+  function saveControlSettings() {
+    try { localStorage.setItem('platform-controls', JSON.stringify(controlSettings)); } catch (_) {}
+    applyControlSettings();
+  }
+  document.querySelectorAll('[data-ctl-size]').forEach(b => b.addEventListener('click', () => { controlSettings.size = b.dataset.ctlSize; saveControlSettings(); }));
+  document.querySelectorAll('[data-ctl-opacity]').forEach(b => b.addEventListener('click', () => { controlSettings.opacity = b.dataset.ctlOpacity; saveControlSettings(); }));
+  document.querySelectorAll('[data-ctl-sensitivity]').forEach(b => b.addEventListener('click', () => { controlSettings.sensitivity = b.dataset.ctlSensitivity; saveControlSettings(); }));
+  el('ctl-haptics')?.addEventListener('click', () => { controlSettings.haptics = controlSettings.haptics === false; saveControlSettings(); });
+  applyControlSettings();
 
   // Prevent scrolling while interacting with canvas
   canvas.addEventListener('touchmove', e => { if (running) e.preventDefault(); }, { passive: false });

@@ -602,3 +602,28 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-overlay.help-open .overlay-help[open]{background:rgba(8,20,30,.55);border:1px solid rgba(148,163,184,.25);border-radius:11px;padding:6px 9px}
 .mine-overlay.help-open .overlay-help[open] p{max-height:min(26vh,132px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-inline-end:3px}
 @media(prefers-reduced-motion:reduce){.mine-overlay{scroll-behavior:auto}}
+
+/* ===== V8: أزرار القتال الجديدة + إعدادات التحكم ===== */
+/* حجم وشفافية عناصر التحكم من متغيّرات يضبطها المشغّل من إعدادات التحكم؛ لا تمسّ منطق اللعب. */
+.mine-controls{--ctl-scale:1;--ctl-opacity:.82}
+.virtual-joystick{transform:scale(var(--ctl-scale));transform-origin:50% 50%}
+.mine-controls .mine-controls-actions .action-btn{min-width:calc(52px * var(--ctl-scale));min-height:calc(52px * var(--ctl-scale));opacity:var(--ctl-opacity)}
+.mine-controls .mine-controls-actions .action-btn[data-down="true"]{opacity:1}
+.action-btn.dodge-btn{background:linear-gradient(135deg,#0f766e,#115e59);border-color:#2dd4bf;color:#ccfbf1;box-shadow:0 3px 10px rgba(15,118,110,.3),inset 0 1px 0 rgba(204,251,241,.14)}
+.action-btn.dodge-btn[data-down="true"]{background:linear-gradient(135deg,#0b5f59,#084744)}
+.action-btn.heavy-btn{background:linear-gradient(135deg,#b45309,#92400e);border-color:#f59e0b;color:#fef3c7;box-shadow:0 3px 10px rgba(146,64,14,.32),inset 0 1px 0 rgba(254,243,199,.14)}
+.action-btn.heavy-btn[data-down="true"]{background:linear-gradient(135deg,#8a3f07,#6d320a)}
+/* إعدادات التحكم: مطويّة افتراضياً فلا تأخذ مساحة على الشاشات القصيرة */
+.ctl-settings{margin-top:4px;width:100%;text-align:right;font-size:11px}
+.ctl-settings summary{cursor:pointer;padding:4px 8px;border-radius:9px;background:rgba(15,32,45,.6);border:1px solid rgba(94,124,146,.35);color:#c7dbe4;font-weight:800;list-style:none}
+.ctl-settings summary::-webkit-details-marker{display:none}
+.ctl-settings summary::before{content:'';display:inline-block;width:0;height:0;border-inline-start:4px solid transparent;border-inline-end:4px solid transparent;border-top:5px solid currentColor;margin-inline-end:5px;vertical-align:middle;opacity:.8}
+.ctl-settings[open] summary::before{transform:rotate(180deg)}
+.ctl-settings[open] summary{border-color:rgba(244,191,98,.5);color:#f6d69a}
+.ctl-rows{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.ctl-row{display:flex;align-items:center;gap:4px;justify-content:flex-start;flex-wrap:wrap}
+.ctl-row > span{font-size:10px;color:#9fb4c4;min-width:52px}
+.ctl-row button{font-size:10px;font-weight:800;padding:3px 8px;border-radius:8px;border:1px solid rgba(94,124,146,.4);background:rgba(19,36,48,.8);color:#cbd9e2}
+.ctl-row button.active{background:linear-gradient(135deg,#b7791f,#8a5a14);border-color:#f4bf62;color:#fff6dd}
+.ctl-row button:active{transform:scale(.96)}
+@media(max-width:420px){.ctl-row > span{min-width:44px;font-size:9px}.ctl-row button{padding:3px 6px;font-size:9px}}

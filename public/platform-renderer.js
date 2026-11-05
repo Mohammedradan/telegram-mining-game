@@ -234,6 +234,18 @@
   }
 
   // ---- Heroes with detailed animation states ----
+  // أثر المراوغة: نسختان شفافتان خلف اللاعب. عرض فقط، ولا يُدخل شيئاً في المحاكاة.
+  function drawHeroGhost(c, p, tick, reduced) {
+    if (reduced || !p.dodge || p.dodge.ticks <= 0) return;
+    for (let i = 2; i >= 1; i--) {
+      c.save();
+      c.globalAlpha = 0.16 / i;
+      c.translate(-(p.dodge.dir || 1) * i * 11, i * 2);
+      drawHero(c, { ...p, invulnerable: 0, dodge: { ...p.dodge, ticks: 0 } }, tick, true);
+      c.restore();
+    }
+  }
+
   function drawHero(c, p, tick, reduced) {
     const heroId = p.hero || 'miner';
     const isRun = p.pose === 'run' && !reduced;
@@ -252,6 +264,10 @@
     if (p.pose === 'jump') c.translate(0, -1);
     if (p.pose === 'fall') c.rotate(p.facing * 0.06);
     if (p.pose === 'victory') { c.translate(0, Math.sin(tick * 0.12) * 1.5); }
+    // V8: أوضاع القتال الجديدة — انخفاض الضربة الثقيلة، ميل المراوغة، وثبات الصدّ
+    if (p.pose === 'heavy') { c.rotate(0.16); c.translate(1, 2); }
+    if (p.pose === 'dodge') { c.rotate(0.42); c.scale(0.94, 0.9); }
+    if (p.pose === 'guard') { c.translate(-1, 0); c.rotate(-0.05); }
 
     // ground shadow
     if (p.grounded && p.pose !== 'dead') {
@@ -465,6 +481,29 @@
       round(c, -17, -15, 6, 18, 2, '#784212');
       c.fillStyle = '#a67c52'; c.fillRect(-16, -13, 1, 14);
       c.fillStyle = '#ecf0f1'; c.fillRect(-17, -19, 2, 4); c.fillRect(-14, -20, 2, 5);
+    }
+
+    // ===== V8: قراءة الحالة من الرسم نفسه =====
+    // الدرع أمام الجسم عند الصدّ (ويتوهج عند نجاح صدّ حديث)، وسيف منحنٍ ذهبي عند الضربة الثقيلة.
+    if (p.pose === 'guard') {
+      const hot = (p.guard?.timer || 0) > 0;
+      c.save();
+      c.translate(15, -6);
+      c.rotate(-0.12);
+      const grad = c.createLinearGradient(-6, -16, 8, 16);
+      grad.addColorStop(0, hot ? '#dbeafe' : '#93a7bb'); grad.addColorStop(1, hot ? '#60a5fa' : '#4b5f74');
+      c.fillStyle = grad;
+      c.beginPath(); c.moveTo(0, -17); c.quadraticCurveTo(11, -13, 10, 2); c.quadraticCurveTo(8, 14, 0, 18); c.quadraticCurveTo(-8, 14, -10, 2); c.quadraticCurveTo(-11, -13, 0, -17); c.closePath(); c.fill();
+      c.strokeStyle = hot ? '#f8fafc' : '#cbd5e1'; c.lineWidth = 1.6; c.stroke();
+      c.fillStyle = hot ? '#fef3c7' : '#7c8da0';
+      c.beginPath(); c.arc(0, 0, 3.4, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+    if (p.pose === 'heavy') {
+      c.strokeStyle = '#ffd166ee'; c.lineWidth = 5.5; c.lineCap = 'round';
+      c.beginPath(); c.arc(4, -14, 30, -1.5, 0.5); c.stroke();
+      c.strokeStyle = '#fff8dccc'; c.lineWidth = 2;
+      c.beginPath(); c.arc(4, -14, 25, -1.35, 0.35); c.stroke();
     }
 
     c.restore();
@@ -1041,6 +1080,7 @@
     if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced);
 
     // ---- Hero ----
+    drawHeroGhost(c, s.player, s.tick, reduced);
     drawHero(c, s.player, s.tick, reduced);
     // ---- Mining robot companion (V4 equipment) ----
     if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
