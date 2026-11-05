@@ -36,7 +36,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .mine-stage{position:relative;flex:1;min-height:260px;border:2px solid #6b5a3e;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at center top,#0f2535 0%,#0a1622 40%,#07101a 100%);box-shadow:0 10px 36px rgba(0,0,0,.55),0 0 0 1px rgba(244,191,98,.12),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 8px rgba(0,0,0,.4)}
 #platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none;image-rendering:optimizeQuality}
 
-.mine-overlay{--ov-gap:8px;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:var(--ov-gap);padding:16px;background:linear-gradient(135deg,rgba(7,20,32,.92),rgba(16,33,48,.85),rgba(8,22,35,.90));text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d;backdrop-filter:blur(2px)}
+.mine-overlay{--ov-gap:8px;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:var(--ov-gap);padding:16px;background:linear-gradient(to top,rgba(5,12,20,.96) 0%,rgba(6,14,23,.9) 46%,rgba(6,14,23,.55) 76%,rgba(6,14,23,.16) 100%);text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d}
 .mine-overlay::before,.mine-overlay::after{content:'';flex:1 0 0;min-height:0}
 .mine-overlay::before{margin-bottom:calc(var(--ov-gap) * -1)}
 .mine-overlay::after{margin-top:calc(var(--ov-gap) * -1)}

@@ -232,3 +232,19 @@ test('worlds UI: the test hook feeds recorded inputs through the real pipeline a
   for (const [name, source] of [['scenery', sceneryJs], ['bosses', bossesJs]]) assert.doesNotMatch(source, /\p{Extended_Pictographic}/u, `${name} art is drawn, not typed as emoji`);
   assert.doesNotMatch(game, /\p{Extended_Pictographic}/u.source ? /[\u{1F300}-\u{1FAFF}]/u : /x^/, 'no emoji in the game screen text either');
 });
+
+// لوحة «الساحة» لا تعرض مستطيلًا فارغًا: مشهد المبارزة يُرسم بنفس محرك اللعب.
+test('arena preview: a duel scene draws hero, rival and terrain — and the demo loop actually animates it', () => {
+  for (const hero of ['miner', 'warrior', 'archer']) {
+    const s = R.create(hero, R.seedFromId(`duel-ui-${hero}`), { zone: 0, mode: 'duel' });
+    const rival = s.enemies[0];
+    assert.ok(rival && rival.hp > 0, `${hero}: the rival exists in the preview scene`);
+    const calls = draw(s);
+    assert.ok(calls.length > 300, `${hero} duel draws a real scene (${calls.length} draw calls)`);
+    // الحلقة الاستعراضية تحرّك اللاعب فعلًا (لا صورة ثابتة)
+    const startX = s.player.x, startTick = s.tick;
+    for (let i = 0; i < 30; i++) R.step(s, R.INPUT.RIGHT);
+    assert.ok(s.tick > startTick && s.player.x > startX, `${hero}: the demo input moves the hero`);
+    assert.ok(draw(s).length > 300, 'and it still draws after moving');
+  }
+});

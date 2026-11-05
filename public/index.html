@@ -286,38 +286,55 @@
       box-shadow: 0 6px 18px rgba(219, 39, 119, .35);
     }
     .arena-duel-btn:active { transform: scale(.97); }
-    /* بطاقة التحكم تحت زر المبارزة: توضّح أن الحركة بالعصا على الشاشة لا بلوحة المفاتيح وحدها */
-    .arena-ctl-hint {
-      margin: 6px 0 0; font-size: 9.5px; line-height: 1.6; color: #a8bccb;
-      background: rgba(2, 6, 23, .55); border: 1px dashed rgba(148, 163, 184, .35);
-      border-radius: 9px; padding: 5px 8px;
+    /* ===== مسرح الساحة: مشهد اللعب الحقيقي، لا مستطيل فارغ ===== */
+    .arena-stage {
+      position: relative; flex: 1 1 auto; min-height: 210px; border-radius: 14px; overflow: hidden;
+      border: 1px solid rgba(94, 124, 146, .45); background: #0a1220;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, .55);
     }
-    .arena-live-banner {
-      margin-top: 6px; padding: 6px 9px; border-radius: 9px; font-size: 10px; font-weight: 800;
-      background: rgba(120, 53, 15, .55); border: 1px solid rgba(244, 191, 98, .55); color: #fde8b8;
+    #arena-preview { display: block; width: 100%; height: 100%; }
+    .as-hud {
+      position: absolute; inset: 6px 8px auto 8px; display: flex; align-items: center; justify-content: center; gap: 8px;
+      pointer-events: none;
     }
-    .arena-live-banner[hidden] { display: none; }
-    .arena-live-banner .alb-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-    .arena-live-banner button {
-      flex: 1 1 auto; padding: 6px 10px; border-radius: 8px; font-size: 10px; font-weight: 900;
-      background: rgba(15, 23, 42, .8); color: #fde8b8; border: 1px solid rgba(244, 191, 98, .6);
+    .as-chip {
+      font-size: 10px; font-weight: 900; padding: 3px 9px; border-radius: 999px;
+      background: rgba(6, 14, 24, .78); border: 1px solid rgba(94, 220, 160, .55); color: #d9ffe9;
+      max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .arena-live-banner button[hidden] { display: none; }
-    .arena-live-banner button:active { transform: scale(.97); }
-    /* لوحة الساحة: تملأ ما تبقّى بمعلومة مفيدة بدل فراغ أسود */
-    /* اللوحة بارتفاعها الطبيعي (لا تُسحق عندما يُفتح النظام الكلاسيكي)، والكلاسيكي يأخذ ما تبقّى */
-    .arena-brief { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1.25fr; gap: 6px; align-items: stretch; }
-    .ab-card {
-      display: flex; flex-direction: column; gap: 3px; padding: 8px 9px; border-radius: 11px;
-      background: rgba(15, 23, 42, .72); border: 1px solid rgba(94, 124, 146, .3); text-align: right; min-height: 0;
+    .as-chip.rival { border-color: rgba(244, 114, 114, .6); color: #ffe0e0; }
+    .as-vs { font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .5px; }
+    .as-foot {
+      position: absolute; inset: auto 8px 8px 8px; display: flex; align-items: center; gap: 8px;
     }
-    .ab-kicker { font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .2px; }
-    .ab-rival b { font-size: 12px; color: #eef4f8; }
-    .ab-sub { font-size: 9.5px; color: #9fb4c4; }
-    .ab-reward { font-size: 10px; font-weight: 900; color: #f6d69a; margin-top: auto; }
-    .ab-tip { display: flex; align-items: flex-start; gap: 5px; font-size: 9.5px; line-height: 1.5; color: #cbd9e2; }
-    .ab-tip .ui-icon { width: 13px; height: 13px; flex-shrink: 0; color: #f4bf62; margin-top: 1px; }
-    @media (max-width: 430px) { .arena-brief { grid-template-columns: 1fr; } .ab-tips { display: none; } }
+    .as-record {
+      font-size: 9.5px; font-weight: 800; color: #cbd9e2; padding: 4px 8px; border-radius: 8px;
+      background: rgba(6, 14, 24, .8); border: 1px solid rgba(94, 124, 146, .4); white-space: nowrap;
+    }
+    .as-foot .arena-duel-btn { flex: 1 1 auto; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 900; }
+    /* سلّم المبارزين: صفوف مضغوطة تُظهر الخصم والمنجم والمكافأة وحالة الفتح */
+    .arena-ladder { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; }
+    .al-row {
+      display: flex; align-items: center; gap: 8px; width: 100%; text-align: right;
+      padding: 7px 9px; border-radius: 11px; border: 1px solid rgba(94, 124, 146, .32);
+      background: rgba(15, 23, 42, .78); color: #cbd9e2;
+    }
+    .al-row.active { border-color: #f4bf62; box-shadow: 0 0 0 1px rgba(244, 191, 98, .45) inset; background: rgba(40, 30, 12, .8); }
+    .al-row.locked { opacity: .62; }
+    .al-avatar {
+      width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center;
+      background: linear-gradient(135deg, #7f1d1d, #b91c1c); border: 1px solid rgba(248, 113, 113, .5);
+    }
+    .al-avatar .ui-icon { width: 16px; height: 16px; color: #ffe4e6; }
+    .al-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .al-name { font-size: 11px; font-weight: 900; color: #eef4f8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .al-sub { font-size: 9px; color: #9fb4c4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .al-reward { font-size: 10px; font-weight: 900; color: #f6d69a; white-space: nowrap; }
+    .al-badge { font-size: 9px; font-weight: 900; padding: 2px 7px; border-radius: 999px; background: rgba(6, 14, 24, .85); border: 1px solid rgba(94, 124, 146, .4); white-space: nowrap; }
+    .al-badge.locked { color: #fecaca; border-color: rgba(248, 113, 113, .45); }
+    .al-badge.ready { color: #bbf7d0; border-color: rgba(74, 222, 128, .45); }
+    @media (max-width: 430px) { .arena-stage { min-height: 170px; } .al-sub { display: none; } }
+
     /* النظام الكلاسيكي: قسم ثانوي قابل للفتح — المبارزة الحيّة هي المدخل الأساسي */
     .classic-system { flex: 1 1 auto; min-height: 0; overflow: auto; margin-top: 6px; border-radius: 11px; background: rgba(15, 23, 42, .6); border: 1px solid rgba(94, 124, 146, .32); }
     .classic-system > summary {
@@ -457,7 +474,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=18">
+  <link rel="stylesheet" href="/platform.css?v=19">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -1093,35 +1110,30 @@
 
   <!-- TAB 5: ARENA — مبارزة تفاعلية: تقرأ نيّة الخصم ثم تختار حركتك -->
   <main id="tab-arena" class="tab-content flex-col gap-2 flex-1 py-1 px-1 arena-idle">
-    <div class="arena-head">
-      <h2 class="text-base font-bold text-slate-200">⚔️ ساحة القتال</h2>
-      <p class="text-[10px] text-slate-400">مبارزة حيّة بيديك: تحرّك واضرب واقفز بنفسك · <span id="arena-record">0 فوز · 0 خسارة</span></p>
-      <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn mt-1.5 w-full rounded-xl py-2.5 text-sm font-black">ابدأ المبارزة الحيّة — تحكّم كامل</button>
-      <div id="arena-live-banner" class="arena-live-banner" hidden aria-live="polite">
-        <span id="arena-live-text"></span>
-        <div class="alb-actions">
-          <button id="arena-resume-btn" type="button" onclick="resumeActiveRun()" hidden>تابع جولتك</button>
-          <button id="arena-abandon-btn" type="button" onclick="abandonAndDuel()" hidden>تخلَّ عنها وابدأ المبارزة</button>
-        </div>
+    <!-- مسرح حيّ: نفس محرك اللعب ونفس الرسم — اللاعب والخصم يتحركان هنا قبل بدء المبارزة -->
+    <div id="arena-stage" class="arena-stage">
+      <canvas id="arena-preview" aria-label="معاينة حيّة لساحة المبارزة"></canvas>
+      <div class="as-hud">
+        <span class="as-chip" id="arena-preview-hero">المحارب</span>
+        <span class="as-vs">VS</span>
+        <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
       </div>
-      <p class="arena-ctl-hint">العصا على الشاشة للحركة (أو الأسهم/WASD) · قفز · ضرب · ضربة قوية · صدّ · مراوغة · مهارة — والخصم يعلن هجومه قبل أن يضرب.</p>
-      <p class="text-[9px] text-slate-500 mt-1" id="duel-reward-note">مكافأة المبارزة الحيّة: 60–80 ذهباً حسب عمق المنجم · بسقف يومي مستقل لا يمسّ أرباح التعدين.</p>
-    </div>
-    <div class="arena-brief">
-      <div class="ab-card ab-rival">
-        <span class="ab-kicker">خصمك القادم</span>
-        <b id="arena-next-rival">—</b>
-        <span id="arena-next-mine" class="ab-sub">—</span>
-        <span id="arena-next-reward" class="ab-reward">—</span>
-      </div>
-      <div class="ab-card ab-tips">
-        <span class="ab-kicker">كيف تكسب المبارزة</span>
-        <div class="ab-tip"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>اقرأ الإنذار: الموجة تُقفز، والضربة الكاسرة لا يوقفها الدرع.</span></div>
-        <div class="ab-tip"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>الصدّ يوقف الضربات العادية ويستهلك نَفَس الدرع.</span></div>
-        <div class="ab-tip"><svg class="ui-icon" aria-hidden="true"><use href="#i-dash"/></svg><span>المراوغة تمنحك إطارات مناعة — استخدمها قبل الانفجار لا بعده.</span></div>
-        <div class="ab-tip"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ثلاث ضربات متتابعة تُنهي السلسلة بضربة أثقل، والضربة القوية أبطأ.</span></div>
+      <div class="as-foot">
+        <span id="arena-record" class="as-record">0 فوز · 0 خسارة</span>
+        <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn">ابدأ المبارزة</button>
       </div>
     </div>
+    <div id="arena-live-banner" class="arena-live-banner" hidden aria-live="polite">
+      <span id="arena-live-text"></span>
+      <div class="alb-actions">
+        <button id="arena-resume-btn" type="button" onclick="resumeActiveRun()" hidden>تابع جولتك</button>
+        <button id="arena-abandon-btn" type="button" onclick="abandonAndDuel()" hidden>تخلَّ عنها وابدأ المبارزة</button>
+      </div>
+    </div>
+
+    <!-- سلّم المبارزين: اختر خصمك فيتغيّر المسرح، والزر واحد للبدء -->
+    <div id="arena-ladder" class="arena-ladder" role="list" aria-label="اختر خصمك"></div>
+
     <details id="classic-system" class="classic-system">
       <summary><span class="cs-title">النظام الكلاسيكي</span><span class="cs-sub">مبارزة بالأدوار · الفوز +50 ذهباً</span></summary>
       <div class="cs-body">
@@ -1830,17 +1842,50 @@
       for (let z = 0; z < (RULES.MINES?.length || 1); z++) if (RULES.mineUnlocked(z, st.mines, st.equipment)) deepest = z;
       return deepest;
     }
-    // لوحة الساحة: خصمك القادم ومكافأته من القواعد نفسها (لا أرقام مكتوبة يدويًا)
-    function renderArenaBrief() {
+    // سلّم المبارزين: ثلاثة صفوف حقيقية (منجم + خصم + مكافأة + حالة الفتح)،
+    // والضغط على صف يغيّر المسرح الحيّ فوقه، ثم زر واحد يبدأ المبارزة في ذلك المنجم.
+    let arenaSelectedZone = null;
+    const ARENA_TIER_ZONES = () => {
+      const last = Math.max(0, (window.PlatformRules?.MINES?.length || 1) - 1);
+      return [0, Math.min(2, last), last];
+    };
+    function renderArenaLadder() {
       const RULES = window.PlatformRules;
-      const zone = deepestUnlockedMine();
-      const rival = RULES?.rivalFor?.(zone), mine = RULES?.MINES?.[zone];
-      const reward = RULES?.duelReward?.(zone);
-      const set = (id, v) => { const node = document.getElementById(id); if (node) node.textContent = v; };
-      set('arena-next-rival', rival?.name || '—');
-      set('arena-next-mine', mine ? `في ${mine.name}` : '—');
-      set('arena-next-reward', Number.isFinite(reward) ? `الفوز: ${reward} ذهباً + خبرة` : '—');
-      refreshArenaDuelState();
+      const box = document.getElementById('arena-ladder');
+      if (!box || !RULES?.RIVALS) return;
+      const st = (typeof state !== 'undefined' && state) || {};
+      const zones = ARENA_TIER_ZONES();
+      if (arenaSelectedZone == null) arenaSelectedZone = deepestUnlockedMine();
+      if (!zones.includes(arenaSelectedZone)) arenaSelectedZone = zones[0];
+      box.innerHTML = '';
+      zones.forEach((zone, i) => {
+        const rival = RULES.rivalFor?.(zone) || RULES.RIVALS[i];
+        const mine = RULES.MINES?.[zone];
+        const status = RULES.mineStatus?.(zone, st.mines, st.equipment) || { unlocked: true, needs: [] };
+        const reward = RULES.duelReward?.(zone);
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.setAttribute('role', 'listitem');
+        row.className = `al-row${zone === arenaSelectedZone ? ' active' : ''}${status.unlocked ? '' : ' locked'}`;
+        row.dataset.zone = String(zone);
+        row.onclick = () => pickRival(zone);
+        const blocked = (status.needs || []).filter((n) => !n.ok).map((n) => n.label).join(' · ');
+        row.innerHTML = `
+          <span class="al-avatar" aria-hidden="true"><svg class="ui-icon"><use href="#i-swords"/></svg></span>
+          <span class="al-main">
+            <b class="al-name">${rival?.name || 'مبارز'}</b>
+            <span class="al-sub">${mine?.name || ''}${blocked ? ` · يُفتح عند: ${blocked}` : ''}</span>
+          </span>
+          <span class="al-reward">${Number.isFinite(reward) ? `${reward} ذهب` : ''}</span>
+          <span class="al-badge ${status.unlocked ? 'ready' : 'locked'}">${status.unlocked ? (zone === arenaSelectedZone ? 'مختار' : 'تحدّ') : 'مقفل'}</span>`;
+        box.appendChild(row);
+      });
+      window.PlatformGame?.showArenaPreview?.(arenaSelectedZone);
+    }
+    function pickRival(zone) {
+      arenaSelectedZone = Number(zone) || 0;
+      renderArenaLadder();
+      haptic('light');
     }
 
     // حالة زر المبارزة: إن كانت هناك جولة جارية تُعرض أزرار فعلية بدل رسالة صامتة
@@ -1873,7 +1918,15 @@
         if (live) { live.hidden = false; const t = document.getElementById('arena-live-text'); if (t) t.textContent = 'حدّث الصفحة (إعادة تحميل) لتفعيل المبارزة الحيّة.'; }
         return;
       }
-      const tier = Number.isInteger(zone) ? zone : deepestUnlockedMine();
+      const tier = Number.isInteger(zone) ? zone : (arenaSelectedZone ?? deepestUnlockedMine());
+      // مبارز مقفل: نوضّح الشرط على الساحة نفسها بدل إرسال طلب سيرفضه الخادم
+      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) || {};
+      const status = RULES?.mineStatus?.(tier, st.mines, st.equipment);
+      if (status && status.unlocked === false) {
+        const blocked = (status.needs || []).filter((n) => !n.ok).map((n) => n.label).join(' · ');
+        if (live) { live.hidden = false; const t = document.getElementById('arena-live-text'); if (t) t.textContent = `هذا المبارز مقفل — يحتاج: ${blocked}`; }
+        return;
+      }
       if (!game.startDuel(tier)) { refreshArenaDuelState(); return; }
       if (live) live.hidden = true;
       switchTab('play');
@@ -2117,7 +2170,7 @@
       txt('arena-player-status', p.defending ? '🛡️ دفاع مفعّل' : '');
       txt('arena-enemy-status', e.defending ? '🛡️ دفاع مفعّل' : '');
       txt('arena-record', `${rec.wins || 0} فوز · ${rec.losses || 0} خسارة${rec.draws ? ` · ${rec.draws} تعادل` : ''}`);
-      if (typeof renderArenaBrief === 'function') renderArenaBrief();
+      if (typeof renderArenaLadder === 'function') renderArenaLadder();
       txt('arena-turn', !battle?.active
         ? (battle ? 'انتهت المباراة — اضغط «مباراة جديدة»' : 'اضغط «ابدأ المبارزة» ثم اقرأ نيّة الخصم')
         : battle.busy ? '⏳ الخصم ينفّذ خطته…'
@@ -3925,6 +3978,7 @@
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); window.PlatformGame?.onShow?.(); }, 30);
       if (tabId === 'arena') { updateArenaUI(); syncArenaMode(); renderArenaIntent(); } // يعيد ضبط الحالة المرئية عند الدخول
+      else window.PlatformGame?.hideArenaPreview?.();
       if (tabId === 'leaderboard') loadLeaderboard();
       if (tabId === 'arena') updateArenaUI();
       haptic('light');
@@ -4323,6 +4377,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=19"></script>
+  <script src="/platform-game.js?v=20"></script>
 </body>
 </html>

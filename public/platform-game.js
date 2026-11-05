@@ -1301,9 +1301,74 @@
     if (muted) audio?.suspend?.()?.catch(() => {}); else audioUnlock();
   });
 
+  // ===== معاينة الساحة الحيّة =====
+  // لوحة «الساحة» تعرض المشهد الحقيقي (نفس المحرك ونفس الرسم) بجولة استعراضية حتمية:
+  // لاعب آلي بسيط يقاتل مبارز المنجم. لا تمسّ الحساب ولا الجولة الجارية، وتتوقف فور مغادرة التبويب.
+  const arenaCanvas = el('arena-preview');
+  let arenaSim = null, arenaRaf = 0, arenaAcc = 0, arenaStamp = 0, arenaZone = 0, arenaOver = 0, arenaSeed = 7717;
+  const arenaShown = () => Boolean(arenaCanvas && typeof arenaCanvas.getContext === 'function'
+    && el('tab-arena')?.classList?.contains('active') && !document.hidden);
+  function buildArenaSim() {
+    if (!R?.create) return;
+    arenaSeed = (arenaSeed * 1103515245 + 12345) % 2147483647;
+    arenaSim = R.create(currentHero, arenaSeed, { zone: arenaZone, mode: 'duel' });
+    arenaOver = 0;
+  }
+  // مدخلات اللاعب الآلي: يلاحق الخصم، يقفز فوق الموجة، ويضرب عند المدى
+  function arenaDemoMask(simNow) {
+    const p = simNow.player, rival = simNow.enemies[0];
+    if (!rival || simNow.status !== 'playing') return 0;
+    let mask = 0;
+    const cx = p.x + p.w / 2, rx = rival.x + rival.w / 2;
+    const incoming = (simNow.waves || []).some(w => Math.abs((w.x + w.w / 2) - cx) < 120);
+    if (incoming && p.grounded) mask |= R.INPUT.JUMP;
+    const d = rx - cx;
+    if (Math.abs(d) > 42) mask |= d > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT;
+    else if (p.attack <= 0 && !p.swing) mask |= (p.heavyCooldown <= 0 && simNow.tick % 150 > 100) ? R.INPUT.HEAVY : R.INPUT.ATTACK;
+    return mask;
+  }
+  function arenaStep() {
+    if (!arenaSim) return;
+    if (arenaSim.status !== 'playing') { if (++arenaOver > 90) buildArenaSim(); return; }
+    R.step(arenaSim, arenaDemoMask(arenaSim));
+  }
+  function arenaDraw() {
+    if (!arenaSim || !arenaCanvas) return;
+    try { renderer.draw(arenaCanvas, arenaSim, { reduced, particles: [], shake: 0, floaters: [], beams: [] }); } catch (_) {}
+  }
+  function arenaFrame(now) {
+    arenaRaf = 0;
+    if (!arenaShown()) return;
+    const stamp = Number(now) || 0;
+    const dt = arenaStamp ? Math.min(60, stamp - arenaStamp) : 16;
+    arenaStamp = stamp; arenaAcc += dt;
+    let steps = 0;
+    while (arenaAcc >= 1000 / (R.FPS || 60) && steps < 3) { arenaStep(); arenaAcc -= 1000 / (R.FPS || 60); steps++; }
+    arenaDraw();
+    arenaRaf = requestAnimationFrame(arenaFrame);
+  }
+  function showArenaPreview(zone) {
+    if (!arenaCanvas || typeof arenaCanvas.getContext !== 'function' || !R?.create) return false;
+    const last = (R.MINES?.length || 1) - 1;
+    const z = Math.max(0, Math.min(last, Number.isInteger(zone) ? zone : 0));
+    if (z !== arenaZone || !arenaSim) { arenaZone = z; buildArenaSim(); }
+    const label = el('arena-preview-rival');
+    if (label) label.textContent = `${R.rivalFor?.(z)?.name || 'المبارز'} · ${R.MINES?.[z]?.name || ''}`;
+    const heroLabel = el('arena-preview-hero');
+    if (heroLabel) heroLabel.textContent = R.CHARACTERS?.[currentHero]?.name || 'المحارب';
+    arenaStamp = 0; arenaAcc = 0;
+    arenaDraw();
+    if (!arenaRaf) arenaRaf = requestAnimationFrame(arenaFrame);
+    return true;
+  }
+  function hideArenaPreview() {
+    if (arenaRaf) cancelAnimationFrame(arenaRaf);
+    arenaRaf = 0; arenaStamp = 0;
+  }
+
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
-    pause, onShow, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
+    pause, onShow, showArenaPreview, hideArenaPreview, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
     showLegacy: () => {
       pause();

@@ -251,7 +251,13 @@ test('arena UI: the live duel is the primary entry, the classic duel sits in a c
   assert.match(html, /id="arena-resume-btn"[^>]*onclick="resumeActiveRun\(\)"/);
   assert.match(html, /id="arena-abandon-btn"[^>]*onclick="abandonAndDuel\(\)"/);
   assert.match(html, /function abandonAndDuel\(\)[\s\S]{0,220}game\.abandon\(\)/, 'and it clears the stale run instead of trapping the player');
-  assert.match(html, /id="arena-next-rival"/, 'the arena fills its space with the next rival and reward');
+  // المسرح الحيّ + سلّم المبارزين: مشهد لعب فعلي بدل مستطيل فارغ
+  assert.match(html, /<canvas id="arena-preview"/, 'the arena renders the real engine scene');
+  assert.match(html, /id="arena-ladder"[^>]*role="list"/, 'and a rival ladder fills the rest of the screen');
+  assert.match(html, /function renderArenaLadder[\s\S]{0,1600}row\.onclick = \(\) => pickRival\(zone\)/, 'each row really selects its rival');
+  assert.match(html, /function pickRival[\s\S]{0,200}renderArenaLadder\(\)/, 'picking a rival re-renders the stage');
+  assert.match(html, /showArenaPreview\?\.\(arenaSelectedZone\)/, 'and the live stage follows the selection');
+  assert.match(html, /duelReward\?\./, 'the reward shown comes from the rules, not a hardcoded number');
 });
 
 test('arena UI: abandoning a stale run is safe and never drops a result waiting for the server', async () => {
