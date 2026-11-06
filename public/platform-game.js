@@ -1569,7 +1569,7 @@
   let duelRunning = false, duelPaused = false, duelSubmitting = false, duelZone = 0, duelOver = false;
   let duelInputs = [];
   // تجميد عرض قصير عند الضربة (لا يوقف الإدخال ولا يغيّر المحاكاة الخادمية)
-  let duelFreeze = 0, duelLastCombo = 0;
+  let duelFreeze = 0, duelLastCombo = 0, duelPendingMask = 0;
   const duelKeys = new Set(), duelPointers = new Map(), duelPulses = new Map();
   const arenaDuelVisible = () => Boolean(el('tab-arena')?.classList?.contains('active'));
   const duelBusy = () => ({ running: duelRunning, paused: duelPaused, submitting: duelSubmitting, zone: duelZone, tick: duelSim?.tick || 0, status: duelSim?.status || 'idle' });
@@ -1672,8 +1672,14 @@
     let count = 0;
     while (duelAcc >= R.DT && count++ < 6 && duelSim.status === 'playing') {
       // إيقاف إطار قصير عند الإصابة: يجعل الضربة «تُحسّ» بلا أن يمسّ الحتمية (الإدخال يُسجّل، والخادم يعيد التشغيل)
-      if (duelFreeze > 0) { duelFreeze--; duelAcc -= R.DT; continue; }
-      const mask = duelMaskNow();
+      if (duelFreeze > 0) {
+        // أثناء التجميد لا تُقدَّم خطوة ولا تُسجَّل إدخالات، لكن الإدخال يُقرأ ويُحفظ في
+        // pending ثم يُضاف للخطوة التالية — فلا تضيع ضغطة خفيفة خلال إطارات التجميد.
+        duelPendingMask |= duelMaskNow();
+        duelFreeze--; duelAcc -= R.DT; continue;
+      }
+      const mask = duelMaskNow() | duelPendingMask;
+      duelPendingMask = 0;
       if (duelInputs.length >= R.MAX_SEGMENTS && duelInputs[duelInputs.length - 1]?.mask !== mask) break;
       duelRecord(mask);
       R.step(duelSim, mask);
@@ -1712,7 +1718,7 @@
     duelInputs = []; duelKeys.clear(); duelPointers.clear(); duelPulses.clear();
     arenaParticles = []; arenaFloaters = []; arenaShake = 0;
     duelAcc = 0; duelStamp = 0; duelOver = false; duelEndedTick = 0;
-    duelFreeze = 0; duelLastCombo = 0; duelHeartsCache = '';
+    duelFreeze = 0; duelLastCombo = 0; duelPendingMask = 0; duelHeartsCache = '';
     duelVerdictHide();
     duelStatusLine('جارٍ فتح المبارزة…');
     duelBanner('');

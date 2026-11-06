@@ -610,6 +610,29 @@
     }
 
     // ===== وميض الإصابة: يوضّح أن الضربة وقعت فعلًا (من حالة المحاكاة) =====
+    // ===== نافذة الضربة: بعد أن ينهي الخصم هجومه (recover) تصبح ضربتك مسموعة =====
+    // المحرك يسمح بإيذاء المبارز المدرّع في نافذة الاستشفاء فقط؛ فتُعلَن هذه النافذة بصريًا
+    // (سهم نابض + حلقة أرضية) حتى يقرأ اللاعب متى يهجم — عرض فقط، بلا أي أثر على الحساب.
+    if (!isPlayer && ent.state === 'recover' && !ent.dead && ent.boss) {
+      const puls = reduced ? 0.7 : 0.55 + 0.45 * Math.sin(tick * 0.35);
+      c.save();
+      c.translate(0, -128 - (reduced ? 0 : Math.abs(Math.sin(tick * 0.12)) * 4));
+      c.globalCompositeOperation = 'lighter';
+      const glow = c.createRadialGradient(0, 6, 2, 0, 6, 30);
+      glow.addColorStop(0, `rgba(124,231,255,${0.32 + puls * 0.28})`);
+      glow.addColorStop(1, 'rgba(124,231,255,0)');
+      c.fillStyle = glow; c.beginPath(); c.arc(0, 6, 30, 0, TAU); c.fill();
+      c.globalAlpha = 0.7 + puls * 0.3;
+      c.fillStyle = '#9ff0ff';
+      c.beginPath(); c.moveTo(-15, 0); c.lineTo(15, 0); c.lineTo(0, 17); c.closePath(); c.fill();
+      c.restore();
+      c.save();
+      c.globalAlpha = 0.22 + puls * 0.26;
+      c.strokeStyle = '#7ce7ff'; c.lineWidth = 2.5;
+      c.beginPath(); c.ellipse(0, 2, 30 + puls * 5, 9, 0, 0, TAU); c.stroke();
+      c.restore();
+    }
+
     const hurtFlash = isPlayer ? (ent.invulnerable > 0 && ent.hearts > 0) : (ent.hurtCooldown > 0);
     if (hurtFlash) {
       // وميض خفيف يتبع الصورة الظلية بدل كتلة لونية: يُقرأ كإصابة لا كفقاعة

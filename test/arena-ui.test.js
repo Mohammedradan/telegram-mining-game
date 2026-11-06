@@ -404,7 +404,7 @@ test('arena fight HUD: hearts, a trailing damage bar and a live combo popup', ()
 
 test('a landing hit freezes the frame briefly and the verdict banner marks the finish', () => {
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /if \(duelFreeze > 0\) \{ duelFreeze--; duelAcc -= R\.DT; continue; \}/, 'hit-stop skips simulation frames without shifting the clock');
+  assert.match(game, /if \(duelFreeze > 0\) \{[\s\S]{0,400}?duelFreeze--; duelAcc -= R\.DT; continue;/, 'hit-stop skips simulation frames without shifting the clock');
   assert.match(game, /duelFreeze = Math\.max\(duelFreeze, ev\.damage >= 2 \? 4 : 2\)/, 'heavier hits freeze longer');
   assert.match(game, /function duelVerdict\(won, rival\)/, 'a verdict banner is drawn on the stage');
   assert.match(game, /title\.textContent = won \? 'انتصار' : 'سقوط'/, 'it says win or loss');

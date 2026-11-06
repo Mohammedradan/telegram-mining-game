@@ -89,6 +89,15 @@ test('the arena scene is a real module: four themed arenas and procedural ninjas
   assert.equal(skies.size, 4, 'each arena has its own palette');
 });
 
+test('the rival announces the punish window the engine actually honours', () => {
+  const scene = fs.readFileSync(path.join(ROOT, 'public/platform-arena-scene.js'), 'utf8');
+  // المحرك لا يقبل الضرر على المبارز المدرّع إلا في حالة recover — فتُعلَن هذه الحالة بصريًا
+  assert.match(scene, /if \(!isPlayer && ent\.state === 'recover' && !ent\.dead && ent\.boss\)/, 'the cue is tied to the real recover state');
+  assert.match(scene, /#7ce7ff|#9ff0ff/, 'and drawn in its own colour (not the damage palette)');
+  const rules = fs.readFileSync(path.join(ROOT, 'public/platform-rules.js'), 'utf8');
+  assert.match(rules, /enemy\.boss && enemy\.armored !== false && enemy\.state !== 'recover' \? 0 : amount/, 'the cue matches the engine gate, so it never lies to the player');
+});
+
 test('the arena heats up as the rival weakens and fighters flash when hit', () => {
   const scene = fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-scene.js'), 'utf8');
   assert.match(scene, /function backdrop\(c, w, tick, reduced, camera, arenaId, heat = 0\)/, 'the backdrop takes the fight heat');
