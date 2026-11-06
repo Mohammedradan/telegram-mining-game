@@ -1568,6 +1568,8 @@
   let duelSim = null, duelTicket = null, duelRaf = 0, duelAcc = 0, duelStamp = 0, duelEndedTick = 0;
   let duelRunning = false, duelPaused = false, duelSubmitting = false, duelZone = 0, duelOver = false;
   let duelInputs = [];
+  // تجميد عرض قصير عند الضربة (لا يوقف الإدخال ولا يغيّر المحاكاة الخادمية)
+  let duelFreeze = 0, duelLastCombo = 0;
   const duelKeys = new Set(), duelPointers = new Map(), duelPulses = new Map();
   const arenaDuelVisible = () => Boolean(el('tab-arena')?.classList?.contains('active'));
   const duelBusy = () => ({ running: duelRunning, paused: duelPaused, submitting: duelSubmitting, zone: duelZone, tick: duelSim?.tick || 0, status: duelSim?.status || 'idle' });
@@ -1598,21 +1600,49 @@
     if (duelSim?.player) duelSim.lastMask = mask;
     return mask;
   }
+  function duelHeat() {
+    const rival = duelSim?.enemies?.[0];
+    if (!rival) return 0;
+    const left = Math.max(0, rival.hp) / Math.max(1, rival.maxHp);
+    return Math.max(0, Math.min(1, 1 - left)); // 0 = بداية المبارزة، 1 = الخصم على وشك السقوط
+  }
   function duelDraw() {
     if (!duelSim || !arenaCanvas) return;
     try {
       renderer.draw(arenaCanvas, duelSim, {
-        arena: true, arenaId: duelZone % 4, reduced,
+        arena: true, arenaId: duelZone % 4, reduced, arenaHeat: duelHeat(),
         particles: arenaParticles, floaters: arenaFloaters, shake: arenaShake, beams: [],
       });
     } catch (_) {}
   }
+  let duelHeartsCache = '';
   function duelHud() {
     if (!duelSim) return;
     const p = duelSim.player, rival = duelSim.enemies[0];
+    const heroPct = Math.max(0, Math.min(100, (p.hearts / Math.max(1, p.maxHearts)) * 100));
+    const rivalPct = rival ? Math.max(0, Math.min(100, (rival.hp / Math.max(1, rival.maxHp)) * 100)) : 0;
     const heroBar = el('arena-hp-hero'), rivalBar = el('arena-hp-rival');
-    if (heroBar) heroBar.style.width = `${Math.max(0, Math.min(100, (p.hearts / Math.max(1, p.maxHearts)) * 100))}%`;
-    if (rivalBar && rival) rivalBar.style.width = `${Math.max(0, Math.min(100, (rival.hp / Math.max(1, rival.maxHp)) * 100))}%`;
+    if (heroBar) heroBar.style.width = `${heroPct}%`;
+    if (rivalBar) rivalBar.style.width = `${rivalPct}%`;
+    // شريط الظل يتأخّر خلف الشريط الحقيقي فيُظهر حجم الضربة
+    const ghostHero = el('arena-ghost-hero'), ghostRival = el('arena-ghost-rival');
+    if (ghostHero) ghostHero.style.width = `${heroPct}%`;
+    if (ghostRival) ghostRival.style.width = `${rivalPct}%`;
+    // قلوب المقاتل: نقاط حقيقية من المحاكاة (لا تُعاد بناؤها إلا عند تغيّرها)
+    const heartsBox = el('arena-hearts-hero');
+    if (heartsBox) {
+      const max = Math.max(1, p.maxHearts), key = `${p.hearts}/${max}`;
+      if (key !== duelHeartsCache) {
+        duelHeartsCache = key;
+        heartsBox.textContent = '';
+        for (let i = 0; i < max; i++) {
+          const pip = document.createElement('span');
+          pip.textContent = '♥';
+          if (i < p.hearts) pip.className = 'on';
+          heartsBox.appendChild(pip);
+        }
+      }
+    }
     const heroEn = el('arena-en-hero');
     if (heroEn) heroEn.style.width = `${Math.max(0, Math.min(100, 100 - (p.skillCooldown || 0) / Math.max(1, p.skillMaxCooldown || 1) * 100))}%`;
     const rivalEn = el('arena-en-rival');
@@ -1641,11 +1671,24 @@
     duelStamp = stamp;
     let count = 0;
     while (duelAcc >= R.DT && count++ < 6 && duelSim.status === 'playing') {
+      // إيقاف إطار قصير عند الإصابة: يجعل الضربة «تُحسّ» بلا أن يمسّ الحتمية (الإدخال يُسجّل، والخادم يعيد التشغيل)
+      if (duelFreeze > 0) { duelFreeze--; duelAcc -= R.DT; continue; }
       const mask = duelMaskNow();
       if (duelInputs.length >= R.MAX_SEGMENTS && duelInputs[duelInputs.length - 1]?.mask !== mask) break;
       duelRecord(mask);
       R.step(duelSim, mask);
       collectFx(duelSim);
+      for (const ev of duelSim.events || []) {
+        if (ev.type === 'hit' && ev.damage > 0) duelFreeze = Math.max(duelFreeze, ev.damage >= 2 ? 4 : 2);
+        else if (ev.type === 'hurt') duelFreeze = Math.max(duelFreeze, 3);
+      }
+      // لافتة السلسلة: تُعلن عند العتبات فقط (٣، ٥، …) فوق رأس البطل
+      const combo = duelSim.player.combo || 0;
+      if (combo >= 3 && combo !== duelLastCombo) {
+        const pl = duelSim.player;
+        arenaFloaters.push({ x: pl.x + pl.w / 2, y: pl.y - 6, text: `×${combo}`, color: combo >= 6 ? '#ffd166' : '#ffe9a8', life: 44, maxLife: 44, size: 18, scale: 1 });
+      }
+      duelLastCombo = combo;
       duelAcc -= R.DT;
     }
     arenaTick2();
@@ -1669,6 +1712,8 @@
     duelInputs = []; duelKeys.clear(); duelPointers.clear(); duelPulses.clear();
     arenaParticles = []; arenaFloaters = []; arenaShake = 0;
     duelAcc = 0; duelStamp = 0; duelOver = false; duelEndedTick = 0;
+    duelFreeze = 0; duelLastCombo = 0; duelHeartsCache = '';
+    duelVerdictHide();
     duelStatusLine('جارٍ فتح المبارزة…');
     duelBanner('');
     let config = R.normalizeConfig({ zone: z, goal: selectedGoal, mode: 'duel', loadout: liveLoadout() });
@@ -1711,6 +1756,7 @@
     const won = duelSim.status === 'won';
     const rival = duelSim.enemies[0];
     duelStatusLine('');
+    duelVerdict(won, rival);
     duelBanner(won
       ? `انتصرت على «${rival?.name || 'المبارز'}» — جارٍ التحقق من المكافأة على الخادم…`
       : `سقطت أمام «${rival?.name || 'المبارز'}» — لا مكافأة، والموارد لم تُمسّ.`);
@@ -1737,8 +1783,22 @@
       duelWrapUp();
     }
   }
+  // شارة الحكم: «انتصار» أو «سقوط» فوق المسرح نفسه لحظة الحسم
+  function duelVerdict(won, rival) {
+    const box = el('arena-ko'), title = el('arena-ko-title'), sub = el('arena-ko-sub');
+    if (!box) return;
+    box.classList.toggle('loss', !won);
+    if (title) title.textContent = won ? 'انتصار' : 'سقوط';
+    if (sub) {
+      const secs = duelSim ? (duelSim.tick / R.FPS).toFixed(0) : '0';
+      sub.textContent = won ? `أُسقط ${rival?.name || 'المبارز'} في ${secs} ثانية` : `${rival?.name || 'المبارز'} صمد ${secs} ثانية`;
+    }
+    box.hidden = false;
+  }
+  function duelVerdictHide() { const box = el('arena-ko'); if (box) box.hidden = true; }
   function duelWrapUp() {
     duelTicket = null; duelRunning = false; duelPaused = false;
+    duelVerdictHide();
     duelKeys.clear(); duelPointers.clear(); duelPulses.clear();
     document.body.classList.remove('duel-live');
     const pad = el('arena-pad'); if (pad) pad.hidden = true;

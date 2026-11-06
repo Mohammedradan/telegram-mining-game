@@ -89,6 +89,18 @@ test('the arena scene is a real module: four themed arenas and procedural ninjas
   assert.equal(skies.size, 4, 'each arena has its own palette');
 });
 
+test('the arena heats up as the rival weakens and fighters flash when hit', () => {
+  const scene = fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-scene.js'), 'utf8');
+  assert.match(scene, /function backdrop\(c, w, tick, reduced, camera, arenaId, heat = 0\)/, 'the backdrop takes the fight heat');
+  assert.match(scene, /if \(heat > 0\.02\)/, 'and only reacts once the rival is hurt');
+  assert.match(scene, /const hurtFlash = isPlayer \? \(ent\.invulnerable > 0/, 'a hit flashes the fighter');
+  const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
+  assert.match(renderer, /ArenaScene\.backdrop\(c, w, s\.tick, reduced, camera, arenaId, \$?\{?[^)]*arenaHeat/, 'the heat reaches the scene from the renderer');
+  const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
+  assert.match(game, /function duelHeat\(\)/, 'the duel computes heat from the rival health');
+  assert.match(game, /arenaHeat: duelHeat\(\)/, 'and passes it while drawing');
+});
+
 test('the play canvas never paints the ninja arena — even if a duel simulation is drawn there', () => {
   const plain = paint(duel());
   assert.ok(!plain.includes('#ffc2dd'), 'no sakura petals without opts.arena');

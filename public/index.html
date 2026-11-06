@@ -320,10 +320,23 @@
     .as-center { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 0 0 auto; padding: 0 2px; }
     .as-center b { font-size: 15px; font-weight: 900; color: #ffe9c0; text-shadow: 0 1px 6px rgba(0, 0, 0, .8); line-height: 1; }
     .as-center span { font-size: 8.5px; font-weight: 800; color: #b9c7d4; }
-    .as-hp { display: block; width: 100%; height: 4px; border-radius: 99px; background: rgba(0, 0, 0, .55); overflow: hidden; border: 1px solid rgba(0, 0, 0, .4); }
-    .as-hp b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #34d399, #a3e635); transition: width .18s linear; }
+    .as-hp { position: relative; display: block; width: 100%; height: 4px; border-radius: 99px; background: rgba(0, 0, 0, .55); overflow: hidden; border: 1px solid rgba(0, 0, 0, .4); }
+    /* شريط «ظل» يتأخّر خلف الشريط الحقيقي فيُرى مقدار الضربة لحظيًا */
+    .as-hp s { position: absolute; inset: 0; display: block; width: 100%; background: rgba(255, 255, 255, .45); transition: width .6s ease .12s; }
+    .as-hp b { position: relative; z-index: 1; display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #34d399, #a3e635); transition: width .18s linear; }
+    .as-hearts { display: flex; gap: 2px; font-size: 9px; line-height: 1; color: #ff5d73; }
+    .as-hearts span { opacity: .22; }
+    .as-hearts span.on { opacity: 1; text-shadow: 0 0 6px rgba(255, 93, 115, .85); }
     .as-hp.rival b { background: linear-gradient(90deg, #f87171, #fb923c); }
     .as-vs { flex: 0 0 auto; margin-top: 4px; font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .5px; }
+    /* شارة الحكم داخل المسرح: تظهر لحظة الحسم وتختفي وحدها */
+    .arena-ko { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      pointer-events: none; background: radial-gradient(circle at 50% 45%, rgba(8, 10, 20, .55), rgba(8, 10, 20, .12) 60%, transparent); animation: koIn .22s ease-out; }
+    .arena-ko[hidden] { display: none; }
+    .arena-ko b { font-size: 30px; font-weight: 900; letter-spacing: 1px; color: #ffe9a8; text-shadow: 0 2px 18px rgba(255, 190, 90, .55), 0 2px 6px rgba(0, 0, 0, .9); }
+    .arena-ko span { font-size: 11px; font-weight: 800; color: #dfe8f2; text-shadow: 0 1px 6px rgba(0, 0, 0, .9); }
+    .arena-ko.loss b { color: #ffc2c2; text-shadow: 0 2px 18px rgba(239, 68, 68, .5), 0 2px 6px rgba(0, 0, 0, .9); }
+    @keyframes koIn { from { transform: scale(1.25); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .as-bar { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
     /* أثناء المبارزة: المسرح يتّسع، ويظهر شريط الحالة ولوحة اللمس، ويختفي زر البدء والسلّم */
     body.duel-live #arena-ladder,
@@ -1174,8 +1187,9 @@
           <span class="as-portrait hero" id="arena-portrait-hero" aria-hidden="true"></span>
           <span class="as-meta">
             <span class="as-chip" id="arena-preview-hero">المحارب</span>
-            <i class="as-hp"><b id="arena-hp-hero"></b></i>
+            <i class="as-hp"><s id="arena-ghost-hero"></s><b id="arena-hp-hero"></b></i>
             <i class="as-en"><b id="arena-en-hero"></b></i>
+            <span class="as-hearts" id="arena-hearts-hero" aria-label="قلوب المقاتل"></span>
           </span>
         </span>
         <span class="as-center">
@@ -1185,12 +1199,13 @@
         <span class="as-fighter rival">
           <span class="as-meta">
             <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
-            <i class="as-hp rival"><b id="arena-hp-rival"></b></i>
+            <i class="as-hp rival"><s id="arena-ghost-rival"></s><b id="arena-hp-rival"></b></i>
             <i class="as-en rival"><b id="arena-en-rival"></b></i>
           </span>
           <span class="as-portrait rival" id="arena-portrait-rival" aria-hidden="true"></span>
         </span>
       </div>
+      <div id="arena-ko" class="arena-ko" hidden aria-live="assertive"><b id="arena-ko-title"></b><span id="arena-ko-sub"></span></div>
     </div>
     <div class="as-bar">
       <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn">ابدأ المبارزة</button>
@@ -1504,8 +1519,8 @@
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=4"></script>
-  <script src="/platform-arena-scene.js?v=1"></script>
-  <script src="/platform-renderer.js?v=12"></script>
+  <script src="/platform-arena-scene.js?v=2"></script>
+  <script src="/platform-renderer.js?v=13"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
@@ -4515,6 +4530,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=32"></script>
+  <script src="/platform-game.js?v=33"></script>
 </body>
 </html>

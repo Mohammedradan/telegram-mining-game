@@ -678,7 +678,7 @@
     const arenaId = Number.isInteger(opts.arenaId) ? opts.arenaId : (Number.isInteger(s.arenaId) ? s.arenaId : (s.zone || 0) % 4);
     if (arenaMode) {
       // حلبة النينجا: خلفية يابانية متعدّدة الطبقات (قمر/معبد/ساكورا/بوابة/شلال/ضباب/بتلات)
-      if (ArenaScene && ArenaScene.backdrop) ArenaScene.backdrop(c, w, s.tick, reduced, camera, arenaId);
+      if (ArenaScene && ArenaScene.backdrop) ArenaScene.backdrop(c, w, s.tick, reduced, camera, arenaId, Math.max(0, Math.min(1, Number(opts.arenaHeat) || 0)));
       else drawArena(c, w, s.tick, reduced, camera);
     } else {
     // ===== Background =====

@@ -331,7 +331,7 @@
   }
 
   // ===== الخلفية الكاملة =====
-  function backdrop(c, w, tick, reduced, camera, arenaId) {
+  function backdrop(c, w, tick, reduced, camera, arenaId, heat = 0) {
     const th = arenaFor(arenaId);
     const sky = c.createLinearGradient(0, 0, 0, 360);
     sky.addColorStop(0, th.sky[0]); sky.addColorStop(0.25, th.sky[1]);
@@ -378,7 +378,15 @@
     drawPetals(c, w, tick, th, reduced);
 
     // إضاءة ملوّنة: زرقاء من جهة البطل وحمراء من جهة الخصم (تُكمل من المشهد)
-    const t = reduced ? 0.5 : 0.7;
+    // وكلما اقترب الخصم من السقوط (heat) يشتدّ الأحمر ونبض الأطراف — توتر المبارزة
+    const t = (reduced ? 0.5 : 0.7) + heat * 0.6;
+    if (heat > 0.02) {
+      const pulse = reduced ? 0.5 : 0.45 + 0.55 * Math.abs(Math.sin(tick * 0.05));
+      const edge = c.createRadialGradient(w / 2, 250, w * 0.2, w / 2, 250, w * 0.8);
+      edge.addColorStop(0, 'rgba(0,0,0,0)');
+      edge.addColorStop(1, `rgba(190,30,40,${0.28 * heat * pulse})`);
+      c.fillStyle = edge; c.fillRect(0, 0, w, 360);
+    }
     const blue = c.createRadialGradient(w * 0.3, 300, 10, w * 0.3, 300, w * 0.42);
     blue.addColorStop(0, th.blueLight); blue.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = blue; c.fillRect(0, 150, w, 210);
@@ -599,6 +607,18 @@
       c.globalAlpha = 0.13; c.fillStyle = skin.aura;
       c.beginPath(); c.arc(10, -46, 26, -1.2, 1.2); c.lineTo(10, -46); c.fill();
       c.globalAlpha = 1;
+    }
+
+    // ===== وميض الإصابة: يوضّح أن الضربة وقعت فعلًا (من حالة المحاكاة) =====
+    const hurtFlash = isPlayer ? (ent.invulnerable > 0 && ent.hearts > 0) : (ent.hurtCooldown > 0);
+    if (hurtFlash) {
+      // وميض خفيف يتبع الصورة الظلية بدل كتلة لونية: يُقرأ كإصابة لا كفقاعة
+      c.globalCompositeOperation = 'lighter';
+      c.globalAlpha = (reduced ? 0.16 : 0.10 + Math.abs(Math.sin(tick * 0.7)) * 0.14);
+      c.fillStyle = isPlayer ? '#ff6b81' : '#ffd08a';
+      c.beginPath(); c.ellipse(2, -40, 12, 34, 0, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(6, -78, 9, 10, 0, 0, TAU); c.fill();
+      c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     }
 
     // ===== إضاءة حافة على جهة النظر (تفصل النينجا عن الخلفية) =====

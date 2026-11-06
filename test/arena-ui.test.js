@@ -390,6 +390,30 @@ test('finishing a duel speaks about the duel — its own title, lead and button 
   assert.match(game, /قلوب متبقية · \$\{result\.duel\?\.blocks/, 'the confirmed line reports hearts and guards');
 });
 
+test('arena fight HUD: hearts, a trailing damage bar and a live combo popup', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(html, /<i class="as-hp"><s id="arena-ghost-hero"><\/s><b id="arena-hp-hero">/, 'the hero bar has a trailing ghost layer');
+  assert.match(html, /<i class="as-hp rival"><s id="arena-ghost-rival"><\/s><b id="arena-hp-rival">/, 'and so does the rival bar');
+  assert.match(html, /\.as-hp s \{[^}]*transition: width \.6s/, 'the ghost lags behind so the hit reads');
+  assert.match(html, /id="arena-hearts-hero"/, 'the fighter hearts are shown on the stage');
+  assert.match(game, /ghostHero\.style\.width = `\$\{heroPct\}%`/, 'the ghost bar follows the same value');
+  assert.match(game, /createElement\('span'\)[\s\S]{0,120}pip\.textContent = '♥'/, 'hearts are real elements driven by player.hearts');
+  assert.match(game, /text: `×\$\{combo\}/, 'the combo is announced on the fighter');
+});
+
+test('a landing hit freezes the frame briefly and the verdict banner marks the finish', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(game, /if \(duelFreeze > 0\) \{ duelFreeze--; duelAcc -= R\.DT; continue; \}/, 'hit-stop skips simulation frames without shifting the clock');
+  assert.match(game, /duelFreeze = Math\.max\(duelFreeze, ev\.damage >= 2 \? 4 : 2\)/, 'heavier hits freeze longer');
+  assert.match(game, /function duelVerdict\(won, rival\)/, 'a verdict banner is drawn on the stage');
+  assert.match(game, /title\.textContent = won \? 'انتصار' : 'سقوط'/, 'it says win or loss');
+  assert.match(game, /duelVerdictHide\(\);[\s\S]{0,120}duelStatusLine/, 'and it is cleared when the fight ends');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  assert.match(html, /id="arena-ko"[^>]*aria-live="assertive"/, 'the banner is announced to screen readers');
+  assert.match(html, /\.arena-ko\.loss b/, 'and turns red on a loss');
+});
+
 test('the arena stage shows real combat feedback: hit sparks, damage numbers and impact shake', () => {
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
   assert.match(game, /function arenaFx\(\)/, 'there is an effects pass over the simulation events');
