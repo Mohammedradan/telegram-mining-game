@@ -162,7 +162,7 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(html, /window\.openMines = minesOpen/);
   assert.ok(html.indexOf('id="mine-select"') > html.indexOf('id="platform-overlay"'), 'the selector lives in the start overlay');
   // المتحكم: المنجم المختار يُرسل عند البدء، واللقطة المخزنة تُستخدم في الاستعادة والتشغيل
-  assert.match(game, /request\('\/api\/platform\/start', \{ zone: selectedZone, goal: selectedGoal, mode: selectedMode \}\)/);
+  assert.match(game, /request\('\/api\/platform\/start', \{ zone: selectedZone, goal: selectedGoal, mode: playMode\(\) \}\)/);
   assert.match(game, /request\('\/api\/platform\/start', \{ resume: true \}\)/);
   assert.match(game, /R\.create\(currentHero, seedOf\(ticket\), configFor\(ticket\)\)/);
   assert.match(game, /R\.replay\(stored\.inputs, currentHero, seedOf\(stored\.ticket\), storedConfig\)/);
@@ -177,7 +177,7 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(renderer, /drawDrone\(c, s\.player/);
   // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
   assert.match(html, /platform-rules\.js\?v=11/);
-  assert.match(html, /platform-game\.js\?v=30/);
+  assert.match(html, /platform-game\.js\?v=31/);
   assert.match(html, /platform-renderer\.js\?v=11/);
   assert.match(html, /platform-scenery\.js\?v=1/);
   assert.match(html, /platform-bosses\.js\?v=4/);

@@ -144,10 +144,16 @@ test('V7 client wiring: the arena can launch a real duel and the pad has a guard
   assert.match(html, /onclick="startArenaDuel\(\)"/, 'the arena tab can start the action duel');
   assert.match(html, /function startArenaDuel\(zone = null\)/, 'the depth defaults to the deepest unlocked mine');
   assert.match(html, /function deepestUnlockedMine\(\)/);
-  assert.match(html, /switchTab\('play'\)/, 'the fight happens in the real action stage');
+  // المبارزة تجري في تبويب الساحة نفسه: لا انتقال إلى تبويب اللعب من زر المبارزة
+  const launcher = html.slice(html.indexOf('function startArenaDuel('), html.indexOf('function resumeActiveRun('));
+  assert.ok(launcher.length > 100, 'the launcher exists');
+  assert.doesNotMatch(launcher, /switchTab\('play'\)/, 'starting a duel never jumps to the play tab');
+  assert.match(launcher, /game\.startDuel\(tier\)/, 'the arena asks the engine to start the duel');
   assert.match(game, /startDuel\(zone = 0\)/);
-  assert.match(game, /selectedMode = 'duel'/);
-  assert.match(game, /mode: selectedMode/, 'the mode rides the start ticket');
+  assert.match(game, /function startArenaRun\(zone\)/, 'the arena duel has its own controller');
+  assert.match(game, /mode: 'duel', loadout: liveLoadout\(\)/, 'the duel ticket asks the server for a duel run');
+  assert.match(game, /R\.seedFromId\(duelTicket\.id\)/, 'and replays with the server-issued seed');
+  assert.doesNotMatch(game, /selectedMode = 'duel'/, 'the mining mode selection is never flipped by a duel');
   assert.match(game, /KeyS: 64/, 'S guards on desktop');
   assert.match(game, /sim\.mode === 'duel'/, 'the HUD knows it is a duel');
 });

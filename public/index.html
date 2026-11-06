@@ -325,6 +325,37 @@
     .as-hp.rival b { background: linear-gradient(90deg, #f87171, #fb923c); }
     .as-vs { flex: 0 0 auto; margin-top: 4px; font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .5px; }
     .as-bar { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+    /* أثناء المبارزة: المسرح يتّسع، ويظهر شريط الحالة ولوحة اللمس، ويختفي زر البدء والسلّم */
+    body.duel-live #arena-ladder,
+    body.duel-live .as-bar,
+    body.duel-live .arena-keyhint { display: none; }
+    body.duel-live .arena-stage { max-height: 60vh; min-height: 220px; flex: 1 1 auto; }
+    .arena-duel-status {
+      flex: 0 0 auto; font-size: 11px; font-weight: 800; color: #ffe9c0; text-align: center;
+      padding: 5px 9px; border-radius: 9px; background: rgba(8, 14, 24, .78);
+      border: 1px solid rgba(255, 200, 120, .28);
+    }
+    .arena-pad { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .arena-pad[hidden] { display: none !important; }
+    .ap-group { display: flex; gap: 6px; }
+    .ap-group button {
+      min-width: 46px; min-height: 46px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 900;
+      color: #f4f8fb; background: rgba(20, 30, 46, .92); border: 1px solid rgba(120, 160, 200, .38);
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    .ap-group button[data-down="true"] { background: rgba(56, 189, 248, .35); border-color: #7dd3fc; transform: scale(.96); }
+    .ap-hit { background: rgba(30, 64, 96, .95) !important; border-color: rgba(125, 211, 252, .6) !important; }
+    .ap-heavy { background: rgba(96, 40, 30, .95) !important; border-color: rgba(251, 146, 60, .6) !important; }
+    .ap-guard { background: rgba(30, 70, 60, .95) !important; border-color: rgba(52, 211, 153, .55) !important; }
+    .ap-dodge { background: rgba(50, 40, 90, .95) !important; border-color: rgba(167, 139, 250, .55) !important; }
+    .ap-skill { background: rgba(90, 30, 70, .95) !important; border-color: rgba(244, 114, 182, .55) !important; }
+    .arena-keyhint { flex: 0 0 auto; margin: 0; font-size: 9.5px; color: #8fa6b8; text-align: center; }
+    @media (hover: hover) and (pointer: fine) {
+      .arena-pad { display: none; }
+    }
+    @media (hover: none), (pointer: coarse) {
+      .arena-keyhint { display: none; }
+    }
     .as-bar .arena-duel-btn { flex: 1 1 auto; padding: 10px 14px; border-radius: 11px; font-size: 13px; font-weight: 900; }
     .as-bar .arena-duel-btn:disabled { opacity: .55; filter: grayscale(.35); }
     .as-record {
@@ -1165,6 +1196,22 @@
       <button id="arena-duel-btn" type="button" onclick="startArenaDuel()" class="arena-duel-btn">ابدأ المبارزة</button>
       <span id="arena-record" class="as-record">0 فوز · 0 خسارة</span>
     </div>
+    <div id="arena-duel-status" class="arena-duel-status" hidden aria-live="polite"></div>
+    <div id="arena-pad" class="arena-pad" hidden>
+      <div class="ap-group ap-move" role="group" aria-label="حركة">
+        <button type="button" data-duel-input="1" aria-label="يسار">◀</button>
+        <button type="button" data-duel-input="4" aria-label="قفز">قفز</button>
+        <button type="button" data-duel-input="2" aria-label="يمين">▶</button>
+      </div>
+      <div class="ap-group ap-acts" role="group" aria-label="قتال">
+        <button type="button" data-duel-input="16" class="ap-hit" aria-label="ضربة">ضرب</button>
+        <button type="button" data-duel-input="256" class="ap-heavy" aria-label="ضربة قوية">قوي</button>
+        <button type="button" data-duel-input="64" class="ap-guard" aria-label="صدّ">صدّ</button>
+        <button type="button" data-duel-input="128" class="ap-dodge" aria-label="مراوغة">مراوغة</button>
+        <button type="button" data-duel-input="32" class="ap-skill" aria-label="مهارة">مهارة</button>
+      </div>
+    </div>
+    <p class="arena-keyhint">لوحة المفاتيح: A/D أو الأسهم للحركة · Space قفز · J ضرب · K ضربة قوية · L مراوغة · S صد · Q مهارة</p>
     <div id="arena-live-banner" class="arena-live-banner" hidden aria-live="polite">
       <span id="arena-live-text"></span>
       <div class="alb-actions">
@@ -1968,6 +2015,8 @@
       const text = document.getElementById('arena-live-text');
       const resumeBtn = document.getElementById('arena-resume-btn');
       const abandonBtn = document.getElementById('arena-abandon-btn');
+      // مبارزة الساحة لها حالتها المستقلة: لا نلمس بانرها أثناء جريانها
+      if (window.PlatformGame?.duelBusy?.().running) return;
       const busy = window.PlatformGame?.busy?.() || {};
       const hideAll = () => { live.hidden = true; if (resumeBtn) resumeBtn.hidden = true; if (abandonBtn) abandonBtn.hidden = true; };
       if (!busy.running && !busy.pending) { hideAll(); return; }
@@ -2000,9 +2049,13 @@
         if (live) { live.hidden = false; const t = document.getElementById('arena-live-text'); if (t) t.textContent = `هذا المبارز مقفل — يحتاج: ${blocked}`; }
         return;
       }
+      // المبارزة تجري هنا في تبويب الساحة نفسه — لا تنقّل إلى تبويب اللعب
       if (!game.startDuel(tier)) { refreshArenaDuelState(); return; }
       if (live) live.hidden = true;
-      switchTab('play');
+      document.body.classList.add('duel-live');
+      const pad = document.getElementById('arena-pad'); if (pad) pad.hidden = false;
+      const btn = document.getElementById('arena-duel-btn'); if (btn) btn.disabled = true;
+      const stage = document.getElementById('arena-preview'); stage?.focus?.({ preventScroll: true });
       // المبارزة تبدأ بلا انتظار: نُظهر مشهد المنصّة (لا الشاشة الأولى) ونعود إلى لوحة المغامرة،
       // ثم نوقظ حلقة الرسم إن كانت الجولة قد بدأت قبل ظهور التبويب.
       try { switchPlayPanel('adventure'); } catch (_) {}
@@ -2023,6 +2076,16 @@
       if (!game?.abandon || !game.abandon()) { refreshArenaDuelState(); return; }
       startArenaDuel();
     }
+
+    // نهاية المبارزة: نُعيد الزر والسلّم ونفتح مبارزة أخرى
+    window.addEventListener('platform-duel-done', () => {
+      document.body.classList.remove('duel-live');
+      const pad = document.getElementById('arena-pad'); if (pad) pad.hidden = true;
+      const btn = document.getElementById('arena-duel-btn'); if (btn) btn.disabled = false;
+      const ladder = document.getElementById('arena-ladder'); if (ladder) ladder.hidden = false;
+      window.PlatformGame?.showArenaPreview?.(arenaSelectedZone ?? deepestUnlockedMine());
+      refreshArenaDuelState();
+    });
 
     function arenaEnemyFighter(level = 1) {
       return ARENA_FIGHTERS.reduce((chosen, fighter) => level >= fighter.min ? fighter : chosen, ARENA_FIGHTERS[0]);
@@ -4050,8 +4113,13 @@
       if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); window.PlatformGame?.onShow?.(); }, 30);
-      if (tabId === 'arena') { updateArenaUI(); syncArenaMode(); renderArenaIntent(); } // يعيد ضبط الحالة المرئية عند الدخول
-      else window.PlatformGame?.hideArenaPreview?.();
+      if (tabId === 'arena') {
+        updateArenaUI(); syncArenaMode(); renderArenaIntent();
+        window.PlatformGame?.resumeDuel?.(); // مبارزة جارية تُستأنف عند العودة إلى الساحة
+      } else {
+        window.PlatformGame?.pauseDuel?.();
+        if (!document.body.classList.contains('duel-live')) window.PlatformGame?.hideArenaPreview?.();
+      }
       if (tabId === 'leaderboard') loadLeaderboard();
       if (tabId === 'arena') updateArenaUI();
       haptic('light');
@@ -4450,6 +4518,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=30"></script>
+  <script src="/platform-game.js?v=31"></script>
 </body>
 </html>

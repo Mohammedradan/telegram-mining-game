@@ -31,9 +31,11 @@
   // V7: وضع الجولة — 'mine' (الافتراضي) أو 'duel' (مبارزة قتال حيّة على نفس محرك الحركة).
   let selectedMode = 'mine';
   try {
-    const savedMode = localStorage.getItem('platform-mode');
-    if (R.MODES?.includes(savedMode)) selectedMode = savedMode;
+    // تبويب اللعب مخصّص لتجربة التعدين: وضع «المبارزة» القديم لم يعد يُستعاد هنا (المبارزة صارت في تبويب الساحة)
+    if (localStorage.getItem('platform-mode') === 'duel') localStorage.setItem('platform-mode', 'mine');
   } catch (_) {}
+  // أي طلب جولة من تبويب اللعب يبقى تعدينًا دائمًا حتى لو نادى أحدهم setMode('duel') قديمًا
+  const playMode = () => 'mine';
   const liveLoadout = () => {
     try { return R.normalizeLoadout(typeof state !== 'undefined' && state ? state.equipment : null); } catch (_) { return R.normalizeLoadout(null); }
   };
@@ -1011,7 +1013,7 @@
       await bridge.ready(); owner = bridge.user();
       if (owner) {
         // التذكرة الحالية (جولة موقوفة مثلاً) لا تُستبدل إلا بعد نجاح الطلب والتحقق من نسخة المستوى
-        const issued = await request('/api/platform/start', { zone: selectedZone, goal: selectedGoal, mode: selectedMode });
+        const issued = await request('/api/platform/start', { zone: selectedZone, goal: selectedGoal, mode: playMode() });
         if (issued.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
         ticket = issued;
         const mine = R.MINES[ticket.config?.zone ?? selectedZone];
@@ -1437,9 +1439,9 @@
   }
   // مؤثرات المسرح: شرارات الضرب، أرقام الضرر، غبار الصدمة، واهتزاز خفيف — كلها عرض فقط
   let arenaParticles = [], arenaFloaters = [], arenaShake = 0;
-  function arenaFx() {
-    if (!arenaSim) return;
-    for (const ev of arenaSim.events || []) {
+  function collectFx(fromSim) {
+    if (!fromSim) return;
+    for (const ev of fromSim.events || []) {
       if (ev.type === 'hit') {
         const strong = (ev.damage || 0) > 0;
         if (!reduced) {
@@ -1471,6 +1473,7 @@
       }
     }
   }
+  function arenaFx() { if (arenaSim) collectFx(arenaSim); }
   function arenaStep() {
     if (!arenaSim) return;
     if (arenaSim.status !== 'playing') { if (++arenaOver > 90) buildArenaSim(); return; }
@@ -1523,7 +1526,7 @@
   }
   function arenaFrame(now) {
     arenaRaf = 0;
-    if (!arenaShown()) return;
+    if (!arenaShown() || duelRunning) return;
     const stamp = Number(now) || 0;
     const dt = arenaStamp ? Math.min(60, stamp - arenaStamp) : 16;
     arenaStamp = stamp; arenaAcc += dt;
@@ -1535,6 +1538,7 @@
     arenaRaf = requestAnimationFrame(arenaFrame);
   }
   function showArenaPreview(zone) {
+    if (duelRunning) return false;
     if (!arenaCanvas || typeof arenaCanvas.getContext !== 'function' || !R?.create) return false;
     const last = (R.MINES?.length || 1) - 1;
     const z = Math.max(0, Math.min(last, Number.isInteger(zone) ? zone : 0));
@@ -1553,9 +1557,281 @@
     arenaRaf = 0; arenaStamp = 0;
   }
 
+  // ===== مبارزة الساحة الحيّة: جولة كاملة على مسرح تبويب الساحة =====
+  // نفس المحرك (R.create / R.step) ونفس تسجيل الإدخال الخادمي، لكن الحالة مستقلة تمامًا عن جولة المنجم:
+  // لا تلمس sim/inputs/ticket الخاصة بتبويب اللعب، ولا تنقل المستخدم إلى تبويب آخر.
+  const DUEL_KEYMAP = {
+    ArrowLeft: 1, KeyA: 1, ArrowRight: 2, KeyD: 2, Space: 4, KeyW: 4, ArrowUp: 4,
+    KeyJ: 16, Enter: 16, KeyK: 256, KeyL: 128, KeyS: 64, KeyQ: 32, KeyE: 32,
+  };
+  let duelSim = null, duelTicket = null, duelRaf = 0, duelAcc = 0, duelStamp = 0, duelEndedTick = 0;
+  let duelRunning = false, duelPaused = false, duelSubmitting = false, duelZone = 0, duelOver = false;
+  let duelInputs = [];
+  const duelKeys = new Set(), duelPointers = new Map(), duelPulses = new Map();
+  const arenaDuelVisible = () => Boolean(el('tab-arena')?.classList?.contains('active'));
+  const duelBusy = () => ({ running: duelRunning, paused: duelPaused, submitting: duelSubmitting, zone: duelZone, tick: duelSim?.tick || 0, status: duelSim?.status || 'idle' });
+
+  function duelStatusLine(text) {
+    const box = el('arena-duel-status');
+    if (box) { box.textContent = text || ''; box.hidden = !text; }
+  }
+  function duelBanner(text) {
+    const live = el('arena-live-banner'), t = el('arena-live-text');
+    if (!live || !t) return;
+    if (!text) { live.hidden = true; return; }
+    live.hidden = false; t.textContent = text;
+    if (el('arena-resume-btn')) el('arena-resume-btn').hidden = true;
+    if (el('arena-abandon-btn')) el('arena-abandon-btn').hidden = true;
+  }
+  function duelRecord(mask) {
+    const prev = duelInputs[duelInputs.length - 1];
+    if (prev && prev.mask === mask) prev.frames++;
+    else duelInputs.push({ mask, frames: 1 });
+  }
+  function duelMaskNow() {
+    let mask = 0;
+    for (const k of duelKeys) mask |= DUEL_KEYMAP[k] || 0;
+    for (const v of duelPointers.values()) mask |= v;
+    for (const v of duelPulses.values()) mask |= v;
+    duelPulses.clear();
+    if (duelSim?.player) duelSim.lastMask = mask;
+    return mask;
+  }
+  function duelDraw() {
+    if (!duelSim || !arenaCanvas) return;
+    try {
+      renderer.draw(arenaCanvas, duelSim, {
+        arena: true, arenaId: duelZone % 4, reduced,
+        particles: arenaParticles, floaters: arenaFloaters, shake: arenaShake, beams: [],
+      });
+    } catch (_) {}
+  }
+  function duelHud() {
+    if (!duelSim) return;
+    const p = duelSim.player, rival = duelSim.enemies[0];
+    const heroBar = el('arena-hp-hero'), rivalBar = el('arena-hp-rival');
+    if (heroBar) heroBar.style.width = `${Math.max(0, Math.min(100, (p.hearts / Math.max(1, p.maxHearts)) * 100))}%`;
+    if (rivalBar && rival) rivalBar.style.width = `${Math.max(0, Math.min(100, (rival.hp / Math.max(1, rival.maxHp)) * 100))}%`;
+    const heroEn = el('arena-en-hero');
+    if (heroEn) heroEn.style.width = `${Math.max(0, Math.min(100, 100 - (p.skillCooldown || 0) / Math.max(1, p.skillMaxCooldown || 1) * 100))}%`;
+    const rivalEn = el('arena-en-rival');
+    if (rivalEn && rival) rivalEn.style.width = `${Math.max(0, Math.min(100, 100 - (rival.hp / Math.max(1, rival.maxHp)) * 100))}%`;
+    const timerEl = el('arena-timer');
+    if (timerEl) timerEl.textContent = String(Math.max(0, Math.ceil((R.MAX_TICKS - duelSim.tick) / R.FPS)));
+    const roundEl = el('arena-round');
+    if (roundEl) roundEl.textContent = duelSim.status === 'playing' ? 'مبارزة' : (duelSim.status === 'won' ? 'انتصار' : 'خسارة');
+    if (duelSim.status === 'playing') {
+      const intent = rival && rival.state === 'windup' ? INTENT_LABEL[rival.attack] || 'هجوم' : '';
+      const parts = [];
+      if (p.combo >= 2) parts.push(`سلسلة ×${p.combo}`);
+      if (p.guard) parts.push(`درع ${Math.round(100 * p.guard.stamina / Math.max(1, p.guard.maxStamina))}%`);
+      if (intent) parts.push(intent);
+      duelStatusLine(parts.join(' · '));
+    }
+  }
+
+  function duelFrame(now) {
+    duelRaf = 0;
+    if (!duelRunning) return;
+    if (duelPaused) return;
+    if (!arenaDuelVisible() || document.hidden) { duelPaused = true; return; }
+    const stamp = Number(now) || 0;
+    duelAcc += Math.min(0.1, duelStamp ? (stamp - duelStamp) / 1000 : R.DT);
+    duelStamp = stamp;
+    let count = 0;
+    while (duelAcc >= R.DT && count++ < 6 && duelSim.status === 'playing') {
+      const mask = duelMaskNow();
+      if (duelInputs.length >= R.MAX_SEGMENTS && duelInputs[duelInputs.length - 1]?.mask !== mask) break;
+      duelRecord(mask);
+      R.step(duelSim, mask);
+      collectFx(duelSim);
+      duelAcc -= R.DT;
+    }
+    arenaTick2();
+    duelDraw();
+    duelHud();
+    if (duelSim.status !== 'playing') { duelEndedTick++; if (duelEndedTick > 45) { void duelFinish(); return; } }
+    duelRaf = requestAnimationFrame(duelFrame);
+  }
+  function duelSchedule() {
+    if (!duelRunning || duelPaused) return;
+    if (duelRaf) cancelAnimationFrame(duelRaf);
+    duelRaf = requestAnimationFrame(duelFrame);
+  }
+
+  async function startArenaRun(zone) {
+    if (duelRunning || duelSubmitting) return false;
+    if (running || pending) return false; // جولة منجم جارية: لا نتداخل معها
+    const z = Math.max(0, Math.min((R.MINES?.length || 1) - 1, Number.isInteger(zone) ? zone : arenaZone));
+    hideArenaPreview();
+    duelZone = z;
+    duelInputs = []; duelKeys.clear(); duelPointers.clear(); duelPulses.clear();
+    arenaParticles = []; arenaFloaters = []; arenaShake = 0;
+    duelAcc = 0; duelStamp = 0; duelOver = false; duelEndedTick = 0;
+    duelStatusLine('جارٍ فتح المبارزة…');
+    duelBanner('');
+    let config = R.normalizeConfig({ zone: z, goal: selectedGoal, mode: 'duel', loadout: liveLoadout() });
+    try {
+      await bridge.ready(); owner = bridge.user();
+      if (owner) {
+        const issued = await request('/api/platform/start', { zone: z, goal: selectedGoal, mode: 'duel' });
+        if (issued.version !== R.VERSION) throw new Error('حدّث الصفحة للحصول على نسخة المستوى الحالية');
+        duelTicket = issued;
+        config = R.normalizeConfig(issued.config);
+        duelZone = config.zone;
+      } else {
+        duelTicket = null;
+        duelStatusLine('تدريب بلا اتصال: لا مكافأة خادمية لهذه المبارزة.');
+      }
+    } catch (e) {
+      duelTicket = null;
+      duelStatusLine(`تعذّر فتح المبارزة: ${e.message || 'انقطاع'}. جرّب مجددًا.`);
+      duelBanner('');
+      return false;
+    }
+    duelSim = R.create(currentHero, duelTicket?.id ? R.seedFromId(duelTicket.id) : undefined, config);
+    duelRunning = true; duelPaused = false;
+    document.body.classList.add('duel-live');
+    const pad = el('arena-pad'); if (pad) pad.hidden = false;
+    audioUnlock();
+    duelStatusLine('اقرأ إنذار الخصم: الضربة القريبة تُصدّ، والكاسرة تُقفز أو تُراوغ.');
+    duelDraw(); duelHud();
+    duelSchedule();
+    return true;
+  }
+
+  async function duelFinish() {
+    if (!duelSim || !duelRunning || duelSubmitting || duelOver) return;
+    duelOver = true; duelRunning = false;
+    if (duelRaf) cancelAnimationFrame(duelRaf);
+    duelRaf = 0;
+    document.body.classList.remove('duel-live');
+    const pad = el('arena-pad'); if (pad) pad.hidden = true;
+    const won = duelSim.status === 'won';
+    const rival = duelSim.enemies[0];
+    duelStatusLine('');
+    duelBanner(won
+      ? `انتصرت على «${rival?.name || 'المبارز'}» — جارٍ التحقق من المكافأة على الخادم…`
+      : `سقطت أمام «${rival?.name || 'المبارز'}» — لا مكافأة، والموارد لم تُمسّ.`);
+    const payload = { id: duelTicket?.id, inputs: duelInputs, hero: currentHero };
+    if (!duelTicket) {
+      duelBanner(`${won ? 'انتصار' : 'خسارة'} في مبارزة تدريبية (بلا اتصال) — لا ذهب ولا خبرة.`);
+      duelWrapUp();
+      return;
+    }
+    duelSubmitting = true;
+    try {
+      await bridge.flush();
+      const result = await request('/api/platform/finish', payload);
+      bridge.adopt(result.profile);
+      duelBanner(`${won ? 'انتصرت!' : 'سقطت'} — نتيجتك مؤكدة على الخادم: +${result.gold} ذهب · +${result.xp} خبرة${result.reason === 'daily_cap' ? ' (سقف المبارزات اليومي)' : ''}.`);
+      say(`مبارزة موثّقة: ${result.score} نقطة · +${result.gold} ذهب · +${result.xp} خبرة.`);
+      window.dispatchEvent(new CustomEvent('platform-duel-result', { detail: { won, receipt: result } }));
+    } catch (e) {
+      // لا نُهمل نتيجة أبدًا: نبقيها للخادم في تبويب اللعب
+      pending = payload; save(true); el('platform-start').disabled = true;
+      duelBanner(`${won ? 'انتصار' : 'خسارة'} — تعذّر تأكيد المكافأة (${e.message || 'انقطاع'}). النتيجة محفوظة محليًا، وتُرسل من تبويب «اللعب» بزر «أعد الإرسال».`);
+    } finally {
+      duelSubmitting = false;
+      duelWrapUp();
+    }
+  }
+  function duelWrapUp() {
+    duelTicket = null; duelRunning = false; duelPaused = false;
+    duelKeys.clear(); duelPointers.clear(); duelPulses.clear();
+    document.body.classList.remove('duel-live');
+    const pad = el('arena-pad'); if (pad) pad.hidden = true;
+    duelSim = null;
+    duelStatusLine('');
+    // نُعيد مسرح الاستعراض الحيّ بعد انتهاء المبارزة
+    if (arenaDuelVisible()) { arenaSim = null; arenaZone = duelZone; showArenaPreview(duelZone); }
+    window.dispatchEvent(new CustomEvent('platform-duel-done', { detail: { zone: duelZone } }));
+  }
+  // خطوة يدوية (للاختبار الآلي ولمُغذّي المتصفح): تُسجّل الإدخال وتُقدّم المحاكاة بلا rAF
+  function duelAdvance(mask = 0, frames = 1) {
+    if (!duelSim) return null;
+    const n = Math.max(1, Math.min(900, Number(frames) || 1));
+    for (let i = 0; i < n && duelSim.status === 'playing'; i++) {
+      duelRecord(mask);
+      R.step(duelSim, mask);
+      collectFx(duelSim);
+    }
+    arenaTick2();
+    duelDraw(); duelHud();
+    const snap = {
+      status: duelSim.status, tick: duelSim.tick, x: duelSim.player.x, y: duelSim.player.y,
+      hearts: duelSim.player.hearts, combo: duelSim.player.combo, guard: duelSim.player.guard?.stamina ?? null,
+      rivalHp: duelSim.enemies[0]?.hp ?? null, rivalState: duelSim.enemies[0]?.state ?? null,
+      inputs: duelInputs.length, running: duelRunning,
+    };
+    if (duelSim.status !== 'playing' && duelRunning) {
+      duelEndedTick = 46;
+      void duelFinish();
+    }
+    return snap;
+  }
+  function duelAbandon() {
+    if (!duelSim && !duelRunning) return false;
+    duelSim = null; duelRunning = false; duelPaused = false; duelTicket = null; duelInputs = [];
+    if (duelRaf) cancelAnimationFrame(duelRaf);
+    duelRaf = 0;
+    document.body.classList.remove('duel-live');
+    const pad = el('arena-pad'); if (pad) pad.hidden = true;
+    duelStatusLine('');
+    window.dispatchEvent(new CustomEvent('platform-duel-done', { detail: { zone: duelZone, abandoned: true } }));
+    return true;
+  }
+
+  function pauseDuel() {
+    if (!duelRunning || duelPaused) return;
+    duelPaused = true;
+    if (duelRaf) cancelAnimationFrame(duelRaf);
+    duelRaf = 0;
+  }
+  function resumeDuel() {
+    if (!duelRunning || !duelPaused) return;
+    duelPaused = false; duelStamp = 0; duelAcc = 0;
+    duelSchedule();
+  }
+
+  // ===== ربط أدوات تحكم الساحة: أزرار لمس + لوحة مفاتيح، بتعدد لمس مستقل عن لوحة اللعب =====
+  const duelButtons = () => document.querySelectorAll('[data-duel-input]');
+  for (const button of duelButtons()) {
+    button.addEventListener('pointerdown', e => {
+      if (!duelRunning || duelPaused) return;
+      e.preventDefault();
+      const mask = Number(button.dataset.duelInput);
+      button.setPointerCapture?.(e.pointerId);
+      duelPointers.set(e.pointerId, mask);
+      if (mask & 12) duelPulses.set(`d:${e.pointerId}`, mask & 12);
+      button.dataset.down = 'true';
+    });
+    const release = e => {
+      duelPointers.delete(e.pointerId);
+      button.dataset.down = String([...duelPointers.values()].includes(Number(button.dataset.duelInput)));
+    };
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release);
+    button.addEventListener('contextmenu', e => e.preventDefault());
+    button.addEventListener('touchend', e => e.preventDefault(), { passive: false });
+  }
+  window.addEventListener('keydown', e => {
+    if (!duelRunning || duelPaused) return;
+    if (!arenaDuelVisible() || !DUEL_KEYMAP[e.code]) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target?.tagName || '')) return;
+    e.preventDefault();
+    const mask = DUEL_KEYMAP[e.code];
+    if (!e.repeat) duelPulses.set(`k:${e.code}`, mask);
+    duelKeys.add(e.code);
+  });
+  window.addEventListener('keyup', e => { duelKeys.delete(e.code); });
+  window.addEventListener('blur', () => { duelKeys.clear(); duelPointers.clear(); pauseDuel(); });
+
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
     pause, onShow, showArenaPreview, hideArenaPreview,
+    // مبارزة الساحة المستقلة (على مسرح تبويب الساحة نفسه)
+    startArenaRun, duelBusy, pauseDuel, resumeDuel, duelAdvance, duelAbandon,
+    duelInspect: () => ({ ...duelBusy(), rival: duelSim?.enemies?.[0]?.name || null, hearts: duelSim?.player?.hearts ?? null, inputs: duelInputs.length }),
     // حالة المسرح الاستعراضي (لاختبار بصري حقيقي: هل يتقدّم؟ من الخصم المعروض؟)
     arenaInspect: () => ({ zone: arenaZone, tick: arenaSim?.tick ?? 0, running: Boolean(arenaRaf), rival: arenaSim?.enemies?.[0]?.name || null }), setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
@@ -1588,12 +1864,11 @@
     }),
     feed, resetFeed() { feedIndex = 0; feedFrame = 0; },
     // يبدأ مبارزة حيّة من شاشة الساحة: نفس محرك الحركة، وضع duel فقط.
+    // مبارزة الساحة: تجري في تبويب الساحة نفسه بنفس المحرك، ولا تلمس جولة المنجم ولا وضعها
     startDuel(zone = 0) {
-      if (running || pending) { say('أكمل الجولة الحالية أولًا.'); return false; }
-      selectedMode = 'duel';
-      try { localStorage.setItem('platform-mode', selectedMode); } catch (_) {}
-      if (Number.isInteger(zone) && zone >= 0 && zone < (R.MINES?.length || 1)) setZone(zone, false);
-      start();
+      if (duelRunning || duelSubmitting) return false;
+      if (running || pending) { say('أكمل جولة المنجم الحالية أولًا (أو تخلَّ عنها من الساحة).'); return false; }
+      void startArenaRun(Number.isInteger(zone) ? zone : arenaZone);
       return true;
     },
     // حالة الجولة كما تراها الواجهة: هل هناك جولة جارية أو نتيجة تنتظر الخادم؟

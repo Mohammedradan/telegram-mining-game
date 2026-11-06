@@ -214,20 +214,61 @@ test('arena UI: a real match — announce, approach, strike, enemy turn, then a 
   assert.deepEqual(page.errors, [], 'no runtime errors during the whole flow');
 });
 
-test('arena UI: the action-duel launcher hands control to the movement engine', async () => {
+test('arena UI: «ابدأ المبارزة» starts the fight inside the arena tab — it never jumps to the play tab', async () => {
   const page = boot();
   assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
   await new Promise((r) => setTimeout(r, 0));
   page.runTimers();
   page.arena().tab();
+  // المحاكي لا يملك querySelectorAll، فنُطفئ تبويب اللعب يدويًا: التبديل الحقيقي وحده يعيده
+  page.byId('tab-play').classList.remove('active');
   const game = page.ctx.PlatformGame;
   assert.ok(game && typeof game.startDuel === 'function', 'the movement engine exposes startDuel');
-  assert.equal(typeof game.mode, 'function');
-  game.startDuel(0);
-  assert.equal(game.mode(), 'duel', 'the engine switches to the duel mode');
+  assert.ok(typeof game.startArenaRun === 'function', 'and the arena duel runs on its own controller');
+  assert.equal(page.byId('tab-arena').classList.contains('active'), true, 'we are on the arena tab');
+
+  page.ctx.startArenaDuel(0);
+  await new Promise((r) => setTimeout(r, 5));
   page.runTimers();
-  const tab = page.byId('tab-play');
-  assert.equal(tab.classList.contains('active'), true, 'the player lands on the real action stage');
+
+  // 1) بقينا في تبويب الساحة ولم نُنتقل إلى اللعب
+  assert.equal(page.byId('tab-arena').classList.contains('active'), true, 'still on the arena tab');
+  assert.equal(page.byId('tab-play').classList.contains('active'), false, 'the play tab was never activated');
+  // 2) المبارزة بدأت فعلًا بنفس المحرك
+  const duel = game.duelBusy();
+  assert.equal(duel.running, true, 'the duel is running');
+  assert.equal(duel.status, 'playing', 'with a live simulation');
+  assert.equal(duel.zone, 0);
+  // 3) حالة تبويب اللعب لم تُمسّ
+  assert.equal(game.busy().running, false, 'the mining run state is untouched');
+  // 4) التحكم داخل الساحة ظاهر
+  assert.equal(page.byId('arena-pad').hidden, false, 'the arena combat pad is shown');
+  assert.equal(page.ctx.document.body.classList.contains('duel-live'), true, 'the stage switches to fight layout');
+
+  // 5) الحركة والهجوم يعملان على المحاكاة نفسها
+  const start = game.duelAdvance(0, 1);
+  const moved = game.duelAdvance(2, 24); // RIGHT
+  assert.ok(moved.x > start.x, `the fighter moves right (${start.x} → ${moved.x})`);
+  assert.ok(moved.inputs > 0, 'inputs are recorded for the server replay');
+  assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
+});
+
+test('arena UI: a finished arena duel leaves the play tab exactly as it was', async () => {
+  const page = boot();
+  await new Promise((r) => setTimeout(r, 0));
+  page.runTimers();
+  page.arena().tab();
+  page.byId('tab-play').classList.remove('active');
+  const game = page.ctx.PlatformGame;
+  page.ctx.startArenaDuel(0);
+  await new Promise((r) => setTimeout(r, 5));
+  page.runTimers();
+  assert.equal(game.duelBusy().running, true);
+  // التخلّي عن مبارزة الساحة لا يمسّ أي جولة منجم ولا يترك حالة معلّقة
+  assert.equal(game.duelAbandon(), true, 'a live arena duel can be dropped');
+  assert.equal(game.duelBusy().running, false, 'and it stops');
+  assert.equal(game.busy().running, false, 'the mining state stays idle');
+  assert.equal(page.byId('tab-play').classList.contains('active'), false, 'still on the arena tab');
   assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
 });
 
@@ -263,7 +304,7 @@ test('arena UI: the live duel is the primary entry, the classic duel sits in a c
   assert.match(html, /duelReward\?\./, 'the reward shown comes from the rules, not a hardcoded number');
 });
 
-test('arena UI: abandoning a stale run is safe and never drops a result waiting for the server', async () => {
+test('arena UI: abandoning a stale mining run is safe and never drops a result waiting for the server', async () => {
   const page = boot();
   assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
   await new Promise((r) => setTimeout(r, 0));
@@ -273,18 +314,15 @@ test('arena UI: abandoning a stale run is safe and never drops a result waiting 
   assert.deepEqual(Object.keys(game.busy()).sort(), ['paused', 'pending', 'running', 'submitting']);
   // لا شيء جارٍ: التخلّي لا يفعل شيئًا (لا يمسّ جولة غير موجودة)
   assert.equal(game.abandon(), false);
-  // جولة بدأت فعلاً: التخلّي يحرّر الحالة كي لا يبقى اللاعب محبوسًا
-  assert.equal(game.startDuel(0), true, 'the duel starts');
+  // مبارزة الساحة لا تُنشئ جولة منجم: حالة اللعب تبقى حرة بعدها
+  page.arena().tab();
+  page.ctx.startArenaDuel(0);
   await new Promise((r) => setTimeout(r, 5));
-  const busy = game.busy();
-  assert.equal(busy.running, true, 'a run is genuinely in progress');
-  assert.equal(busy.pending, false);
-  // الشاشة الأولى (الغلاف) تختفي فور بدء المبارزة، ولو كان التبويب قد ظهر بعد لحظة من الأمر
-  assert.equal(page.byId('platform-overlay').hidden, true, 'the start overlay is gone once the duel begins');
-  assert.equal(game.abandon(), true, 'a live run can be dropped from the arena');
-  assert.equal(game.busy().running, false, 'and the engine is free again');
-  // وبعد التخلّي تبدأ مبارزة جديدة فورًا بدل البقاء محبوسًا
-  assert.equal(game.startDuel(0), true);
+  page.runTimers();
+  assert.equal(game.duelBusy().running, true, 'the arena duel is the one running');
+  assert.equal(game.busy().running, false, 'no mining run was created by the duel');
+  assert.equal(game.abandon(), false, 'and abandoning a mining run is still a no-op');
+  assert.equal(game.duelAbandon(), true, 'the arena duel is the one that can be dropped');
   assert.equal(page.errors.length, 0, `no runtime errors: ${page.errors.join(' | ')}`);
 });
 
