@@ -1393,7 +1393,8 @@
   }
   function arenaDraw() {
     if (!arenaSim || !arenaCanvas) return;
-    try { renderer.draw(arenaCanvas, arenaSim, { reduced, particles: [], shake: 0, floaters: [], beams: [] }); } catch (_) {}
+    // arena: true ← مسرح الساحة يرسم حلبة المبارزة (جمهور ومشاعل وأرض رملية) لا أنفاق المنجم
+    try { renderer.draw(arenaCanvas, arenaSim, { arena: true, reduced, particles: [], shake: 0, floaters: [], beams: [] }); } catch (_) {}
   }
   // شريطا الصحة في كتلة المسرح: يُحدَّثان من حالة المحاكاة نفسها (لا رسم تخييلي)
   let arenaHudTick = 0;

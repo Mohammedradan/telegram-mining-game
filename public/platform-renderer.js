@@ -509,6 +509,137 @@
     c.restore();
   }
 
+  // ===== ساحة المبارزة: مشهد مستقل تمامًا عن المناجم =====
+  // حائط مدرّج بأقواس، جمهور في الظل، مشاعل مشتعلة، لافتات معلّقة، وأرض رملية.
+  // تُرسم فقط عند opts.arena (حلبة المعاينة ومبارزات اللعب)، ولا تلمس أي حساب فيزيائي.
+  const ARENA_SKIN = {
+    rock: ['#6b4b30', '#7f5c3b'], top: ['#c9a363', '#e2c088', '#f3dcae'],
+    moss: '#b78f52', crack: '#453020', hi: '#9a7448',
+  };
+  const ARENA_FLOOR = 300; // مطابق تمامًا لأرض الفيزياء (y = 300) فلا تطفو القدمان
+  function drawArena(c, w, tick, reduced, camera) {
+    const FLOOR = ARENA_FLOOR;
+    const rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+
+    // 1) سماء الليل فوق الساحة: بنفسجي عميق يدفأ قرب الأرض
+    const g = c.createLinearGradient(0, 0, 0, 360);
+    g.addColorStop(0, '#0b0818'); g.addColorStop(0.34, '#191029');
+    g.addColorStop(0.66, '#28162c'); g.addColorStop(1, '#3b2028');
+    c.fillStyle = g; c.fillRect(0, 0, w, 360);
+
+    // 2) لافتات معلّقة من الأعلى
+    const bannerShift = camera * 0.12;
+    for (let i = Math.floor(bannerShift / 150) - 1; i < Math.ceil((bannerShift + w) / 150) + 1; i++) {
+      const x = i * 150 - bannerShift + 26;
+      const wave = reduced ? 0 : Math.sin(tick * 0.05 + i) * 2;
+      c.fillStyle = i % 2 ? '#8d2f4a' : '#b8862f';
+      c.beginPath();
+      c.moveTo(x, 0); c.lineTo(x + 46, 0);
+      c.lineTo(x + 46, 52 + wave); c.lineTo(x + 23, 64 + wave); c.lineTo(x, 52 + wave);
+      c.closePath(); c.fill();
+      c.fillStyle = 'rgba(255,226,160,0.55)';
+      c.beginPath(); c.moveTo(x + 18, 10); c.lineTo(x + 28, 10); c.lineTo(x + 23, 30); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 46, 0); c.stroke();
+    }
+
+    // 3) الحائط الحجري بأقواس، وداخل كل قوس صفوف الجمهور
+    const back = camera * 0.22;
+    for (let i = Math.floor(back / 210) - 1; i < Math.ceil((back + w) / 210) + 1; i++) {
+      const x = i * 210 - back;
+      c.fillStyle = '#2a1f3a'; c.fillRect(x + 4, 84, 202, FLOOR - 84);
+      c.fillStyle = 'rgba(255,255,255,0.05)'; c.fillRect(x + 4, 84, 202, 3);
+      // فتحة القوس (مظلمة) وخلفها الجمهور
+      const ax = x + 48, aw = 114, atop = 150;
+      c.save();
+      c.beginPath();
+      c.moveTo(ax, FLOOR); c.lineTo(ax, atop + 30);
+      c.quadraticCurveTo(ax, atop, ax + aw / 2, atop);
+      c.quadraticCurveTo(ax + aw, atop, ax + aw, atop + 30);
+      c.lineTo(ax + aw, FLOOR); c.closePath();
+      c.fillStyle = '#120c22'; c.fill();
+      c.clip();
+      for (let row = 0; row < 3; row++) {
+        const yy = 196 + row * 26, step = 17 + row * 2;
+        const start = Math.floor((ax - back * 0) / step);
+        for (let k = start; k < start + 10; k++) {
+          const hx = k * step + (row % 2) * 6;
+          const bob = reduced ? 0 : Math.sin(tick * 0.07 + k * 1.3 + row) * 1.4;
+          const shade = 0.35 + row * 0.12;
+          c.fillStyle = `rgba(${38 + row * 16},${26 + row * 10},${52 + row * 14},${shade + 0.35})`;
+          c.beginPath(); c.arc(hx, yy + bob, 5.6, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.roundRect(hx - 7, yy + 5 + bob, 14, 12, 5); c.fill();
+          if (row === 2 && rnd(k, i) > 0.6) {
+            c.fillStyle = 'rgba(255,214,140,0.85)';
+            c.fillRect(hx - 2, yy - 2 + bob, 1.5, 1.5);
+            c.fillRect(hx + 1, yy - 2 + bob, 1.5, 1.5);
+          }
+        }
+      }
+      c.restore();
+      // حافة القوس المضيئة
+      c.strokeStyle = 'rgba(255,198,120,0.16)'; c.lineWidth = 3;
+      c.beginPath();
+      c.moveTo(ax - 2, FLOOR - 2); c.lineTo(ax - 2, atop + 30);
+      c.quadraticCurveTo(ax - 2, atop - 2, ax + aw / 2, atop - 2);
+      c.quadraticCurveTo(ax + aw + 2, atop - 2, ax + aw + 2, atop + 30);
+      c.lineTo(ax + aw + 2, FLOOR - 2); c.stroke();
+    }
+
+    // 4) أعمدة ومشاعل على الحائط
+    for (let i = Math.floor(camera / 210) - 1; i < Math.ceil((camera + w) / 210) + 1; i++) {
+      const px = i * 210 + 26 - camera;
+      c.fillStyle = '#1d1530'; c.fillRect(px, 84, 20, FLOOR - 84);
+      c.fillStyle = 'rgba(255,255,255,0.07)'; c.fillRect(px + 2, 84, 3, FLOOR - 84);
+      const fl = 0.72 + 0.28 * Math.sin(tick * 0.19 + i * 1.7);
+      const hy = 176;
+      const glow = c.createRadialGradient(px + 10, hy, 2, px + 10, hy, 78 * fl);
+      glow.addColorStop(0, 'rgba(255,198,112,0.42)');
+      glow.addColorStop(0.45, 'rgba(255,138,62,0.13)');
+      glow.addColorStop(1, 'rgba(255,138,62,0)');
+      c.fillStyle = glow; c.fillRect(px - 68, hy - 78, 156, 156);
+      c.fillStyle = '#2b2016'; c.fillRect(px + 8, hy, 4, 26);
+      c.fillStyle = '#ff9b3d';
+      c.beginPath(); c.moveTo(px + 2, hy); c.quadraticCurveTo(px + 10, hy - 26 * fl, px + 18, hy); c.closePath(); c.fill();
+      c.fillStyle = '#ffe28c';
+      c.beginPath(); c.moveTo(px + 5, hy); c.quadraticCurveTo(px + 10, hy - 14 * fl, px + 15, hy); c.closePath(); c.fill();
+    }
+
+    // 5) حاجز الساحة الحجري
+    c.fillStyle = '#241b34'; c.fillRect(0, 268, w, FLOOR - 268);
+    c.fillStyle = 'rgba(255,206,140,0.20)'; c.fillRect(0, 268, w, 2);
+    for (let x = Math.floor(camera / 60) * 60 - 60; x < camera + w + 60; x += 60) {
+      c.fillStyle = 'rgba(0,0,0,0.22)';
+      c.fillRect(x - camera, 272, 2, FLOOR - 272);
+    }
+
+    // 6) أرضية رملية
+    const sand = c.createLinearGradient(0, FLOOR, 0, 360);
+    sand.addColorStop(0, '#c69a5c'); sand.addColorStop(0.45, '#a87c45'); sand.addColorStop(1, '#6f4f2c');
+    c.fillStyle = sand; c.fillRect(0, FLOOR, w, 360 - FLOOR);
+    c.fillStyle = 'rgba(255,236,190,0.35)'; c.fillRect(0, FLOOR, w, 1.5);
+    // حبيبات رمل ثابتة (حتمية من الموقع، لا عشوائية كل إطار)
+    for (let x = Math.floor(camera / 14) * 14; x < camera + w; x += 14) {
+      const k = Math.floor(x / 14);
+      const r1 = rnd(k, 1), r2 = rnd(k, 2), r3 = rnd(k, 3);
+      c.fillStyle = `rgba(${r1 > 0.5 ? '255,232,186' : '90,64,36'},${0.10 + r2 * 0.16})`;
+      c.fillRect(x - camera + r1 * 12, FLOOR + 6 + r2 * 46, 2 + r3 * 3, 1.4);
+    }
+    // برك ضوء المشاعل على الرمل
+    for (let i = Math.floor(camera / 210) - 1; i < Math.ceil((camera + w) / 210) + 1; i++) {
+      const px = i * 210 + 36 - camera;
+      const pool = c.createRadialGradient(px, FLOOR + 8, 4, px, FLOOR + 8, 96);
+      pool.addColorStop(0, 'rgba(255,196,120,0.16)');
+      pool.addColorStop(1, 'rgba(255,196,120,0)');
+      c.fillStyle = pool; c.fillRect(px - 96, FLOOR - 20, 192, 90);
+    }
+
+    // 7) تعتيم الأطراف
+    const vig = c.createRadialGradient(w / 2, 200, w * 0.35, w / 2, 200, w * 1.02);
+    vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+    c.fillStyle = vig; c.fillRect(0, 0, w, 360);
+  }
+
   // ---- Main draw ----
   function draw(canvas, s, opts = {}) {
     const reduced = !!opts.reduced;
@@ -520,6 +651,8 @@
     const dpr = Math.min(root.devicePixelRatio || 1, 2);
     const pixelW = Math.round(cssW * dpr), pixelH = Math.round(cssH * dpr);
     if (canvas.width !== pixelW || canvas.height !== pixelH) { canvas.width = pixelW; canvas.height = pixelH; }
+    // ساحة المبارزة: مشهد مختلف تمامًا عن المناجم — يظهر في مسرح تبويب الساحة وفي كل مبارزة حقيقية (mode: duel)
+    const arenaMode = !!opts.arena || s.mode === 'duel';
     const worldH = 360, w = Math.max(280, cssW * worldH / cssH);
     const scale = pixelW / w;
     c.setTransform(scale, 0, 0, pixelH / worldH, 0, 0);
@@ -538,6 +671,9 @@
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
     const zone = (R.ZONES || [])[s.zone || 0] || DEFAULT_ZONE;
 
+    if (arenaMode) {
+      drawArena(c, w, s.tick, reduced, camera);
+    } else {
     // ===== Background =====
     // Deep cavern gradient with vignette
     const bg = c.createLinearGradient(0, 0, 0, 360);
@@ -770,8 +906,9 @@
     c.fillStyle = skin ? skin.haze : 'rgba(255,100,40,0.04)';
     c.fillRect(0, 318, L.width, 10);
 
+    }
     // ---- Platforms with detailed stone ----
-    const sk = skin || { rock: ['#4c443c', '#5a5048'], top: ['#6b7c3f', '#a58253', '#d8b27c'], moss: '#5a6d35', crack: '#3a342e', hi: '#6b6358' };
+    const sk = arenaMode ? ARENA_SKIN : (skin || { rock: ['#4c443c', '#5a5048'], top: ['#6b7c3f', '#a58253', '#d8b27c'], moss: '#5a6d35', crack: '#3a342e', hi: '#6b6358' });
     for (const box of L.platforms) {
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
       // base rock
@@ -808,6 +945,7 @@
       }
     }
 
+    if (!arenaMode) {
     // ---- Rocks / Ores (with HP stages and ore veins) ----
     // V4: صلابة الصخر تختلف بين المناجم (3..24)، فالمراحل تُحسب بنسبة الصحة لا بقيمة مطلقة؛
     // منجم 0 (3 نقاط) يطابق الرسم القديم تماماً.
@@ -1070,6 +1208,7 @@
       c.fillRect(e.x + 33, 42 + e.y, 4, 8);
     }
 
+    }
     // ---- Projectiles ----
     if (s.projectiles) for (const proj of s.projectiles) drawProjectile(c, proj);
 
