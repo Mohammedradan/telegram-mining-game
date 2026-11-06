@@ -936,13 +936,26 @@
       // side shadow
       c.fillStyle = 'rgba(0,0,0,0.18)';
       c.fillRect(box.x, box.y + box.h - 6, box.w, 6);
-      // pillars for floating platforms
+      // pillars for floating platforms — في الساحة أعمدة حجرية لا خشب منجم
       if (box.h < 25) {
-        round(c, box.x + 8, box.y + 17, 8, 26, 2, '#7a5e3e');
-        round(c, box.x + 8, box.y + 19, 5, 22, 1, '#9a7a52');
-        round(c, box.x + box.w - 16, box.y + 17, 8, 26, 2, '#7a5e3e');
-        round(c, box.x + box.w - 14, box.y + 19, 5, 22, 1, '#9a7a52');
+        const leg = arenaMode ? ARENA_SKIN.rock : ['#7a5e3e', '#9a7a52'];
+        round(c, box.x + 8, box.y + 17, 8, 26, 2, leg[0]);
+        round(c, box.x + 8, box.y + 19, 5, 22, 1, leg[1]);
+        round(c, box.x + box.w - 16, box.y + 17, 8, 26, 2, leg[0]);
+        round(c, box.x + box.w - 14, box.y + 19, 5, 22, 1, leg[1]);
       }
+    }
+
+    if (arenaMode) {
+      // حلقة الساحة على أرض القتال (زخرفة فقط): تُظهر مركز المبارزة ولا تمسّ أي حساب فيزيائي.
+      c.save();
+      c.beginPath(); c.rect(0, 300, w, 60); c.clip();
+      c.strokeStyle = 'rgba(255,236,190,0.22)'; c.lineWidth = 3; c.setLineDash([18, 13]);
+      c.beginPath(); c.ellipse(282, 300, 246, 30, 0, 0, Math.PI); c.stroke();
+      c.setLineDash([]);
+      c.strokeStyle = 'rgba(60,34,14,0.30)'; c.lineWidth = 2;
+      c.beginPath(); c.ellipse(282, 300, 214, 22, 0, 0, Math.PI); c.stroke();
+      c.restore();
     }
 
     if (!arenaMode) {

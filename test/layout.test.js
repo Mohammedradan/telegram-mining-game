@@ -178,7 +178,7 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
   assert.match(html, /platform-rules\.js\?v=11/);
   assert.match(html, /platform-game\.js\?v=27/);
-  assert.match(html, /platform-renderer\.js\?v=9/);
+  assert.match(html, /platform-renderer\.js\?v=10/);
   assert.match(html, /platform-scenery\.js\?v=1/);
   assert.match(html, /platform-bosses\.js\?v=4/);
   assert.match(html, /platform\.css\?v=23/);
