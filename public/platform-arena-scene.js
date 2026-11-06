@@ -610,29 +610,6 @@
     }
 
     // ===== وميض الإصابة: يوضّح أن الضربة وقعت فعلًا (من حالة المحاكاة) =====
-    // ===== نافذة الضربة: بعد أن ينهي الخصم هجومه (recover) تصبح ضربتك مسموعة =====
-    // المحرك يسمح بإيذاء المبارز المدرّع في نافذة الاستشفاء فقط؛ فتُعلَن هذه النافذة بصريًا
-    // (سهم نابض + حلقة أرضية) حتى يقرأ اللاعب متى يهجم — عرض فقط، بلا أي أثر على الحساب.
-    if (!isPlayer && ent.state === 'recover' && !ent.dead && ent.boss) {
-      const puls = reduced ? 0.7 : 0.55 + 0.45 * Math.sin(tick * 0.35);
-      c.save();
-      c.translate(0, -128 - (reduced ? 0 : Math.abs(Math.sin(tick * 0.12)) * 4));
-      c.globalCompositeOperation = 'lighter';
-      const glow = c.createRadialGradient(0, 6, 2, 0, 6, 30);
-      glow.addColorStop(0, `rgba(124,231,255,${0.32 + puls * 0.28})`);
-      glow.addColorStop(1, 'rgba(124,231,255,0)');
-      c.fillStyle = glow; c.beginPath(); c.arc(0, 6, 30, 0, TAU); c.fill();
-      c.globalAlpha = 0.7 + puls * 0.3;
-      c.fillStyle = '#9ff0ff';
-      c.beginPath(); c.moveTo(-15, 0); c.lineTo(15, 0); c.lineTo(0, 17); c.closePath(); c.fill();
-      c.restore();
-      c.save();
-      c.globalAlpha = 0.22 + puls * 0.26;
-      c.strokeStyle = '#7ce7ff'; c.lineWidth = 2.5;
-      c.beginPath(); c.ellipse(0, 2, 30 + puls * 5, 9, 0, 0, TAU); c.stroke();
-      c.restore();
-    }
-
     const hurtFlash = isPlayer ? (ent.invulnerable > 0 && ent.hearts > 0) : (ent.hurtCooldown > 0);
     if (hurtFlash) {
       // وميض خفيف يتبع الصورة الظلية بدل كتلة لونية: يُقرأ كإصابة لا كفقاعة
@@ -653,14 +630,32 @@
 
     c.restore();
 
-    // ===== علامة نيّة الخصم فوق رأسه =====
+    // ===== إنذار هجوم الخصم: العدّاد يقفل قبل وصول الضربة =====
+    // اللون والمعنى مأخوذان من نفس الحقل الذي يبنيه المحرك (attack === 'overhead' ⇒ كاسرة
+    // لا تُصدّ) ونفس المؤقّت (timer / ai.windup) — فلا يخبر الإنذار اللاعب بشيء غير حقيقي.
     if (!isPlayer && ent.state === 'windup' && !ent.dead) {
-      const t = 1 - ent.timer / Math.max(1, ent.ai ? ent.ai.windup : 38);
+      const t = 1 - ent.timer / Math.max(1, ent.ai ? ent.ai.windup : 38); // 0 = بداية الإنذار، 1 = لحظة الضربة
+      const unblockable = ent.attack === 'overhead';
+      const col = unblockable ? '#ff6b6b' : '#7ce7ff';
+      const bob = reduced ? 0 : Math.sin(tick * 0.25) * 2;
       c.save();
-      c.globalAlpha = 0.6 + t * 0.4;
-      c.fillStyle = ent.attack === 'overhead' ? '#ff6b6b' : '#ffd166';
-      c.font = '900 15px system-ui, sans-serif'; c.textAlign = 'center';
-      c.fillText(ent.attack === 'overhead' ? '⚠' : '!', cx, ent.y - 12);
+      c.translate(cx, ent.y - 36 + bob);
+      // قرص العدّاد: حلقة تُغلق باتجاه عقارب الساعة مع اقتراب الضربة
+      c.globalAlpha = 0.9;
+      c.fillStyle = 'rgba(8,10,18,.72)';
+      c.beginPath(); c.arc(0, 0, 12, 0, TAU); c.fill();
+      c.strokeStyle = col; c.lineWidth = 2.6;
+      c.beginPath(); c.arc(0, 0, 12, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(0.02, t)); c.stroke();
+      if (unblockable) {
+        // الكاسرة: مثلث خطر أحمر (لا يعتمد على خطوط النظام)
+        c.fillStyle = col;
+        c.beginPath(); c.moveTo(0, -7); c.lineTo(7.5, 6); c.lineTo(-7.5, 6); c.closePath(); c.fill();
+        c.fillStyle = '#1a0d10';
+        c.beginPath(); c.moveTo(0, -3); c.lineTo(2.2, 2.6); c.lineTo(-2.2, 2.6); c.closePath(); c.fill();
+      } else {
+        c.fillStyle = col; c.font = '900 15px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText('!', 0, 0.5);
+      }
       c.restore();
     }
   }

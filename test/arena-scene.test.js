@@ -89,13 +89,17 @@ test('the arena scene is a real module: four themed arenas and procedural ninjas
   assert.equal(skies.size, 4, 'each arena has its own palette');
 });
 
-test('the rival announces the punish window the engine actually honours', () => {
+test('the attack telegraph is built from the same fields the engine acts on', () => {
   const scene = fs.readFileSync(path.join(ROOT, 'public/platform-arena-scene.js'), 'utf8');
-  // المحرك لا يقبل الضرر على المبارز المدرّع إلا في حالة recover — فتُعلَن هذه الحالة بصريًا
-  assert.match(scene, /if \(!isPlayer && ent\.state === 'recover' && !ent\.dead && ent\.boss\)/, 'the cue is tied to the real recover state');
-  assert.match(scene, /#7ce7ff|#9ff0ff/, 'and drawn in its own colour (not the damage palette)');
   const rules = fs.readFileSync(path.join(ROOT, 'public/platform-rules.js'), 'utf8');
-  assert.match(rules, /enemy\.boss && enemy\.armored !== false && enemy\.state !== 'recover' \? 0 : amount/, 'the cue matches the engine gate, so it never lies to the player');
+  // الحالة والمؤقّت من المحاكاة نفسها، لا من عدّاد عرض مستقل
+  assert.match(scene, /ent\.state === 'windup' && !ent\.dead/, 'the cue follows the real windup state');
+  assert.match(scene, /const t = 1 - ent\.timer \/ Math\.max\(1, ent\.ai \? ent\.ai\.windup : 38\)/, 'and counts down with the engine timer');
+  // نفس الحقل الذي يحدّد «كاسرة لا تُصدّ» في المحرك
+  assert.match(rules, /unblockable: b\.attack === 'overhead'/, 'the engine marks the overhead as unblockable');
+  assert.match(scene, /const unblockable = ent\.attack === 'overhead';/, 'so the cue uses exactly that field');
+  // لا يوجد إنذار زائف لنافذة استشفاء لا يفرضها المحرك
+  assert.doesNotMatch(scene, /ent\.state === 'recover' && !ent\.dead/, 'no cue for a punish window the engine does not enforce');
 });
 
 test('the arena heats up as the rival weakens and fighters flash when hit', () => {
