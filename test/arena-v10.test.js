@@ -214,3 +214,121 @@ test('V10 server: a forged loadout in the request body is ignored — the saved 
   assert.equal(sim.player.skillMaxCooldown, 100, 'and the drill cooldown');
   assert.equal(sim.player.guard.maxStamina, 200, 'and the armor breath');
 });
+
+// ---------- 7) الرحلة الكاملة عبر الخادم: معدات ← مبارزة ← خسارة/فوز ← مكافأة ← عودة ← تعدين ----------
+// كل خطوة تمرّ على HTTP الحقيقي، والنتيجة والمكافأة تُقرأ من إعادة تشغيل الخادم لا من العميل.
+const journeyGuest = `journey_${runId}`;
+const journeyHeaders = { 'X-Guest-Id': journeyGuest, 'Content-Type': 'application/json' };
+const jpost = async (route, body) => {
+  const res = await fetch(`http://127.0.0.1:${port}/api/platform/${route}`, { method: 'POST', headers: journeyHeaders, body: JSON.stringify(body) });
+  return { status: res.status, body: await res.json() };
+};
+// الخادم يستقبل الإدخالات كمقاطع {mask, frames} — ندمج الإطارات المتتالية المتطابقة.
+const toSegments = (masks) => {
+  const out = [];
+  for (const mask of masks) {
+    const last = out[out.length - 1];
+    if (last && last.mask === mask) last.frames++; else out.push({ mask, frames: 1 });
+  }
+  return out;
+};
+// يُسبق وقت بدء الجولة بمدة لعبها حتى لا يرفض الخادم جولة أسرع من الزمن الحقيقي.
+// savePlatformRun لا يحدّث started_at عند التضارب (بالتصميم)، فالتعديل هنا على قاعدة الاختبار مباشرة.
+const backdate = (id, ticks) => {
+  const ms = Math.ceil((ticks / R.FPS) * 1000) + 2000;
+  if (url) return false; // Postgres: يُتخطّى هذا الاختبار (نفس سلوك اختبارات القاعدة الأخرى)
+  const Database = require('better-sqlite3');
+  const db = new Database(file);
+  try { db.prepare('UPDATE platform_runs SET started_at = started_at - ? WHERE id = ?').run(ms, String(id)); }
+  finally { db.close(); }
+  return true;
+};
+
+test('V10 journey: gear → duel loss → duel win → reward → exit/return → mining untouched', { skip: Boolean(url) ? 'needs sqlite to backdate the run clock' : false }, async () => {
+  const uid = `guest_${journeyGuest}`;
+  // (1) أول طلب يُنشئ الحفظ، ثم تُرقَّى المعدات فيه (الفأس/الدرع/المثقاب إلى 2)
+  const first = await jpost('start', { zone: 0, mode: 'duel', resume: false });
+  assert.equal(first.status, 200, 'the first request creates the save');
+  await store.withUsers([uid], async () => {
+    for (const r of await store.activePlatformRuns(uid)) { r.status = 'expired'; await store.savePlatformRun(r); }
+  });
+  await store.withUsers([uid], async () => {
+    const u = await store.getUser(uid);
+    u.state.equipment = { ...u.state.equipment, pickaxe: 2, armor: 2, drill: 2 };
+    await store.putUser(u);
+  });
+  // (2) دخول الساحة: التذكرة تحمل المعدات المحفوظة وتغيّر محاكاة القتال
+  const ticket = await jpost('start', { zone: 0, mode: 'duel', resume: false });
+  assert.equal(ticket.status, 200, 'the duel ticket opens');
+  assert.equal(ticket.body.config.loadout.pickaxe, 2, 'the ticket carries the upgraded axe');
+  assert.equal(ticket.body.config.mode, 'duel', 'and the duel mode');
+  const sim = R.create('miner', R.seedFromId(ticket.body.id), ticket.body.config);
+  assert.equal(sim.player.damage, 2, 'the upgraded axe changes the fight simulation');
+
+  // (3) خسارة نظيفة: لاعب لا يتحرك حتى نهاية الزمن (ساعة الجولة صادقة)
+  const idle = [];
+  for (let t = 0; t < R.MAX_TICKS && sim.status === 'playing'; t++) { idle.push(0); R.step(sim, 0); }
+  assert.equal(sim.status, 'lost', 'standing still loses the duel when the clock runs out');
+  await backdate(ticket.body.id, sim.tick);
+  const loss = await jpost('finish', { id: ticket.body.id, inputs: toSegments(idle) });
+  assert.equal(loss.status, 200, 'the loss is accepted');
+  assert.equal(loss.body.won, false, 'and recorded as a loss');
+  assert.equal(loss.body.arena.losses, 1, 'the server arena record moves');
+  assert.equal(loss.body.mineWins, 0, 'a duel never counts as a mine win');
+
+  // (4) مبارزة ثانية تُلعَب حتى الفوز بإدخالات حقيقية إطاراً بإطار
+  const win = await jpost('start', { zone: 0, mode: 'duel', resume: false });
+  assert.equal(win.status, 200);
+  const wsim = R.create('miner', R.seedFromId(win.body.id), win.body.config);
+  // نفس سياسة البوت المتقن المشتركة، ونفس لقطة «توقّف الضربة»: المحاكاة لا تتقدّم أثناءها
+  // والإدخال المُلتقَط يُطبَّق بعدها، فالإطارات المسجّلة تساوي إطارات المحاكاة تماماً.
+  const { BOTS } = require('../scripts/duel-bots.cjs');
+  const inputs = [];
+  let freeze = 0, pending = 0;
+  for (let t = 0; t < R.MAX_TICKS && wsim.status === 'playing'; t++) {
+    if (freeze > 0) { pending |= BOTS.expert(wsim); freeze--; continue; }
+    const mask = BOTS.expert(wsim) | pending;
+    pending = 0;
+    inputs.push(mask);
+    R.step(wsim, mask);
+    for (const ev of wsim.events || []) if (ev.type === 'hit' || ev.type === 'hurt') freeze = Math.max(freeze, ev.type === 'hit' ? 2 : 3);
+  }
+  assert.equal(wsim.status, 'won', 'a real recorded input sequence wins zone 0 with gear 2');
+  await backdate(win.body.id, wsim.tick);
+  await store.withUsers([uid], async () => {
+    const u = await store.getUser(uid);
+    u.sync.lastRewardAt.adventure = 0; // إزالة تبريد المكافأة القصير بين الجولتين
+    await store.putUser(u);
+  });
+  const won = await jpost('finish', { id: win.body.id, inputs: toSegments(inputs) });
+  assert.equal(won.status, 200, 'the win is accepted');
+  assert.equal(won.body.won, true, 'and recorded as a win');
+  assert.equal(won.body.duel.rivalHp, 0, 'the receipt reads the rival HP from the server replay');
+  assert.equal(won.body.arena.wins, 1, 'the arena record counts one win');
+  assert.equal(won.body.mineWins, 0, 'still no mine win from the arena');
+  assert.ok(won.body.gold > 0, 'the duel pays gold from its own cap');
+  const after = await store.withUsers([uid], async () => {
+    const u = await store.getUser(uid);
+    return { gold: Number(u.state.gold) || 0, duelGold: Number(u.sync.duelGold) || 0,
+      mines: JSON.stringify(u.state.mines), arena: { ...(u.sync.arena?.record || {}) } };
+  });
+  assert.ok(after.duelGold > 0, 'the duel reward is drawn from the duel cap');
+  assert.equal(after.arena.wins, 1, 'the win is persisted in the save');
+
+  // (5) عودة للتعدين: جولة منجم تُفتح وتُستأنف بنفس المعرّف، والمعدات لا تتسرّب للقتال
+  const mine = await jpost('start', { zone: 0, mode: 'mine', resume: false });
+  assert.equal(mine.status, 200, 'a mining round still starts after the arena');
+  assert.equal(mine.body.config.mode, 'mine', 'and it is a mining round, not a duel');
+  const again = await jpost('start', { zone: 0, mode: 'mine', resume: true });
+  assert.equal(again.body.id, mine.body.id, 'resuming returns the same mining run (no reset, no lost progress)');
+  const msim = R.create('miner', R.seedFromId(mine.body.id), mine.body.config);
+  assert.equal(msim.player.guardBreakBonus, 0, 'no arena-only bonus leaks into the mine');
+  for (let t = 0; t < 240; t++) R.step(msim, R.INPUT.RIGHT);
+  assert.ok(msim.tick >= 240, 'the mine simulation runs unchanged');
+  const finalState = await store.withUsers([uid], async () => {
+    const u = await store.getUser(uid);
+    return { mines: JSON.stringify(u.state.mines), gold: Number(u.state.gold) || 0 };
+  });
+  assert.equal(finalState.mines, after.mines, 'the mining progress ladder is untouched by arena play');
+  assert.ok(finalState.gold >= after.gold, 'gold never goes down');
+});
