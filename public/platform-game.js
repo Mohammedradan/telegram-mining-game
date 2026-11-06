@@ -1373,6 +1373,12 @@
     if (!rival || simNow.status !== 'playing') return 0;
     let mask = 0;
     const cx = p.x + p.w / 2, rx = rival.x + rival.w / 2;
+    // المسرح الاستعراضي يعرض المهارات الحقيقية: قفز فوق الموجة، صدّ الضربة القريبة، مراوغة الاندفاع
+    if (rival.state === 'windup' && p.guard && p.guard.stamina > 24) {
+      if (rival.attack === 'pound') mask |= R.INPUT.JUMP;
+      else if (rival.attack === 'sweep') mask |= R.INPUT.DEFEND;
+      else if (rival.attack === 'charge' && (p.dodge?.cooldown || 0) <= 0) mask |= R.INPUT.DODGE;
+    }
     const incoming = (simNow.waves || []).some(w => Math.abs((w.x + w.w / 2) - cx) < 120);
     if (incoming && p.grounded) mask |= R.INPUT.JUMP;
     const d = rx - cx;

@@ -319,6 +319,13 @@ test('boot: opening the app never starts a run or spends anything (no auto-play)
   assert.doesNotMatch(src, /function startArenaPreviewTab|autoStart/, 'there is no auto-start path');
 });
 
+test('arena preview: the demo shows the real moveset — jump, guard and dodge — not just walking', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(game, /rival\.attack === 'pound'\) mask \|= R\.INPUT\.JUMP/, 'jumps the unblockable ground slam');
+  assert.match(game, /rival\.attack === 'sweep'\) mask \|= R\.INPUT\.DEFEND/, 'guards the blockable sweep');
+  assert.match(game, /rival\.attack === 'charge'[\s\S]{0,80}R\.INPUT\.DODGE/, 'dodges the charge');
+});
+
 test('duel HUD: the rival gets an in-scene health bar during a duel, and it is absent from mining runs', () => {
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
