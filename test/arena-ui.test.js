@@ -326,6 +326,31 @@ test('arena preview: the demo shows the real moveset — jump, guard and dodge �
   assert.match(game, /rival\.attack === 'charge'[\s\S]{0,80}R\.INPUT\.DODGE/, 'dodges the charge');
 });
 
+test('a duel ends with a duel summary: rival HP, hearts and blocks — not rocks, gems or the fork', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(game, /const duelRun = mode === 'duel'/, 'the summary branches on the run mode');
+  assert.match(game, /titleEl\.textContent = duelRun \? 'ملخص المبارزة'/, 'the card is titled as a duel summary');
+  assert.match(game, /summaryRow\('صحة الخصم'/, 'rival HP is the first real row');
+  assert.match(game, /summaryRow\('قلوبك'/, 'hearts left are shown');
+  assert.match(game, /summaryRow\('صدّات ناجحة'/, 'successful guards are shown');
+  assert.match(game, /badge\.textContent = won \? 'انتصار' : 'خسارة'/, 'the badge reads win/loss');
+  // لا تظهر صفوف التعدين عند المبارزة: فرع المبارزة يُعيد البطاقة قبل الوصول إليها
+  const duelBlockStart = game.indexOf('if (duelRun) {');
+  const firstMiningRow = game.indexOf("summaryRow('المفترق'");
+  assert.ok(duelBlockStart > 0 && firstMiningRow > duelBlockStart, 'the duel branch comes before every mining row');
+  const duelBlock = game.slice(duelBlockStart, game.indexOf('if (badge && gs)', duelBlockStart));
+  assert.match(duelBlock, /return;\n\s*}/, 'and returns before the mining rows are built');
+});
+
+test('finishing a duel speaks about the duel — its own title, lead and button label', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(game, /'انتصرت في المبارزة!'/, 'a win is announced as a duel win');
+  assert.match(game, /'سقطت في المبارزة'/, 'a loss is announced as a duel loss');
+  assert.match(game, /el\('platform-start'\)\.textContent = 'مبارزة أخرى'/, 'the button offers another duel');
+  assert.match(game, /const duelReceipt = result\.mode === 'duel'/, 'the server receipt is read in duel terms too');
+  assert.match(game, /قلوب متبقية · \$\{result\.duel\?\.blocks/, 'the confirmed line reports hearts and guards');
+});
+
 test('arena stage HUD: both fighters get equal-width health bars and untruncated names', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   const css = html.match(/\.as-fighter \{[^}]*\}/);

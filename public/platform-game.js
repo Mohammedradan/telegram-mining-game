@@ -824,13 +824,18 @@
       const unlockedBefore = unlockedMines();
       bridge.adopt(result.profile);
       const opened = unlockedMines(result.profile?.state).filter(z => !unlockedBefore.includes(z));
-      el('platform-title').textContent = result.won ? 'وصلت إلى قلب المنجم!' : 'انتهت الجولة — جرّب من جديد';
+      const duelReceipt = result.mode === 'duel';
+      el('platform-title').textContent = duelReceipt
+        ? (result.won ? 'انتصرت في المبارزة!' : 'سقطت في المبارزة')
+        : (result.won ? 'وصلت إلى قلب المنجم!' : 'انتهت الجولة — جرّب من جديد');
       const oreLine = Object.entries(result.ores || {}).filter(([, v]) => v > 0)
         .map(([k, v]) => `${R.ORES[k].name} ${v}`).join('، ') || 'لا خامات';
       const mineName = R.MINES[result.zone || 0]?.name;
       renderSummary(null, result);
       const unlockLine = opened.length ? ` فُتح منجم جديد: ${opened.map(z => R.MINES[z].name).join('، ')}.` : '';
-      el('platform-message').textContent = `${mineName ? `${mineName} · ` : ''}${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة: +${result.gold} ذهب (منها ${result.milestoneGold || 0} من المعالم) · ${result.milestones?.length || 0} معالم · خامات أُضيفت للمخزن: ${oreLine}.${unlockLine}`;
+      el('platform-message').textContent = duelReceipt
+        ? `${result.duel?.hearts ?? 0} قلوب متبقية · ${result.duel?.blocks ?? 0} صدّة ناجحة · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة: +${result.gold} ذهب · +${result.xp} خبرة${result.duelCap ? ` (سقف المبارزات اليومي ${result.duelCap} ذهب)` : ''}.`
+        : `${mineName ? `${mineName} · ` : ''}${result.gems} بلورات · ${result.mined} صخور · ${Math.floor(result.duration)} ثانية. نتيجتك مؤكدة: +${result.gold} ذهب (منها ${result.milestoneGold || 0} من المعالم) · ${result.milestones?.length || 0} معالم · خامات أُضيفت للمخزن: ${oreLine}.${unlockLine}`;
       pending = null; ticket = null; shake = 0;
       try { localStorage.removeItem(storageKey()); } catch (_) {}
       say(`محفوظ على الخادم: ${result.score} نقطة · +${result.gold} ذهب افتراضي · +${result.xp} خبرة${result.duplicate ? ' — تأكيد سابق، بلا مكافأة مكررة' : ''}${result.reason === 'cooldown' ? ' — مهلة المكافأة: 20 ثانية بين جائزتي مغامرة' : ''}${result.reason === 'daily_cap' ? ' — وصلت سقف 10,000 ذهب اليومي من المناجم' : ''}`);
@@ -880,6 +885,11 @@
         return `لماذا جولة أخرى؟ «${R.EQUIPMENT[best.id].name}» تنتظرك: تحتاج ${needs} — ${R.EQUIPMENT[best.id].blurb}.`;
       }
     }
+    if (receipt && receipt.mode === 'duel') {
+      return receipt.won
+        ? 'لماذا مبارزة أخرى؟ كل عمق يقدّم نمط خصم أسرع (المدرّع ثم سيّاف الريح) وذهبًا أكثر لكل انتصار.'
+        : 'لماذا مبارزة أخرى؟ اقرأ إنذار الخصم: الكاسرة تُقفز أو تُراوغ، والضربة القريبة تُصدّ — والصدّ يستهلك درعك.';
+    }
     if (receipt && receipt.goal && !receipt.goal.done) return `لماذا جولة أخرى؟ أكمل هدف «${receipt.goal.name}» لتحصل على خام إضافي يسرّع ترقية الورشة.`;
     return 'لماذا جولة أخرى؟ جرّب هدفًا مختلفًا: كسر العرق النادر أو الجشع في المفترق يمنحك خامًا نادرًا للورشة.';
   }
@@ -887,8 +897,40 @@
   function renderSummary(stateLike, receipt) {
     const box = el('platform-summary'), rows = el('summary-rows');
     if (!box || !rows) return;
-    const gs = receipt?.goal || (R.goalStatus && stateLike ? R.goalStatus(stateLike) : null);
+    // المبارزة لها ملخصها: صحة الخصم والقلوب والصدّات — لا صخور ولا بلورات ولا مفترق.
+    const mode = receipt?.mode || stateLike?.mode || 'mine';
+    const duelRun = mode === 'duel';
+    const gs = receipt?.goal || (duelRun
+      ? (stateLike && R.duelStatus ? R.duelStatus(stateLike) : null)
+      : (R.goalStatus && stateLike ? R.goalStatus(stateLike) : null));
     const badge = el('summary-goal');
+    const titleEl = el('summary-title');
+    if (titleEl) titleEl.textContent = duelRun ? 'ملخص المبارزة' : 'ملخص الجولة';
+    if (duelRun) {
+      const won = receipt ? receipt.won !== false : stateLike?.status === 'won';
+      if (badge) {
+        badge.textContent = won ? 'انتصار' : 'خسارة';
+        badge.className = `run-badge ${won ? 'ok' : 'fail'}`;
+      }
+      const rivalHp = Math.max(0, receipt?.duel ? receipt.duel.rivalHp : (gs?.rivalHp || 0));
+      const rivalMax = Math.max(1, receipt?.duel ? receipt.duel.rivalMaxHp : (gs?.rivalMaxHp || 1));
+      const hearts = Math.max(0, receipt?.duel ? receipt.duel.hearts : (gs?.hearts || 0));
+      const blocks = Math.max(0, receipt?.duel ? receipt.duel.blocks : (gs?.blocks || 0));
+      const maxHearts = stateLike?.player?.maxHearts || 3;
+      const secs = Math.floor(receipt ? receipt.duration : (stateLike?.tick || 0) / R.FPS);
+      rows.innerHTML = '';
+      rows.appendChild(summaryRow('الخصم', gs?.name || 'المبارز'));
+      rows.appendChild(summaryRow('صحة الخصم', rivalHp <= 0 ? 'أُسقط بالكامل' : `${Math.ceil(rivalHp)} من ${rivalMax}`));
+      rows.appendChild(summaryRow('قلوبك', `${hearts} من ${maxHearts}`));
+      rows.appendChild(summaryRow('صدّات ناجحة', String(blocks)));
+      rows.appendChild(summaryRow('الزمن', `${secs} ثانية`));
+      if (receipt) rows.appendChild(summaryRow('المكافأة المؤكدة', `+${receipt.gold} ذهب · +${receipt.xp} خبرة`));
+      const next = el('summary-next');
+      if (next) next.textContent = nextStepHint(receipt);
+      box.hidden = false;
+      scheduleOverlayFit();
+      return;
+    }
     if (badge && gs) {
       badge.textContent = gs.done ? `الهدف محقّق: ${gs.name}` : `الهدف: ${gs.name}`;
       badge.className = `run-badge ${gs.done ? 'ok' : 'fail'}`;
@@ -912,10 +954,16 @@
     if (!running) return;
     running = false; paused = false; clearInput(); cancelAnimationFrame(raf); raf = 0;
     const won = sim.status === 'won';
+    const duel = sim.mode === 'duel';
+    const rival = duel ? (sim.enemies.find(e => e.type === 'rival') || sim.enemies[0]) : null;
     // سطر واحد قصير فقط: التفصيل كله في بطاقة الملخص تحته (لا تكرار، ولا غطاء يفيض).
-    const summaryLead = `${sim.collected} بلورات · ${sim.mined} صخور · ${Math.floor(sim.tick / R.FPS)} ثانية${won ? ' · هدف محقّق' : ''}`;
+    const summaryLead = duel
+      ? `${rival?.name || 'المبارز'} · ${Math.floor(sim.tick / R.FPS)} ثانية · ${won ? 'أُسقط الخصم' : `بقي له ${Math.max(0, Math.ceil(rival?.hp || 0))} من ${rival?.maxHp || 0}`}`
+      : `${sim.collected} بلورات · ${sim.mined} صخور · ${Math.floor(sim.tick / R.FPS)} ثانية${won ? ' · هدف محقّق' : ''}`;
     renderSummary(sim, null);
-    overlay(won ? 'وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك', summaryLead);
+    overlay(duel ? (won ? 'انتصرت في المبارزة!' : 'سقطت في المبارزة')
+      : (won ? 'وصلت إلى قلب المنجم!' : 'المصباح ينتظر عودتك'), summaryLead);
+    if (duel) el('platform-start').textContent = 'مبارزة أخرى';
     hud(); draw();
     if (ticket) {
       pending = { id: ticket.id, inputs, hero: currentHero }; save(true); el('platform-start').disabled = true; submit();
