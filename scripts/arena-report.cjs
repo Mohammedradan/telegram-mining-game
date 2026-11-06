@@ -3,7 +3,7 @@
 //   node scripts/arena-report.cjs --json   → JSON للاختبارات ولأي أداة أخرى
 // لا يغيّر أي رقم في المحرك: قياس فقط.
 const path = require('node:path');
-const R = require(path.join(__dirname, '..', 'public', 'platform-rules'));
+const R = process.env.ARENA_RULES ? require(process.env.ARENA_RULES) : require(path.join(__dirname, '..', 'public', 'platform-rules'));
 const { BOTS, fight } = require('./duel-bots.cjs');
 
 const BOTS_ORDER = ['novice', 'intermediate', 'expert'];
@@ -30,6 +30,11 @@ for (const bot of BOTS_ORDER) {
         avgDamage: +avg(runs.map((r) => r.damageDealt)).toFixed(1),
         avgWindows: +avg(runs.map((r) => r.windows)).toFixed(1),
         avgSkillUses: +avg(runs.map((r) => r.skillUses)).toFixed(2),
+        avgBreath: +avg(runs.map((r) => r.breathUsed)).toFixed(0),
+        avgJumps: +avg(runs.map((r) => r.jumps)).toFixed(1),
+        avgDodges: +avg(runs.map((r) => r.dodges)).toFixed(1),
+        avgBlocks: +avg(runs.map((r) => r.blocks)).toFixed(1),
+        avgGuardFrames: +avg(runs.map((r) => r.guardFrames)).toFixed(0),
         avgRivalHpPct: +avg(runs.map((r) => r.rivalHpPct)).toFixed(1),
         replaySame: runs.every((r) => r.replaySame),
         hearts: runs[0].maxHearts,
@@ -95,7 +100,9 @@ for (const [botKey, botFn] of [['novice', 'novice'], ['noviceJump', noviceJumper
 const heartsLadder = [0, 1, 2, 3, 4, 5].map((lv) => {
   const st = R.loadoutStats('miner', R.normalizeLoadout({ pickaxe: lv, armor: lv, drill: lv }));
   const c = R.combatGear('miner', { pickaxe: lv, armor: lv, drill: lv });
-  return { level: lv, hearts: st.hearts, maxHearts: st.maxHearts, duelHearts: st.maxHearts + R.DUEL.extraHearts,
+  // V11: قلوب الساحة ثابتة (البطل + 1) — وفي النسخ الأقدم كانت تتزايد مع الدرع
+  const duelHearts = R.DUEL.heartsFor ? R.DUEL.heartsFor(R.CHARACTERS.miner) : st.maxHearts + R.DUEL.extraHearts;
+  return { level: lv, hearts: st.hearts, maxHearts: st.maxHearts, duelHearts,
     damage: 1 + st.combat.damage, stamina: R.GUARD.max + st.combat.guardStamina,
     skillCd: st.combat.duelSkillCooldown, dodgeCd: st.combat.dodgeCooldown,
     labels: c.map((x) => `${x.name} ${x.level}`) };
@@ -142,7 +149,7 @@ function captureWavePrefix(zone, seed, keep) {
 }
 function waveWindow(zone = 2, seeds = [424242, 9001, 31337, 606, 1408, 2024, 7777, 11]) {
   const distances = [];
-  for (const keep of [140, 200, 260]) {
+  for (const keep of [140, 200]) {
     const trials = [];
     for (const kind of ['jump', 'dodge', 'guard']) {
       const input = kind === 'jump' ? R.INPUT.JUMP : kind === 'dodge' ? R.INPUT.DODGE : R.INPUT.DEFEND;
@@ -296,7 +303,7 @@ if (process.argv.includes('--json')) {
   console.log('=== مصفوفة الفوز: منطقة × مستوى معدات × مستوى مهارة (٨ بذور لكل خلية) ===\n');
   for (const bot of BOTS_ORDER) {
     console.log(`— ${bot} —`);
-    console.log('gear | قلوب |   z0   |   z1   |   z2   |   z3   |  زمن(z3) | ضربات متلقاة | مهارات | وفاة/مهلة');
+    console.log('gear | قلوب |   z0   |   z1   |   z2   |   z3   |  زمن(z3) | متلقاة | نَفَس | قفز | مراوغة | صدّات | مهارة | وفاة/مهلة');
     for (const gear of GEARS) {
       const row = ZONES.map((z) => String(matrix[bot][gear][z].winRate).padStart(5) + '%');
       const hp = matrix[bot][gear][0].hearts;
@@ -304,9 +311,12 @@ if (process.argv.includes('--json')) {
       const tt = ZONES.reduce((a, z) => a + matrix[bot][gear][z].timedOut, 0);
       const t3 = matrix[bot][gear][3].avgSeconds;
       const taken = avg(ZONES.map((z) => matrix[bot][gear][z].avgTaken)).toFixed(2);
-      const win = avg(ZONES.map((z) => matrix[bot][gear][z].avgWindows)).toFixed(1);
+      const br = avg(ZONES.map((z) => matrix[bot][gear][z].avgBreath)).toFixed(0);
+      const jp = avg(ZONES.map((z) => matrix[bot][gear][z].avgJumps)).toFixed(1);
+      const dg = avg(ZONES.map((z) => matrix[bot][gear][z].avgDodges)).toFixed(1);
+      const bl = avg(ZONES.map((z) => matrix[bot][gear][z].avgBlocks)).toFixed(1);
       const sk = avg(ZONES.map((z) => matrix[bot][gear][z].avgSkillUses)).toFixed(2);
-      console.log(` L${gear}  | ${String(hp).padStart(4)} | ${row.join(' | ')} | ${String(t3).padStart(6)}s | ${String(taken).padStart(12)} | ${sk} | ${dd}/${tt}`);
+      console.log(` L${gear}  | ${String(hp).padStart(4)} | ${row.join(' | ')} | ${String(t3).padStart(6)}s | ${String(taken).padStart(6)} | ${String(br).padStart(5)} | ${String(jp).padStart(3)} | ${String(dg).padStart(7)} | ${String(bl).padStart(5)} | ${sk.padStart(5)} | ${dd}/${tt}`);
     }
     console.log('');
   }

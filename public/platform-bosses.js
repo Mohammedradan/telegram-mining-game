@@ -341,6 +341,16 @@
     for (const w of waves) {
       const fade = clamp01(w.ttl / 10), dir = Math.sign(w.vx) || 1;
       c.save(); c.globalAlpha = fade;
+      // V11: الموجة الريحية صارت أضيق (١٠px) ليوسّع نافذة القفز، فتحتاج هالة وذيل حركة
+      // يبقيانها مرئية. الهالة والذيل تأثير بصري فقط — صندوق الإصابة هو w.w بالضبط.
+      if (w.w <= 16) {
+        c.fillStyle = 'rgba(255,150,70,0.16)';
+        c.beginPath(); c.roundRect(w.x - 7, w.y - 4, w.w + 14, w.h + 8, 11); c.fill();
+        const trail = c.createLinearGradient(w.x - dir * 26, 0, w.x, 0);
+        trail.addColorStop(0, 'rgba(255,120,60,0)'); trail.addColorStop(1, 'rgba(255,190,110,0.4)');
+        c.fillStyle = trail;
+        c.beginPath(); c.roundRect(dir > 0 ? w.x - 26 : w.x + w.w, w.y + 3, 26, w.h - 6, 6); c.fill();
+      }
       const glow = c.createLinearGradient(w.x, 0, w.x + w.w, 0);
       glow.addColorStop(dir > 0 ? 0 : 1, 'rgba(255,120,60,0.35)'); glow.addColorStop(dir > 0 ? 1 : 0, 'rgba(255,230,160,0.95)');
       c.fillStyle = glow; c.beginPath(); c.roundRect(w.x, w.y, w.w, w.h, 8); c.fill();

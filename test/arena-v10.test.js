@@ -12,27 +12,39 @@ const ROOT = path.join(__dirname, '..');
 const DUEL = (zone = 0) => ({ zone, mode: 'duel' });
 
 // ---------- 1) أثر كل معدّة بالأرقام ----------
-test('V10 gear: axe raises chain damage and guard-break, armor raises breath, drill shortens the skill', () => {
+test('V11 gear: arena hearts are fixed at 4 and the axe damage follows 1 + floor(level/4)', () => {
   const at = (lv) => R.create('miner', 7, { ...DUEL(0), loadout: { pickaxe: lv, armor: lv, drill: lv } }).player;
-  const L0 = at(0), L2 = at(2), L5 = at(5);
-  // الفأس: ضرر السلسلة 1 → 3 (+2 بحد أقصى) وكسر دفاع +8 إطارات بحد أقصى
-  assert.deepEqual([L0.damage, L2.damage, L5.damage], [1, 2, 3], 'axe adds chain damage, capped at +2');
-  assert.deepEqual([L0.guardBreakBonus, L2.guardBreakBonus, L5.guardBreakBonus], [0, 4, 8], 'axe adds stagger (guard break) ticks, capped');
-  // الدرع: نَفَس المهارة +10 لكل مستوى (سقف 200) واستعادة +1 عند المستوى 2+ فقط
-  assert.deepEqual([L0.guard.maxStamina, L2.guard.maxStamina, L5.guard.maxStamina], [150, 170, 200], 'armor raises the skill breath');
-  assert.deepEqual([L0.guard.regen, L2.guard.regen, L5.guard.regen], [1, 2, 2], 'armor speeds recovery, capped at +1');
-  // المثقاب: مهلة ظل الساكورا 150 → 130 → 100 (بحد أدنى 100) ومهلة المراوغة
-  assert.deepEqual([L0.skillMaxCooldown, L2.skillMaxCooldown, L5.skillMaxCooldown], [150, 130, 100], 'drill shortens the shadow blossom cooldown');
-  assert.deepEqual([L0.dodgeCooldown, L2.dodgeCooldown, L5.dodgeCooldown], [46, 40, 31], 'and the dodge cooldown');
+  const all = [0, 1, 2, 3, 4, 5].map(at);
+  // ===== V11: قلوب الساحة لا تتغيّر مع الدرع =====
+  assert.deepEqual(all.map((p) => p.maxHearts), [4, 4, 4, 4, 4, 4], 'arena hearts are 4 at every gear level');
+  assert.deepEqual(all.map((p) => p.hearts), [4, 4, 4, 4, 4, 4], 'and the round starts with all four');
+  // البطل الآخر يحتفظ بقلبه الأساسي + 1 (الساحة لا تفرض رقماً واحداً على الجميع)
+  assert.equal(R.create('warrior', 7, DUEL(0)).player.maxHearts, 5, 'the warrior keeps his base heart plus the arena heart');
+  // ===== V11: ضرر الفأس 1 + floor(المستوى/4) =====
+  assert.deepEqual(all.map((p) => p.damage), [1, 1, 1, 1, 2, 2], 'axe damage: flat until level 4, then one extra point');
+  // كسر الدفاع بقي كما هو (أثر «إحساس» لا بوابة فوز)
+  assert.deepEqual(all.map((p) => p.guardBreakBonus), [0, 0, 4, 4, 8, 8], 'axe still adds stagger ticks at 2 and 4');
+  // الدرع: نَفَس المهارة +10 لكل مستوى واستعادة +1 عند المستوى 2+
+  assert.deepEqual(all.map((p) => p.guard.maxStamina), [150, 160, 170, 180, 190, 200], 'armor raises the breath pool');
+  assert.deepEqual(all.map((p) => p.guard.regen), [1, 1, 2, 2, 2, 2], 'armor speeds recovery, capped at +1');
+  // المثقاب: مهلة ظل الساكورا ومهلة المراوغة
+  assert.deepEqual(all.map((p) => p.skillMaxCooldown), [150, 140, 130, 120, 110, 100], 'drill shortens the blossom cooldown');
+  assert.deepEqual(all.map((p) => p.dodgeCooldown), [46, 43, 40, 37, 34, 31], 'and the dodge cooldown');
   // لا قيم تكسر التوازن خارج الحدود
-  for (const p of [L0, L2, L5]) {
-    assert.ok(p.damage <= 3 && p.guardBreakBonus <= 8 && p.guard.maxStamina <= 200 && p.skillMaxCooldown >= 100 && p.dodgeCooldown >= 30);
+  for (const p of all) {
+    assert.ok(p.damage <= 2 && p.guardBreakBonus <= 8 && p.guard.maxStamina <= 200 && p.skillMaxCooldown >= 100 && p.dodgeCooldown >= 30);
   }
-  // وبطاقة الواجهة تقرأ نفس الأرقام
+  // بطاقة الواجهة تقرأ نفس الأرقام
   const gear = R.combatGear('miner', { pickaxe: 5, armor: 5, drill: 5 });
-  assert.match(gear[0].effect, /\+2 ضرر/, 'the card shows the chain damage bonus');
+  assert.match(gear[0].effect, /ضرر الساحة 2/, 'the card shows the V11 arena damage');
   assert.match(gear[1].effect, /200/, 'the card shows the breath pool');
+  assert.match(gear[1].effect, /ثابتة في الساحة/, 'and says the hearts are fixed in the arena');
   assert.match(gear[2].effect, /100/, 'the card shows the skill cooldown');
+  // ضرر المنجم لم يتغيّر: المعدات تبقى قوية في التعدين
+  const mine5 = R.create('miner', 7, { zone: 0, mode: 'mine', loadout: { pickaxe: 5, armor: 5, drill: 5 } }).player;
+  assert.equal(mine5.damage, 3, 'mining keeps the old axe formula');
+  assert.equal(mine5.maxHearts, 6, 'and the armor hearts');
+  assert.equal(mine5.miningPower, 8, 'and the mining power');
 });
 
 test('V10 gear never leaks into the mining run (byte-identical mine simulation)', () => {
@@ -149,7 +161,7 @@ test('V10 UI: the arena shows the gear card and fills it from the shared rules',
   assert.ok(html.indexOf('id="arena-gear"') < html.indexOf('id="arena-ladder"'), 'it sits before the rival ladder, i.e. before the duel starts');
   assert.match(html, /function renderArenaGear\(\)/, 'and it is rendered by a real function');
   assert.match(html, /RULES\.combatGear\(hero, st\.equipment\)/, 'from the equipment the player actually owns');
-  assert.match(html, /renderArenaGear\(\);\n\s+const box = document\.getElementById\('arena-ladder'\)/, 'and it refreshes with the ladder');
+  assert.match(html, /renderArenaGear\(\);\n\s+(?:renderArenaAdvice\(\);\n\s+)?const box = document\.getElementById\('arena-ladder'\)/, 'and it refreshes with the ladder');
 });
 
 // ---------- 6) الخادم هو المرجع ----------
@@ -210,7 +222,7 @@ test('V10 server: a forged loadout in the request body is ignored — the saved 
   assert.equal(upgraded.body.config.loadout.pickaxe, 5, 'the server reflects the saved axe');
   assert.equal(upgraded.body.config.loadout.armor, 5, 'and the saved armor');
   const sim = R.create('miner', R.seedFromId(upgraded.body.id), upgraded.body.config);
-  assert.equal(sim.player.damage, 3, 'so the simulation built from that ticket has the axe damage');
+  assert.equal(sim.player.damage, 2, 'so the simulation built from that ticket has the V11 axe damage (1 + floor(5/4))');
   assert.equal(sim.player.skillMaxCooldown, 100, 'and the drill cooldown');
   assert.equal(sim.player.guard.maxStamina, 200, 'and the armor breath');
 });
@@ -263,7 +275,9 @@ test('V10 journey: gear → duel loss → duel win → reward → exit/return �
   assert.equal(ticket.body.config.loadout.pickaxe, 2, 'the ticket carries the upgraded axe');
   assert.equal(ticket.body.config.mode, 'duel', 'and the duel mode');
   const sim = R.create('miner', R.seedFromId(ticket.body.id), ticket.body.config);
-  assert.equal(sim.player.damage, 2, 'the upgraded axe changes the fight simulation');
+  assert.equal(sim.player.damage, 1, 'V11: the axe stays at 1 damage until level 4');
+  assert.equal(sim.player.maxHearts, 4, 'V11: arena hearts stay 4 whatever the armor');
+  assert.equal(sim.player.guard.maxStamina, 170, 'the armor still shows up as extra breath');
 
   // (3) خسارة نظيفة: لاعب لا يتحرك حتى نهاية الزمن (ساعة الجولة صادقة)
   const idle = [];

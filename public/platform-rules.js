@@ -8,7 +8,7 @@
   // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
   // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
   // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
-  const VERSION = 10;
+  const VERSION = 11;
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -83,8 +83,15 @@
     // ساحة المبارزة داخل أول قطعة أرض صلبة في المستوى (0..560) — لا فجوات ولا أخطار بيئية حولها.
     rival: Object.freeze({ id: 80, w: 44, h: 64, hp: 34, hpPerZone: 6, patrol: 78, charge: 205, wake: 0, minX: 210, maxX: 470, windup: 38, recover: 52 }),
     // ضربة قريبة تُصدّ، وضربة كاسرة للدرع تُتفادى بالقفز أو المراوغة أو الابتعاد.
-    // قلب إضافي في الساحة وحدها: هامش خطأ أربع إصابات بدل ثلاث، بلا مساس بقلوب التعدين
+    // ===== V11: قلوب الساحة مستقلة عن المعدات =====
+    // الساحة تمنح قلباً إضافياً فوق قلوب البطل الأساسية فقط، ولا يُضاف إليها قلب الدرع.
+    // السبب المقيس في تقرير V10: قلوب المعدات وحدها كانت ترفع الفوز من 0% إلى 100% في z2/z3.
+    // التعدين يبقى على قلوب المعدات تماماً (لا مساس بهذه المعادلة).
     extraHearts: 1,
+    // سقف قلوب الساحة: البطل الأساسي + القلب الإضافي، مهما كان مستوى الدرع
+    heartsFor: hero => hero.hearts + 1,
+    // تلميح المرحلة الثانية: يظهر مرة واحدة عند الاهتياج (لا يحجب اللاعب ولا مؤشرات الخطر)
+    phase2Hint: 'اقفز فوق الصدمة المزدوجة، ثم استغل نافذة استشفاء الزعيم للهجوم',
     // ارتداد الإصابة في المبارزة (بدل الانتقال إلى نقطة حفظ المنجم): قوة أفقية وإطارات تطبيق
     knock: Object.freeze({ vx: 165, tick: 9 }),
     // ===== مهارة الساحة: «ظل الساكورا» =====
@@ -108,6 +115,12 @@
       phases: Object.freeze([['slash', 'slash', 'charge', 'wave'], ['slash', 'charge', 'slash', 'overhead'], ['charge', 'slash', 'overhead', 'slash']]) }),
     Object.freeze({ id: 2, style: 'wind', name: 'سيّاف الريح', tag: 'ريح — موجات مزدوجة وهجمات واسعة',
       hpBonus: 6, patrol: 96, charge: 232, windup: 28, recover: 50, armored: false, boss: false, doubleWave: true, wideSlam: true,
+      // ===== V11: ضبط موجتي الريح =====
+      // الهدف المقيس: توسيع نافذة القفز فوق الموجتين من ١٤ إلى ٢٠ إطاراً، بلا مساس بسرعة اللاعب
+      // ولا بارتفاع قفزته ولا بسرعة الموجة. الحل: نصل السيف أضيق (١٠px بدل ٢٨) فيقصر زمن التلامس،
+      // وإزاحة إطلاق ٢٠px أمام الخصم حتى لا تظهر الموجة داخل جسد اللاعب الملتصق به.
+      // النتيجة: نافذة ١٩–٢٠ إطاراً، والقفزة الخاطئة ما زالت تُصاب (٢٠ من ٦١ توقيتاً فقط).
+      waveTune: Object.freeze({ speed: 190, w: 10, gap: 10, lead: 20 }),
       phases: Object.freeze([['wave', 'overhead', 'slash', 'wave'], ['wave', 'wave', 'overhead', 'slash'], ['overhead', 'wave', 'charge', 'overhead']]) }),
     Object.freeze({ id: 3, style: 'heavy', name: 'حارس الساكورا', tag: 'زعيم ثقيل — إنذار طويل، درع لا يُخترق إلا في الاستشفاء',
       hpBonus: 6, patrol: 62, charge: 180, windup: 54, recover: 72, armored: true, boss: true,
@@ -115,6 +128,10 @@
   ]);
   // المنطقة 0..3 ← نمطها؛ 4+ تدور على الأنماط الأربعة مع تعميق الصحة (hpPerZone) لا نسخاً متطابقة
   const rivalFor = zone => RIVALS[((Number(zone) || 0) % 4 + 4) % 4];
+  // ===== V11: ضرر الفأس في الساحة وحدها =====
+  // 1 + floor(المستوى/4): المستويات 0..3 = ضربة واحدة، والرابع يضاعفها. لا يتغيّر ضرر التعدين
+  // (miningPower معادلة أخرى تماماً) ولا ضرر المنجم ولا أي اقتصاد.
+  const arenaAxeBonus = level => Math.max(0, Math.floor(Math.max(0, Math.min(MAX_EQUIP_LEVEL, Number(level) || 0)) / 4));
 
   const CHARACTERS = Object.freeze({
     miner: {
@@ -481,17 +498,62 @@
   // لا تُرسل للخادم ولا تُغيّر شيئاً: الخادم يبني اللقطة من حفظ اللاعب، وهذه للعرض فقط.
   function combatGear(heroId, loadout) {
     const L = normalizeLoadout(loadout), c = loadoutStats(heroId, loadout).combat;
+    const hero = CHARACTERS[heroId] || CHARACTERS.miner, bonus = arenaAxeBonus(L.pickaxe);
     return [
       { id: 'pickaxe', name: 'الفأس', level: L.pickaxe, max: MAX_EQUIP_LEVEL,
-        effect: c.damage ? `+${c.damage} ضرر لكل ضربة سلسلة` : 'ضرر السلسلة الأساسي',
+        // V11: ضرر الساحة 1 + floor(المستوى/4) — فالزيادة الفعلية تحدث عند المستوى 4
+        effect: bonus ? `ضرر الساحة ${hero.damage + bonus} (‎+${bonus})` : `ضرر الساحة ${hero.damage} — يزيد عند المستوى 4`,
         detail: c.guardBreak ? `كسر الدفاع +${4 * c.guardBreak} إطار ترنّح` : 'بلا كسر دفاع إضافي' },
       { id: 'armor', name: 'الدرع', level: L.armor, max: MAX_EQUIP_LEVEL,
-        effect: `نَفَس المهارة ${GUARD.max + c.guardStamina}`,
-        detail: `استعادة الأنفاس +${c.breathRegen}/إطار` },
+        effect: `نَفَس الدرع ${GUARD.max + c.guardStamina} · القلوب ثابتة في الساحة`,
+        detail: c.breathRegen ? `استعادة الأنفاس +${c.breathRegen}/إطار` : 'بلا استعادة أنفاس إضافية' },
       { id: 'drill', name: 'المثقاب', level: L.drill, max: MAX_EQUIP_LEVEL,
         effect: `مهلة ظل الساكورا ${c.duelSkillCooldown} إطار`,
         detail: `مهلة المراوغة ${c.dodgeCooldown} إطار` },
     ];
+  }
+  // ===== V11: توصية القتال =====
+  // تُحسب من نفس معادلات المحرك على معدات اللاعب المحفوظة، ولا تُرسل للخادم ولا تمنع دخول منطقة.
+  // الغرض: يعرف اللاعب أين يقف وماذا يربح من الترقية القادمة، دون أن تصبح الترقية شرطاً.
+  function combatAdvice(heroId, loadout) {
+    const L = normalizeLoadout(loadout), st = loadoutStats(heroId, loadout), c = st.combat;
+    const hero = CHARACTERS[heroId] || CHARACTERS.miner;
+    const damage = hero.damage + arenaAxeBonus(L.pickaxe);
+    // أولوية التطوير: أقرب تحسين يغيّر إحساس القتال فعلاً الآن (لا انتظار أربعة مستويات)
+    let priority;
+    if (L.armor < MAX_EQUIP_LEVEL) {
+      priority = { id: 'armor', name: 'الدرع', from: L.armor, to: L.armor + 1,
+        why: `نَفَس الدرع ${GUARD.max + c.guardStamina} ← ${GUARD.max + 10 * (L.armor + 1)}: صدّات أكثر قبل انكسار الدفاع` };
+    } else if (L.drill < MAX_EQUIP_LEVEL) {
+      priority = { id: 'drill', name: 'المثقاب', from: L.drill, to: L.drill + 1,
+        why: `مهلة المهارة ${c.duelSkillCooldown} ← ${Math.max(100, DUEL.skill.cooldown - 10 * (L.drill + 1))} إطاراً` };
+    } else if (L.pickaxe < 4) {
+      priority = { id: 'pickaxe', name: 'الفأس', from: L.pickaxe, to: 4,
+        why: `المستوى 4 يرفع ضرر الساحة من ${damage} إلى ${hero.damage + 1}: أقصر طريق لإنهاء المبارزة` };
+    } else if (L.pickaxe < MAX_EQUIP_LEVEL) {
+      priority = { id: 'pickaxe', name: 'الفأس', from: L.pickaxe, to: MAX_EQUIP_LEVEL,
+        why: `كسر دفاع أطول: ${4 * c.guardBreak} ← ${4 * Math.min(2, Math.floor(MAX_EQUIP_LEVEL / 2))} إطار ترنّح` };
+    } else {
+      priority = null;
+    }
+    return {
+      rows: combatGear(heroId, loadout),
+      arena: { hearts: DUEL.heartsFor(hero), damage, breath: GUARD.max + c.guardStamina,
+        skillCd: c.duelSkillCooldown, dodgeCd: c.dodgeCooldown, guardBreak: 4 * c.guardBreak },
+      // نقاط القوة/الضعف تُقرأ من الأرقام نفسها لا من تخمين: أقوى بند وأضعف بند في هذه اللقطة
+      strength: damage >= hero.damage + 1 ? `ضرر ${damage} لكل ضربة — إنهاء أسرع للمبارزة`
+        : c.guardStamina >= 40 ? `نَفَس ${GUARD.max + c.guardStamina} — يتحمّل صدّات متتالية`
+        : c.duelSkillCooldown <= 110 ? `ظل الساكورا كل ${c.duelSkillCooldown} إطاراً`
+        : c.guardBreak >= 2 ? `كسر دفاع +${4 * c.guardBreak} إطار ترنّح بعد ثلاث ضربات`
+        : c.guardStamina > 0 ? `نَفَس ${GUARD.max + c.guardStamina}: صدّتان أو ثلاث قبل الانكسار`
+        : 'معدات متوازنة بلا نقطة قوة بارزة',
+      weakness: L.armor === 0 ? 'لا نَفَس إضافي: الدرع ينكسر سريعاً أمام الموجات'
+        : L.drill === 0 ? 'مهلة المهارة كاملة (150 إطاراً)'
+        : damage === hero.damage ? 'الضرر الأساسي فقط حتى مستوى الفأس 4'
+        : 'لا ضعف حاسم',
+      priority,
+      optional: 'توصية اختيارية — لا مستوى مطلوباً لدخول أي منطقة',
+    };
   }
   // عدد ضربات كسر صخرة المنجم للبطل والمعدات الحالية (يُعرض في الواجهة ولا يدخل في أي اقتصاد).
   const hitsToBreak = (heroId, zone, loadout) => Math.ceil(mineOf(zone).rockHp / loadoutStats(heroId, loadout).miningPower);
@@ -585,7 +647,7 @@
         // نمط المنطقة: ضربتان متتابعتان (سريع)، موجتان (ريح)، ضربة واسعة/مزدوجة (ثقيل)
         doubleSlash: arch.doubleSlash === true, doubleWave: arch.doubleWave === true,
         wideSlam: arch.wideSlam === true, doubleSlam: arch.doubleSlam === true,
-        wave: { speed: 190, w: 28, h: 20, ttl: 52, gap: 10 },
+        wave: { speed: 190, w: 28, h: 20, ttl: 52, gap: 10, ...(arch.waveTune || {}) },
         slamRadius: arch.id === 3 ? 96 : DUEL.overhead.radius,
       },
     };
@@ -747,15 +809,16 @@
         jumpSpeed: hero.jumpSpeed,
         grounded: true,
         facing: 1,
-        // المبارزة تمنح قلباً إضافياً (توازن الساحة) — التعدين يبقى على قلوب المعدات تماماً
-        hearts: stats.hearts + (cfg.mode === 'duel' ? DUEL.extraHearts : 0),
-        maxHearts: stats.maxHearts + (cfg.mode === 'duel' ? DUEL.extraHearts : 0),
+        // المبارزة: قلوب ثابتة (البطل + 1) لا يزيدها الدرع — والتعدين يبقى على قلوب المعدات تماماً
+        hearts: s_mode_duel(cfg) ? DUEL.heartsFor(hero) : stats.hearts,
+        maxHearts: s_mode_duel(cfg) ? DUEL.heartsFor(hero) : stats.maxHearts,
         invulnerable: 0,
         coyote: 6,
         jumpBuffer: 0,
         attack: 0,
         attackCooldown: stats.attackCooldown,
-        damage: hero.damage + stats.combat.damage,
+        // ضرر الساحة من الفأس بمعادلة V11 (1 + floor(المستوى/4)) والمنجم على معادلته القديمة
+        damage: s_mode_duel(cfg) ? hero.damage + arenaAxeBonus(cfg.loadout.pickaxe) : hero.damage + stats.combat.damage,
         attackRange: hero.attackRange,
         miningPower: stats.miningPower,
         miningReach: stats.miningReach,
@@ -1155,12 +1218,20 @@
       return;
     }
     // wave: موجة أرضية واحدة باتجاه اللاعب — تُقفز أو تُصدّ
-    const wv = ai.wave;
-    s.waves.push({ x: b.aim > 0 ? b.x + b.w : b.x - wv.w, y: 300 - wv.h, w: wv.w, h: wv.h,
+    // V11: تُطلق من مسافة «lead» أمام الخصم حتى لا تظهر داخل جسد اللاعب الملتصق به
+    // (كانت الضربة القريبة تُصيب حتماً بلا هامش ردّ فعل، وهو أسوأ من كونها صعبة).
+    const wv = ai.wave, lead = wv.lead || 0;
+    // الإزاحة لا تتجاوز جسد اللاعب: لو كان ملتصقاً تُطلق من الحافة كالسابق (خطأ تمركز يُعاقب)
+    const spawnX = (dir) => {
+      const gapToBody = dir > 0 ? p.x - (b.x + b.w) : b.x - (p.x + p.w);
+      const off = Math.max(0, Math.min(lead, gapToBody - 6));
+      return dir > 0 ? b.x + b.w + off : b.x - wv.w - off;
+    };
+    s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
       vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave' });
     // سيّاف الريح: موجة ثانية بعد فجوة قصيرة تُلزم اللاعب بالبقاء في الهواء أو المراوغة
     if (ai.doubleWave) {
-      s.waves.push({ x: b.aim > 0 ? b.x + b.w : b.x - wv.w, y: 300 - wv.h, w: wv.w, h: wv.h,
+      s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
         vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave', delay: wv.gap || 10 });
     }
     s.events.push({ type: 'boss_slam', x: cx, y: 300, id: b.id });
@@ -1706,7 +1777,7 @@
   const milestoneList = (zone = 0) => MILESTONES.map(m => ({ id: m.id, label: m.label, gold: MILESTONE_GOLD, ores: milestoneOres(zone, m.id) }));
 
   return {
-    BOSS_SLOTS, MAX_SEGMENTS, combatGear, RIVALS, rivalFor,
+    BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,
     VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
     rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
     // V6: أهداف الجولة والمفترق والعرق النادر

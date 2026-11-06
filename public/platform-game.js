@@ -1443,6 +1443,22 @@
   }
   // مؤثرات المسرح: شرارات الضرب، أرقام الضرر، غبار الصدمة، واهتزاز خفيف — كلها عرض فقط
   let arenaParticles = [], arenaFloaters = [], arenaShake = 0;
+  // V11: تلميح المرحلة الثانية — نصّ من المحرك نفسه، يظهر عند الاهتياج فقط ويختفي وحده
+  let arenaHintTimer = 0;
+  function arenaHint(text, ms = 5200) {
+    const box = el('arena-hint');
+    if (!box || !text) return;
+    box.textContent = text;
+    box.classList.add('show');
+    if (arenaHintTimer) clearTimeout(arenaHintTimer);
+    arenaHintTimer = setTimeout(() => { box.classList.remove('show'); arenaHintTimer = 0; }, ms);
+  }
+  function arenaHintHide() {
+    const box = el('arena-hint');
+    if (arenaHintTimer) { clearTimeout(arenaHintTimer); arenaHintTimer = 0; }
+    if (box) { box.classList.remove('show'); box.textContent = ''; }
+  }
+
   function collectFx(fromSim, withSound = false) {
     if (!fromSim) return;
     // أصوات الساحة: تُشغَّل من المبارزة الحيّة فقط، لا من المسرح الاستعراضي
@@ -1513,6 +1529,8 @@
         sfx('boss_charge');
       } else if (ev.type === 'boss_enrage') {
         sfx('boss_enrage');
+        // المرحلة الثانية من مبارز الساحة: تلميح واحد عند الاهتياج (الحدث يقع مرة واحدة في الجولة)
+        if (ev.phase === 2 && R.DUEL?.phase2Hint) arenaHint(R.DUEL.phase2Hint);
       } else if (ev.type === 'hurt') {
         sfx('hurt');
         arenaShake = Math.max(arenaShake, 0.7);
@@ -1778,6 +1796,7 @@
     duelAcc = 0; duelStamp = 0; duelOver = false; duelEndedTick = 0;
     duelFreeze = 0; duelLastCombo = 0; duelPendingMask = 0; duelHeartsCache = '';
     duelVerdictHide();
+    arenaHintHide();
     duelStatusLine('جارٍ فتح المبارزة…');
     duelBanner('');
     let config = R.normalizeConfig({ zone: z, goal: selectedGoal, mode: 'duel', loadout: liveLoadout() });

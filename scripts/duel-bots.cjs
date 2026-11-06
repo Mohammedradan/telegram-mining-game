@@ -1,7 +1,8 @@
 // سياسات اللاعبين الافتراضيين الثلاثة في الساحة — مصدر واحد تستخدمه كل أدوات القياس
 // والاختبارات، فالمقارنة بين نسختين من المحرك تبقى على نفس السلوك تماماً.
 // كل سياسة دالة حتمية في (الحالة) فقط، بلا Math.random ولا مؤقّتات خارجية.
-const R = require('../public/platform-rules');
+// يمكن قياس نسخة قديمة من المحرك بلا لمس الملف الحالي: ARENA_RULES=/tmp/rules-v10.js
+const R = process.env.ARENA_RULES ? require(process.env.ARENA_RULES) : require('../public/platform-rules');
 
 const SKILL_COST = R.DUEL.skill ? R.DUEL.skill.cost : Infinity;
 
@@ -16,6 +17,23 @@ function novice(s) {
   if (r.state === 'windup' && ad < 80 && s.tick % 9 < 4) return R.INPUT.DEFEND;
   if (ad > 50) return facingBits(dx);
   return R.INPUT.ATTACK;
+}
+
+// موجة قادمة فعلاً: نقيس الحافة الأمامية وزمن وصولها، لا مركزها. لاعب بشري يقفز قبل
+// التلامس بخمس إلى اثنتي عشرة إطاراً — لا فور رؤية الموجة ولا متأخراً.
+function incomingWave(s, { min = 5, max = 12, reach = 48 } = {}) {
+  const me = s.player;
+  for (const w of s.waves || []) {
+    if (w.delay > 0) continue;
+    const v = w.vx || 0;
+    if (!v) continue;
+    const edge = v > 0 ? w.x + w.w : w.x;
+    const gap = v > 0 ? me.x - edge : edge - (me.x + me.w);
+    if (gap < 0 || gap > reach) continue;
+    const ttc = gap / (Math.abs(v) / 60);
+    if (ttc >= min && ttc <= max) return true;
+  }
+  return false;
 }
 
 // متوسط: سلسلة ضربات، صدّ للقريبة، مراوغة للكاسرة، قفز فوق الموجة، وضربة قوية في الاستشفاء.
@@ -74,6 +92,8 @@ function fight(botName, { zone = 0, seed = 11, gear = 0, hero = 'miner', maxTick
   const inputs = [];
   let freeze = 0, pending = 0, taken = 0, landed = 0, damageDealt = 0, windows = 0, windowsUsed = 0;
   let skillUses = 0, prevRivalState = '', prevSkillCd = s.player.skillCooldown;
+  // V11: عدّادات القتال المطلوبة في التقرير — استهلاك النَّفَس والقفز/المراوغة/الصدّ
+  let breathUsed = 0, jumps = 0, dodges = 0, guardFrames = 0, blocks = 0, prevMask = 0;
   const rec = (m) => {
     const prev = inputs[inputs.length - 1];
     if (prev && prev.mask === m) prev.frames++;
@@ -90,12 +110,17 @@ function fight(botName, { zone = 0, seed = 11, gear = 0, hero = 'miner', maxTick
     const mask = bot(s) | pending;
     pending = 0;
     rec(mask);
+    if ((mask & R.INPUT.JUMP) && !(prevMask & R.INPUT.JUMP)) jumps++;
+    if ((mask & R.INPUT.DODGE) && !(prevMask & R.INPUT.DODGE)) dodges++;
+    if (mask & R.INPUT.DEFEND) guardFrames++;
+    prevMask = mask;
     R.step(s, mask);
     if (s.player.skillCooldown > prevSkillCd) skillUses++;
     prevSkillCd = s.player.skillCooldown;
     for (const ev of s.events || []) {
       if (ev.type === 'hit') { landed++; damageDealt += ev.damage || 0; freeze = Math.max(freeze, ev.damage >= 2 ? 4 : 2); }
       else if (ev.type === 'hurt') { taken++; freeze = Math.max(freeze, 3); }
+      else if (ev.type === 'guard') { blocks++; breathUsed += R.COMBAT ? R.COMBAT.guardBlockCost : 16; }
     }
   }
   const replay = R.replay(inputs, hero, seed, config);
@@ -103,6 +128,7 @@ function fight(botName, { zone = 0, seed = 11, gear = 0, hero = 'miner', maxTick
     win: s.status === 'won' ? 1 : 0, status: s.status,
     seconds: +(s.tick / R.FPS).toFixed(2), taken, landed, damageDealt, windows, windowsUsed, skillUses,
     hearts: s.player.hearts, maxHearts: s.player.maxHearts,
+    breathUsed, breathLeft: Math.round(s.player.guard.stamina), jumps, dodges, guardFrames, blocks,
     rivalHpPct: +((Math.max(0, s.enemies[0].hp) / s.enemies[0].maxHp) * 100).toFixed(1),
     damage: s.player.damage, stamina: s.player.guard.maxStamina, skillCd: s.player.skillMaxCooldown,
     replaySame: Boolean(replay.ok) && replay.state.status === s.status && replay.state.tick === s.tick

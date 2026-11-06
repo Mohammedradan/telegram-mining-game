@@ -38,7 +38,7 @@ function duelRun(seed, zone = 0, hero = 'miner', opts = {}) {
 
 test('V7 duel: a duel round has one rival, no mining targets and its own status', () => {
   const s = R.create('miner', 7, { zone: 0, mode: 'duel' });
-  assert.equal(R.VERSION, 10, 'the engine version moved with the V10 gear and archetypes');
+  assert.equal(R.VERSION, 11, 'the engine version moved with the V11 arena balance');
   assert.deepEqual(R.MODES, ['mine', 'duel']);
   assert.equal(s.mode, 'duel');
   assert.equal(s.enemies.length, 1, 'a single rival, not a mine full of guards');
