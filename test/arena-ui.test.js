@@ -351,6 +351,17 @@ test('finishing a duel speaks about the duel — its own title, lead and button 
   assert.match(game, /قلوب متبقية · \$\{result\.duel\?\.blocks/, 'the confirmed line reports hearts and guards');
 });
 
+test('the arena stage shows real combat feedback: hit sparks, damage numbers and impact shake', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(game, /function arenaFx\(\)/, 'there is an effects pass over the simulation events');
+  assert.match(game, /arenaFloaters\.push\(\{[^}]*text: strong \? `-\$\{ev\.damage\}`/, 'landed hits print their damage');
+  assert.match(game, /color: strong \? \(i % 2 \? '#ffd166' : '#fff3c9'\)/, 'hits throw warm sparks');
+  assert.match(game, /'صدّ'/, 'a blocked hit reports a block instead of damage');
+  assert.match(game, /arenaShake = Math\.max\(arenaShake, 0\.7\)/, 'taking a hit shakes the stage');
+  assert.match(game, /particles: arenaParticles, floaters: arenaFloaters, shake: arenaShake/, 'effects reach the renderer');
+  assert.match(game, /arenaTick2\(\);\n\s*arenaDraw\(\);/, 'they are advanced before every drawn frame');
+});
+
 test('arena stage HUD: both fighters get equal-width health bars and untruncated names', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   const css = html.match(/\.as-fighter \{[^}]*\}/);

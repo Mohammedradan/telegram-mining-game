@@ -91,7 +91,7 @@ test('the arena scene is a real module: four themed arenas and procedural ninjas
 
 test('the arena tab asks the renderer for the arena scene explicitly', () => {
   const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /renderer\.draw\(arenaCanvas, arenaSim, \{ arena: true/, 'the preview stage passes arena: true');
+  assert.match(game, /renderer\.draw\(arenaCanvas, arenaSim, \{\s*arena: true/, 'the preview stage passes arena: true');
 });
 
 test('the arena floor sits exactly on the physics ground so nobody floats', () => {

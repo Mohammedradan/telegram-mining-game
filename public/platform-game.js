@@ -1435,15 +1435,71 @@
     else if (p.attack <= 0 && !p.swing) mask |= (p.heavyCooldown <= 0 && simNow.tick % 150 > 100) ? R.INPUT.HEAVY : R.INPUT.ATTACK;
     return mask;
   }
+  // مؤثرات المسرح: شرارات الضرب، أرقام الضرر، غبار الصدمة، واهتزاز خفيف — كلها عرض فقط
+  let arenaParticles = [], arenaFloaters = [], arenaShake = 0;
+  function arenaFx() {
+    if (!arenaSim) return;
+    for (const ev of arenaSim.events || []) {
+      if (ev.type === 'hit') {
+        const strong = (ev.damage || 0) > 0;
+        if (!reduced) {
+          for (let i = 0; i < (strong ? 11 : 4); i++) arenaParticles.push({
+            x: ev.x, y: ev.y, vx: (Math.random() - 0.5) * 3.2, vy: -1 - Math.random() * 1.8,
+            life: 16 + Math.random() * 10, color: strong ? (i % 2 ? '#ffd166' : '#fff3c9') : '#9fd8ff',
+            size: 2 + Math.random() * 2.2, glow: true,
+          });
+        }
+        arenaFloaters.push({ x: ev.x, y: ev.y - 10, text: strong ? `-${ev.damage}` : 'صدّ', color: strong ? '#ffd166' : '#9fd8ff', life: 36, maxLife: 36, size: strong ? 16 : 12, scale: 1 });
+        if (strong) arenaShake = Math.max(arenaShake, 0.36);
+      } else if (ev.type === 'swing' && !reduced) {
+        for (let i = 0; i < 5; i++) arenaParticles.push({
+          x: ev.x + (ev.facing >= 0 ? 26 : -6), y: ev.y + 22, vx: ev.facing * (1.2 + i * 0.5) + (Math.random() - 0.5),
+          vy: (Math.random() - 0.5) * 0.8, life: 14, color: '#e8f6ff', size: 2.6, glow: true, trail: true,
+        });
+      } else if (ev.type === 'boss_slam' || ev.type === 'boss_crash') {
+        if (!reduced) for (let i = 0; i < 12; i++) arenaParticles.push({
+          x: ev.x + (i - 6) * 9, y: 296, vx: (i - 6) * 0.35 + (Math.random() - 0.5), vy: -0.8 - Math.random() * 1.6,
+          life: 22, color: i % 2 ? '#c9b8a0' : '#efe3cf', size: 3, glow: false,
+        });
+        arenaShake = Math.max(arenaShake, ev.type === 'boss_crash' ? 0.66 : 0.5);
+      } else if (ev.type === 'hurt') {
+        arenaShake = Math.max(arenaShake, 0.7);
+        if (!reduced) for (let i = 0; i < 8; i++) arenaParticles.push({
+          x: ev.x + 12, y: ev.y + 18, vx: (Math.random() - 0.5) * 3, vy: -1 - Math.random() * 1.4,
+          life: 18, color: i % 2 ? '#ff6b6b' : '#ffa94d', size: 2.6, glow: true,
+        });
+      }
+    }
+  }
   function arenaStep() {
     if (!arenaSim) return;
     if (arenaSim.status !== 'playing') { if (++arenaOver > 90) buildArenaSim(); return; }
     R.step(arenaSim, arenaDemoMask(arenaSim));
+    arenaFx();
+  }
+  function arenaTick2() {
+    if (!arenaParticles.length && !arenaFloaters.length && arenaShake <= 0) return;
+    for (let i = arenaParticles.length - 1; i >= 0; i--) {
+      const pt = arenaParticles[i];
+      pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.11; pt.life--;
+      if (pt.life <= 0) arenaParticles.splice(i, 1);
+    }
+    for (let i = arenaFloaters.length - 1; i >= 0; i--) {
+      const f = arenaFloaters[i];
+      f.y -= 0.5; f.life--;
+      if (f.life <= 0) arenaFloaters.splice(i, 1);
+    }
+    if (arenaParticles.length > 160) arenaParticles.splice(0, arenaParticles.length - 160);
+    arenaShake = Math.max(0, arenaShake - 0.05);
   }
   function arenaDraw() {
     if (!arenaSim || !arenaCanvas) return;
-    // arena: true ← مسرح الساحة يرسم حلبة المبارزة (جمهور ومشاعل وأرض رملية) لا أنفاق المنجم
-    try { renderer.draw(arenaCanvas, arenaSim, { arena: true, reduced, particles: [], shake: 0, floaters: [], beams: [] }); } catch (_) {}
+    // arena: true ← مسرح الساحة يرسم حلبة النينجا (قمر ومعبد وساكورا) لا أنفاق المنجم
+    try {
+      renderer.draw(arenaCanvas, arenaSim, {
+        arena: true, reduced, particles: arenaParticles, floaters: arenaFloaters, shake: arenaShake, beams: [],
+      });
+    } catch (_) {}
   }
   // شريطا الصحة في كتلة المسرح: يُحدَّثان من حالة المحاكاة نفسها (لا رسم تخييلي)
   let arenaHudTick = 0;
@@ -1473,6 +1529,7 @@
     arenaStamp = stamp; arenaAcc += dt;
     let steps = 0;
     while (arenaAcc >= 1000 / (R.FPS || 60) && steps < 3) { arenaStep(); arenaAcc -= 1000 / (R.FPS || 60); steps++; }
+    arenaTick2();
     arenaDraw();
     if (++arenaHudTick % 6 === 0) arenaHud();
     arenaRaf = requestAnimationFrame(arenaFrame);
@@ -1481,7 +1538,7 @@
     if (!arenaCanvas || typeof arenaCanvas.getContext !== 'function' || !R?.create) return false;
     const last = (R.MINES?.length || 1) - 1;
     const z = Math.max(0, Math.min(last, Number.isInteger(zone) ? zone : 0));
-    if (z !== arenaZone || arenaHero !== currentHero || !arenaSim) { arenaZone = z; buildArenaSim(); }
+    if (z !== arenaZone || arenaHero !== currentHero || !arenaSim) { arenaZone = z; buildArenaSim(); arenaParticles = []; arenaFloaters = []; arenaShake = 0; }
     const label = el('arena-preview-rival');
     if (label) label.textContent = `${R.rivalFor?.(z)?.name || 'المبارز'} · ${R.MINES?.[z]?.name || ''}`;
     const heroLabel = el('arena-preview-hero');
