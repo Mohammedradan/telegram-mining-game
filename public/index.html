@@ -294,20 +294,21 @@
     }
     #arena-preview { display: block; width: 100%; height: 100%; }
     .as-hud {
-      position: absolute; inset: 6px 8px auto 8px; display: flex; align-items: center; justify-content: center; gap: 8px;
+      position: absolute; inset: 6px 8px auto 8px; display: flex; align-items: flex-start; justify-content: center; gap: 10px;
       pointer-events: none;
     }
     .as-chip {
       font-size: 10px; font-weight: 900; padding: 3px 9px; border-radius: 999px;
       background: rgba(6, 14, 24, .78); border: 1px solid rgba(94, 220, 160, .55); color: #d9ffe9;
-      max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .as-chip.rival { border-color: rgba(244, 114, 114, .6); color: #ffe0e0; }
-    .as-fighter { display: flex; flex-direction: column; align-items: center; gap: 3px; max-width: 44%; min-width: 0; }
+    /* مقاتلان بعرضين متساويين حتى يتساوى شريطا الدم تمامًا تحت الاسمين */
+    .as-fighter { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1 1 0; min-width: 0; max-width: 168px; }
     .as-hp { display: block; width: 100%; height: 4px; border-radius: 99px; background: rgba(0, 0, 0, .55); overflow: hidden; border: 1px solid rgba(0, 0, 0, .4); }
     .as-hp b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #34d399, #a3e635); transition: width .18s linear; }
     .as-hp.rival b { background: linear-gradient(90deg, #f87171, #fb923c); }
-    .as-vs { font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .5px; }
+    .as-vs { flex: 0 0 auto; margin-top: 4px; font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .5px; }
     .as-bar { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
     .as-bar .arena-duel-btn { flex: 1 1 auto; padding: 10px 14px; border-radius: 11px; font-size: 13px; font-weight: 900; }
     .as-bar .arena-duel-btn:disabled { opacity: .55; filter: grayscale(.35); }
@@ -478,7 +479,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=22">
+  <link rel="stylesheet" href="/platform.css?v=23">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">

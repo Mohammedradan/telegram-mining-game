@@ -326,6 +326,16 @@ test('arena preview: the demo shows the real moveset â€” jump, guard and dodge â
   assert.match(game, /rival\.attack === 'charge'[\s\S]{0,80}R\.INPUT\.DODGE/, 'dodges the charge');
 });
 
+test('arena stage HUD: both fighters get equal-width health bars and untruncated names', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const css = html.match(/\.as-fighter \{[^}]*\}/);
+  assert.ok(css, 'the fighter wrapper has a CSS rule');
+  assert.match(css[0], /flex: 1 1 0/, 'both fighters share one flex basis so the two bars match in width');
+  assert.doesNotMatch(css[0], /max-width: 44%/, 'the old nested max-width that squeezed the names is gone');
+  const chip = html.match(/\.as-chip \{[^}]*\}/);
+  assert.match(chip[0], /max-width: 100%/, 'names are no longer clipped to 42% of a 44% box');
+});
+
 test('duel HUD: the rival gets an in-scene health bar during a duel, and it is absent from mining runs', () => {
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
