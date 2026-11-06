@@ -1215,7 +1215,7 @@
     <div id="arena-live-banner" class="arena-live-banner" hidden aria-live="polite">
       <span id="arena-live-text"></span>
       <div class="alb-actions">
-        <button id="arena-resume-btn" type="button" onclick="resumeActiveRun()" hidden>تابع جولتك</button>
+        <button id="arena-resume-btn" type="button" onclick="resumeActiveRun()" hidden>افتح تبويب اللعب</button>
         <button id="arena-abandon-btn" type="button" onclick="abandonAndDuel()" hidden>تخلَّ عنها وابدأ المبارزة</button>
       </div>
     </div>
@@ -1505,7 +1505,7 @@
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=4"></script>
   <script src="/platform-arena-scene.js?v=1"></script>
-  <script src="/platform-renderer.js?v=11"></script>
+  <script src="/platform-renderer.js?v=12"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
@@ -2027,9 +2027,10 @@
         if (resumeBtn) { resumeBtn.hidden = false; resumeBtn.textContent = 'افتح تبويب اللعب'; }
         if (abandonBtn) abandonBtn.hidden = true;
       } else {
-        if (text) text.textContent = 'لديك جولة جارية في المنجم. أكملها، أو تخلَّ عنها (بلا مكافأة) وابدأ مبارزة الآن.';
-        if (resumeBtn) { resumeBtn.hidden = false; resumeBtn.textContent = 'تابع جولتك'; }
-        if (abandonBtn) abandonBtn.hidden = false;
+        // جولة المنجم وحالة الساحة مستقلتان: وجود جولة منجم لا يمنع المبارزة ولا يطلب مغادرة التبويب
+        if (text) text.textContent = 'جولة منجمك محفوظة كما هي، وستُستأنف عند عودتك إلى تبويب «اللعب». يمكنك المبارزة الآن.';
+        if (resumeBtn) resumeBtn.hidden = true;
+        if (abandonBtn) abandonBtn.hidden = true;
       }
     }
 
@@ -2056,15 +2057,11 @@
       const pad = document.getElementById('arena-pad'); if (pad) pad.hidden = false;
       const btn = document.getElementById('arena-duel-btn'); if (btn) btn.disabled = true;
       const stage = document.getElementById('arena-preview'); stage?.focus?.({ preventScroll: true });
-      // المبارزة تبدأ بلا انتظار: نُظهر مشهد المنصّة (لا الشاشة الأولى) ونعود إلى لوحة المغامرة،
-      // ثم نوقظ حلقة الرسم إن كانت الجولة قد بدأت قبل ظهور التبويب.
-      try { switchPlayPanel('adventure'); } catch (_) {}
-      game.showPlatform?.();
-      setTimeout(() => game.onShow?.(), 30);
+      // المبارزة تُلعب هنا في تبويب الساحة: لا تبديل تبويب، ولا لمس لمشهد تبويب اللعب.
       haptic('success');
     }
 
-    // «تابع جولتك»: ننقل اللاعب إلى مشهد الجولة ونستأنفها فورًا
+    // زر يخصّ حالة واحدة فقط: نتيجة منجم لم تُختم على الخادم بعد (زر إعادة الإرسال هناك)
     function resumeActiveRun() {
       switchTab('play');
       window.PlatformGame?.resumeRun?.();
@@ -4518,6 +4515,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=31"></script>
+  <script src="/platform-game.js?v=32"></script>
 </body>
 </html>

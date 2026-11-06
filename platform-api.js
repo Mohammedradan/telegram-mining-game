@@ -75,14 +75,16 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     const result = await store.withUsers([req.player.id], async () => {
       const user = await prepare(req.player);
       const loadout = Rules.normalizeLoadout(user.state.equipment);
-      let run = await store.activePlatformRun(req.player.id);
+      // جولة واحدة مفتوحة لكل وضع: مبارزة الساحة لا تُلغي جولة المنجم الجارية والعكس.
+      const mode = wantedMode || 'mine';
+      const openRuns = store.activePlatformRuns ? await store.activePlatformRuns(req.player.id) : [await store.activePlatformRun(req.player.id)].filter(Boolean);
+      let run = openRuns.find((r) => (configOfRun(r)?.mode || 'mine') === mode) || null;
       if (run && (now() - Number(run.started_at) > lifetime || Number(run.version) !== Rules.VERSION)) {
         run.status = 'expired'; await store.savePlatformRun(run); run = null;
       }
       const current = run ? configOfRun(run) : null;
       const zone = wanted ?? current?.zone ?? 0;
       const goal = wantedGoal ?? current?.goal ?? 0;
-      const mode = wantedMode ?? current?.mode ?? 'mine';
       const stale = Boolean(run) && !resume && (zone !== current.zone || goal !== current.goal || mode !== current.mode || !sameLoadout(current.loadout, loadout));
       if (!run || stale) {
         // الفتح يُتحقَّق منه قبل أي استبدال: طلب منجم مقفل لا يُسقط جولة نشطة سليمة

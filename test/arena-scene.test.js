@@ -58,7 +58,7 @@ const mine = () => {
 };
 
 test('a duel paints the ninja arena (moonlit temple, sakura petals, two fighters) — never the mine tunnels', () => {
-  const duelPaints = paint(duel());
+  const duelPaints = paint(duel(), { arena: true });
   assert.ok(duelPaints.includes('#ffc2dd'), 'falling sakura petals are drawn');
   assert.ok(duelPaints.includes('#f9a8d4'), 'sakura blossoms are drawn');
   assert.ok(duelPaints.includes('#ef2d56'), 'the shadow warrior (red scarf) is on the stage');
@@ -87,6 +87,14 @@ test('the arena scene is a real module: four themed arenas and procedural ninjas
   // كل ساحة لها سماء ولون بتلات ولوحة مختلفة
   const skies = new Set(A.ARENAS.map(a => a.sky[1]));
   assert.equal(skies.size, 4, 'each arena has its own palette');
+});
+
+test('the play canvas never paints the ninja arena — even if a duel simulation is drawn there', () => {
+  const plain = paint(duel());
+  assert.ok(!plain.includes('#ffc2dd'), 'no sakura petals without opts.arena');
+  assert.ok(!plain.includes('#7c1d22'), 'no torii gate without opts.arena');
+  const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
+  assert.match(renderer, /const arenaMode = !!opts\.arena;/, 'arena art is opt-in only, never implied by the run mode');
 });
 
 test('the arena tab asks the renderer for the arena scene explicitly', () => {

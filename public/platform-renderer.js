@@ -651,8 +651,9 @@
     const dpr = Math.min(root.devicePixelRatio || 1, 2);
     const pixelW = Math.round(cssW * dpr), pixelH = Math.round(cssH * dpr);
     if (canvas.width !== pixelW || canvas.height !== pixelH) { canvas.width = pixelW; canvas.height = pixelH; }
-    // ساحة المبارزة: مشهد مختلف تمامًا عن المناجم — يظهر في مسرح تبويب الساحة وفي كل مبارزة حقيقية (mode: duel)
-    const arenaMode = !!opts.arena || s.mode === 'duel';
+    // ساحة المبارزة: تُرسم فقط عندما يطلبها مسرح تبويب الساحة (opts.arena).
+    // قماش تبويب اللعب يبقى منجمًا دائمًا — لا مبارزة نينجا داخل تجربة اللعب الأصلية.
+    const arenaMode = !!opts.arena;
     // الساحة تُقرَّب (zoom) فتُقرأ كمبارزة: نافذة رأسية أقصر مثبّتة على أرض القتال (y=360 أسفل الشاشة)
     const zoom = Math.max(1, Math.min(2, Number(opts.zoom) || (arenaMode ? 1.34 : 1)));
     const worldH = 360 / zoom, w = Math.max(280, cssW * worldH / cssH);

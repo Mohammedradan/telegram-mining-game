@@ -288,7 +288,8 @@ test('arena UI: the live duel is the primary entry, the classic duel sits in a c
   // زر المبارزة لا يفشل صامتًا: الرسالة تظهر على الساحة نفسها
   assert.match(html, /id="arena-live-banner"[^>]*aria-live="polite"/);
   // زر المبارزة لا يفشل صامتًا: تنبيه بحالة الجولة + إجراءان فعليان (متابعة أو تخلٍّ)
-  assert.match(html, /function refreshArenaDuelState[\s\S]{0,1400}لديك جولة جارية في المنجم/, 'a blocked duel explains itself on the arena');
+  assert.match(html, /function refreshArenaDuelState[\s\S]{0,1600}جولة منجمك محفوظة كما هي/, 'a running mine run is explained without demanding a tab change');
+  assert.doesNotMatch(html, /تابع جولتك/, 'the arena no longer pushes the player to the play tab');
   assert.match(html, /id="arena-resume-btn"[^>]*onclick="resumeActiveRun\(\)"/);
   assert.match(html, /id="arena-abandon-btn"[^>]*onclick="abandonAndDuel\(\)"/);
   assert.match(html, /function abandonAndDuel\(\)[\s\S]{0,220}game\.abandon\(\)/, 'and it clears the stale run instead of trapping the player');

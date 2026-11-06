@@ -39,7 +39,8 @@
   const liveLoadout = () => {
     try { return R.normalizeLoadout(typeof state !== 'undefined' && state ? state.equipment : null); } catch (_) { return R.normalizeLoadout(null); }
   };
-  const configFor = (t) => (t?.config ? R.normalizeConfig(t.config) : R.normalizeConfig({ zone: selectedZone, goal: selectedGoal, mode: selectedMode, loadout: liveLoadout() }));
+  // لقطة الإعداد المحلية لتبويب اللعب تعدينٌ دائمًا: لا يمكن أن يولّد وضعُ «مبارزة» قديم جولة مبارزة هنا
+  const configFor = (t) => (t?.config ? R.normalizeConfig(t.config) : R.normalizeConfig({ zone: selectedZone, goal: selectedGoal, mode: 'mine', loadout: liveLoadout() }));
 
   let sim = R.create(currentHero, undefined, configFor(null)), inputs = [], ticket = null, owner = null;
   const seedOf = (t) => (t?.id ? R.seedFromId(t.id) : undefined);
@@ -1661,7 +1662,7 @@
 
   async function startArenaRun(zone) {
     if (duelRunning || duelSubmitting) return false;
-    if (running || pending) return false; // جولة منجم جارية: لا نتداخل معها
+    // جولة المنجم لا تمنع المبارزة: لكل وضع حالته وتذكرته الخادمية المستقلة (تبقى جولة المنجم كما هي وتُستأنف لاحقًا)
     const z = Math.max(0, Math.min((R.MINES?.length || 1) - 1, Number.isInteger(zone) ? zone : arenaZone));
     hideArenaPreview();
     duelZone = z;
@@ -1867,7 +1868,7 @@
     // مبارزة الساحة: تجري في تبويب الساحة نفسه بنفس المحرك، ولا تلمس جولة المنجم ولا وضعها
     startDuel(zone = 0) {
       if (duelRunning || duelSubmitting) return false;
-      if (running || pending) { say('أكمل جولة المنجم الحالية أولًا (أو تخلَّ عنها من الساحة).'); return false; }
+      // لا شرط على جولة المنجم هنا: المبارزة تجري في تبويب الساحة، وجولة المنجم تبقى مجمّدة كما هي
       void startArenaRun(Number.isInteger(zone) ? zone : arenaZone);
       return true;
     },
