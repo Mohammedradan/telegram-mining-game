@@ -72,6 +72,13 @@ while (guard++ < 900 && !(warn.enemies[0].state === 'windup' && warn.enemies[0].
 }
 frame(warn, { reduced: false }, 'arena-windup.png', 960, 540);
 
+// 2.5) ساحة ثانية (البامبو) لإثبات أن البيئات قابلة للتعدّد بنفس البنية
+const bamboo = R.create(1, 9001, { zone: 1, mode: 'duel' });
+bamboo.enemies[0].x = 380;
+bamboo.player.x = 240;
+for (let i = 0; i < 90; i++) R.step(bamboo, demoMask(bamboo, i));
+frame(bamboo, { arenaId: 1, reduced: false }, 'arena-bamboo.png', 960, 540);
+
 // 3) جولة تعدين عادية للمقارنة (يجب أن تبقى أنفاقًا لا ساحة)
 const mine = R.create(0, 4242, { zone: 0 });
 for (let i = 0; i < 40; i++) R.step(mine, R.INPUT.RIGHT);
