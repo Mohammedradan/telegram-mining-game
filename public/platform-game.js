@@ -333,8 +333,8 @@
         const guardPct = Math.round(100 * g.stamina / Math.max(1, g.maxStamina));
         const cb = sim.player.combo || 0;
         const intent = rival && rival.state === 'windup' ? INTENT_LABEL[rival.attack] || 'هجوم' : '';
-        const rivalName = rival?.name || 'مبارزة';
-        return `${rivalName} · ${hp}/${max}${cb ? ` · سلسلة ×${cb}` : ''} · نَفَس الدرع ${guardPct}%${intent ? ` · ${intent}` : ''} · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
+        // الاسم وصحة الخصم لهما شريط مستقل فوق المشهد؛ هنا نُبقي ما يخصّ اللاعب فقط (لا تكرار ولا حشو)
+        return `${cb ? `سلسلة ×${cb} · ` : ''}درع ${guardPct}%${intent ? ` · ${intent}` : ''} · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
       })()
       : `${zoneName ? `${zoneName} · ` : ''}${sim.status === 'won' ? 100 : Math.min(99, Math.floor(sim.player.x / R.levelFor(sim.zone).exit.x * 100))}% · ${Math.ceil((R.MAX_TICKS - sim.tick) / R.FPS)}ث`;
 
@@ -368,6 +368,8 @@
     };
     // في المبارزة يختفي زر الحفر (لا صخور) لتبقى أزرار القتال واسعة على شاشات الهاتف.
     document.querySelector('.mine-controls')?.classList?.toggle('duel-mode', sim.mode === 'duel');
+    // في المبارزة لا معنى لعدّادات البلورات/الصخور: شريحة الموارد تُخفى بدل عرض أرقام مضلّلة
+    document.querySelector('.mine-hud')?.classList?.toggle('duel-hud', sim.mode === 'duel');
     cdButton(128, sim.player.dodge?.cooldown, 'مراوغة');
     cdButton(256, sim.player.heavyCooldown, 'قوي');
     // low health pulse on hearts HUD

@@ -330,4 +330,8 @@ test('duel HUD: the rival gets an in-scene health bar during a duel, and it is a
   assert.match(game, /fill\.style\.width = `\$\{Math\.max\(0, Math\.min\(100, \(foe\.hp \/ Math\.max\(1, foe\.maxHp\)\) \* 100\)\)\}%`/, 'width follows rival hp');
   assert.match(css, /\.stage-foe\{position:absolute;top:8px/, 'it floats over the scene, not in the HUD row');
   assert.match(css, /\.stage-foe\[hidden\]\{display:none\}/);
+  // في المبارزة لا تُعرض عدّادات التعدين المضلّلة (جوهرة = صحة الخصم كانت خطأ UX)
+  assert.match(game, /classList\?\.toggle\('duel-hud', sim\.mode === 'duel'\)/);
+  assert.match(css, /\.mine-hud\.duel-hud #platform-resources\{display:none\}/);
+  assert.doesNotMatch(game, /rivalName \?\? 'مبارزة'/, 'the rival name/hp is not duplicated in the text line');
 });

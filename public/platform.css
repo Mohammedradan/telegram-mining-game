@@ -35,6 +35,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 
 .mine-stage{position:relative;flex:1;min-height:260px;border:2px solid #6b5a3e;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at center top,#0f2535 0%,#0a1622 40%,#07101a 100%);box-shadow:0 10px 36px rgba(0,0,0,.55),0 0 0 1px rgba(244,191,98,.12),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 8px rgba(0,0,0,.4)}
 #platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none;image-rendering:optimizeQuality}
+/* في المبارزة تُخفى عدّادات التعدين (لا معنى لها) ويبقى شريط الخصم ونص الجولة */
+.mine-hud.duel-hud #platform-resources{display:none}
 /* شريط صحة الخصم في المبارزة: فوق أعلى المشهد، رقيق ولا يحجب اللعب */
 .stage-foe{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;width:min(62%,340px);pointer-events:none;z-index:3;text-shadow:0 1px 4px #000}
 .stage-foe[hidden]{display:none}
