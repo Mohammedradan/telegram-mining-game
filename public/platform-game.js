@@ -1453,6 +1453,17 @@
     const heroBar = el('arena-hp-hero'), rivalBar = el('arena-hp-rival');
     if (heroBar) heroBar.style.width = `${Math.max(0, Math.min(100, (p.hearts / Math.max(1, p.maxHearts)) * 100))}%`;
     if (rivalBar && rival) rivalBar.style.width = `${Math.max(0, Math.min(100, (rival.hp / Math.max(1, rival.maxHp)) * 100))}%`;
+    // طاقة المهارة (من مهلة المهارة نفسها) — نفس ما يمنحه الزر في المبارزة الحقيقية
+    const maxSkill = Math.max(1, p.skillMaxCooldown || 1);
+    const heroEn = el('arena-en-hero');
+    if (heroEn) heroEn.style.width = `${Math.max(0, Math.min(100, 100 - (p.skillCooldown || 0) / maxSkill * 100))}%`;
+    const rivalEn = el('arena-en-rival');
+    if (rivalEn && rival) rivalEn.style.width = `${Math.max(0, Math.min(100, 100 - (rival.timer || 0) / Math.max(1, rival.ai?.walk || 30) * 100))}%`;
+    // المؤقّت والجولة
+    const timerEl = el('arena-timer');
+    if (timerEl) timerEl.textContent = String(Math.max(0, Math.ceil((R.MAX_TICKS - arenaSim.tick) / R.FPS)));
+    const roundEl = el('arena-round');
+    if (roundEl) roundEl.textContent = arenaSim.status === 'playing' ? 'مبارزة' : (arenaSim.status === 'won' ? 'انتصار' : 'خسارة');
   }
   function arenaFrame(now) {
     arenaRaf = 0;

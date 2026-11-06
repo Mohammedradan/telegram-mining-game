@@ -32,7 +32,7 @@ function frame(sim, opts, file, w, h) {
     requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
-  for (const f of ['platform-scenery.js', 'platform-bosses.js', 'platform-renderer.js'])
+  for (const f of ['platform-scenery.js', 'platform-bosses.js', 'platform-arena-scene.js', 'platform-renderer.js'])
     vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', f), 'utf8'), sandbox);
   sandbox.PlatformRenderer.draw(canvas, sim, { particles: [], floaters: [], beams: [], shake: 0, ...opts });
   const target = path.join(OUT, file);

@@ -304,7 +304,22 @@
     }
     .as-chip.rival { border-color: rgba(244, 114, 114, .6); color: #ffe0e0; }
     /* مقاتلان بعرضين متساويين حتى يتساوى شريطا الدم تمامًا تحت الاسمين */
-    .as-fighter { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1 1 0; min-width: 0; max-width: 168px; }
+    .as-fighter { display: flex; flex-direction: row; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; max-width: 230px; }
+    .as-fighter.rival { justify-content: flex-end; }
+    .as-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; align-items: flex-start; }
+    .as-fighter.rival .as-meta { align-items: flex-end; }
+    /* صورة المقاتل: شارة متدرّجة بهوية كل مقاتل (بلا صور جاهزة) */
+    .as-portrait { width: 30px; height: 30px; border-radius: 9px; flex: 0 0 auto; position: relative; overflow: hidden;
+      border: 1.5px solid rgba(148, 200, 255, .55); box-shadow: 0 2px 8px rgba(0, 0, 0, .5); background: radial-gradient(circle at 62% 34%, #9fd8ff 0 16%, #1d2a44 17% 100%); }
+    .as-portrait::after { content: ''; position: absolute; inset: 42% 12% auto 12%; height: 3px; border-radius: 2px; background: #ff5d73; opacity: .9; }
+    .as-portrait.rival { border-color: rgba(244, 150, 180, .6); background: radial-gradient(circle at 38% 34%, #e9b7ff 0 16%, #2a1838 17% 100%); }
+    .as-portrait.rival::after { background: #c084fc; }
+    .as-en { display: block; width: 100%; height: 3px; border-radius: 99px; background: rgba(0, 0, 0, .55); overflow: hidden; }
+    .as-en b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); transition: width .2s linear; }
+    .as-en.rival b { background: linear-gradient(90deg, #f472b6, #a855f7); }
+    .as-center { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 0 0 auto; padding: 0 2px; }
+    .as-center b { font-size: 15px; font-weight: 900; color: #ffe9c0; text-shadow: 0 1px 6px rgba(0, 0, 0, .8); line-height: 1; }
+    .as-center span { font-size: 8.5px; font-weight: 800; color: #b9c7d4; }
     .as-hp { display: block; width: 100%; height: 4px; border-radius: 99px; background: rgba(0, 0, 0, .55); overflow: hidden; border: 1px solid rgba(0, 0, 0, .4); }
     .as-hp b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #34d399, #a3e635); transition: width .18s linear; }
     .as-hp.rival b { background: linear-gradient(90deg, #f87171, #fb923c); }
@@ -1125,13 +1140,24 @@
       <canvas id="arena-preview" aria-label="معاينة حيّة لساحة المبارزة"></canvas>
       <div class="as-hud">
         <span class="as-fighter">
-          <span class="as-chip" id="arena-preview-hero">المحارب</span>
-          <i class="as-hp"><b id="arena-hp-hero"></b></i>
+          <span class="as-portrait hero" id="arena-portrait-hero" aria-hidden="true"></span>
+          <span class="as-meta">
+            <span class="as-chip" id="arena-preview-hero">المحارب</span>
+            <i class="as-hp"><b id="arena-hp-hero"></b></i>
+            <i class="as-en"><b id="arena-en-hero"></b></i>
+          </span>
         </span>
-        <span class="as-vs">VS</span>
-        <span class="as-fighter">
-          <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
-          <i class="as-hp rival"><b id="arena-hp-rival"></b></i>
+        <span class="as-center">
+          <b id="arena-timer">٠</b>
+          <span id="arena-round">مبارزة</span>
+        </span>
+        <span class="as-fighter rival">
+          <span class="as-meta">
+            <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
+            <i class="as-hp rival"><b id="arena-hp-rival"></b></i>
+            <i class="as-en rival"><b id="arena-en-rival"></b></i>
+          </span>
+          <span class="as-portrait rival" id="arena-portrait-rival" aria-hidden="true"></span>
         </span>
       </div>
     </div>
@@ -1431,7 +1457,8 @@
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=4"></script>
-  <script src="/platform-renderer.js?v=10"></script>
+  <script src="/platform-arena-scene.js?v=1"></script>
+  <script src="/platform-renderer.js?v=11"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
@@ -4423,6 +4450,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=28"></script>
+  <script src="/platform-game.js?v=29"></script>
 </body>
 </html>

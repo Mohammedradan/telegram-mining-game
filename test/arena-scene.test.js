@@ -39,6 +39,7 @@ function paint(sim, opts = {}) {
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-scenery.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-bosses.js'), 'utf8'), sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-scene.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8'), sandbox);
   assert.ok(sandbox.PlatformRenderer, 'the renderer registers itself');
   sandbox.PlatformRenderer.draw(canvas, sim, { reduced: true, ...opts });
@@ -56,16 +57,36 @@ const mine = () => {
   return s;
 };
 
-test('a duel is painted in the arena (crowd wall, lit torches, sand floor) — not in the mine tunnels', () => {
+test('a duel paints the ninja arena (moonlit temple, sakura petals, two fighters) — never the mine tunnels', () => {
   const duelPaints = paint(duel());
-  assert.ok(duelPaints.includes('#2a1f3a'), 'the arched crowd wall of the arena is drawn');
-  assert.ok(duelPaints.includes('#241b34'), 'the stone barrier around the ring is drawn');
+  assert.ok(duelPaints.includes('#ffc2dd'), 'falling sakura petals are drawn');
+  assert.ok(duelPaints.includes('#f9a8d4'), 'sakura blossoms are drawn');
+  assert.ok(duelPaints.includes('#ef2d56'), 'the shadow warrior (red scarf) is on the stage');
+  assert.ok(duelPaints.includes('#7c3aed'), 'the shadow ninja (violet scarf) is on the stage');
+  assert.ok(duelPaints.includes('#7c1d22'), 'the torii gate is drawn');
   assert.ok(!duelPaints.includes('#5b6e6c'), 'no mining rocks in the arena');
   assert.ok(!duelPaints.includes('#af8d55'), 'no mine signposts in the arena');
 
   const minePaints = paint(mine());
-  assert.ok(!minePaints.includes('#2a1f3a'), 'a mining run never draws the arena wall');
-  assert.ok(minePaints.length > duelPaints.length / 3, 'the mine still paints its own scene');
+  assert.ok(!minePaints.includes('#ffc2dd'), 'a mining run never draws the arena petals');
+  assert.ok(!minePaints.includes('#7c1d22'), 'a mining run never draws the torii gate');
+  assert.ok(minePaints.includes('#5b6e6c'), 'the mine still paints its own rocks');
+});
+
+test('the arena scene is a real module: four themed arenas and procedural ninjas', () => {
+  const sandbox = { Math, Date, console };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-scene.js'), 'utf8'), sandbox);
+  const A = sandbox.PlatformArenaScene;
+  assert.equal(A.ARENAS.length, 4, 'four arenas are defined');
+  assert.equal(A.ARENAS.map(a => a.id).join(','), 'sakura,bamboo,mountain,fortress');
+  for (const id of [0, 1, 2, 3]) assert.equal(A.arenaFor(id).id, A.ARENAS[id].id, `arena ${id} resolves`);
+  assert.equal(typeof A.backdrop, 'function');
+  assert.equal(typeof A.fighter, 'function');
+  // كل ساحة لها سماء ولون بتلات ولوحة مختلفة
+  const skies = new Set(A.ARENAS.map(a => a.sky[1]));
+  assert.equal(skies.size, 4, 'each arena has its own palette');
 });
 
 test('the arena tab asks the renderer for the arena scene explicitly', () => {

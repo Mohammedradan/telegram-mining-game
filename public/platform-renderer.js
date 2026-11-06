@@ -513,8 +513,8 @@
   // حائط مدرّج بأقواس، جمهور في الظل، مشاعل مشتعلة، لافتات معلّقة، وأرض رملية.
   // تُرسم فقط عند opts.arena (حلبة المعاينة ومبارزات اللعب)، ولا تلمس أي حساب فيزيائي.
   const ARENA_SKIN = {
-    rock: ['#6b4b30', '#7f5c3b'], top: ['#c9a363', '#e2c088', '#f3dcae'],
-    moss: '#b78f52', crack: '#453020', hi: '#9a7448',
+    rock: ['#2c2130', '#3a2b3d'], top: ['#5c3b45', '#7d4f57', '#a86a6a'],
+    moss: '#6b3f4a', crack: '#1b131a', hi: '#8a6a70',
   };
   const ARENA_FLOOR = 300; // مطابق تمامًا لأرض الفيزياء (y = 300) فلا تطفو القدمان
   function drawArena(c, w, tick, reduced, camera) {
@@ -653,9 +653,11 @@
     if (canvas.width !== pixelW || canvas.height !== pixelH) { canvas.width = pixelW; canvas.height = pixelH; }
     // ساحة المبارزة: مشهد مختلف تمامًا عن المناجم — يظهر في مسرح تبويب الساحة وفي كل مبارزة حقيقية (mode: duel)
     const arenaMode = !!opts.arena || s.mode === 'duel';
-    const worldH = 360, w = Math.max(280, cssW * worldH / cssH);
-    const scale = pixelW / w;
-    c.setTransform(scale, 0, 0, pixelH / worldH, 0, 0);
+    // الساحة تُقرَّب (zoom) فتُقرأ كمبارزة: نافذة رأسية أقصر مثبّتة على أرض القتال (y=360 أسفل الشاشة)
+    const zoom = Math.max(1, Math.min(2, Number(opts.zoom) || (arenaMode ? 1.34 : 1)));
+    const worldH = 360 / zoom, w = Math.max(280, cssW * worldH / cssH);
+    const scale = pixelW / w, sy = pixelH / worldH, yTop = -(360 - worldH) * sy;
+    c.setTransform(scale, 0, 0, sy, 0, yTop);
 
     // subtle screen shake
     let shakeX = 0, shakeY = 0;
@@ -671,8 +673,12 @@
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
     const zone = (R.ZONES || [])[s.zone || 0] || DEFAULT_ZONE;
 
+    const ArenaScene = root.PlatformArenaScene;
+    const arenaId = Number.isInteger(opts.arenaId) ? opts.arenaId : (Number.isInteger(s.arenaId) ? s.arenaId : (s.zone || 0) % 4);
     if (arenaMode) {
-      drawArena(c, w, s.tick, reduced, camera);
+      // حلبة النينجا: خلفية يابانية متعدّدة الطبقات (قمر/معبد/ساكورا/بوابة/شلال/ضباب/بتلات)
+      if (ArenaScene && ArenaScene.backdrop) ArenaScene.backdrop(c, w, s.tick, reduced, camera, arenaId);
+      else drawArena(c, w, s.tick, reduced, camera);
     } else {
     // ===== Background =====
     // Deep cavern gradient with vignette
@@ -911,6 +917,7 @@
     const sk = arenaMode ? ARENA_SKIN : (skin || { rock: ['#4c443c', '#5a5048'], top: ['#6b7c3f', '#a58253', '#d8b27c'], moss: '#5a6d35', crack: '#3a342e', hi: '#6b6358' });
     for (const box of L.platforms) {
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
+      if (arenaMode && box.y >= 290) continue; // أرض الساحة يرسمها مشهد الحلبة (منصّة حجرية) لا كتل المنجم
       // base rock
       round(c, box.x, box.y, box.w, box.h, 4, sk.rock[0]);
       // inner shading
@@ -936,17 +943,25 @@
       // side shadow
       c.fillStyle = 'rgba(0,0,0,0.18)';
       c.fillRect(box.x, box.y + box.h - 6, box.w, 6);
-      // pillars for floating platforms — في الساحة أعمدة حجرية لا خشب منجم
-      if (box.h < 25) {
-        const leg = arenaMode ? ARENA_SKIN.rock : ['#7a5e3e', '#9a7a52'];
-        round(c, box.x + 8, box.y + 17, 8, 26, 2, leg[0]);
-        round(c, box.x + 8, box.y + 19, 5, 22, 1, leg[1]);
-        round(c, box.x + box.w - 16, box.y + 17, 8, 26, 2, leg[0]);
-        round(c, box.x + box.w - 14, box.y + 19, 5, 22, 1, leg[1]);
+      if (box.h < 25 && arenaMode) {
+        // في الساحة: شرفة خشبية بأعمدة تصل إلى الأرض وسور — لا منصّة معلّقة بلا سند
+        const postTop = box.y + 17, postH = Math.max(12, 300 - postTop);
+        for (const px of [box.x + 9, box.x + box.w - 16]) {
+          round(c, px, postTop, 7, postH, 2, '#241a22');
+          round(c, px + 1.5, postTop + 2, 2.2, postH - 4, 1, '#3a2a33');
+        }
+        round(c, box.x + 2, box.y - 11, box.w - 4, 2.6, 1.3, '#3b2a32');
+        for (let rx = box.x + 8; rx < box.x + box.w - 6; rx += 13) round(c, rx, box.y - 10, 1.7, 9, 0.8, '#33242c');
+      } else if (box.h < 25) {
+        // أعمدة منصّات المنجم الخشبية
+        round(c, box.x + 8, box.y + 17, 8, 26, 2, '#7a5e3e');
+        round(c, box.x + 8, box.y + 19, 5, 22, 1, '#9a7a52');
+        round(c, box.x + box.w - 16, box.y + 17, 8, 26, 2, '#7a5e3e');
+        round(c, box.x + box.w - 14, box.y + 19, 5, 22, 1, '#9a7a52');
       }
     }
 
-    if (arenaMode) {
+    if (arenaMode && !(ArenaScene && ArenaScene.backdrop)) {
       // حلقة الساحة على أرض القتال (زخرفة فقط): تُظهر مركز المبارزة ولا تمسّ أي حساب فيزيائي.
       c.save();
       c.beginPath(); c.rect(0, 300, w, 60); c.clip();
@@ -1228,12 +1243,17 @@
     // ---- Boss warning lane, enemies, boss, shockwaves ----
     const bosses = root.PlatformBosses;
     if (bosses) for (const enemy of s.enemies) if (enemy.boss) bosses.drawTelegraph(c, enemy, s, reduced);
-    if (s.enemies) for (const enemy of s.enemies) { if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); } else drawEnemy(c, enemy, s.tick, reduced); }
+    if (s.enemies) for (const enemy of s.enemies) {
+      if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, enemy, false, s.tick, reduced, arenaId);
+      else if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); }
+      else drawEnemy(c, enemy, s.tick, reduced);
+    }
     if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced);
 
     // ---- Hero ----
     drawHeroGhost(c, s.player, s.tick, reduced);
-    drawHero(c, s.player, s.tick, reduced);
+    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId);
+    else drawHero(c, s.player, s.tick, reduced);
     // ---- Mining robot companion (V4 equipment) ----
     if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
     for (const beam of (opts.beams || [])) {
@@ -1310,7 +1330,7 @@
     // invulnerability shimmer on hero is handled in drawHero
 
     // boss health bar: screen space, unaffected by the shake
-    if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, pixelH / worldH, 0, 0); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
+    if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, sy, 0, yTop); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
   }
 
   root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos };
