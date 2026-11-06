@@ -89,6 +89,19 @@ test('the arena scene is a real module: four themed arenas and procedural ninjas
   assert.equal(skies.size, 4, 'each arena has its own palette');
 });
 
+test('the katana arc is driven by the recorded swing frames and reads light vs heavy', () => {
+  const scene = fs.readFileSync(path.join(ROOT, 'public/platform-arena-scene.js'), 'utf8');
+  assert.match(scene, /function bladePose\(ent, p, isPlayer\)/, 'one place derives the blade pose');
+  assert.match(scene, /const k = 1 - Math\.min\(1, Math\.max\(0, sw\.ticks\) \/ Math\.max\(1, frames\)\)/, 'the sweep is a function of the recorded swing frames only');
+  assert.match(scene, /const heavy = sw\.kind === 'heavy';/, 'the heavy hit is distinguished');
+  assert.match(scene, /const finisher = !heavy && Boolean\(sw\.finisher\)/, 'and so is the chain finisher');
+  assert.match(scene, /blade\.heavy \? '255,224,150' : blade\.finisher \? '255,190,235' : '170,230,255'/, 'each kind has its own trail colour');
+  assert.match(scene, /c\.arc\(0, 0, r - i \* 3, tipA - span, tipA\)/, 'the trail follows the blade tip angle');
+  assert.match(scene, /if \(isPlayer && ent\.skill\)/, 'the shadow dash draws afterimages from the real skill state');
+  // ولا شيء من هذا يكتب في المحاكاة
+  assert.doesNotMatch(scene, /ent\.swing\.ticks\s*(-=|=)/, 'the scene never mutates the swing');
+});
+
 test('the attack telegraph is built from the same fields the engine acts on', () => {
   const scene = fs.readFileSync(path.join(ROOT, 'public/platform-arena-scene.js'), 'utf8');
   const rules = fs.readFileSync(path.join(ROOT, 'public/platform-rules.js'), 'utf8');

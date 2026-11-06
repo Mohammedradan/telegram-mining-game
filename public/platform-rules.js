@@ -4,7 +4,9 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 8; // V8: قتال أكشن — سلسلة ضربات، ضربة ثقيلة، مراوغة بحرية، وذكاء مبارز بثلاثة أنماط هجوم
+  // V9: توازن المبارزة — قلب إضافي داخل الساحة، استشفاء الخصم 52 إطاراً، ارتداد بدل الانتقال
+  // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
+  const VERSION = 9;
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -77,8 +79,16 @@
     // مكافأة أساسية ثابتة + خطوة صغيرة لكل عمق (تحدٍّ أصعب = عائد أعلى قليلاً)، بحد أقصى 80.
     reward: 60, rewardStep: 4, guardSlow: 55,
     // ساحة المبارزة داخل أول قطعة أرض صلبة في المستوى (0..560) — لا فجوات ولا أخطار بيئية حولها.
-    rival: Object.freeze({ id: 80, w: 44, h: 64, hp: 34, hpPerZone: 6, patrol: 78, charge: 205, wake: 0, minX: 210, maxX: 470, windup: 38, recover: 46 }),
+    rival: Object.freeze({ id: 80, w: 44, h: 64, hp: 34, hpPerZone: 6, patrol: 78, charge: 205, wake: 0, minX: 210, maxX: 470, windup: 38, recover: 52 }),
     // ضربة قريبة تُصدّ، وضربة كاسرة للدرع تُتفادى بالقفز أو المراوغة أو الابتعاد.
+    // قلب إضافي في الساحة وحدها: هامش خطأ أربع إصابات بدل ثلاث، بلا مساس بقلوب التعدين
+    extraHearts: 1,
+    // ارتداد الإصابة في المبارزة (بدل الانتقال إلى نقطة حفظ المنجم): قوة أفقية وإطارات تطبيق
+    knock: Object.freeze({ vx: 165, tick: 9 }),
+    // ===== مهارة الساحة: «ظل الساكورا» =====
+    // اندفاع نينجا خلال الخصم بمناعة كاملة، بضربتين عند نقاط محدّدة من الاندفاع. تكلفتها من
+    // نَفَس الدرع نفسه (المعروض في الواجهة) فلا تُكرَّر بلا حدود، ولها مهلة مستقلة.
+    skill: Object.freeze({ cost: 45, cooldown: 150, ticks: 20, dashSpeed: 520, hitTicks: Object.freeze([6, 13]), damage: 3, reach: 46 }),
     slash: Object.freeze({ reach: 58, recover: 26 }),
     overhead: Object.freeze({ radius: 74, recover: 40 }),
   });
@@ -696,8 +706,9 @@
         jumpSpeed: hero.jumpSpeed,
         grounded: true,
         facing: 1,
-        hearts: stats.hearts,
-        maxHearts: stats.maxHearts,
+        // المبارزة تمنح قلباً إضافياً (توازن الساحة) — التعدين يبقى على قلوب المعدات تماماً
+        hearts: stats.hearts + (cfg.mode === 'duel' ? DUEL.extraHearts : 0),
+        maxHearts: stats.maxHearts + (cfg.mode === 'duel' ? DUEL.extraHearts : 0),
         invulnerable: 0,
         coyote: 6,
         jumpBuffer: 0,
@@ -717,6 +728,10 @@
         pose: 'idle',
         landTimer: 0,
         guard: { active: false, blocks: 0, timer: 0, stamina: GUARD.max + stats.combat.guardStamina, maxStamina: GUARD.max + stats.combat.guardStamina, broken: 0 },
+        // ارتداد الإصابة (يُستخدم في الساحة فقط): يُطبَّق في خطوة الحركة قبل التصادم
+        knock: { vx: 0, ticks: 0 },
+        // مهارة الساحة (ظل الساكورا). تبقى null في التعدين وغيره.
+        skill: null,
         // V8: حالة القتال — سلسلة الضربات والضربة الجارية والضربة الثقيلة والمراوغة
         combo: 0, comboTimer: 0, swing: null, heavyCooldown: 0, attackBuffer: 0, attackBuffered: 'light',
         dodge: { ticks: 0, cooldown: 0, dir: 1 },
@@ -817,7 +832,16 @@
     }
     p.hearts--; s.damage++; p.invulnerable = p.hurtInvulnerable || 90;
     s.events.push({ type: 'hurt', x: p.x, y: p.y });
-    p.x = s.checkpoint; p.y = 240; p.vx = 0; p.vy = 0;
+    if (s.mode === 'duel') {
+      // في الساحة لا يعود اللاعب إلى نقطة حفظ المنجم: يُدفع بعيداً عن مصدر الضربة ويحصل على
+      // إطارات المناعة نفسها. الهدف أن يبقى القتال متصلاً ومرئياً، لا أن يقطع المشهد.
+      const away = fromX !== undefined && fromX < p.x + p.w / 2 ? 1 : -1;
+      p.knock.vx = away * DUEL.knock.vx;
+      p.knock.ticks = DUEL.knock.tick;
+      p.vy = Math.min(p.vy, -180);
+    } else {
+      p.x = s.checkpoint; p.y = 240; p.vx = 0; p.vy = 0;
+    }
     if (p.hearts <= 0) {
       s.status = 'lost';
       p.pose = 'dead';
@@ -961,6 +985,22 @@
     p.heavyCooldown = cfg.cooldown;
     s.events.push({ type: 'swing', heavy: true, stage: 0, x: p.x, y: p.y, facing: p.facing });
   }
+  // ظل الساكورا: يتحرك اللاعب بسرعة ثابتة في اتجاه نظره ويضرب مرتين في إطارين محدّدين.
+  // كل الأرقام من DUEL.skill، فإعادة تشغيل الخادم تعطي نفس الإصابات بنفس التوقيت.
+  function updateDuelSkill(s) {
+    const p = s.player, cfg = DUEL.skill;
+    if (!p.skill) return;
+    p.vx = p.facing > 0 ? cfg.dashSpeed : -cfg.dashSpeed;
+    for (; p.skill.hitIdx < cfg.hitTicks.length && cfg.hitTicks[p.skill.hitIdx] >= p.skill.ticks; p.skill.hitIdx++) {
+      const cx = p.x + p.w / 2;
+      const box = { x: cx - cfg.reach, y: p.y - 12, w: cfg.reach * 2, h: p.h + 24 };
+      const hits = strike(s, box, cfg.damage, { knock: 150, stage: 0, heavy: true, stagger: 10 });
+      s.events.push({ type: 'skill_hit', x: cx, y: p.y + p.h / 2, hits, idx: p.skill.hitIdx });
+    }
+    p.skill.ticks--;
+    if (p.skill.ticks <= 0) { p.skill = null; p.vx = 0; }
+  }
+
   function updateSwing(s) {
     const p = s.player, sw = p.swing;
     if (!sw) return;
@@ -992,6 +1032,29 @@
     if (b.hp * 2 <= b.maxHp) return 2;
     return 1;
   }
+  // اختيار الهجوم: ترتيب المرحلة يحفظ التنوّع، ثم تُعدّله قراءة حالة اللاعب — لكن بلا غشّ:
+  // كل بديل مشروط بحالة مرئية للاعب (درع مرفوع، سيف فارغ، مراوغة في المهلة، مسافة بعيدة)،
+  // ولا يتكرر العقاب مرتين متتاليتين (b.cycle % 2) حتى لا يتحوّل الخصم إلى آلة.
+  function pickDuelAttack(s, b) {
+    const p = s.player, ai = b.ai;
+    const phase = rivalPhase(b), list = ai.phases[Math.min(phase, ai.phases.length) - 1];
+    const fallback = list[b.cycle % list.length];
+    const dist = Math.abs(p.x + p.w / 2 - (b.x + b.w / 2));
+    const cycle = b.cycle;
+    // 1) درع مرفوع: الكاسرة تتجاوزه — لكن ليس في كل دورة
+    if (p.guard.active && cycle % 2 === 0 && dist < 110) return 'overhead';
+    // 2) سيف اللاعب فارغ للتوّ (نهاية ضربته) — نافذة العقاب الأساسية
+    if (!p.swing && p.attack > 4 && dist <= 78) return 'slash';
+    // 3) اللاعب يضرب بسلسلة متواصلة قريباً: موجة أرضية تقطع السلسلة (تُقفز أو تُصدّ)
+    if (p.combo >= 2 && dist < 120 && cycle % 2 === 1) return 'wave';
+    // 4) المراوغة في المهلة: لا مفرّ من الكاسرة
+    if (p.dodge.cooldown > 18 && dist < 88) return 'overhead';
+    // 4) ابتعاد اللاعب: موجات واندفاع بدل المطاردة
+    if (dist > 165) return cycle % 2 === 0 ? 'charge' : 'wave';
+    // 5) لا يقترب: يبني مسافة القتال ثم يضرب
+    if (dist > 96 && cycle % 3 === 0) return 'wave';
+    return fallback;
+  }
   function startDuelWindup(s, b) {
     const p = s.player, ai = b.ai;
     const phase = rivalPhase(b), list = ai.phases[Math.min(phase, ai.phases.length) - 1];
@@ -999,15 +1062,18 @@
       b.phase = phase;
       s.events.push({ type: 'boss_enrage', phase, x: b.x + b.w / 2, y: b.y, id: b.id });
     }
-    b.attack = list[b.cycle % list.length];
+    b.attack = pickDuelAttack(s, b);
     b.cycle++;
     b.aim = p.x + p.w / 2 >= b.x + b.w / 2 ? 1 : -1;
     b.facing = b.aim; b.vx = 0;
-    const fast = phase === 3 ? 0.72 : phase === 2 ? 0.86 : 1;
+    // «ردّ الفعل»: إن كان سيف اللاعب فارغاً للتوّ فالخصم يهجم أسرع (0.62×) — عقاب حقيقي
+    // للضرب العشوائي، لكنه يبقى إنذاراً مرئياً (≥ 23 إطاراً) يمكن قراءته والصدّ.
+    const counter = b.attack === 'slash' && !p.swing && p.attack > 4;
+    const fast = (phase === 3 ? 0.72 : phase === 2 ? 0.86 : 1) * (counter ? 0.62 : 1);
     b.state = 'windup';
-    b.timer = Math.max(14, Math.round(ai.windup * fast));
+    b.timer = Math.max(12, Math.round(ai.windup * fast));
     s.events.push({ type: 'boss_windup', attack: b.attack, ticks: b.timer, unblockable: b.attack === 'overhead',
-      x: b.x + b.w / 2, y: b.y, id: b.id });
+      counter, x: b.x + b.w / 2, y: b.y, id: b.id });
   }
   function fireDuelAttack(s, b) {
     const p = s.player, ai = b.ai, cx = b.x + b.w / 2;
@@ -1050,11 +1116,21 @@
     if (b.state === 'sleep') { b.state = 'approach'; b.timer = ai.walk; }
     if (b.state === 'approach') {
       b.facing = dir;
-      if (dist > 54) {
+      // مسافة القتال تتغيّر بحالة اللاعب: إن رفع درعه صبر على حدّ السيف، وإن كان بعيداً يشتدّ الضغط.
+      const hold = p.guard.active ? 70 : 54;
+      if (dist > hold) {
         b.vx = dir * Math.round(b.patrolSpeed * (b.phase >= 3 ? 1.35 : 1));
         b.x = clampX(b.x + b.vx * DT);
       } else b.vx = 0;
+      // لا ينتظر الخصم دوره ببرود: إن كان اللاعب يضرب في وجهه متتابعاً هجم قبل انتهاء وقفته
+      if (dist <= 72 && p.combo >= 1 && b.timer > 6) b.timer = 6;
       if (b.timer <= 0) startDuelWindup(s, b);
+    } else if (b.state === 'retreat') {
+      // تباعد قصير بعد الهجوم: يفتح للمهاجم فرصة مطاردة، ويقلّل تكرار النمط نفسه
+      b.facing = -dir;
+      b.vx = -dir * Math.round(b.patrolSpeed * 0.8);
+      b.x = clampX(b.x + b.vx * DT);
+      if (b.timer <= 0) { b.state = 'approach'; b.timer = ai.walk; }
     } else if (b.state === 'windup') {
       b.vx = 0;
       if (b.timer <= 0) fireDuelAttack(s, b);
@@ -1071,7 +1147,11 @@
       if (b.timer <= 0) { b.state = 'approach'; b.timer = Math.round(ai.walk * 0.6); }
     } else { // recover
       b.vx = 0;
-      if (b.timer <= 0) { b.state = 'approach'; b.timer = b.phase >= 2 ? ai.enragedWalk : ai.walk; }
+      if (b.timer <= 0) {
+        // كل ثالث هجوم يتبعه تباعد قصير (إيقاع متغيّر يُقرأ ولا يُحفظ)
+        if (b.cycle % 3 === 0 && dist < 90) { b.state = 'retreat'; b.timer = 16; }
+        else { b.state = 'approach'; b.timer = b.phase >= 2 ? ai.enragedWalk : ai.walk; }
+      }
     }
   }
 
@@ -1242,8 +1322,23 @@
       }
     }
 
-    // SKILL Action: character special ability
-    if ((mask & INPUT.SKILL) && p.skillCooldown <= 0) {
+    // ===== ظل الساكورا: مهارة الساحة وحدها =====
+    // تكلفة من نَفَس الدرع + مهلة 150 إطاراً + لا تعمل والدرع مكسور. تُنفّذ بدل مهارة البطل
+    // العامة داخل المبارزة فقط، فتبقى مهارات التعدين كما هي حرفياً.
+    if (s.mode === 'duel') {
+      if ((mask & INPUT.SKILL) && p.skillCooldown <= 0 && !p.skill && p.guard.broken <= 0
+        && p.guard.stamina >= DUEL.skill.cost && !dodging) {
+        p.skill = { ticks: DUEL.skill.ticks, hitIdx: 0 };
+        p.guard.stamina -= DUEL.skill.cost;
+        p.skillCooldown = Math.max(DUEL.skill.cooldown, 1);
+        p.attack = 0; p.attackBuffer = 0;
+        p.dodge.ticks = 0;
+        p.invulnerable = Math.max(p.invulnerable, DUEL.skill.ticks);
+        p.vx = p.facing * DUEL.skill.dashSpeed;
+        const cx0 = p.x + p.w / 2;
+        s.events.push({ type: 'skill', hero: p.hero, kind: 'shadow', x: cx0, y: p.y + p.h / 2, facing: p.facing, cost: DUEL.skill.cost });
+      }
+    } else if ((mask & INPUT.SKILL) && p.skillCooldown <= 0) {
       p.skillCooldown = p.skillMaxCooldown;
       s.events.push({ type: 'skill', x: p.x, y: p.y, hero: p.hero });
       if (p.hero === 'miner') {
@@ -1299,7 +1394,10 @@
 
     if (dodging) p.dodge.ticks--;
     updateSwing(s);
+    if (s.mode === 'duel') updateDuelSkill(s);
 
+    // الارتداد يغلب الإدخال أثناء إطارات تطبيقه (9 إطارات) ثم يعود التحكم كاملاً
+    if (p.knock && p.knock.ticks > 0) { p.knock.ticks--; p.vx = p.knock.vx; }
     const solids = level.platforms.concat(s.rocks.filter(r => r.hp > 0));
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
     p.x += p.vx * DT;

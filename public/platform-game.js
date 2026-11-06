@@ -245,6 +245,9 @@
         enemy_stagger: { freq: 380, dur: 0.16, type: 'triangle', slide: 160 },
         enemy_slash: { freq: 420, dur: 0.1, type: 'sawtooth', slide: 240 },
         enemy_block: { freq: 980, dur: 0.08, type: 'square', slide: 620 },
+        // ظل الساكورا: صعود ثم ضربة مزدوجة — نبرتان تُعرفان بلا نظر
+        skill_shadow: { freq: 620, dur: 0.26, type: 'sine', slide: 1680 },
+        skill_hit: { freq: 240, dur: 0.14, type: 'square', slide: 120 },
       };
       const d = defs[type] || { freq: 300, dur: 0.12, type: 'sine', slide: 360 };
       const o = audio.createOscillator(), g = audio.createGain();
@@ -1440,8 +1443,10 @@
   }
   // مؤثرات المسرح: شرارات الضرب، أرقام الضرر، غبار الصدمة، واهتزاز خفيف — كلها عرض فقط
   let arenaParticles = [], arenaFloaters = [], arenaShake = 0;
-  function collectFx(fromSim) {
+  function collectFx(fromSim, withSound = false) {
     if (!fromSim) return;
+    // أصوات الساحة: تُشغَّل من المبارزة الحيّة فقط، لا من المسرح الاستعراضي
+    const sfx = (type) => { if (withSound) { try { beep(type); } catch (_) {} } };
     for (const ev of fromSim.events || []) {
       if (ev.type === 'hit') {
         const strong = (ev.damage || 0) > 0;
@@ -1454,18 +1459,62 @@
         }
         arenaFloaters.push({ x: ev.x, y: ev.y - 10, text: strong ? `-${ev.damage}` : 'صدّ', color: strong ? '#ffd166' : '#9fd8ff', life: 36, maxLife: 36, size: strong ? 16 : 12, scale: 1 });
         if (strong) arenaShake = Math.max(arenaShake, 0.36);
+        sfx(strong ? 'hit' : 'clang');
+        sfx(ev.heavy ? 'heavy' : 'swing');
       } else if (ev.type === 'swing' && !reduced) {
         for (let i = 0; i < 5; i++) arenaParticles.push({
           x: ev.x + (ev.facing >= 0 ? 26 : -6), y: ev.y + 22, vx: ev.facing * (1.2 + i * 0.5) + (Math.random() - 0.5),
           vy: (Math.random() - 0.5) * 0.8, life: 14, color: '#e8f6ff', size: 2.6, glow: true, trail: true,
         });
       } else if (ev.type === 'boss_slam' || ev.type === 'boss_crash') {
+        sfx(ev.type === 'boss_crash' ? 'boss_crash' : 'boss_slam');
         if (!reduced) for (let i = 0; i < 12; i++) arenaParticles.push({
           x: ev.x + (i - 6) * 9, y: 296, vx: (i - 6) * 0.35 + (Math.random() - 0.5), vy: -0.8 - Math.random() * 1.6,
           life: 22, color: i % 2 ? '#c9b8a0' : '#efe3cf', size: 3, glow: false,
         });
         arenaShake = Math.max(arenaShake, ev.type === 'boss_crash' ? 0.66 : 0.5);
+      } else if (ev.type === 'skill') {
+        sfx('skill_shadow');
+        // ظل الساكورا: عاصفة بتلات + خيط ضوء خلف الاندفاع
+        if (!reduced) {
+          for (let i = 0; i < 16; i++) arenaParticles.push({
+            x: ev.x + (Math.random() - 0.5) * 26, y: ev.y + (Math.random() - 0.5) * 26,
+            vx: -ev.facing * (0.6 + Math.random() * 2.4), vy: -0.8 - Math.random() * 1.9,
+            life: 20 + Math.random() * 12, color: i % 3 === 0 ? '#fff1f8' : i % 3 === 1 ? '#ffb3d9' : '#ff8fbf',
+            size: 2.2 + Math.random() * 2.4, glow: true,
+          });
+          for (let i = 0; i < 8; i++) arenaParticles.push({
+            x: ev.x - ev.facing * (10 + i * 9), y: ev.y + (Math.random() - 0.5) * 8,
+            vx: -ev.facing * 1.2, vy: -0.2, life: 12, color: '#ffffff', size: 2, glow: true, trail: true,
+          });
+        }
+        arenaShake = Math.max(arenaShake, 0.22);
+        arenaFloaters.push({ x: ev.x, y: ev.y - 26, text: 'ظل الساكورا', color: '#ffb3d9', life: 48, maxLife: 48, size: 13, scale: 1 });
+      } else if (ev.type === 'skill_hit') {
+        if (ev.hits) sfx('skill_hit');
+        if (reduced) continue;
+        for (let i = 0; i < 14; i++) arenaParticles.push({
+          x: ev.x + (Math.random() - 0.5) * 18, y: ev.y + (Math.random() - 0.5) * 22,
+          vx: (Math.random() - 0.5) * 4.4, vy: -1 - Math.random() * 2.6,
+          life: 15 + Math.random() * 8, color: i % 2 ? '#ffd7ee' : '#ffffff', size: 2 + Math.random() * 2, glow: true,
+        });
+        if (ev.hits) arenaShake = Math.max(arenaShake, 0.44);
+      } else if (ev.type === 'guard') {
+        sfx('guard');
+      } else if (ev.type === 'evade') {
+        sfx('evade');
+      } else if (ev.type === 'dodge') {
+        sfx('dodge');
+      } else if (ev.type === 'enemy_stagger' || ev.type === 'boss_stun') {
+        sfx('stagger');
+      } else if (ev.type === 'boss_windup') {
+        sfx('boss_windup');
+      } else if (ev.type === 'boss_charge') {
+        sfx('boss_charge');
+      } else if (ev.type === 'boss_enrage') {
+        sfx('boss_enrage');
       } else if (ev.type === 'hurt') {
+        sfx('hurt');
         arenaShake = Math.max(arenaShake, 0.7);
         if (!reduced) for (let i = 0; i < 8; i++) arenaParticles.push({
           x: ev.x + 12, y: ev.y + 18, vx: (Math.random() - 0.5) * 3, vy: -1 - Math.random() * 1.4,
@@ -1622,6 +1671,15 @@
     const heroPct = Math.max(0, Math.min(100, (p.hearts / Math.max(1, p.maxHearts)) * 100));
     const rivalPct = rival ? Math.max(0, Math.min(100, (rival.hp / Math.max(1, rival.maxHp)) * 100)) : 0;
     const heroBar = el('arena-hp-hero'), rivalBar = el('arena-hp-rival');
+    // جاهزية ظل الساكورا: الزر يلمع فقط عندما يمكن استخدامها فعلًا (مهلة + نَفَس)
+    const skillBtn = document.querySelector('#arena-pad [data-duel-input="32"]');
+    if (skillBtn) {
+      const ready = p.skillCooldown <= 0 && p.guard.broken <= 0 && p.guard.stamina >= R.DUEL.skill.cost && !p.skill;
+      skillBtn.classList.toggle('ready', ready);
+      skillBtn.classList.toggle('cool', !ready);
+      skillBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
+      skillBtn.dataset.cd = String(Math.max(0, p.skillCooldown));
+    }
     if (heroBar) heroBar.style.width = `${heroPct}%`;
     if (rivalBar) rivalBar.style.width = `${rivalPct}%`;
     // شريط الظل يتأخّر خلف الشريط الحقيقي فيُظهر حجم الضربة
@@ -1683,7 +1741,7 @@
       if (duelInputs.length >= R.MAX_SEGMENTS && duelInputs[duelInputs.length - 1]?.mask !== mask) break;
       duelRecord(mask);
       R.step(duelSim, mask);
-      collectFx(duelSim);
+      collectFx(duelSim, true);
       for (const ev of duelSim.events || []) {
         if (ev.type === 'hit' && ev.damage > 0) duelFreeze = Math.max(duelFreeze, ev.damage >= 2 ? 4 : 2);
         else if (ev.type === 'hurt') duelFreeze = Math.max(duelFreeze, 3);
@@ -1821,7 +1879,7 @@
     for (let i = 0; i < n && duelSim.status === 'playing'; i++) {
       duelRecord(mask);
       R.step(duelSim, mask);
-      collectFx(duelSim);
+      collectFx(duelSim, true);
     }
     arenaTick2();
     duelDraw(); duelHud();

@@ -348,6 +348,10 @@
       padding: 5px 9px; border-radius: 9px; background: rgba(8, 14, 24, .78);
       border: 1px solid rgba(255, 200, 120, .28);
     }
+    /* زر المهارة: يلمع حين تكون «ظل الساكورا» جاهزة (مهلة + نَفَس الدرع) */
+    .arena-pad .ap-skill.ready { border-color: rgba(255, 179, 217, .95) !important; color: #ffe9f4;
+      box-shadow: 0 0 14px rgba(255, 143, 191, .45), inset 0 0 10px rgba(255, 143, 191, .25); }
+    .arena-pad .ap-skill.cool { opacity: .55; }
     .arena-pad { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .arena-pad[hidden] { display: none !important; }
     .ap-group { display: flex; gap: 6px; }
@@ -1515,11 +1519,11 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=11"></script>
+  <script src="/platform-rules.js?v=12"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=4"></script>
-  <script src="/platform-arena-scene.js?v=4"></script>
+  <script src="/platform-arena-scene.js?v=5"></script>
   <script src="/platform-renderer.js?v=13"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
@@ -4530,6 +4534,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=34"></script>
+  <script src="/platform-game.js?v=35"></script>
 </body>
 </html>

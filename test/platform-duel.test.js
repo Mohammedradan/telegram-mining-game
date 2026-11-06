@@ -19,13 +19,16 @@ function duelRun(seed, zone = 0, hero = 'miner', opts = {}) {
   while (s.status === 'playing' && ticks < 60 * 100) {
     const rival = s.enemies[0], p = s.player;
     const dx = rival.x + rival.w / 2 - (p.x + p.w / 2), dist = Math.abs(dx);
+    // سياسة البوت المرجعي (V9): يصدّ/يقفز أمام الإنذار، ويهجم في نافذة الاستشفاء أو التباعد.
     const incoming = rival.state === 'windup' || rival.state === 'charge' || s.waves.length > 0;
+    const safe = rival.state === 'recover' || rival.state === 'retreat' || rival.state === 'stagger';
     let m = 0;
     if (incoming && p.grounded && p.guard.stamina > 6 && p.guard.broken <= 0 && !opts.neverGuard) m |= R.INPUT.DEFEND;
-    else {
-      if (dist > 40) m |= dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT; else m |= R.INPUT.ATTACK;
-      if (s.waves.length) m |= R.INPUT.JUMP;
-    }
+    else if (safe) {
+      if (dist > 40) m |= dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT;
+      else m |= p.heavyCooldown <= 0 ? R.INPUT.HEAVY : R.INPUT.ATTACK;
+    } else if (dist > 66) m |= dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT;
+    if (s.waves.length) m |= R.INPUT.JUMP;
     R.step(s, m); push(m); ticks += 1;
     if (typeof opts.onTick === 'function') opts.onTick(s, rival);
   }
@@ -35,7 +38,7 @@ function duelRun(seed, zone = 0, hero = 'miner', opts = {}) {
 
 test('V7 duel: a duel round has one rival, no mining targets and its own status', () => {
   const s = R.create('miner', 7, { zone: 0, mode: 'duel' });
-  assert.equal(R.VERSION, 8, 'the engine version moved with the new combat model');
+  assert.equal(R.VERSION, 9, 'the engine version moved with the V9 duel balance');
   assert.deepEqual(R.MODES, ['mine', 'duel']);
   assert.equal(s.mode, 'duel');
   assert.equal(s.enemies.length, 1, 'a single rival, not a mine full of guards');

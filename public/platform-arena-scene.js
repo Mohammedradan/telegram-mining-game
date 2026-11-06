@@ -457,11 +457,58 @@
     return p;
   }
 
+  // ===== وضع النصلة: يتبع الذراع ويتقدّم مع إطارات الضربة المسجّلة في المحاكاة =====
+  // المصدر الوحيد: ent.swing (kind, stage, finisher, hit, wind, ticks) أو ent.state للمبارز.
+  // لا عدّادات عرض مستقلة، فالحركة تُعاد بنفس الإطارات في كل مرة.
+  function bladePose(ent, p, isPlayer) {
+    const base = { ang: p.bladeOut > 0.5 ? 0.08 : -1.25, len: 34 + p.bladeOut * 14, glow: 0, trail: 0, heavy: false, finisher: false };
+    const sw = isPlayer ? ent.swing : null;
+    if (sw) {
+      const frames = sw.kind === 'heavy' ? 13 : sw.finisher ? 12 : sw.stage === 2 ? 9 : 8;
+      const heavy = sw.kind === 'heavy';
+      const finisher = !heavy && Boolean(sw.finisher);
+      base.heavy = heavy; base.finisher = finisher;
+      base.len = heavy ? 52 : finisher ? 50 : 44;
+      if (!sw.hit) {
+        // تحضير: النصلة ترتفع وتلمع قليلاً قبل الإصابة
+        const rise = 1 - Math.min(1, Math.max(0, sw.wind) / (heavy ? 9 : 4));
+        base.ang = -1.5 + rise * 0.22;
+        base.glow = 0.35 + rise * 0.4;
+      } else {
+        // إصابة: قوس واحد سريع من أعلى إلى أسفل (اتساعه وحرارته بحسب نوع الضربة)
+        const k = 1 - Math.min(1, Math.max(0, sw.ticks) / Math.max(1, frames));
+        base.ang = -1.15 + 2.05 * k;
+        base.glow = 1;
+        base.trail = Math.max(0, 1 - k) * (heavy ? 0.62 : finisher ? 0.55 : 0.4);
+      }
+    } else if (!isPlayer && ent.state === 'charge') {
+      base.ang = 0.7; base.len = 46; base.glow = 1; base.trail = 0.45;
+    }
+    return base;
+  }
+
   function drawNinja(c, ent, isPlayer, tick, reduced, arenaId) {
     const skin = isPlayer ? SKINS.player : SKINS.rival;
     const p = poseOf(ent, isPlayer, tick);
     const w = ent.w || 24, h = ent.h || 38;
     const cx = ent.x + w / 2, feet = ent.y + h;
+    // ===== ظل الساكورا: صور خلفية بتلات تتبع الاندفاع (من ent.skill الحقيقي) =====
+    if (isPlayer && ent.skill) {
+      const dir = ent.facing >= 0 ? 1 : -1;
+      for (let i = 3; i >= 1; i--) {
+        c.save();
+        c.translate(cx - dir * i * 10, feet);
+        c.globalAlpha = 0.30 - i * 0.07;
+        c.fillStyle = i % 2 ? '#ffb3d9' : '#ffd7ee';
+        c.beginPath(); c.ellipse(0, -34, 9, 26, 0, 0, TAU); c.fill();
+        c.restore();
+      }
+      c.save();
+      c.globalAlpha = 0.35;
+      c.strokeStyle = '#ffe9f4'; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(cx - dir * 46, feet - 30); c.lineTo(cx + dir * 14, feet - 52); c.stroke();
+      c.restore();
+    }
     const facing = ent.facing >= 0 ? 1 : -1;
     // الرسم منمّذ على 92 وحدة ثم يُقاس: البطل أصغر قليلاً من المبارز لكنه مقروء
     const sc = (isPlayer ? 68 : 82) / 92;
@@ -570,8 +617,9 @@
     c.beginPath(); c.moveTo(6, shoulderY + 10); c.lineTo(handX, handY); c.stroke();
     ring(c, handX, handY, 3, skin.mask, 1);
 
-    const bladeAng = p.bladeOut > 0.5 ? 0.08 : -1.25;
-    const bladeLen = 34 + p.bladeOut * 14;
+    const blade = bladePose(ent, p, isPlayer);
+    const bladeAng = blade.ang;
+    const bladeLen = blade.len;
     const bx = Math.cos(bladeAng) * bladeLen, by = Math.sin(bladeAng) * bladeLen;
     // مقبض
     c.strokeStyle = skin.hilt; c.lineWidth = 4;
@@ -582,7 +630,8 @@
     c.strokeStyle = grad; c.lineWidth = 3.4; c.lineCap = 'round';
     c.beginPath(); c.moveTo(handX, handY); c.lineTo(handX + bx, handY + by); c.stroke();
     if (!reduced) {
-      c.strokeStyle = skin.bladeEdge; c.globalAlpha = 0.45; c.lineWidth = 7.5;
+      c.strokeStyle = blade.heavy ? '#ffe6a8' : blade.finisher ? '#ffc0e8' : skin.bladeEdge;
+      c.globalAlpha = 0.35 + blade.glow * 0.3; c.lineWidth = blade.heavy ? 10 : 7.5;
       c.beginPath(); c.moveTo(handX, handY); c.lineTo(handX + bx * 0.8, handY + by * 0.8); c.stroke();
       c.globalAlpha = 1;
     }
@@ -591,12 +640,29 @@
       c.beginPath(); c.moveTo(-8, hipY - 6); c.lineTo(-20, hipY + 10); c.stroke();
     }
 
-    // ===== أثر القوس أثناء الضربة =====
-    const sw = isPlayer ? ent.swing : (ent.state === 'charge' ? { hit: true } : null);
-    if (sw && !reduced) {
-      const a = sw.hit ? 1.05 : 0.55;
-      c.strokeStyle = skin.bladeEdge; c.globalAlpha = sw.hit ? 0.5 : 0.28; c.lineWidth = sw.hit ? 5 : 3;
-      c.beginPath(); c.arc(4, shoulderY + 18, 40, -a, a); c.stroke();
+    // ===== أثر القوس: مسار مرئي يتبع طرف النصلة الحقيقي =====
+    if (blade.trail > 0.01 && !reduced) {
+      const r = bladeLen * 0.92;
+      const tipA = bladeAng;
+      const span = blade.heavy ? 1.5 : blade.finisher ? 1.35 : 1.05;
+      c.save();
+      c.translate(handX, handY);
+      c.globalCompositeOperation = 'lighter';
+      const col = blade.heavy ? '255,224,150' : blade.finisher ? '255,190,235' : '170,230,255';
+      for (let i = 0; i < 3; i++) {
+        c.globalAlpha = blade.trail * (0.55 - i * 0.15);
+        c.strokeStyle = `rgba(${col},1)`;
+        c.lineWidth = (blade.heavy ? 9 : 6) - i * 2;
+        c.lineCap = 'round';
+        c.beginPath(); c.arc(0, 0, r - i * 3, tipA - span, tipA); c.stroke();
+      }
+      // شفرة لامعة في اللحظة الأولى بعد الإصابة
+      c.globalAlpha = blade.glow * (blade.trail + 0.35);
+      c.strokeStyle = `rgba(255,255,255,0.85)`;
+      c.lineWidth = blade.heavy ? 3.5 : 2.4;
+      c.beginPath(); c.arc(0, 0, r, tipA - span * 0.45, tipA); c.stroke();
+      c.restore();
+      c.globalCompositeOperation = 'source-over';
       c.globalAlpha = 1;
     }
 
