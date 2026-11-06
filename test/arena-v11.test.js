@@ -141,3 +141,35 @@ test('V11: duel rewards and rival health are exactly the V10 numbers', () => {
   assert.deepEqual([0, 1, 2, 3].map((z) => R.create('miner', 1, { zone: z, mode: 'duel' }).enemies[0].maxHp), [34, 42, 52, 58], 'no rival health moved');
   assert.deepEqual([0, 1, 2, 3].map((z) => R.rivalFor(z).name), ['مبارز الظلال', 'السيف السريع', 'سيّاف الريح', 'حارس الساكورا'], 'the same four fighters');
 });
+
+// ---------- 6) الموجة لا تصيب بعد تجاوزها جسد اللاعب ----------
+test('V11: a wave never hurts after it has passed the player body (42 real hits, 0 late)', () => {
+  const overlapBox = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  let hits = 0, afterPass = 0;
+  for (const seed of [11, 2024, 7777, 424242, 9001, 31337, 606, 1408]) {
+    for (const lv of [0, 5]) {
+      for (const zone of [0, 1, 2, 3]) {
+        const s = R.create('miner', seed, { zone, mode: 'duel', loadout: { pickaxe: lv, armor: lv, drill: lv } });
+        let freeze = 0, pending = 0;
+        for (let t = 0; t < 9000 && s.status === 'playing'; t++) {
+          if (freeze > 0) { pending |= BOTS.expert(s); freeze--; continue; }
+          const mask = BOTS.expert(s) | pending; pending = 0;
+          const before = s.player.hearts;
+          R.step(s, mask);
+          if (s.player.hearts < before) {
+            const p = s.player;
+            for (const w of s.waves) {
+              if (w.delay > 0 || !overlapBox(p, w)) continue;
+              hits++;
+              if (w.vx > 0 && w.x + w.w < p.x) afterPass++;
+              if (w.vx < 0 && w.x > p.x + p.w) afterPass++;
+            }
+          }
+          for (const ev of s.events || []) if (ev.type === 'hit' || ev.type === 'hurt') freeze = Math.max(freeze, ev.type === 'hit' ? 2 : 3);
+        }
+      }
+    }
+  }
+  assert.ok(hits > 10, `the measurement caught real wave hits (${hits})`);
+  assert.equal(afterPass, 0, 'not a single hit landed after the wave had already passed the body');
+});
