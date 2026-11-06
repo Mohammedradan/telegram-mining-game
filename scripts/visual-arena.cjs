@@ -111,6 +111,10 @@ async function main() {
       await page.waitForTimeout(400);
       const playCanvas = await canvasStats(page, '#platform-canvas');
       assert.ok(playCanvas.colors >= 24, `${vp.name}: the duel scene in the play tab is painted`);
+      // شريط صحة الخصم داخل المشهد أثناء المبارزة
+      assert.equal(await page.locator('#stage-foe').isVisible(), true, `${vp.name}: the rival health bar is visible during the duel`);
+      const foeBar = await page.evaluate(() => document.getElementById('stage-foe-fill').style.width);
+      assert.match(foeBar, /^[0-9.]+%$/, `${vp.name}: the rival bar is driven by real hp (${foeBar})`);
       await page.screenshot({ path: path.join(outDir, `duel-${vp.name}.png`) });
       await page.locator('#nav-arena').click();
       await page.evaluate(() => window.PlatformGame.abandon());

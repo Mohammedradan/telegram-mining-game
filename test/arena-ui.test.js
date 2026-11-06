@@ -318,3 +318,16 @@ test('boot: opening the app never starts a run or spends anything (no auto-play)
   assert.match(src, /function arenaFrame/, 'the arena preview has its own loop');
   assert.doesNotMatch(src, /function startArenaPreviewTab|autoStart/, 'there is no auto-start path');
 });
+
+test('duel HUD: the rival gets an in-scene health bar during a duel, and it is absent from mining runs', () => {
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
+  assert.match(html, /id="stage-foe"[^>]*hidden/, 'the bar exists and starts hidden');
+  assert.match(html, /id="stage-foe-name"/);
+  assert.match(html, /id="stage-foe-fill"/);
+  // يُقرأ من المحاكاة نفسها، ويظهر في وضع المبارزة فقط
+  assert.match(game, /const foe = sim\.mode === 'duel' \? \(sim\.enemies\.find\(\(e\) => e\.type === 'rival'\)/, 'the bar reads the real rival');
+  assert.match(game, /fill\.style\.width = `\$\{Math\.max\(0, Math\.min\(100, \(foe\.hp \/ Math\.max\(1, foe\.maxHp\)\) \* 100\)\)\}%`/, 'width follows rival hp');
+  assert.match(css, /\.stage-foe\{position:absolute;top:8px/, 'it floats over the scene, not in the HUD row');
+  assert.match(css, /\.stage-foe\[hidden\]\{display:none\}/);
+});

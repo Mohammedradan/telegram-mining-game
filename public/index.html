@@ -303,6 +303,10 @@
       max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .as-chip.rival { border-color: rgba(244, 114, 114, .6); color: #ffe0e0; }
+    .as-fighter { display: flex; flex-direction: column; align-items: center; gap: 3px; max-width: 44%; min-width: 0; }
+    .as-hp { display: block; width: 100%; height: 4px; border-radius: 99px; background: rgba(0, 0, 0, .55); overflow: hidden; border: 1px solid rgba(0, 0, 0, .4); }
+    .as-hp b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #34d399, #a3e635); transition: width .18s linear; }
+    .as-hp.rival b { background: linear-gradient(90deg, #f87171, #fb923c); }
     .as-vs { font-size: 9px; font-weight: 900; color: #f4bf62; letter-spacing: .5px; }
     .as-bar { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
     .as-bar .arena-duel-btn { flex: 1 1 auto; padding: 10px 14px; border-radius: 11px; font-size: 13px; font-weight: 900; }
@@ -474,7 +478,7 @@
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=21">
+  <link rel="stylesheet" href="/platform.css?v=22">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -728,6 +732,10 @@
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، عدّن بحرف E، هاجم بحرف F، والمهارة بحرف Q"></canvas>
+        <div id="stage-foe" class="stage-foe" hidden aria-live="off">
+          <b id="stage-foe-name">الخصم</b>
+          <i class="sf-track"><b id="stage-foe-fill"></b></i>
+        </div>
         <div id="platform-combo" class="mine-combo" aria-live="polite" hidden></div>
         <div id="platform-event" class="mine-event" aria-live="polite" hidden><b id="platform-event-title"></b><span id="platform-event-text"></span></div>
         <div id="platform-overlay" class="mine-overlay">
@@ -1115,9 +1123,15 @@
     <div id="arena-stage" class="arena-stage">
       <canvas id="arena-preview" aria-label="معاينة حيّة لساحة المبارزة"></canvas>
       <div class="as-hud">
-        <span class="as-chip" id="arena-preview-hero">المحارب</span>
+        <span class="as-fighter">
+          <span class="as-chip" id="arena-preview-hero">المحارب</span>
+          <i class="as-hp"><b id="arena-hp-hero"></b></i>
+        </span>
         <span class="as-vs">VS</span>
-        <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
+        <span class="as-fighter">
+          <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
+          <i class="as-hp rival"><b id="arena-hp-rival"></b></i>
+        </span>
       </div>
     </div>
     <div class="as-bar">
@@ -4408,6 +4422,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=22"></script>
+  <script src="/platform-game.js?v=23"></script>
 </body>
 </html>

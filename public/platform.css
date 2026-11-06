@@ -35,13 +35,19 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 
 .mine-stage{position:relative;flex:1;min-height:260px;border:2px solid #6b5a3e;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at center top,#0f2535 0%,#0a1622 40%,#07101a 100%);box-shadow:0 10px 36px rgba(0,0,0,.55),0 0 0 1px rgba(244,191,98,.12),inset 0 1px 0 rgba(255,255,255,.06),inset 0 -1px 8px rgba(0,0,0,.4)}
 #platform-canvas{display:block;width:100%;height:100%;position:absolute;inset:0;touch-action:none;outline:none;image-rendering:optimizeQuality}
+/* شريط صحة الخصم في المبارزة: فوق أعلى المشهد، رقيق ولا يحجب اللعب */
+.stage-foe{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;width:min(62%,340px);pointer-events:none;z-index:3;text-shadow:0 1px 4px #000}
+.stage-foe[hidden]{display:none}
+.stage-foe b{font-size:10px;font-weight:900;color:#ffe4e6}
+.sf-track{display:block;width:100%;height:6px;border-radius:99px;background:rgba(2,6,12,.72);border:1px solid rgba(255,255,255,.18);overflow:hidden}
+.sf-track b{display:block;height:100%;width:100%;background:linear-gradient(90deg,#f87171,#fb923c);transition:width .12s linear}
 
 .mine-overlay{--ov-gap:8px;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:var(--ov-gap);padding:16px;background:linear-gradient(to top,rgba(5,12,20,.96) 0%,rgba(6,14,23,.9) 46%,rgba(6,14,23,.55) 76%,rgba(6,14,23,.16) 100%);text-align:center;overflow-y:auto;text-shadow:0 2px 8px #02090d}
 .mine-overlay::before,.mine-overlay::after{content:'';flex:1 0 0;min-height:0}
 .mine-overlay::before{margin-bottom:calc(var(--ov-gap) * -1)}
 .mine-overlay::after{margin-top:calc(var(--ov-gap) * -1)}
-.mine-overlay h3{font-size:23px;line-height:1.1;font-weight:900;color:#ffdc91;text-shadow:0 2px 12px rgba(0,0,0,.6),0 0 20px rgba(255,220,145,.25);letter-spacing:.4px}
-.mine-overlay p{font-size:11.5px;line-height:1.7;max-width:400px;color:#cfe0e2;opacity:.95}
+.mine-overlay h3{font-size:20px;line-height:1.1;font-weight:900;color:#ffdc91;text-shadow:0 2px 12px rgba(0,0,0,.6),0 0 20px rgba(255,220,145,.25);letter-spacing:.4px}
+.mine-overlay p{font-size:10.5px;line-height:1.55;max-width:340px;color:#cfe0e2;opacity:.95}
 .mine-overlay button,#platform-retry{border-radius:11px;padding:10px 22px;background:linear-gradient(135deg,#f5bc60,#e09a2d);color:#302119;font-weight:900;border:1px solid #ffe2a2;font-size:12px;cursor:pointer;box-shadow:0 4px 14px rgba(245,188,96,.3),inset 0 1px 0 rgba(255,255,255,.3);transition:all .15s}
 .mine-overlay button:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(245,188,96,.4),inset 0 1px 0 rgba(255,255,255,.3)}
 .mine-overlay button:active{transform:translateY(1px) scale(.98)}

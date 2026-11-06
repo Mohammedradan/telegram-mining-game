@@ -309,6 +309,19 @@
         chip('res-foes', sim.player.guard?.blocks || 0);
       }
     }
+    // شريط صحة الخصم داخل المشهد (وضع المبارزة): يُقرأ من المحاكاة نفسها، ويختفي خارج المبارزة
+    const foeBox = el('stage-foe');
+    if (foeBox) {
+      const foe = sim.mode === 'duel' ? (sim.enemies.find((e) => e.type === 'rival') || sim.enemies[0]) : null;
+      const showFoe = Boolean(foe) && sim.status === 'playing';
+      if (foeBox.hidden === showFoe) foeBox.hidden = !showFoe;
+      if (foe) {
+        const nameEl = el('stage-foe-name');
+        if (nameEl && nameEl.textContent !== (foe.name || 'الخصم')) nameEl.textContent = foe.name || 'الخصم';
+        const fill = el('stage-foe-fill');
+        if (fill) fill.style.width = `${Math.max(0, Math.min(100, (foe.hp / Math.max(1, foe.maxHp)) * 100))}%`;
+      }
+    }
     const progEl = el('platform-progress');
     const zoneName = R.ZONES?.[sim.zone || 0]?.name;
     if (progEl) progEl.textContent = sim.mode === 'duel'
@@ -1332,13 +1345,14 @@
   // لوحة «الساحة» تعرض المشهد الحقيقي (نفس المحرك ونفس الرسم) بجولة استعراضية حتمية:
   // لاعب آلي بسيط يقاتل مبارز المنجم. لا تمسّ الحساب ولا الجولة الجارية، وتتوقف فور مغادرة التبويب.
   const arenaCanvas = el('arena-preview');
-  let arenaSim = null, arenaRaf = 0, arenaAcc = 0, arenaStamp = 0, arenaZone = 0, arenaOver = 0, arenaSeed = 7717;
+  let arenaSim = null, arenaRaf = 0, arenaAcc = 0, arenaStamp = 0, arenaZone = 0, arenaOver = 0, arenaSeed = 7717, arenaHero = null;
   const arenaShown = () => Boolean(arenaCanvas && typeof arenaCanvas.getContext === 'function'
     && el('tab-arena')?.classList?.contains('active') && !document.hidden);
   function buildArenaSim() {
     if (!R?.create) return;
     arenaSeed = (arenaSeed * 1103515245 + 12345) % 2147483647;
     arenaSim = R.create(currentHero, arenaSeed, { zone: arenaZone, mode: 'duel' });
+    arenaHero = currentHero;
     arenaOver = 0;
     // إطار المعاينة: البطل والخصم في كادر واحد (الجولة الحقيقية تبدأ من مواقعها الطبيعية)
     const p = arenaSim.player, rival = arenaSim.enemies[0];
@@ -1373,6 +1387,15 @@
     if (!arenaSim || !arenaCanvas) return;
     try { renderer.draw(arenaCanvas, arenaSim, { reduced, particles: [], shake: 0, floaters: [], beams: [] }); } catch (_) {}
   }
+  // شريطا الصحة في كتلة المسرح: يُحدَّثان من حالة المحاكاة نفسها (لا رسم تخييلي)
+  let arenaHudTick = 0;
+  function arenaHud() {
+    if (!arenaSim) return;
+    const p = arenaSim.player, rival = arenaSim.enemies[0];
+    const heroBar = el('arena-hp-hero'), rivalBar = el('arena-hp-rival');
+    if (heroBar) heroBar.style.width = `${Math.max(0, Math.min(100, (p.hearts / Math.max(1, p.maxHearts)) * 100))}%`;
+    if (rivalBar && rival) rivalBar.style.width = `${Math.max(0, Math.min(100, (rival.hp / Math.max(1, rival.maxHp)) * 100))}%`;
+  }
   function arenaFrame(now) {
     arenaRaf = 0;
     if (!arenaShown()) return;
@@ -1382,13 +1405,14 @@
     let steps = 0;
     while (arenaAcc >= 1000 / (R.FPS || 60) && steps < 3) { arenaStep(); arenaAcc -= 1000 / (R.FPS || 60); steps++; }
     arenaDraw();
+    if (++arenaHudTick % 6 === 0) arenaHud();
     arenaRaf = requestAnimationFrame(arenaFrame);
   }
   function showArenaPreview(zone) {
     if (!arenaCanvas || typeof arenaCanvas.getContext !== 'function' || !R?.create) return false;
     const last = (R.MINES?.length || 1) - 1;
     const z = Math.max(0, Math.min(last, Number.isInteger(zone) ? zone : 0));
-    if (z !== arenaZone || !arenaSim) { arenaZone = z; buildArenaSim(); }
+    if (z !== arenaZone || arenaHero !== currentHero || !arenaSim) { arenaZone = z; buildArenaSim(); }
     const label = el('arena-preview-rival');
     if (label) label.textContent = `${R.rivalFor?.(z)?.name || 'المبارز'} · ${R.MINES?.[z]?.name || ''}`;
     const heroLabel = el('arena-preview-hero');
