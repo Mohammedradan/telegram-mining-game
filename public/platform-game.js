@@ -856,7 +856,7 @@
     r.appendChild(l); r.appendChild(v);
     return r;
   }
-  function nextStepHint(receipt) {
+  function nextStepHint(receipt, duelRun = false) {
     let st = null;
     try { st = typeof state !== 'undefined' && state ? state : null; } catch (_) { st = null; }
     if (st && R.mineStatus) {
@@ -885,10 +885,11 @@
         return `لماذا جولة أخرى؟ «${R.EQUIPMENT[best.id].name}» تنتظرك: تحتاج ${needs} — ${R.EQUIPMENT[best.id].blurb}.`;
       }
     }
-    if (receipt && receipt.mode === 'duel') {
-      return receipt.won
-        ? 'لماذا مبارزة أخرى؟ كل عمق يقدّم نمط خصم أسرع (المدرّع ثم سيّاف الريح) وذهبًا أكثر لكل انتصار.'
-        : 'لماذا مبارزة أخرى؟ اقرأ إنذار الخصم: الكاسرة تُقفز أو تُراوغ، والضربة القريبة تُصدّ — والصدّ يستهلك درعك.';
+    if (duelRun || receipt?.mode === 'duel') {
+      const won = receipt ? receipt.won : null;
+      if (won === true) return 'لماذا مبارزة أخرى؟ كل عمق يقدّم نمط خصم أسرع (المدرّع ثم سيّاف الريح) وذهبًا أكثر لكل انتصار.';
+      if (won === false) return 'لماذا مبارزة أخرى؟ اقرأ إنذار الخصم: الكاسرة تُقفز أو تُراوغ، والضربة القريبة تُصدّ — والصدّ يستهلك درعك.';
+      return 'المبارزة تُربح بالقراءة: الصدّ للضربة القريبة، والقفز أو المراوغة للكاسرة، وراقب درعك.';
     }
     if (receipt && receipt.goal && !receipt.goal.done) return `لماذا جولة أخرى؟ أكمل هدف «${receipt.goal.name}» لتحصل على خام إضافي يسرّع ترقية الورشة.`;
     return 'لماذا جولة أخرى؟ جرّب هدفًا مختلفًا: كسر العرق النادر أو الجشع في المفترق يمنحك خامًا نادرًا للورشة.';
@@ -926,7 +927,7 @@
       rows.appendChild(summaryRow('الزمن', `${secs} ثانية`));
       if (receipt) rows.appendChild(summaryRow('المكافأة المؤكدة', `+${receipt.gold} ذهب · +${receipt.xp} خبرة`));
       const next = el('summary-next');
-      if (next) next.textContent = nextStepHint(receipt);
+      if (next) next.textContent = nextStepHint(receipt, true);
       box.hidden = false;
       scheduleOverlayFit();
       return;
