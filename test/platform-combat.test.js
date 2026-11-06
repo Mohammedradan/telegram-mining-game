@@ -29,7 +29,7 @@ function tapAttack(s, mask) {
 }
 
 test('V8 inputs: dodge, heavy and the analog walk bit are part of the recorded mask', () => {
-  assert.equal(R.VERSION, 9);
+  assert.equal(R.VERSION, 10);
   assert.equal(R.INPUT.DODGE, 128);
   assert.equal(R.INPUT.HEAVY, 256);
   assert.equal(R.INPUT.SOFT, 512);
@@ -256,23 +256,34 @@ test('V8 mining is untouched: one attack still deals exactly the hero damage', (
   assert.equal(hp - goblin.hp, s.player.damage, 'the first press of the chain equals the legacy single hit');
   assert.equal(s.player.combo, 1);
 });
-
-test('V8 rival ladder: a deeper mine means a different fighter, not the same one with more health', () => {
-  const names = new Set(), openings = new Set();
-  for (const zone of [0, 2, 4]) {
+test('V10 rival ladder: four styles, one per zone, and an armored boss with a real punish window', () => {
+  const styles = new Set(), names = new Set(), openings = new Set();
+  for (const zone of [0, 1, 2, 3]) {
     const b = R.create('miner', '7', { zone, mode: 'duel' }).enemies[0];
-    names.add(b.name);
-    openings.add(b.ai.phases[0].join(','));
-    assert.equal(b.arch, zone >= 4 ? 2 : zone >= 2 ? 1 : 0, `zone ${zone} fields the right archetype`);
-    assert.equal(b.armored, false, 'the rival never becomes an invulnerable wall');
+    styles.add(b.style); names.add(b.name); openings.add(b.ai.phases[0].join(','));
+    assert.equal(b.arch, zone, `zone ${zone} fields its own archetype`);
   }
-  assert.equal(names.size, 3, 'three named fighters');
-  assert.equal(openings.size, 3, 'each one opens the fight differently');
-  const shallow = R.create('miner', '7', { zone: 0, mode: 'duel' }).enemies[0];
+  assert.equal(styles.size, 4, 'four distinct fighting styles');
+  assert.equal(names.size, 4, 'four named fighters');
+  assert.equal(openings.size, 4, 'each one opens the fight differently');
+  // الزعيم مدرّع، لكن الدرع ليس جداراً: الضرر يقع في نافذة الاستشفاء المعلنة
+  const boss = R.create('miner', '7', { zone: 3, mode: 'duel' }).enemies[0];
+  assert.equal(boss.armored, true, 'the zone-4 boss is armored');
+  assert.ok(boss.ai.recover >= 60, 'and its recovery window is generous enough to punish in');
+  const s = R.create('miner', '7', { zone: 3, mode: 'duel' });
+  s.player.x = s.enemies[0].x - 40;
+  const hp0 = s.enemies[0].hp;
+  R.step(s, R.INPUT.ATTACK);
+  for (let i = 0; i < 10; i++) R.step(s, 0);
+  assert.equal(s.enemies[0].hp, hp0, 'outside the window the armor holds');
+  s.enemies[0].state = 'recover'; s.enemies[0].timer = 40;
+  const hp1 = s.enemies[0].hp;
+  for (let i = 0; i < 14; i++) { R.step(s, i === 0 ? R.INPUT.ATTACK : 0); }
+  assert.ok(s.enemies[0].hp < hp1, 'inside the window the same hit lands');
+  // عمق أكبر = نفس الأنماط بصحة أعلى (لا نسخة متطابقة)
   const deep = R.create('miner', '7', { zone: 5, mode: 'duel' }).enemies[0];
-  assert.ok(deep.maxHp > shallow.maxHp, 'deeper = tougher');
-  assert.ok(deep.ai.windup < shallow.ai.windup, 'and it telegraphs faster');
-  assert.equal(R.duelStatus(R.create('miner', '7', { zone: 2, mode: 'duel' })).name, 'المقاتل المدرّع',
+  assert.ok(deep.maxHp > R.create('miner', '7', { zone: 0, mode: 'duel' }).enemies[0].maxHp, 'deeper = tougher');
+  assert.equal(R.duelStatus(R.create('miner', '7', { zone: 2, mode: 'duel' })).name, 'سيّاف الريح',
     'the HUD reads the archetype name from the simulation, not from the client');
   // نفس البذرة ونفس العمق = نفس المبارز تماماً (حتمية)
   assert.deepEqual(

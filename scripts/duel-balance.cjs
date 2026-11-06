@@ -27,6 +27,9 @@ const BOTS = {
     if (!r) return 0;
     const me = s.player, dx = r.x + r.w / 2 - (me.x + me.w / 2), ad = Math.abs(dx), dir = dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT;
     if (r.state === 'windup' && ad < 95) return r.attack === 'overhead' ? R.INPUT.DODGE : R.INPUT.DEFEND;
+    // مهارة أساسية يعلّمها الدرس: القفز فوق الموجة الأرضية
+    const wave = (s.waves || []).find((w) => !(w.delay > 0) && Math.abs((w.x + w.w / 2) - (me.x + me.w / 2)) < 80);
+    if (wave && me.grounded) return R.INPUT.JUMP;
     if (r.state === 'recover' && ad <= 66) return R.INPUT.HEAVY;
     if (ad > 60) return dir;
     return R.INPUT.ATTACK;
@@ -37,9 +40,22 @@ const BOTS = {
     const r = s.enemies.find((e) => !e.dead);
     if (!r) return 0;
     const me = s.player, dx = r.x + r.w / 2 - (me.x + me.w / 2), ad = Math.abs(dx), dir = dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT;
-    // 1) الدفاع أولاً: لا يبدأ ضربة وهو مكشوف أمام إنذار
-    if (r.state === 'windup' && ad < 110) return r.attack === 'overhead' ? R.INPUT.DODGE : R.INPUT.DEFEND;
+    // 1) الدفاع أولاً: يقرأ عدّاد الإنذار ويتفادى في الإطارات الأخيرة (توقيت لا سباق)
+    if (r.state === 'windup') {
+      const close = ad < 118;
+      const late = r.timer <= 9;
+      if (close && late) {
+        if (r.attack !== 'overhead') return R.INPUT.DEFEND;
+        // الصدمة الواسعة تُقفز (أرضية)، والكاسرة العادية تُراوغ
+        return (r.ai && r.ai.wideSlam) ? R.INPUT.JUMP : R.INPUT.DODGE;
+      }
+      if (close) return 0; // ينتظر ولا يفتح نفسه
+      return dir;
+    }
     if (r.state === 'charge' && ad < 130) return R.INPUT.JUMP;
+    // الموجة الأرضية: يقفز فوقها (نفس النصيحة المعروضة في الواجهة)
+    const wave = (s.waves || []).find((w) => !(w.delay > 0) && Math.abs((w.x + w.w / 2) - (me.x + me.w / 2)) < 90);
+    if (wave && me.grounded) return R.INPUT.JUMP;
     // 2) الهجوم في نافذة آمنة فقط
     const safe = r.state === 'recover' || r.state === 'retreat' || r.state === 'stagger';
     if (safe) {

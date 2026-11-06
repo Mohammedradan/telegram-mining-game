@@ -61,7 +61,8 @@ test('duel reward: the independent daily cap is enforced server-side and kept ap
 test('equipment in combat: damage, guard stamina, dodge and skill cooldowns improve but stay capped', () => {
   const base = R.loadoutStats('warrior', {});
   const full = R.loadoutStats('warrior', MAX_GEAR);
-  assert.deepEqual(base.combat, { damage: 0, guardStamina: 0, dodgeCooldown: 46, skillCooldown: 150 });
+  // V10: نفس الحقول القديمة + كسر الدفاع (الفأس) واستعادة الأنفاس (الدرع) ومهلة الساحة (المثقاب)
+  assert.deepEqual(base.combat, { damage: 0, guardBreak: 0, guardStamina: 0, breathRegen: 0, dodgeCooldown: 46, skillCooldown: 150, duelSkillCooldown: 150 });
   assert.equal(full.combat.damage, 2, 'a maxed pickaxe adds +2 damage — and never more');
   assert.equal(R.loadoutStats('warrior', { pickaxe: 1 }).combat.damage, 0, 'one level is not yet a damage step');
   assert.equal(R.loadoutStats('warrior', { pickaxe: 3 }).combat.damage, 1);
@@ -70,6 +71,10 @@ test('equipment in combat: damage, guard stamina, dodge and skill cooldowns impr
   assert.ok(full.combat.dodgeCooldown >= 30, 'dodge cooldown never drops below the safety floor');
   assert.ok(full.combat.skillCooldown >= 90, 'and the skill cooldown keeps its own floor');
   assert.ok(full.combat.skillCooldown >= 90 && full.combat.skillCooldown < base.combat.skillCooldown);
+  // الحقول الجديدة في V10 مسقوفة أيضاً
+  assert.equal(full.combat.guardBreak, 2, 'a maxed axe adds two guard-break steps — never more');
+  assert.equal(full.combat.breathRegen, 1, 'armor speeds breath recovery by at most +1 per frame');
+  assert.equal(full.combat.duelSkillCooldown, Math.max(100, 150 - 10 * R.MAX_EQUIP_LEVEL), 'the arena skill cooldown has its own floor');
 
   // يتسلل إلى المحاكاة فعلاً: ضرر أعلى ونَفَس درع أطول — لكن القلوب لا تتضخّم بالقتال
   const a = R.create('warrior', 3, { zone: 0 }), b = R.create('warrior', 3, { zone: 0, loadout: MAX_GEAR });

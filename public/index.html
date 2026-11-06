@@ -380,6 +380,17 @@
       background: rgba(6, 14, 24, .8); border: 1px solid rgba(94, 124, 146, .4); white-space: nowrap;
     }
     /* سلّم المبارزين: صفوف مضغوطة تُظهر الخصم والمنجم والمكافأة وحالة الفتح */
+    /* عدّة القتال: صف لكل معدّة بمستواها وأثرها الرقمي (من القواعد المشتركة) */
+    .arena-gear { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 8px; }
+    .arena-gear:empty { display: none; }
+    .arena-gear .ag-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 10px; color: #9db2c9; }
+    .arena-gear .ag-head b { color: #e8f0f8; font-size: 11px; }
+    .arena-gear .ag-row { display: grid; grid-template-columns: auto auto 1fr; gap: 2px 8px; align-items: baseline;
+      background: rgba(12, 18, 28, .5); border: 1px solid rgba(120, 160, 200, .16); border-radius: 8px; padding: 5px 8px; }
+    .arena-gear .ag-row i { font-style: normal; font-weight: 800; font-size: 11px; color: #dbe7f3; }
+    .arena-gear .ag-row em { font-style: normal; font-size: 10px; color: #8fb8d8; }
+    .arena-gear .ag-row span { font-size: 10px; color: #cfe3f5; }
+    .arena-gear .ag-row small { grid-column: 1 / -1; font-size: 9px; color: #8aa2b8; }
     .arena-ladder { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; min-height: 0; }
     .al-row { flex: 0 0 auto; }
     .al-row {
@@ -1240,6 +1251,9 @@
     </div>
 
     <!-- سلّم المبارزين: اختر خصمك فيتغيّر المسرح، والزر واحد للبدء -->
+    <!-- عدّة القتال: تُعرض قبل المبارزة وتُحسب من نفس دالة الإحصاءات التي يستخدمها المحرك -->
+    <div id="arena-gear" class="arena-gear" aria-label="معداتك في المبارزة"></div>
+
     <div id="arena-ladder" class="arena-ladder" role="list" aria-label="اختر خصمك"></div>
 
     <details id="classic-system" class="classic-system">
@@ -1519,11 +1533,11 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=12"></script>
+  <script src="/platform-rules.js?v=13"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=4"></script>
-  <script src="/platform-arena-scene.js?v=5"></script>
+  <script src="/platform-arena-scene.js?v=6"></script>
   <script src="/platform-renderer.js?v=13"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
@@ -1960,6 +1974,7 @@
     };
     function renderArenaLadder() {
       const RULES = window.PlatformRules;
+      renderArenaGear();
       const box = document.getElementById('arena-ladder');
       if (!box || !RULES?.RIVALS) return;
       const st = (typeof state !== 'undefined' && state) || {};
@@ -1996,6 +2011,19 @@
       window.PlatformGame?.showArenaPreview?.(arenaSelectedZone);
       refreshArenaCta();
     }
+    // بطاقة العدّة: القيم من Rules.combatGear (نفس ما يحسبه المحرك والخادم) — عرض فقط
+    function renderArenaGear() {
+      const box = document.getElementById('arena-gear');
+      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) || {};
+      if (!box || !RULES?.combatGear) return;
+      let hero = 'miner';
+      try { const h = localStorage.getItem('platform-hero'); if (RULES.CHARACTERS?.[h]) hero = h; } catch (_) {}
+      const rows = RULES.combatGear(hero, st.equipment);
+      box.innerHTML = '<div class="ag-head"><b>عدّة القتال</b><span>من حفظك · الخادم هو المرجع</span></div>' +
+        rows.map((r) => `<div class="ag-row" data-gear="${r.id}"><i>${r.name}</i><em>${r.level}/${r.max}</em>` +
+          `<span>${r.effect}</span><small>${r.detail}</small></div>`).join('');
+    }
+
     function pickRival(zone) {
       arenaSelectedZone = Number(zone) || 0;
       const live = document.getElementById('arena-live-banner');

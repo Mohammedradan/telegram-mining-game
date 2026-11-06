@@ -111,8 +111,11 @@ test('the attack telegraph is built from the same fields the engine acts on', ()
   // نفس الحقل الذي يحدّد «كاسرة لا تُصدّ» في المحرك
   assert.match(rules, /unblockable: b\.attack === 'overhead'/, 'the engine marks the overhead as unblockable');
   assert.match(scene, /const unblockable = ent\.attack === 'overhead';/, 'so the cue uses exactly that field');
-  // لا يوجد إنذار زائف لنافذة استشفاء لا يفرضها المحرك
-  assert.doesNotMatch(scene, /ent\.state === 'recover' && !ent\.dead/, 'no cue for a punish window the engine does not enforce');
+  // نافذة العقاب تظهر فقط للخصم المدرّع — نفس شرط blow() في المحرك، فلا إنذار زائف
+  assert.match(scene, /ent\.armored !== false && ent\.state === 'recover' && !ent\.dead/, 'the punish cue is gated on the armored flag');
+  assert.match(rules, /enemy\.boss && enemy\.armored !== false && enemy\.state !== 'recover' \? 0 : amount/, 'which is exactly the engine gate');
+  // لا يوجد أي فحص استشفاء آخر غير مربوط بالمدرّع (عدّ الظهور يمنع نسخة ثانية غير محكومة)
+  assert.equal((scene.match(/state === 'recover'/g) || []).length, 1, 'exactly one recover predicate, and it is gated');
 });
 
 test('the arena heats up as the rival weakens and fighters flash when hit', () => {

@@ -696,6 +696,39 @@
 
     c.restore();
 
+    // ===== حلقة الخطر للضربة الواسعة =====
+    // نصف القطر الحقيقي من المحرك (ai.slamRadius) وتُملأ مع انقضاء الإنذار: الخطوة الآمنة معروفة.
+    if (!isPlayer && ent.state === 'windup' && ent.attack === 'overhead' && !ent.dead) {
+      const radius = (ent.ai && ent.ai.slamRadius) || 74;
+      const t = 1 - ent.timer / Math.max(1, ent.ai ? ent.ai.windup : 38);
+      c.save();
+      c.globalAlpha = 0.16 + t * 0.22;
+      c.fillStyle = '#ff5d73';
+      c.beginPath(); c.ellipse(cx, 300, radius * t, 12 * t + 4, 0, 0, TAU); c.fill();
+      c.globalAlpha = 0.5;
+      c.strokeStyle = '#ff8f9e'; c.lineWidth = 1.6;
+      c.beginPath(); c.ellipse(cx, 300, radius, 13, 0, 0, TAU); c.stroke();
+      c.restore();
+    }
+
+    // ===== نافذة العقاب على الخصم المدرّع =====
+    // المحرك لا يقبل الضرر على المبارز المدرّع إلا في حالة recover (blow() في القواعد)،
+    // فالإنذار مربوط بالحالة نفسها ولا يظهر لخصم غير مدرّع حيث الضرر يقع في أي وقت.
+    if (!isPlayer && ent.armored !== false && ent.state === 'recover' && !ent.dead) {
+      const puls = reduced ? 0.7 : 0.55 + 0.45 * Math.sin(tick * 0.35);
+      c.save();
+      c.translate(cx, ent.y - 36 - (reduced ? 0 : Math.abs(Math.sin(tick * 0.12)) * 3));
+      c.globalCompositeOperation = 'lighter';
+      const glow = c.createRadialGradient(0, 6, 2, 0, 6, 28);
+      glow.addColorStop(0, `rgba(124,231,255,${0.3 + puls * 0.26})`);
+      glow.addColorStop(1, 'rgba(124,231,255,0)');
+      c.fillStyle = glow; c.beginPath(); c.arc(0, 6, 28, 0, TAU); c.fill();
+      c.globalAlpha = 0.7 + puls * 0.3;
+      c.fillStyle = '#9ff0ff';
+      c.beginPath(); c.moveTo(-13, 0); c.lineTo(13, 0); c.lineTo(0, 15); c.closePath(); c.fill();
+      c.restore();
+    }
+
     // ===== إنذار هجوم الخصم: العدّاد يقفل قبل وصول الضربة =====
     // اللون والمعنى مأخوذان من نفس الحقل الذي يبنيه المحرك (attack === 'overhead' ⇒ كاسرة
     // لا تُصدّ) ونفس المؤقّت (timer / ai.windup) — فلا يخبر الإنذار اللاعب بشيء غير حقيقي.
