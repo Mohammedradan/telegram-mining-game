@@ -1774,11 +1774,77 @@
     for (const k of ORE_ORDER) out[k] = Math.max(0, Math.floor(s.ores?.[k] || 0));
     return out;
   };
+  // ===== V12: لقطات مرجعية للمراجعة البصرية =====
+  // سياسة «متقن» نفسها المستخدمة في القياس، تُلعب على المحرك الحقيقي حتى تصل اللحظة
+  // المطلوبة (مرحلة الزعيم الثانية، أو موجة على وشك التلامس)، ثم تُجمَّد العرض فقط.
+  // مصدر واحد: زر اللقطة في الواجهة وسكربت الرسم كلاهما يقرأ من هنا.
+  const captureMask = (sim) => {
+    const r = (sim.enemies || []).find(e => !e.dead);
+    if (!r) return 0;
+    const me = sim.player, dx = r.x + r.w / 2 - (me.x + me.w / 2), ad = Math.abs(dx);
+    const skillCost = DUEL.skill ? DUEL.skill.cost : Infinity;
+    if (r.state === 'windup') {
+      const close = ad < 118, late = r.timer <= 9;
+      if (close && late) {
+        if (r.attack !== 'overhead') return INPUT.DEFEND;
+        return (r.ai && r.ai.wideSlam) ? INPUT.JUMP : INPUT.DODGE;
+      }
+      if (close) return 0;
+      return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
+    }
+    if (r.state === 'charge' && ad < 130) return INPUT.JUMP;
+    const wave = (sim.waves || []).find(w => !(w.delay > 0) && Math.abs((w.x + w.w / 2) - (me.x + me.w / 2)) < 90);
+    if (wave && me.grounded) return INPUT.JUMP;
+    const safe = r.state === 'recover' || r.state === 'retreat' || r.state === 'stagger';
+    if (safe) {
+      if (ad > 68) return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
+      if (Number.isFinite(skillCost) && me.skillCooldown <= 0 && me.guard.stamina >= skillCost + 10) return INPUT.SKILL;
+      if (me.heavyCooldown <= 0) return INPUT.HEAVY;
+      return INPUT.ATTACK;
+    }
+    if (ad > 70) return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
+    return 0;
+  };
+  // لحظة اللقطة: تحذير الصدمة الكاسرة في المرحلة الثانية (الإنذار مرسوم كاملاً)،
+  // أو موجة ريح قريبة واللاعب في الهواء فوقها.
+  const captureHit = (kind, sim, view = {}) => {
+    if (kind === 'boss') {
+      const r = (sim.enemies || [])[0];
+      if (!r || r.state !== 'windup' || r.attack !== 'overhead' || (r.phase || 1) < 2) return false;
+      const warn = (r.ai && r.ai.windup) || 46;
+      return r.timer <= warn - 12 && r.timer >= 16;
+    }
+    // موجة الريح: اللاعب في أول إطارات القفز (قريب من الأرض) والموجة على وشك ملامسة قدميه —
+    // أفضل لحظة للحكم على حجم الموجة وتباينها مقابل أرض الحلبة.
+    const p = sim.player;
+    if (!p || p.grounded || p.vy >= 0) return false;
+    if (Number.isFinite(view.groundY) && view.groundY - p.y > 40) return false;
+    const w = (sim.waves || []).find(x => !(x.delay > 0));
+    if (!w) return false;
+    const gap = Math.abs((w.x + w.w / 2) - (p.x + p.w / 2));
+    return gap >= 45 && gap <= 95;
+  };
+  // يعيد حالة مجمّدة عند اللحظة المطلوبة، أو null إن لم تصل أي بذرة إليها.
+  const captureSim = (kind, hero = 'miner', { zone = kind === 'boss' ? 3 : 2, loadout = null, attempts = 10, maxTicks = 6000 } = {}) => {
+    for (let a = 0; a < attempts; a++) {
+      const s = create(hero, 2024 + a * 137, { zone, mode: 'duel', loadout });
+      // أرض الحلبة = أدنى مستوى وقف عليه اللاعب (أكبر y)، لا الصخور المرتفعة
+      let groundY = NaN;
+      for (let t = 0; t < maxTicks && s.status === 'playing'; t++) {
+        if (s.player.grounded) groundY = Number.isFinite(groundY) ? Math.max(groundY, s.player.y) : s.player.y;
+        step(s, captureMask(s));
+        if (captureHit(kind, s, { groundY })) return s;
+      }
+    }
+    return null;
+  };
+  const capture = Object.freeze({ mask: captureMask, hit: captureHit, sim: captureSim });
+
   const milestoneList = (zone = 0) => MILESTONES.map(m => ({ id: m.id, label: m.label, gold: MILESTONE_GOLD, ores: milestoneOres(zone, m.id) }));
 
   return {
     BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,
-    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
+    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
     rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
     // V6: أهداف الجولة والمفترق والعرق النادر
     GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,

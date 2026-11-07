@@ -1450,8 +1450,9 @@
     if (!box || !text) return;
     box.textContent = text;
     box.classList.add('show');
-    if (arenaHintTimer) clearTimeout(arenaHintTimer);
-    arenaHintTimer = setTimeout(() => { box.classList.remove('show'); arenaHintTimer = 0; }, ms);
+    if (arenaHintTimer) { clearTimeout(arenaHintTimer); arenaHintTimer = 0; }
+    // ms ≤ 0: تلميح ثابت (للالتقاط البصري) — يُمسح بـ arenaHintHide
+    if (ms > 0) arenaHintTimer = setTimeout(() => { box.classList.remove('show'); arenaHintTimer = 0; }, ms);
   }
   function arenaHintHide() {
     const box = el('arena-hint');
@@ -1599,17 +1600,57 @@
     const dt = arenaStamp ? Math.min(60, stamp - arenaStamp) : 16;
     arenaStamp = stamp; arenaAcc += dt;
     let steps = 0;
-    while (arenaAcc >= 1000 / (R.FPS || 60) && steps < 3) { arenaStep(); arenaAcc -= 1000 / (R.FPS || 60); steps++; }
+    while (arenaAcc >= 1000 / (R.FPS || 60) && steps < 3) {
+      if (!arenaFrozen) arenaStep();
+      arenaAcc -= 1000 / (R.FPS || 60); steps++;
+    }
     arenaTick2();
     arenaDraw();
     if (++arenaHudTick % 6 === 0) arenaHud();
     arenaRaf = requestAnimationFrame(arenaFrame);
   }
+  // ===== V12: لقطتان مرجعيتان للمراجعة البصرية على الهاتف =====
+  // نفس المحرك ونفس الرسم ونفس الواجهة، يُلعب المسرح بسياسة «متقن» (نفس سياسة القياس) حتى
+  // يصل اللحظة المطلوبة طبيعياً ثم يُجمَّد عرضه فقط: لا خادم، ولا نتيجة، ولا تغيير في الصحة.
+  let arenaFrozen = false, arenaSnapshotKind = null;
+  function arenaSnapshot(kind) {
+    if (duelRunning || !arenaCanvas || typeof arenaCanvas.getContext !== 'function' || !R?.create) return false;
+    if (arenaFrozen && arenaSnapshotKind === kind) { arenaSnapshotOff(); return true; }
+    hideArenaPreview();
+    arenaParticles = []; arenaFloaters = []; arenaShake = 0;
+    const zone = kind === 'boss' ? 3 : 2;
+    // اللحظة تُصنع بالمحرك الحقيقي (R.capture) — نفس مصدر السكربت والتقرير.
+    const sim = R.capture ? R.capture.sim(kind, currentHero, { loadout: liveLoadout() }) : null;
+    if (!sim) return false;
+    arenaSim = sim; arenaZone = zone; arenaHero = currentHero;
+    arenaFrozen = true; arenaSnapshotKind = kind;
+    const label = el('arena-preview-rival');
+    if (label) label.textContent = `${sim.enemies[0]?.name || R.rivalFor?.(zone)?.name || 'المبارز'} · لقطة`;
+    const heroLabel = el('arena-preview-hero');
+    if (heroLabel) heroLabel.textContent = R.CHARACTERS?.[currentHero]?.name || 'المحارب';
+    duelStatusLine(kind === 'boss' ? 'لقطة: الزعيم — المرحلة الثانية (مجموعة)' : 'لقطة: موجة الريح قريبة (مجموعة)');
+    // في اللعب الحقيقي يظهر هذا النص من حدث boss_enrage ثم يخبو بعد 5.2 ثانية؛
+    // هنا نثبّته فقط كي يبقى مرئياً أثناء التصوير.
+    if (kind === 'boss') arenaHint(R.DUEL.phase2Hint, 0); else arenaHintHide();
+    arenaDraw(); arenaHud();
+    if (!arenaRaf) arenaRaf = requestAnimationFrame(arenaFrame);
+    return true;
+  }
+  function arenaSnapshotOff() {
+    arenaFrozen = false; arenaSnapshotKind = null;
+    duelStatusLine('');
+    arenaHintHide();
+    const label = el('arena-preview-rival');
+    if (label) label.textContent = `${R.rivalFor?.(arenaZone)?.name || 'المبارز'} · ${R.MINES?.[arenaZone]?.name || ''}`;
+    if (!arenaRaf) arenaRaf = requestAnimationFrame(arenaFrame);
+  }
+
   function showArenaPreview(zone) {
     if (duelRunning) return false;
     if (!arenaCanvas || typeof arenaCanvas.getContext !== 'function' || !R?.create) return false;
     const last = (R.MINES?.length || 1) - 1;
     const z = Math.max(0, Math.min(last, Number.isInteger(zone) ? zone : 0));
+    if (arenaFrozen) arenaSnapshotOff();
     if (z !== arenaZone || arenaHero !== currentHero || !arenaSim) { arenaZone = z; buildArenaSim(); arenaParticles = []; arenaFloaters = []; arenaShake = 0; }
     const label = el('arena-preview-rival');
     if (label) label.textContent = `${R.rivalFor?.(z)?.name || 'المبارز'} · ${R.MINES?.[z]?.name || ''}`;
@@ -1947,7 +1988,10 @@
       const mask = Number(button.dataset.duelInput);
       button.setPointerCapture?.(e.pointerId);
       duelPointers.set(e.pointerId, mask);
-      if (mask & 12) duelPulses.set(`d:${e.pointerId}`, mask & 12);
+      // V11.1: نبضة إطار واحد لكل زر فعل (قفز/ضرب/مهارة/صدّ/مراوغة/ثقيل) — لمسة أسرع من
+      // إطار واحد كانت تُفقد قبل أن تُقرأ. الحركة تبقى حالة مستمرة لا نبضة.
+      const ACTION_BITS = R.INPUT.JUMP | R.INPUT.ATTACK | R.INPUT.SKILL | R.INPUT.DEFEND | R.INPUT.DODGE | R.INPUT.HEAVY;
+      if (mask & ACTION_BITS) duelPulses.set(`d:${e.pointerId}`, mask & ACTION_BITS);
       button.dataset.down = 'true';
     });
     const release = e => {
@@ -1977,7 +2021,10 @@
     startArenaRun, duelBusy, pauseDuel, resumeDuel, duelAdvance, duelAbandon,
     duelInspect: () => ({ ...duelBusy(), rival: duelSim?.enemies?.[0]?.name || null, hearts: duelSim?.player?.hearts ?? null, inputs: duelInputs.length }),
     // حالة المسرح الاستعراضي (لاختبار بصري حقيقي: هل يتقدّم؟ من الخصم المعروض؟)
-    arenaInspect: () => ({ zone: arenaZone, tick: arenaSim?.tick ?? 0, running: Boolean(arenaRaf), rival: arenaSim?.enemies?.[0]?.name || null }), setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
+    arenaInspect: () => ({ zone: arenaZone, tick: arenaSim?.tick ?? 0, running: Boolean(arenaRaf), rival: arenaSim?.enemies?.[0]?.name || null,
+      frozen: arenaFrozen, snapshot: arenaSnapshotKind, rivalState: arenaSim?.enemies?.[0]?.state || null,
+      waves: (arenaSim?.waves || []).length }),
+    arenaSnapshot, arenaSnapshotOff, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
     showLegacy: () => {
       pause();

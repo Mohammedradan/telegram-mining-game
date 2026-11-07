@@ -404,6 +404,15 @@
     .arena-advice .av-next { font-size: 10px; color: #ffe6c2; border-top: 1px dashed rgba(120, 150, 175, .3); padding-top: 4px; }
     .arena-advice .av-next b { color: #ffd166; }
     .arena-advice .av-note { font-size: 9px; color: #8aa2b8; }
+    /* V11.1: لقطات مرجعية للمراجعة البصرية (بدون مبارزة حقيقية) */
+    .arena-shots { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
+    .arena-shots button {
+      font-size: 9.5px; font-weight: 800; padding: 4px 9px; border-radius: 999px;
+      color: #cfe3f5; background: rgba(18, 28, 42, .82); border: 1px solid rgba(120, 160, 200, .34);
+    }
+    .arena-shots button:active { background: rgba(56, 189, 248, .28); }
+    .arena-shots span { font-size: 9px; color: #7e94a8; }
+    body.duel-live .arena-shots { display: none; }
     body.duel-live #arena-advice { display: none; }
     .arena-gear { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 8px; }
     .arena-gear:empty { display: none; }
@@ -1280,6 +1289,12 @@
     <div id="arena-gear" class="arena-gear" aria-label="معداتك في المبارزة"></div>
     <!-- V11: توصية القتال — من أرقام المحرك نفسها، اختيارية ولا تمنع دخول أي منطقة -->
     <div id="arena-advice" class="arena-advice" aria-label="توصية القتال"></div>
+    <!-- لقطتان مرجعيتان: تُثبّتان المسرح عند اللحظة المطلوبة للمراجعة البصرية على الهاتف -->
+    <div class="arena-shots" aria-label="لقطات للمراجعة البصرية">
+      <button type="button" onclick="arenaShot('boss')">لقطة: الزعيم ٢</button>
+      <button type="button" onclick="arenaShot('wave')">لقطة: موجة الريح</button>
+      <span>تجميد المسرح للمراجعة — ليست مبارزة</span>
+    </div>
 
     <div id="arena-ladder" class="arena-ladder" role="list" aria-label="اختر خصمك"></div>
 
@@ -1560,7 +1575,7 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=14"></script>
+  <script src="/platform-rules.js?v=15"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=5"></script>
@@ -2126,6 +2141,14 @@
       }
     }
 
+    // لقطة مرجعية للمراجعة البصرية: تُثبّت المسرح عند لحظة الزعيم/الموجة بلا خادم وبلا نتيجة
+    function arenaShot(kind) {
+      const game = window.PlatformGame;
+      if (!game?.arenaSnapshot) { arenaLog('المسرح غير جاهز بعد.'); return; }
+      if (game.duelBusy?.().running) { arenaLog('أنهِ المبارزة أولًا، ثم اطلب اللقطة.'); return; }
+      const ok = game.arenaSnapshot(kind);
+      arenaLog(ok ? 'لقطة مجمّدة — اضغط الزر نفسه للعودة إلى المسرح.' : 'تعذّر تجهيز اللقطة، أعد المحاولة.');
+    }
     function startArenaDuel(zone = null) {
       const game = window.PlatformGame;
       const live = document.getElementById('arena-live-banner');
@@ -4607,6 +4630,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=36"></script>
+  <script src="/platform-game.js?v=37"></script>
 </body>
 </html>
