@@ -117,7 +117,8 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };
       const duration = state.tick / Rules.FPS;
       if (now() - Number(run.started_at) + 1000 < duration * 1000) return { status: 409, error: 'الجولة أسرع من الزمن الحقيقي؛ أعد المحاولة بعد ثوانٍ' };
-      const ores = Rules.oreSummary(state);
+      const ores = Rules.oreSummary(state);      // ما جُمع في الجولة (للتدقيق والعرض)
+      const awarded = Rules.oreAward(state);     // ما يدخل المخزن فعلاً (V19.2: لا غنيمة بلا إتمام أو محاولة صادقة)
       const breakdown = Rules.rewardBreakdown(state);
       const potential = breakdown.total; // نفس سقف الـ100: المعالم تفتح أجزاءً منه، والفوز يدفع الباقي
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
@@ -134,7 +135,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       user.state.gold += gold; user.state.totalEarned += gold;
       // الخامات تُمنح من نتيجة إعادة التشغيل فقط — لا يُقبل أي رصيد خامات من العميل.
       const wallet = user.state.ores || (user.state.ores = {});
-      for (const [k, v] of Object.entries(ores)) wallet[k] = Math.max(0, (Number(wallet[k]) || 0) + v);
+      for (const [k, v] of Object.entries(awarded)) wallet[k] = Math.max(0, (Number(wallet[k]) || 0) + v);
       const duelWon = config.mode === 'duel' && state.status === 'won';
       const xp = grantXp(user.state, state.status === 'won' ? 20 + state.collected : 0);
       const mines = mineProgress(user);
@@ -166,14 +167,14 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         ...(config.mode === 'duel' ? { duel: { rivalHp: goal.rivalHp, rivalMaxHp: goal.rivalMaxHp, hearts: goal.hearts, blocks: goal.blocks }, arena: { ...arenaRec } } : {}),
         goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
         choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true,
-        ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
+        ores: awarded, oresGathered: ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold, salvage: breakdown.salvage,
         dailyRemaining: quota.remaining, ...(duelMode ? { duelCap: quota.cap } : {}), ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
         detail: { won: receipt.won, zone: config.zone, goal: receipt.goal, choice, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
-          dailyRemaining: quota.remaining, ores, milestones: state.milestones || [],
+          dailyRemaining: quota.remaining, ores: awarded, oresGathered: ores, milestones: state.milestones || [], salvage: breakdown.salvage,
           milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
           ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);
       await store.putUser(user);

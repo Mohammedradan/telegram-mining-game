@@ -10,6 +10,18 @@
 //            swing only while the boss is stunned.
 const R = require('../../public/platform-rules');
 const { INPUT: I, DT } = R;
+// الخفاش (V19.2): انقضاضه مُلتزم بالمكان الذي كان فيه اللاعب لحظة الانطلاق، وسرعته الأفقية أقل من
+// سرعة أبطأ بطل. فالنجاة منه ليست معجزة: ألّا تقف ساكناً أثناء نافذة التحذير. الروبوت يقرأ نفس
+// الإنذار المتاح للاعب (حالة الخفاش وموضعه) ويستمر في الحركة — لا يعرف شيئاً خارج الحالة العامة.
+const BAT_REACH = (R.BAT && R.BAT.detectX) || 170;
+// الخفاش ينقضّ عمودياً على الموضع الذي انحرف إليه أثناء التحذير (لا يلاحق أفقياً)، فالنجاة منه
+// هي ألّا تقف ساكناً تحت نقطة الانقضاض. الروبوت لا يقرأ إلا حالة الخفاش وموضعه — كما يفعل اللاعب.
+function batThreat(s) {
+  const p = s.player, pc = p.x + p.w / 2;
+  return s.enemies.some(e => e.flying && !e.dead
+    && (e.batState === 'windup' || e.batState === 'dive')
+    && Math.abs(e.x + e.w / 2 - pc) < BAT_REACH);
+}
 
 const isTall = h => h.h > 40;
 function gapsOf(level) {
@@ -30,6 +42,8 @@ function travel(s, ctx) {
   } else {
     for (const h of low) if (p.x > h.x + h.w + 2 && p.x < h.x + h.w + 60) mask &= ~I.RIGHT; // past it: land close, not 190px later
   }
+  // وقوف اللاعب هدفٌ ساكن للانقضاض: أثناء التحذير نواصل التقدّم بدل التوقّف عند العائق
+  if (batThreat(s)) mask |= I.RIGHT;
   return mask;
 }
 
@@ -41,7 +55,7 @@ function shielded(s, ctx, base) {
   const copy = structuredClone(s), hearts = copy.player.hearts;
   for (let k = 0; k < 90 && copy.status === 'playing'; k++) {
     R.step(copy, travel(copy, ctx));
-    if (copy.player.hearts !== hearts) return base & ~I.RIGHT & ~I.JUMP;
+    if (copy.player.hearts !== hearts) return batThreat(s) ? base : base & ~I.RIGHT & ~I.JUMP;
     if (copy.player.x > p.x + 240) break;
   }
   return base;

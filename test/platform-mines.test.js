@@ -23,7 +23,7 @@ function hitsUntilBroken(s, limit = 1200) {
 }
 
 test('phase 3+V6+V7+V8: the engine version is 8 and the config is normalised to safe values', () => {
-  assert.equal(R.VERSION, 11);
+  assert.equal(R.VERSION, 12);
   assert.deepEqual(R.normalizeConfig(undefined), { zone: 0, goal: 0, mode: 'mine', loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
   assert.equal(R.normalizeConfig({ goal: 9 }).goal, 0, 'an unknown goal falls back to the first one');
   assert.equal(R.normalizeConfig({ goal: 2 }).goal, 2);
@@ -64,6 +64,11 @@ test('phase 3: mine 0 with an empty loadout has physics identical to the frozen 
     for (let k = 0; k < 700; k++) { x = (Math.imul(x, 1664525) + 1013904223) >>> 0; noise.push(x % 64); }
     for (const stream of [driver(seed, hero), noise]) {
       const old = V3.create(hero, seed), next = R.create(hero, seed, { zone: 0, loadout: {} });
+      // V19.2: الخفاش هو الكائن الوحيد الذي تغيّر سلوكه عمداً (انقضاض حقيقي بدل الاهتزاز). يُستثنى من
+      // مقارنة التكافؤ كي يبقى القياس صارماً على كل ما يجب ألا يتغيّر: اللاعب، الصخور، البلّورات،
+      // الحرّاس الأرضيون، الزعيم، المقذوفات، المعالم، نقطة الحفظ. سلوك الخفاش له اختباراته المستقلة.
+      old.enemies = old.enemies.filter(e => !e.flying);
+      next.enemies = next.enemies.filter(e => !e.flying);
       for (const mask of stream) {
         if (old.status !== 'playing') break;
         V3.step(old, mask); R.step(next, mask); ticks++;
@@ -120,17 +125,24 @@ test('phase 3: ore weights per mine are honoured over a large deterministic samp
   assert.deepEqual(R.layoutFor(R.seedFromId('x'), 2, 3), R.layoutFor(R.seedFromId('x'), 2, 3), 'deterministic');
 });
 
-test('phase 3: every mine is winnable by every hero, replays exactly, with and without gear', () => {
+test('phase 3 / V19.2: every mine is winnable by every hero with the minimum legal gear, a mid kit and max gear', () => {
   const kit = { pickaxe: 2, boots: 3, bag: 2, magnet: 2, drill: 1, robot: 2, luck: 2, armor: 1 };
+  // V19.2: «بلا معدات» ليس إعداداً شرعياً إلا في المناجم الثلاثة الأولى — الخادم نفسه يرفض فتح منجم
+  // تشترط بوابته معدات (pickaxe/armor) ويعلن نقص المتطلبات. كان الاختبار يطالب بالفوز بمنجم 6 بثلاثة
+  // قلوب، وهو ما لا يستطيع اللاعب الوصول إليه أصلاً. البديل: أقل عدّة يسمح بها المنجم نفسه.
+  const minLegalGear = zone => ({ ...(R.MINES[zone].requires?.gear || {}) });
   for (const hero of ['miner', 'warrior', 'archer']) for (let zone = 0; zone < 6; zone++) {
-    for (const loadout of [{}, kit, MAX_GEAR]) {
+    const needsGear = Boolean(R.MINES[zone].requires?.gear);
+    assert.equal(R.mineStatus(zone, { wins: [9, 9, 9, 9, 9, 9] }, {}).unlocked, !needsGear,
+      `mine ${zone} reports itself locked without the required gear`);
+    for (const loadout of [minLegalGear(zone), kit, MAX_GEAR]) {
       const seed = R.seedFromId(`matrix-${hero}-${zone}`), config = { zone, loadout };
       const { state, inputs } = solution(seed, hero, config);
       assert.equal(state.status, 'won', `${hero} wins mine ${zone}`);
       const replayed = R.replay(inputs, hero, seed, config);
       assert.equal(replayed.ok, true);
       assert.deepEqual(replayed.state, state, 'replay with the same config is bit-identical');
-      assert.ok(R.rewardFor(state) <= 100, 'the reward cap never moves');
+      assert.ok(R.rewardFor(state) <= R.rewardCap(zone), 'a win never exceeds the declared cap for its mine');
     }
   }
 });

@@ -61,8 +61,10 @@ test('V10 gear never leaks into the mining run (byte-identical mine simulation)'
     collected: s.collected, mined: s.mined, ores: s.ores, rocks: s.rocks.map((r) => r.hp),
     enemies: s.enemies.map((e) => [e.hp, e.x]),
   })).digest('hex');
-  // بصمة مثبّتة من V8/V9: نفس المحاكاة حرفياً حتى مع أقصى معدات الساحة
-  assert.equal(digest, '15fa46127cdf75d13f7566c3651156f21b9f68ec', 'the mining simulation is unchanged');
+  // بصمة ذهبية (golden) للمحاكاة: أي تغيّر غير مقصود في محرك المنجم — تسريب معدات ساحة، أو تعديل
+  // فيزياء — يحرّكها فوراً. حُدِّثت مرة واحدة في V19.2 لأن سلوك الخفاش تغيّر عمداً (انقضاض حقيقي):
+  // 15fa46… (V8/V9) ← 099494… (V19.2). لا تُحدَّث إلا مع تغيير مقصود موثّق.
+  assert.equal(digest, '09949436b8fb65a0b680dfff19406a77b062ca6c', 'the mining simulation baseline (V19.2)');
 });
 
 // ---------- 2) أنماط الخصوم ----------

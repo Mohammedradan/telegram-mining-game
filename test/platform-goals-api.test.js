@@ -95,7 +95,7 @@ test('V6 API: the receipt reports the goal, the greedy/safe choice and the vein 
   assert.equal(res.body.veinBroken, false);
   assert.equal(typeof res.body.oreWind, 'boolean');
   assert.equal(res.body.gold, R.rewardFor(run.state), 'the new content adds no gold above the same formula/cap');
-  assert.ok(res.body.gold <= 100);
+  assert.ok(res.body.gold <= R.rewardCap(res.body.zone), 'V19.2: a win never exceeds its mine cap (content + completion bonus)');
   const ledger = await store.ledgerFor(`guest_${user('receipt')}`);
   const row = ledger.find(r => r.kind === 'platform_finish');
   assert.equal(row.detail.goal.id, 'ore', 'the audit ledger records the goal');

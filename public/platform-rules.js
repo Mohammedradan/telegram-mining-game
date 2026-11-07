@@ -8,7 +8,7 @@
   // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
   // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
   // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
-  const VERSION = 11;
+  const VERSION = 12; // V19.2 (المرحلة A): سلوك الخفاش + اقتصاد الجولة. تذاكر النسخة 11 تُرفض (يُعاد فتحها)
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -1260,6 +1260,76 @@
       if (p.hearts > 0 && overlap(box, p)) hurt(s, cx, { unblockable: true });
     }
   }
+  // ===== V19.2 (المرحلة A): الخفاش عدوّ جوّي حقيقي =====
+  // قبل الإصلاح كان ارتفاعه يهتزّ حول baseY فقط: لا يلاحق، ولا يلمس اللاعب، ولا يُصاب من الأرض
+  // (قياس موثّق: 1200 إطار من القفز والضرب تحته = صفر إصابة وصفر ضرر، فأربع مناطق كانت حرّاسها الخفافيش ديكوراً).
+  // السلوك الجديد آلة حالات معلنة: رصد ← تأهّب صاعد (إنذار مرئي) ← انقضاض على مكان اللاعب لحظة الانطلاق
+  // ← دوار على الأرض (نافذة عقاب بلا ضرر تلامسي) ← صعود. كل شيء دال على الإطار وموضع اللاعب: حتمي ويُعاد على الخادم.
+  const BAT = Object.freeze({
+    detectX: 170,        // مدى الرصد أفقياً
+    detectY: 230,        // ومداه رأسياً (اللاعب أسفله)
+    windup: 26,          // إطارات التأهّب: يصعد ≈24 بكسل ويلتفت إلى اللاعب — الإنذار المرئي
+    riseSpeed: 55,
+    windupDrift: 70,     // انحراف أفقياً نحو اللاعب أثناء التحذير فقط (≈30 بكسل في 0.43 ثانية)
+    diveSpeedY: 240,     // سرعة الانقضاض العمودية (≈0.75 ثانية من ارتفاعه إلى الأرض)
+    // الانقضاض عمودي لا يلاحق: نقطة السقوط تُقرأ بالعين طوال التحذير. من يستمر في الحركة ينجو،
+    // ومن يقف ليحفر (وهو ما تفعله اللعبة) يُصاب. هذا هو القرار الذي يطلبه هذا العدو.
+    stun: 42,            // إطارات الدوار على الأرض — نافذة الضرب. 0.70 ثانية تكفي للوصول والضرب
+    climb: 95,           // سرعة العودة إلى ارتفاع الدوريّة (≈1.6 بكسل/إطار: يُضرب في الصعود أيضاً)
+    cooldown: 84,        // مهلة بين انقضاضين (دورة كاملة ≈ 4.5 ثانية)
+    floor: 292,          // سقف الأرض (أعلى الأرض 300 ناقص هامش)
+    leash: 40,           // أقصى تجاوز لحدود دوريّته أثناء الانقضاض
+    // منطقة الإقلاع: أول 140 بكسل من المستوى لا يُهاجَم فيها اللاعب. بدونها يبدأ اللاعب في المناجم
+    // التي يوجد فيها خفاش قريب من نقطة البداية (المنجم الثالث: خفاش عند 100) بخسارة قلوب وهو يقرأ الشاشة.
+    safeStart: 140,
+  });
+  function batStep(s, b) {
+    const p = s.player;
+    const bc = b.x + b.w / 2, pc = p.x + p.w / 2;
+    const drop = p.y - b.y;
+    const sees = s.status === 'playing' && p.hearts > 0 && s.mode !== 'duel'
+      && pc > BAT.safeStart
+      && Math.abs(pc - bc) < BAT.detectX && drop > 8 && drop < BAT.detectY;
+    if (!b.batState) { b.batState = 'patrol'; b.batTimer = 0; }
+    if (b.batState === 'patrol') {
+      b.x += b.vx * DT;
+      b.y = b.baseY + Math.sin(s.tick * 0.08 + b.id) * 10;
+      if (b.x <= b.minX) { b.vx = Math.abs(b.patrolSpeed || 55); b.facing = 1; }
+      else if (b.x >= b.maxX) { b.vx = -Math.abs(b.patrolSpeed || 55); b.facing = -1; }
+      if (sees && b.attackCooldown <= 0) { b.batState = 'windup'; b.batTimer = BAT.windup; b.alert = true; }
+    } else if (b.batState === 'windup') {
+      // صعود بطيء + انحراف بطيء نحو اللاعب: هذا هو الإنذار. ضربة تصل الخفاش في هذه اللحظة تُلغي الهجوم.
+      b.facing = pc >= bc ? 1 : -1;
+      b.y -= BAT.riseSpeed * DT;
+      const drift = Math.max(-BAT.windupDrift, Math.min(BAT.windupDrift, (pc - bc) * 2));
+      b.x += drift * DT;
+      b.alert = true;
+      if (b.hurtCooldown > 0) { b.batState = 'patrol'; b.alert = false; b.attackCooldown = BAT.cooldown; return; }
+      if (--b.batTimer <= 0) {
+        b.dive = { vy: BAT.diveSpeedY };
+        b.batState = 'dive';
+        s.events.push({ type: 'bat_dive', x: b.x + b.w / 2, y: b.y, id: b.id });
+      }
+    } else if (b.batState === 'dive') {
+      // سقوط عمودي: نقطة الهبوط ثابتة ومقروءة طوال التحذير — لا مطاردة تكسر العدالة.
+      b.y += b.dive.vy * DT;
+      const floorY = BAT.floor - b.h;
+      if (b.y >= floorY) { b.y = floorY; b.vx = 0; b.batState = 'stun'; b.batTimer = BAT.stun; b.alert = false; }
+    } else if (b.batState === 'stun') {
+      if (--b.batTimer <= 0) b.batState = 'climb';
+    } else { // climb
+      b.y = Math.max(b.baseY, b.y - BAT.climb * DT);
+      const home = (b.minX + b.maxX) / 2;
+      b.x += Math.max(-60, Math.min(60, (home - bc) * 2)) * DT;
+      if (b.y <= b.baseY + 0.5) {
+        b.y = b.baseY;
+        b.vx = (bc >= home ? -1 : 1) * Math.abs(b.patrolSpeed || 55);
+        b.batState = 'patrol';
+        b.attackCooldown = BAT.cooldown;
+      }
+    }
+    b.x = Math.max(0, Math.max(b.minX - BAT.leash, Math.min(b.maxX + BAT.leash, b.x)));
+  }
   function duelStep(s, b) {
     const p = s.player, ai = b.ai;
     const cx = b.x + b.w / 2;
@@ -1618,12 +1688,8 @@
       // زعماء المنجم لهم مسارهم المستقل.
       if (enemy.type === 'rival') duelStep(s, enemy);
       else if (enemy.boss) bossStep(s, enemy);
-      else if (enemy.flying) {
-        enemy.x += enemy.vx * DT;
-        enemy.y = enemy.baseY + Math.sin(s.tick * 0.08 + enemy.id) * 10;
-        if (enemy.x <= enemy.minX) { enemy.vx = Math.abs(enemy.patrolSpeed || 55); enemy.facing = 1; }
-        else if (enemy.x >= enemy.maxX) { enemy.vx = -Math.abs(enemy.patrolSpeed || 55); enemy.facing = -1; }
-      } else {
+      else if (enemy.flying) batStep(s, enemy);
+      else {
         const dx = p.x - enemy.x;
         const dy = p.y - enemy.y;
         const dist = Math.hypot(dx, dy);
@@ -1645,7 +1711,10 @@
 
       // Enemy attacking player. المبارز لا يؤذي بالتلاصق العشوائي: ضرره من هجماته المُعلَنة فقط
       // (والاندفاع هو الحالة التي يصطدم فيها بجسمه)، فلا خسارة قلوب بلا سبب مفهوم.
-      const contact = enemy.type === 'rival' ? enemy.state === 'charge' : true;
+      // الخفاش مثله: ضرره من الانقضاض وحده. في الدوار على الأرض (نافذة الضرب) لا يؤذي إطلاقاً،
+      // وإلا لأصبحت مكافأة الضربة عقاباً (الخفاش يهبط على جسد اللاعب نفسه).
+      const contact = enemy.type === 'rival' ? enemy.state === 'charge'
+        : enemy.flying ? enemy.batState === 'dive' : true;
       if (contact && p.hearts > 0 && overlap(p, enemy)) {
         if (!p.invulnerable && enemy.attackCooldown <= 0) {
           hurt(s, enemy.x + enemy.w / 2);
@@ -1758,17 +1827,48 @@
     }
     return Math.max(0, Math.min(levelFor(s.zone).width - width, left));
   }
-  // المكافأة الإجمالية لم تتغير عند الفوز: المعالم تفتح أجزاءً من نفس سقف الـ100،
-  // والخسارة تحتفظ بما فتحته فعلاً فقط. لا توجد مكافأة إضافية فوق السقف.
+  // ===== V19.2 (المرحلة A): المعالم «غنيمة» تُختم عند البوابة =====
+  // المشكلة المقيسة قبل الإصلاح: جولة فاشلة سريعة (12 ثانية، 3 معالم) كانت تدفع 36 ذهباً،
+  // أي 2.95 ذهب/ثانية مقابل 0.65 لجولة ناجحة كاملة — فالاستراتيجية المثلى كانت «اجمع معلمين ثم مُت».
+  // الإصلاح: قيمة الجهد تُدفع عند إتمام الجولة فقط، ويُضاف إليها علاوة إتمام تنمو مع العمق
+  // (المحتوى الأصعب يدفع أكثر). الخسارة لا تدفع المعالم؛ يبقى «إنقاذ» صغير ومحدود لا يتجاوز سقفه
+  // عائد أي فوز، ولا يظهر قبل عبور أول نقطة حفظ. لا مساس بمعدل النقر ولا بالطاقة ولا بأسعار الترقيات.
+  const RUN_REWARD = Object.freeze({
+    base: 100,                 // سقف المحتوى (كما كان): 40 + بلورات×4 + صخور×6
+    completionBase: 20,        // علاوة إتمام الجولة في أول منجم
+    completionStep: 10,        // +10 لكل منجم أعمق (20..70)
+    salvageDivisor: 4,         // ربع قيمة المعالم عند الخسارة
+    salvageCap: 10,            // سقف الإنقاذ المطلق — 0.11 ذهب/ث كحد أقصى
+    // الإنقاذ لا يُدفع إلا لمحاولة صادقة: تجاوز أول نقطة حفظ + 90 ثانية لعب فعلية.
+    // (بلا هذا الشرط يصبح «امشِ إلى نقطة الحفظ ثم مُت» مصدر دخل: 10 ذهب/25 ثانية = 0.40 ذهب/ث.)
+    salvageMinSeconds: 90,
+    startCheckpoint: 64,       // نقطة البداية: لا إنقاذ قبل تجاوزها
+  });
+  const completionBonus = zone => RUN_REWARD.completionBase
+    + RUN_REWARD.completionStep * Math.max(0, Math.min(MINES.length - 1, Number(zone) || 0));
+  const rewardCap = zone => RUN_REWARD.base + completionBonus(zone);
   function rewardBreakdown(s) {
     if (s.mode === 'duel') {
       const potential = s.status === 'won' ? duelReward(s.zone) : 0;
-      return { potential, milestoneGold: 0, finalGold: potential, total: potential };
+      return { potential, milestoneGold: 0, finalGold: potential, salvage: 0, bonus: 0, total: potential };
     }
-    const potential = Math.min(100, 40 + s.collected * 4 + s.mined * 6);
-    const milestoneGold = Math.min(potential, (s.milestones?.length || 0) * MILESTONE_GOLD);
-    const finalGold = s.status === 'won' ? Math.max(0, potential - milestoneGold) : 0;
-    return { potential, milestoneGold, finalGold, total: milestoneGold + finalGold };
+    const potential = Math.min(RUN_REWARD.base, 40 + s.collected * 4 + s.mined * 6);
+    const milestoneEarned = Math.min(potential, (s.milestones?.length || 0) * MILESTONE_GOLD);
+    const bonus = completionBonus(s.zone);
+    if (s.status === 'won') {
+      const total = Math.min(rewardCap(s.zone), potential + bonus);
+      const milestoneGold = Math.min(milestoneEarned, total);
+      return { potential, milestoneGold, finalGold: total - milestoneGold, salvage: 0, bonus: total - potential, total };
+    }
+    // خسارة أو توقّف: المعالم لا تُصرف. الإنقاذ تعويض عن محاولة صادقة فقط (نقطة حفظ + 90 ثانية)،
+    // ومقيّد بسقف ثابت أقل بفارق كبير من أدنى فوز — فلا توجد استراتيجية خسارة تنافس الفوز.
+    const passedCheckpoint = Number(s.checkpoint) > RUN_REWARD.startCheckpoint;
+    const honestAttempt = (Number(s.tick) || 0) >= RUN_REWARD.salvageMinSeconds * FPS;
+    // جولة لم تنته بعد (تركها اللاعب) لا تُصرف لها أي مكافأة إطلاقاً: الشرط `status === 'lost'` صريح.
+    const endedInLoss = s.status === 'lost';
+    const salvage = endedInLoss && passedCheckpoint && honestAttempt && milestoneEarned > 0
+      ? Math.min(RUN_REWARD.salvageCap, Math.floor(milestoneEarned / RUN_REWARD.salvageDivisor)) : 0;
+    return { potential, milestoneGold: 0, finalGold: 0, salvage, bonus: 0, total: salvage };
   }
   // مكافأة المبارزة: 60 + 4 لكل مستوى عمق (60..80). لا تتضخم مع التكرار، والسقف اليومي المستقل خادمي.
   const duelReward = zone => DUEL.reward + DUEL.rewardStep * Math.max(0, Math.min(MINES.length - 1, Number(zone) || 0));
@@ -1778,6 +1878,21 @@
     for (const k of ORE_ORDER) out[k] = Math.max(0, Math.floor(s.ores?.[k] || 0));
     return out;
   };
+  // ===== V19.2: ما يدخل المخزن فعلاً =====
+  // الخامات كانت تُمنح كاملةً حتى في جولة فاشلة عمرها 6 ثوانٍ (قياس: 124 ذهباً عند بيعها في المنجم الثالث)،
+  // وهذا باب خلفي على نفس الثغرة: «مُت بسرعة واجمع الخام» يصبح أرخص طريق للذهب ولو كان الذهب المباشر صفراً.
+  // القاعدة الآن: الفوز يأخذ كل الغنيمة، والخسارة الصادقة (نقطة حفظ + 90 ثانية) تُسقط نصف الحقيبة كما في
+  // ألعاب التعدين، والجولة المتروكة أو الخسارة السريعة لا تُدخل شيئاً.
+  function oreAward(s) {
+    const full = oreSummary(s);
+    if (s.status === 'won') return full;
+    const passed = Number(s.checkpoint) > RUN_REWARD.startCheckpoint;
+    const honest = (Number(s.tick) || 0) >= RUN_REWARD.salvageMinSeconds * FPS;
+    if (s.status !== 'lost' || !passed || !honest) return emptyOres();
+    const half = emptyOres();
+    for (const k of ORE_ORDER) half[k] = Math.floor((full[k] || 0) / 2);
+    return half;
+  }
   // ===== V12: لقطات مرجعية للمراجعة البصرية =====
   // سياسة «متقن» نفسها المستخدمة في القياس، تُلعب على المحرك الحقيقي حتى تصل اللحظة
   // المطلوبة (مرحلة الزعيم الثانية، أو موجة على وشك التلامس)، ثم تُجمَّد العرض فقط.
@@ -1885,7 +2000,7 @@
   return {
     BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,
     VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, duelHintPlan, HINT_TIMING, PAD, stickDir, padMask, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
-    rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
+    rewardFor, rewardBreakdown, rewardCap, completionBonus, RUN_REWARD, BAT, oreSummary, oreAward, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
     // V6: أهداف الجولة والمفترق والعرق النادر
     GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,
     // V7: وضع المبارزة الحيّة + الصدّ
