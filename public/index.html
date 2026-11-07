@@ -353,6 +353,60 @@
       box-shadow: 0 0 14px rgba(255, 143, 191, .45), inset 0 0 10px rgba(255, 143, 191, .25); }
     .arena-pad .ap-skill.cool { opacity: .55; }
     .arena-pad { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    /* V13: مبدّل طريقة التحكم — يبقى ظاهراً قبل المبارزة كي تختار قبل القتال */
+    .arena-pad-mode { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; margin: 6px 0 0; }
+    .arena-pad-mode button {
+      font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 999px; color: #cfe3f5;
+      background: rgba(18, 28, 42, .82); border: 1px solid rgba(120, 160, 200, .34);
+    }
+    .arena-pad-mode button[aria-pressed="true"] { background: rgba(56, 189, 248, .28); border-color: #7dd3fc; color: #e8f6ff; }
+    .arena-pad-mode span { font-size: 9px; color: #7e94a8; }
+    @media (hover: hover) and (pointer: fine) { .arena-pad-mode { display: none; } }
+    /* V13: عصا الساحة — نفس لغة عصا تبويب اللعب (قاعدة دائرية ومقبض) لكن الإخراج أفقي فقط */
+    .arena-stick {
+      position: relative; flex: 0 0 auto; width: 60px; height: 60px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 38%, rgba(74, 107, 138, .35), rgba(10, 18, 30, .96));
+      border: 1px solid rgba(120, 150, 180, .45); box-shadow: inset 0 0 16px rgba(0, 0, 0, .55);
+      touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    }
+    .arena-stick::before, .arena-stick::after {
+      content: '◀'; position: absolute; top: 50%; transform: translateY(-50%);
+      font-size: 7px; color: rgba(160, 190, 215, .45); pointer-events: none;
+    }
+    .arena-stick::before { right: 4px; }
+    .arena-stick::after { content: '▶'; left: 4px; }
+    .arena-stick .as-knob {
+      position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; border-radius: 50%;
+      transform: translate(-50%, -50%); pointer-events: none;
+      background: linear-gradient(135deg, #4a6b8a, #3a5570); border: 2px solid rgba(120, 150, 180, .5);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .15);
+      transition: transform .05s ease-out;
+    }
+    .arena-stick .as-knob::after {
+      content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 12px; height: 12px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(180, 200, 220, .8), rgba(140, 170, 200, .6));
+    }
+    .arena-stick[data-active="true"] { border-color: rgba(125, 211, 252, .75); box-shadow: inset 0 0 18px rgba(56, 189, 248, .28); }
+    .arena-stick[data-active="true"] .as-knob { transition: none; border-color: #7dd3fc; }
+    /* الوضعان: العصا (افتراضي عند اللمس) أو الأزرار الثمانية القديمة */
+    .ap-acts { flex-wrap: wrap; justify-content: flex-end; max-width: 54%; }
+    /* في وضع العصا: الحركة بالسحب، و«قفز» يبقى ظاهراً (ينتقل إلى صفّ الفعل) */
+    body.pad-stick .ap-move button[data-duel-input="1"],
+    body.pad-stick .ap-move button[data-duel-input="2"],
+    body.pad-stick .ap-heavy { display: none; }
+    /* صفّ واحد فقط: لا يرفع الإبهام بين صفّين في منتصف المبارزة */
+    body.pad-stick .ap-acts { flex: 1 1 auto; display: flex; flex-wrap: nowrap; max-width: none; gap: 6px; }
+    body.pad-stick .ap-acts button { flex: 1 1 0; min-width: 40px; min-height: 48px; padding: 0 6px; }
+    body.pad-stick .ap-acts .ap-hit { flex: 0 0 56px; min-width: 56px; min-height: 54px; font-size: 13px; }
+    body.pad-stick .ap-hit[data-charge="true"] { background: rgba(120, 53, 15, .95) !important; border-color: #fdba74 !important; }
+    /* شاشات ضيقة (320–340px): عصا أصغر كي يبقى الصفّ كاملاً بلا قصّ */
+    @media (max-width: 340px) {
+      .arena-stick { width: 52px; height: 52px; }
+      .arena-stick .as-knob { width: 26px; height: 26px; }
+      body.pad-stick .ap-acts .ap-hit { flex: 0 0 50px; min-width: 50px; }
+    }
+    body:not(.pad-stick) .arena-stick { display: none; }
     .arena-pad[hidden] { display: none !important; }
     .ap-group { display: flex; gap: 6px; }
     .ap-group button {
@@ -1267,14 +1321,23 @@
       <span id="arena-record" class="as-record">0 فوز · 0 خسارة</span>
     </div>
     <div id="arena-duel-status" class="arena-duel-status" hidden aria-live="polite"></div>
+    <div id="arena-pad-mode" class="arena-pad-mode" role="group" aria-label="طريقة التحكم">
+      <button type="button" data-pad-mode="stick" aria-pressed="true">عصا</button>
+      <button type="button" data-pad-mode="buttons" aria-pressed="false">أزرار</button>
+      <span>طريقة التحكم — بدّلها وقارن</span>
+    </div>
     <div id="arena-pad" class="arena-pad" hidden>
+      <!-- V13: سحب أفقي للحركة (بدل ◀ ▶) ومقبض يتبع الإبهام -->
+      <div id="arena-stick" class="arena-stick" role="group" aria-label="عصا حركة — اسحب يميناً أو يساراً">
+        <span class="as-knob" aria-hidden="true"></span>
+      </div>
       <div class="ap-group ap-move" role="group" aria-label="حركة">
         <button type="button" data-duel-input="1" aria-label="يسار">◀</button>
         <button type="button" data-duel-input="4" aria-label="قفز">قفز</button>
         <button type="button" data-duel-input="2" aria-label="يمين">▶</button>
       </div>
       <div class="ap-group ap-acts" role="group" aria-label="قتال">
-        <button type="button" data-duel-input="16" class="ap-hit" aria-label="ضربة">ضرب</button>
+        <button type="button" data-duel-input="16" class="ap-hit" data-hold-heavy="true" aria-label="ضربة — الضغط المطوّل ضربة قوية">ضرب</button>
         <button type="button" data-duel-input="256" class="ap-heavy" aria-label="ضربة قوية">قوي</button>
         <button type="button" data-duel-input="64" class="ap-guard" aria-label="صدّ">صدّ</button>
         <button type="button" data-duel-input="128" class="ap-dodge" aria-label="مراوغة">مراوغة</button>
@@ -1581,7 +1644,7 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=16"></script>
+  <script src="/platform-rules.js?v=17"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
   <script src="/platform-bosses.js?v=6"></script>
@@ -4636,6 +4699,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=38"></script>
+  <script src="/platform-game.js?v=39"></script>
 </body>
 </html>

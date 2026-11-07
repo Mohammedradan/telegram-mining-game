@@ -1782,6 +1782,26 @@
   // سياسة «متقن» نفسها المستخدمة في القياس، تُلعب على المحرك الحقيقي حتى تصل اللحظة
   // المطلوبة (مرحلة الزعيم الثانية، أو موجة على وشك التلامس)، ثم تُجمَّد العرض فقط.
   // مصدر واحد: زر اللقطة في الواجهة وسكربت الرسم كلاهما يقرأ من هنا.
+  // ===== V13: لوحة تحكم الهاتف — سحب أفقي للحركة بدل زرّي ◀ ▶ =====
+  // الحركة في المحرك ثنائية (LEFT/RIGHT) لا تناظرية، فعصا دائرية تعطي إحساساً كاذباً؛
+  // «السحب الأفقي» بمنطقة ميتة صغيرة يعطي نفس الدقة بلا هدف تُخطئه.
+  const PAD = Object.freeze({
+    deadzone: 8,      // بكسل CSS قبل أن تُحسب الحركة (يمنع المشي أثناء راحة الإبهام)
+    knobMax: 26,      // أقصى انزياح للمقبض المرئي عن مركزه
+    heavyHoldMs: 260, // ضغط مطوّل على «ضرب» = ضربة قوية واحدة (بدل زر «قوي»)
+  });
+  const stickDir = (dx, deadzone = PAD.deadzone) => (dx > deadzone ? 1 : dx < -deadzone ? -1 : 0);
+  // دمج أقنعة اللمس: أزرار + اتجاه السحب، بلا أن يُنتج يسار+يمين معاً أبداً.
+  // إن ضغط زرُ جهة أثناء سحب السحب في الجهة المعاكسة، يفوز الزر (لا إلغاء صامت يوقف الحركة).
+  const padMask = ({ stick = 0, bits = [] } = {}) => {
+    let mask = 0;
+    for (const b of bits) mask |= Number(b) || 0;
+    // جهتان معاً = إلغاء (كما في معظم الألعاب)، ثم يأتي دور السحب وحده
+    if ((mask & INPUT.LEFT) && (mask & INPUT.RIGHT)) mask &= ~(INPUT.LEFT | INPUT.RIGHT);
+    if (!(mask & (INPUT.LEFT | INPUT.RIGHT)) && stick) mask |= stick < 0 ? INPUT.LEFT : INPUT.RIGHT;
+    return mask;
+  };
+
   // ===== V12.1: خطة التلميح (دالة نقية — بلا مؤقّتات ولا DOM، فتُختبَر مباشرة) =====
   // الأساسي مرة واحدة عند التحوّل إلى المرحلة الثانية، ثم تذكير واحد فقط عند أول صدمة
   // كاسرة يبدأ تحذيرها والتلميح مختفٍ. لا تكرار مع كل ضربة، ولا تذكير فوق تلميح ظاهر.
@@ -1864,7 +1884,7 @@
 
   return {
     BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,
-    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, duelHintPlan, HINT_TIMING, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
+    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, duelHintPlan, HINT_TIMING, PAD, stickDir, padMask, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
     rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
     // V6: أهداف الجولة والمفترق والعرق النادر
     GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,

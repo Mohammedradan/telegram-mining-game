@@ -1721,6 +1721,8 @@
     for (const v of duelPointers.values()) mask |= v;
     for (const v of duelPulses.values()) mask |= v;
     duelPulses.clear();
+    // V13: اتجاه السحب الأفقي يُدمج بعد الأزرار — زرُ جهة يفوز ولا يلغيه السحب
+    if (R.padMask) mask = R.padMask({ stick: duelStickDir, bits: [mask] });
     if (duelSim?.player) duelSim.lastMask = mask;
     return mask;
   }
@@ -1940,7 +1942,7 @@
   function duelWrapUp() {
     duelTicket = null; duelRunning = false; duelPaused = false;
     duelVerdictHide();
-    duelKeys.clear(); duelPointers.clear(); duelPulses.clear();
+    duelKeys.clear(); duelPointers.clear(); duelPulses.clear(); clearHolds(); stickReset();
     document.body.classList.remove('duel-live');
     const pad = el('arena-pad'); if (pad) pad.hidden = true;
     duelSim = null;
@@ -1996,6 +1998,62 @@
     duelSchedule();
   }
 
+  // ===== V13: طريقة التحكم — سحب أفقي للحركة (افتراضي) أو الأزرار الثمانية القديمة =====
+  // الحركة في المحرك ثنائية، فالسحب الأفقي بمنطقة ميتة يعطي نفس الدقة بلا هدف تُخطئه،
+  // ويترك الإبهام اليمنى لأربعة أزرار فعل بدل ثمانية.
+  const PAD_MODE_KEY = 'arenaPadMode';
+  let padMode = 'stick';
+  let duelStickDir = 0, stickPointer = null, stickOriginX = 0;
+  const stickEl = el('arena-stick');
+  const stickKnob = stickEl && typeof stickEl.querySelector === 'function' ? stickEl.querySelector('.as-knob') : null;
+  function stickReset() {
+    duelStickDir = 0; stickPointer = null;
+    if (stickEl) { stickEl.dataset.active = 'false'; stickEl.dataset.dir = 'none'; }
+    if (stickKnob && stickKnob.style) stickKnob.style.transform = '';
+  }
+  function stickMove(clientX) {
+    const dx = clientX - stickOriginX;
+    duelStickDir = R.stickDir ? R.stickDir(dx) : 0;
+    const span = R.PAD?.knobMax || 26;
+    if (stickKnob && stickKnob.style) stickKnob.style.transform = `translate(calc(-50% + ${Math.max(-1, Math.min(1, dx / 60)) * span}px), -50%)`;
+    if (stickEl) stickEl.dataset.dir = duelStickDir > 0 ? 'right' : duelStickDir < 0 ? 'left' : 'none';
+  }
+  function applyPadMode(mode) {
+    padMode = mode === 'buttons' ? 'buttons' : 'stick';
+    if (document.body?.classList) document.body.classList.toggle('pad-stick', padMode === 'stick');
+    for (const b of document.querySelectorAll('[data-pad-mode]')) b.setAttribute('aria-pressed', String(b.dataset.padMode === padMode));
+    try { localStorage.setItem(PAD_MODE_KEY, padMode); } catch (_) {}
+    return padMode;
+  }
+  (() => {
+    let saved = null;
+    try { saved = localStorage.getItem(PAD_MODE_KEY); } catch (_) {}
+    applyPadMode(saved === 'buttons' ? 'buttons' : 'stick');
+    for (const b of document.querySelectorAll('[data-pad-mode]')) b.addEventListener('click', () => applyPadMode(b.dataset.padMode));
+  })();
+  if (stickEl) {
+    stickEl.addEventListener('pointerdown', e => {
+      if (!duelRunning || duelPaused) return;
+      e.preventDefault();
+      stickPointer = e.pointerId; stickOriginX = e.clientX;
+      stickEl.setPointerCapture?.(e.pointerId);
+      stickEl.dataset.active = 'true';
+      stickMove(e.clientX);
+    });
+    stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickPointer) stickMove(e.clientX); });
+    // رفع الإصبع أو فقدانه يُصفّر الحركة فوراً — لا «مشي معلّق» بعد خروج الإبهام
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'])
+      stickEl.addEventListener(type, e => { if (e.pointerId === stickPointer) stickReset(); });
+    stickEl.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  // الضغط المطوّل على «ضرب» = ضربة قوية واحدة (يُغني عن زر «قوي» في وضع العصا)
+  const holdTimers = new Map();
+  function clearHold(id) {
+    const t = holdTimers.get(id);
+    if (t) { clearTimeout(t); holdTimers.delete(id); }
+  }
+  function clearHolds() { for (const t of holdTimers.values()) clearTimeout(t); holdTimers.clear(); }
+
   // ===== ربط أدوات تحكم الساحة: أزرار لمس + لوحة مفاتيح، بتعدد لمس مستقل عن لوحة اللعب =====
   const duelButtons = () => document.querySelectorAll('[data-duel-input]');
   for (const button of duelButtons()) {
@@ -2010,9 +2068,21 @@
       const ACTION_BITS = R.INPUT.JUMP | R.INPUT.ATTACK | R.INPUT.SKILL | R.INPUT.DEFEND | R.INPUT.DODGE | R.INPUT.HEAVY;
       if (mask & ACTION_BITS) duelPulses.set(`d:${e.pointerId}`, mask & ACTION_BITS);
       button.dataset.down = 'true';
+      // V13: إبقاء الإصبع على «ضرب» (وضع العصا) يحوّل الضربة التالية إلى قوية بدل زر مستقل
+      if (padMode === 'stick' && button.dataset.holdHeavy === 'true') {
+        clearHold(e.pointerId);
+        holdTimers.set(e.pointerId, setTimeout(() => {
+          holdTimers.delete(e.pointerId);
+          if (!duelPointers.has(e.pointerId) || !duelRunning || duelPaused) return;
+          duelPulses.set(`h:${e.pointerId}`, R.INPUT.HEAVY);
+          button.dataset.charge = 'true';
+        }, R.PAD?.heavyHoldMs || 260));
+      }
     });
     const release = e => {
       duelPointers.delete(e.pointerId);
+      clearHold(e.pointerId);
+      button.dataset.charge = 'false';
       button.dataset.down = String([...duelPointers.values()].includes(Number(button.dataset.duelInput)));
     };
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release);
@@ -2029,13 +2099,14 @@
     duelKeys.add(e.code);
   });
   window.addEventListener('keyup', e => { duelKeys.delete(e.code); });
-  window.addEventListener('blur', () => { duelKeys.clear(); duelPointers.clear(); pauseDuel(); });
+  window.addEventListener('blur', () => { duelKeys.clear(); duelPointers.clear(); clearHolds(); stickReset(); pauseDuel(); });
 
   // Expose for tests and cross-module coordination
   window.PlatformGame = {
     pause, onShow, showArenaPreview, hideArenaPreview,
     // مبارزة الساحة المستقلة (على مسرح تبويب الساحة نفسه)
     startArenaRun, duelBusy, pauseDuel, resumeDuel, duelAdvance, duelAbandon,
+    padMode: () => padMode, setPadMode: applyPadMode, stickState: () => ({ dir: duelStickDir, pointer: stickPointer }),
     duelInspect: () => ({ ...duelBusy(), rival: duelSim?.enemies?.[0]?.name || null, hearts: duelSim?.player?.hearts ?? null, inputs: duelInputs.length }),
     // حالة المسرح الاستعراضي (لاختبار بصري حقيقي: هل يتقدّم؟ من الخصم المعروض؟)
     arenaInspect: () => ({ zone: arenaZone, tick: arenaSim?.tick ?? 0, running: Boolean(arenaRaf), rival: arenaSim?.enemies?.[0]?.name || null,
