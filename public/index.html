@@ -420,6 +420,46 @@
     .ap-guard { background: rgba(30, 70, 60, .95) !important; border-color: rgba(52, 211, 153, .55) !important; }
     .ap-dodge { background: rgba(50, 40, 90, .95) !important; border-color: rgba(167, 139, 250, .55) !important; }
     .ap-skill { background: rgba(90, 30, 70, .95) !important; border-color: rgba(244, 114, 182, .55) !important; }
+    /* ===== V14: الشاشة كاملة للعبة أثناء المبارزة =====
+       كل ما ليس معركة يختفي (العنوان، الذهب، السلّم، العدّة، التوصية، شريط التنقّل)،
+       والمسرح يكبر على عرض الشاشة كاملاً، ولوحة اللمس في منطقة الإبهام السفلية. */
+    body.duel-live { overflow: hidden; background: #05090f; }
+    body.duel-live #tab-arena {
+      position: fixed; inset: 0; z-index: 80; margin: 0; padding: 0; gap: 0;
+      display: flex; flex-direction: column;
+      background: radial-gradient(130% 70% at 50% 0%, #0e1b28 0%, #05090f 68%);
+    }
+    body.duel-live #tab-arena > *:not(#arena-stage):not(#arena-pad):not(#arena-duel-status):not(#arena-fs-bar) { display: none !important; }
+    /* المسرح: عرض الشاشة كاملاً، وارتفاعه مقيّد بـ 88vw كي تبقى نسبة العالم سليمة
+       (المحرّك يتوقّف عن القصّ عندما height ≤ 0.957 × width، فتتساوى نسبتا التكبير والتصغير) */
+    body.duel-live #arena-stage {
+      flex: 0 0 auto; width: 100%; height: min(58vh, 88vw); max-height: none; min-height: 0;
+      aspect-ratio: auto; margin: auto 0 0; border: 0; border-radius: 0; box-shadow: none;
+    }
+    body.duel-live #arena-preview { width: 100%; height: 100%; }
+    body.duel-live #arena-duel-status { margin: 0 10px 4px; }
+    body.duel-live #arena-pad {
+      flex: 0 0 auto; padding: 8px 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+    }
+    /* أهداف أكبر في وضع الشاشة الكاملة — الإبهام أدقّ حين تكون الأزرار أكبر */
+    body.duel-live .arena-pad .ap-group button { min-height: 56px; font-size: 13px; }
+    body.duel-live .arena-pad .ap-acts .ap-hit { min-height: 64px; flex: 0 0 66px; min-width: 66px; font-size: 15px; }
+    body.duel-live .arena-stick { width: 76px; height: 76px; }
+    body.duel-live .arena-stick .as-knob { width: 38px; height: 38px; }
+    /* شريط علوي صغير: إيقاف + انسحاب، يستخدم المناطق الآمنة في الهواتف ذات الحافة */
+    .arena-fs-bar {
+      display: none; position: relative; z-index: 30; flex: 0 0 auto;
+      align-items: center; justify-content: space-between; gap: 8px;
+      padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 4px;
+    }
+    body.duel-live .arena-fs-bar { display: flex; }
+    .arena-fs-bar button {
+      font-size: 11px; font-weight: 800; padding: 6px 12px; border-radius: 999px; color: #dbe7f2;
+      background: rgba(14, 24, 38, .9); border: 1px solid rgba(120, 160, 200, .38); min-height: 34px;
+    }
+    .arena-fs-bar button:active { background: rgba(56, 189, 248, .26); }
+    .arena-fs-bar .fs-exit { color: #ffd9d9; border-color: rgba(239, 120, 120, .45); }
+    .arena-fs-bar .fs-note { font-size: 9.5px; color: #7e94a8; text-align: center; }
     .arena-keyhint { flex: 0 0 auto; margin: 0; font-size: 9.5px; color: #8fa6b8; text-align: center; }
     @media (hover: hover) and (pointer: fine) {
       .arena-pad { display: none; }
@@ -1287,6 +1327,12 @@
 
   <!-- TAB 5: ARENA — مبارزة تفاعلية: تقرأ نيّة الخصم ثم تختار حركتك -->
   <main id="tab-arena" class="tab-content flex-col gap-2 flex-1 py-1 px-1 arena-idle">
+    <!-- V14: أثناء المبارزة فقط — إيقاف/انسحاب، وبقية الواجهة مخفية -->
+    <div id="arena-fs-bar" class="arena-fs-bar" aria-label="تحكم المبارزة">
+      <button id="arena-fs-pause" type="button">إيقاف</button>
+      <span class="fs-note">الشاشة كاملة للعبة</span>
+      <button id="arena-fs-exit" type="button" class="fs-exit">انسحاب</button>
+    </div>
     <!-- مسرح حيّ: نفس محرك اللعب ونفس الرسم — اللاعب والخصم يتحركان هنا قبل بدء المبارزة -->
     <div id="arena-stage" class="arena-stage">
       <canvas id="arena-preview" aria-label="معاينة حيّة لساحة المبارزة"></canvas>
@@ -2218,6 +2264,50 @@
       const ok = game.arenaSnapshot(kind);
       arenaLog(ok ? 'لقطة مجمّدة — اضغط الزر نفسه للعودة إلى المسرح.' : 'تعذّر تجهيز اللقطة، أعد المحاولة.');
     }
+    // V14: شاشة كاملة حقيقية (تُخفي شريط المتصفح) فوق تخطيط «الشاشة كاملة» في CSS.
+    // كل شيء داخل try: بعض نسخ تيليجرام ترفض الطلب بلا إيماءة مستخدم، ولا يجوز أن يُعطّل ذلك المبارزة.
+    function arenaFullscreen(on) {
+      try {
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (on) {
+          tg?.expand?.();
+          if (typeof tg?.requestFullscreen === 'function') { tg.requestFullscreen(); return; }
+          const root = document.documentElement;
+          if (root?.requestFullscreen && !document.fullscreenElement) {
+            const p = root.requestFullscreen({ navigationUI: 'hide' });
+            if (p && p.catch) p.catch(() => {});
+          }
+        } else {
+          if (typeof tg?.exitFullscreen === 'function') tg.exitFullscreen();
+          if (document.fullscreenElement && document.exitFullscreen) {
+            const p = document.exitFullscreen();
+            if (p && p.catch) p.catch(() => {});
+          }
+        }
+      } catch (_) {}
+    }
+    function arenaPauseLabel() {
+      const btn = document.getElementById('arena-fs-pause');
+      if (!btn) return;
+      const busy = window.PlatformGame?.duelBusy?.();
+      btn.textContent = busy?.paused ? 'متابعة' : 'إيقاف';
+    }
+    (() => {
+      document.getElementById('arena-fs-pause')?.addEventListener('click', () => {
+        const game = window.PlatformGame;
+        const busy = game?.duelBusy?.();
+        if (!busy?.running) return;
+        if (busy.paused) game.resumeDuel?.(); else game.pauseDuel?.();
+        arenaPauseLabel();
+      });
+      document.getElementById('arena-fs-exit')?.addEventListener('click', () => {
+        const game = window.PlatformGame;
+        if (!game?.duelAbandon?.()) return;
+        arenaFullscreen(false);
+        arenaLog('انسحبت من المبارزة — لا فوز ولا خسارة.');
+      });
+    })();
+
     function startArenaDuel(zone = null) {
       const game = window.PlatformGame;
       const live = document.getElementById('arena-live-banner');
@@ -2238,6 +2328,8 @@
       if (!game.startDuel(tier)) { refreshArenaDuelState(); return; }
       if (live) live.hidden = true;
       document.body.classList.add('duel-live');
+      arenaFullscreen(true);
+      arenaPauseLabel();
       const pad = document.getElementById('arena-pad'); if (pad) pad.hidden = false;
       const btn = document.getElementById('arena-duel-btn'); if (btn) btn.disabled = true;
       const stage = document.getElementById('arena-preview'); stage?.focus?.({ preventScroll: true });
@@ -2261,6 +2353,7 @@
     // نهاية المبارزة: نُعيد الزر والسلّم ونفتح مبارزة أخرى
     window.addEventListener('platform-duel-done', () => {
       document.body.classList.remove('duel-live');
+      arenaFullscreen(false);
       const pad = document.getElementById('arena-pad'); if (pad) pad.hidden = true;
       const btn = document.getElementById('arena-duel-btn'); if (btn) btn.disabled = false;
       const ladder = document.getElementById('arena-ladder'); if (ladder) ladder.hidden = false;
@@ -4699,6 +4792,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=40"></script>
+  <script src="/platform-game.js?v=41"></script>
 </body>
 </html>
