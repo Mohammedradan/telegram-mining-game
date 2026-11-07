@@ -85,7 +85,7 @@ test('arena shows illustrated sword fighters and action animations, not clipped 
 });
 
 test('telegram viewport height and vertical-swipe guard are applied when running inside Telegram', () => {
-  assert.match(html, /tg\.viewportStableHeight/);
+  assert.match(html, /tg\?\.viewportStableHeight/);
   assert.match(html, /setProperty\('--app-height'/);
   assert.match(html, /tg\.onEvent\?\.\('viewportChanged'/);
   assert.match(html, /tg\.disableVerticalSwipes\?\.\(\)/);
@@ -177,7 +177,7 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(renderer, /drawDrone\(c, s\.player/);
   // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
   assert.match(html, /platform-rules\.js\?v=17/);
-  assert.match(html, /platform-game\.js\?v=41/);
+  assert.match(html, /platform-game\.js\?v=42/);
   assert.match(html, /platform-renderer\.js\?v=13/);
   assert.match(html, /platform-scenery\.js\?v=1/);
   assert.match(html, /platform-bosses\.js\?v=6/);

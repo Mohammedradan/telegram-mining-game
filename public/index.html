@@ -420,6 +420,52 @@
     .ap-guard { background: rgba(30, 70, 60, .95) !important; border-color: rgba(52, 211, 153, .55) !important; }
     .ap-dodge { background: rgba(50, 40, 90, .95) !important; border-color: rgba(167, 139, 250, .55) !important; }
     .ap-skill { background: rgba(90, 30, 70, .95) !important; border-color: rgba(244, 114, 182, .55) !important; }
+    /* ===== V15: تخطيط تكيّفي حسب شكل الشاشة =====
+       الهاتف الطولي: كما هو. الشاشة العريضة: المسرح في عمود، واللوحة (ابدأ/السلّم/العدّة/
+       التوصية) في عمود جانبي، فلا يعود المسرح شريطًا رفيعًا في نافذة عريضة. */
+    @media (min-width: 780px) {
+      /* .active مطلوبة: بدونها يتجاوز التحديد قاعدة .tab-content { display: none } فيظهر تبويب
+         الساحة وهو مغلق على الشاشات العريضة. و body:not(.duel-live) تحفظ شاشة المبارزة
+         الكاملة (V14) كما هي بدل أن تصبح شبكة عمودين أثناء القتال. */
+      body:not(.duel-live) #tab-arena.active {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, 330px);
+        align-content: start; align-items: start; column-gap: 12px; row-gap: 8px;
+        overflow-x: hidden; overflow-y: auto; padding-bottom: 6px;
+      }
+      /* المسرح في العمود الأول وحده. لا نستخدم grid-row: span ضخم لأنه يخلق عشرات الصفوف
+         الفارغة، وrow-gap يُحتسب بينها فيدفع اللوحة إلى أسفل مسافة كبيرة. */
+      body:not(.duel-live) #tab-arena > #arena-stage {
+        grid-column: 1; width: 100%; height: auto;
+        max-height: none; aspect-ratio: 16 / 9; margin: 0;
+      }
+      body:not(.duel-live) #tab-arena > *:not(#arena-stage):not(#arena-pad) { grid-column: 2; }
+      body:not(.duel-live) #tab-arena > #arena-pad { grid-column: 1 / -1; }
+      /* الشاشة العريضة: في المبارزة يكبر المسرح عمودياً بدل أن يبقى شريطاً في وسط الشاشة.
+         62vw تحت سقف الرسم 95.7vw فلا يتغيّر شكل العالم (لا انضغاط). */
+      body.duel-live #tab-arena > #arena-stage { height: min(86vh, 62vw); }
+    }
+    /* هاتف أفقي قصير: المسرح يملأ الشاشة واللمس يطفو فوقه، فلا مساحة مهدورة للتمرير.
+       نستخدم "#tab-arena >" ليتغلّب التحديد على قواعد V14 التي تأتي بعده في الملف. */
+    @media (orientation: landscape) and (max-height: 560px) {
+      body.duel-live #tab-arena { display: block; }
+      body.duel-live #tab-arena > #arena-stage {
+        position: absolute; inset: 0; width: auto; height: auto; aspect-ratio: auto;
+        min-height: 0; max-height: none; margin: 0;
+      }
+      body.duel-live #tab-arena > #arena-fs-bar {
+        position: absolute; top: 0; left: 0; right: 0; z-index: 32;
+        padding-top: calc(env(safe-area-inset-top, 0px) + 4px);
+      }
+      body.duel-live #tab-arena > #arena-duel-status {
+        position: absolute; left: 8px; right: 8px; bottom: 104px; z-index: 30; margin: 0;
+      }
+      body.duel-live #tab-arena > #arena-pad {
+        position: absolute; left: 0; right: 0; bottom: 0; z-index: 31;
+        padding: 8px 14px calc(env(safe-area-inset-bottom, 0px) + 8px);
+        background: linear-gradient(180deg, rgba(4, 12, 20, 0), rgba(4, 12, 20, .78));
+      }
+    }
+
     /* ===== V14: الشاشة كاملة للعبة أثناء المبارزة =====
        كل ما ليس معركة يختفي (العنوان، الذهب، السلّم، العدّة، التوصية، شريط التنقّل)،
        والمسرح يكبر على عرض الشاشة كاملاً، ولوحة اللمس في منطقة الإبهام السفلية. */
@@ -1768,22 +1814,38 @@
 
     // Init Telegram WebApp
     const tg = window.Telegram?.WebApp;
+
+    // V15: ارتفاع التطبيق يتبع الحجم الفعلي دائماً. سابقاً كان يُكتب مرة واحدة من تيليجرام فقط،
+    // فإذا فُتحت النافذة بحجم مختلف (أو دُوِّر الهاتف، أو كُبّرت النافذة) بقيت مساحة ميتة أسفل
+    // الشاشة. الآن نقرأ الحجم الحيّ عند كل تغيير، ونستخدم ارتفاع تيليجرام المستقر فقط إذا كان
+    // مطابقاً تقريباً للحجم الحيّ (حتى لا يقفز التطبيق عند فتح لوحة المفاتيح داخل تيليجرام).
+    const setAppHeight = (h) => {
+      try { document.documentElement.style.setProperty('--app-height', `${h}px`); } catch (e) {}
+    };
+    const syncAppHeight = () => {
+      const live = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+      const stable = Math.round(Number(tg?.viewportStableHeight) || 0);
+      const h = (stable > 0 && Math.abs(stable - live) <= 120) ? stable : live;
+      if (h > 0) setAppHeight(h);
+    };
+
     if (tg) {
       tg.ready();
       tg.expand();
-      // ارتفاع منفذ العرض المستقر من تيليجرام (يتغير مع التوسيع/لوحة المفاتيح) بدل 100vh غير الدقيق على الهاتف
-      const applyTelegramViewport = () => {
-        const h = Number(tg.viewportStableHeight);
-        if (h > 0) document.documentElement.style.setProperty('--app-height', `${Math.round(h)}px`);
-      };
-      applyTelegramViewport();
-      try { tg.onEvent?.('viewportChanged', (e) => { if (!e || e.isStateStable !== false) applyTelegramViewport(); }); } catch (e) {}
+      syncAppHeight();
+      try { tg.onEvent?.('viewportChanged', (e) => { if (!e || e.isStateStable !== false) syncAppHeight(); }); } catch (e) {}
       // التبويبات تتمرّج داخلياً؛ لا نترك سحب الإصبع يغلق التطبيق بدل التمرير (متاح في إصدارات تيليجرام الأحدث)
       try { tg.disableVerticalSwipes?.(); } catch (e) {}
       if (tg.initDataUnsafe?.user?.first_name) {
         document.getElementById('username').innerText = tg.initDataUnsafe.user.first_name;
       }
     }
+
+    // خارج تيليجرام لا يوجد حدث من المنصة، فنستمع للمتصفح نفسه.
+    if (!tg) syncAppHeight();
+    try { window.addEventListener('resize', syncAppHeight, { passive: true }); } catch (e) {}
+    try { window.addEventListener('orientationchange', () => setTimeout(syncAppHeight, 160), { passive: true }); } catch (e) {}
+    try { window.visualViewport?.addEventListener?.('resize', syncAppHeight, { passive: true }); } catch (e) {}
 
     // --- DOM Elements ---
     const goldCounter = document.getElementById('gold-counter');
@@ -4792,6 +4854,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=41"></script>
+  <script src="/platform-game.js?v=42"></script>
 </body>
 </html>
