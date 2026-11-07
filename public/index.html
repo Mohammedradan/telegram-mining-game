@@ -811,14 +811,26 @@
     body.arena-live .bottom-nav { display: none !important; }
     /* عمود واحد على أي عرض: قاعدة الشبكة (عمودان) في V15 خاصة بشاشة الساحة العادية،
        وهنا نلغيها صراحةً كي يأخذ المسرح العرض كاملاً. لاحقة في الملف فتتغلّب على V15. */
-    body.arena-live #tab-arena.active {
-      display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; overflow: hidden;
+    body.arena-live:not(.arena-more) #tab-arena.active {
+      position: relative; display: block; padding: 0; gap: 0; overflow: hidden;
     }
-    /* المسرح يأخذ كل الارتفاع المتاح بدل نسبة ثابتة */
+    /* المسرح: ملء الشاشة داخل التبويب — لا شريط فوقه ولا تحته يأخذ من مساحته */
     body.arena-live:not(.arena-more) #tab-arena > #arena-stage {
-      flex: 1 1 auto; min-height: 0; height: auto; max-height: none;
-      aspect-ratio: auto; margin: 0;
+      position: absolute; inset: 0; width: auto; height: auto; min-height: 0;
+      max-height: none; aspect-ratio: auto; margin: 0; border: 0; border-radius: 0;
     }
+    /* الأدوات تطفو في أعلى المسرح (سماء) فلا تحجب المقاتلين على الأرض */
+    body.arena-live:not(.arena-more) #tab-arena > #arena-x-bar {
+      position: absolute; top: 8px; left: 8px; z-index: 40;
+    }
+    body.arena-live:not(.arena-more) #tab-arena > .as-bar {
+      position: absolute; top: 8px; right: 8px; z-index: 40;
+      width: auto; max-width: 66%; justify-content: flex-end; padding: 0; gap: 6px;
+    }
+    body.arena-live:not(.arena-more) #tab-arena > .as-bar .arena-duel-btn {
+      flex: 0 0 auto; min-height: 40px; padding: 8px 18px; font-size: 13px; border-radius: 999px;
+    }
+    body.arena-live:not(.arena-more) #tab-arena > .as-bar .as-record { font-size: 10px; padding: 6px 10px; }
     /* كل ما تحت المسرح يختفي في هذا الوضع */
     body.arena-live:not(.arena-more) #tab-arena > .arena-head,
     body.arena-live:not(.arena-more) #tab-arena > #arena-ladder,
@@ -828,9 +840,16 @@
     body.arena-live:not(.arena-more) #tab-arena > #classic-system,
     body.arena-live:not(.arena-more) #tab-arena > .arena-keyhint,
     body.arena-live:not(.arena-more) #tab-arena > #arena-pad-mode { display: none !important; }
-    /* «المزيد»: تعود اللوحات ويُسمح بالتمرير داخل التبويب */
-    body.arena-live.arena-more #tab-arena.active { overflow-y: auto; }
-    body.arena-live.arena-more #tab-arena > #arena-stage { flex: 0 0 auto; height: auto; aspect-ratio: 16 / 9; }
+    /* «المزيد»: تعود اللوحات ويُسمح بالتمرير داخل التبويب (تخطيط عادي لا ملء شاشة) */
+    body.arena-live.arena-more #tab-arena.active {
+      position: static; display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; overflow-y: auto;
+    }
+    body.arena-live.arena-more #tab-arena > #arena-stage {
+      position: relative; inset: auto; flex: 0 0 auto; height: auto; aspect-ratio: 16 / 9;
+      border: 1px solid rgba(94, 124, 146, .45); border-radius: 14px;
+    }
+    body.arena-live.arena-more #tab-arena > #arena-x-bar,
+    body.arena-live.arena-more #tab-arena > .as-bar { position: static; max-width: none; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
   <link rel="stylesheet" href="/platform.css?v=23">
