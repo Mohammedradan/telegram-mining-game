@@ -108,7 +108,10 @@ test('a verified win feeds every counter from its own replay, and a repeated fin
   assert.deepEqual((await readUser(n)).sync.quests, after.sync.quests, 'a second finish of the same round counts nothing');
 });
 
-test('a lost round still counts the rocks and ores it gave, but never a win or a boss', async () => {
+// V19.3 (R2): عقد تغيّر عمداً — عدّاد الخامات صار يتبع المحفظة (`oreAward`) لا الحقيبة (`oreSummary`).
+// قبل V19.3 كانت الخسارة تضيف الخام كاملاً إلى المهمة وتُدخل نصفه فقط إلى المخزن (تضاعف في تقدّم المهمة)،
+// والاختبار كان يثبّت السلوك القديم. الصخور والأعداء لم يتغيّرا: عمل حقيقي من جولة أعاد الخادم تشغيلها.
+test('a lost round counts the rocks it broke and only the ore it actually banked, never a win or a boss', async () => {
   const n = 'lost-feed';
   const run = await losingRun(n, { zone: 0, loadout: R.normalizeLoadout({}) });
   assert.notEqual(run.state.status, 'won'); assert.ok(run.state.mined >= 1);
@@ -116,7 +119,10 @@ test('a lost round still counts the rocks and ores it gave, but never a win or a
   assert.equal(res.status, 200); assert.equal(res.body.won, false);
   const saved = await readUser(n);
   assert.equal(saved.sync.quests.rocks, run.state.mined); assert.equal(saved.sync.quests.enemies, run.state.defeated);
-  assert.deepEqual(saved.sync.quests.ores, R.oreSummary(run.state));
+  assert.deepEqual(saved.sync.quests.ores, R.oreAward(run.state), 'quests follow the wallet, not the bag');
+  assert.deepEqual(saved.state.ores, R.oreAward(run.state), 'and both agree with what the wallet holds');
+  assert.ok(Object.values(R.oreSummary(run.state)).reduce((a, b) => a + b, 0) > Object.values(R.oreAward(run.state)).reduce((a, b) => a + b, 0),
+    'this round really gathered more than it banked — the bug R2 removed was counting the gathered amount');
   assert.deepEqual(saved.state.mines.wins, [0, 0, 0, 0, 0, 0]);
   assert.equal(rows(res.body.profile.quests).win_stone.done, false);
   // counters add up across rounds

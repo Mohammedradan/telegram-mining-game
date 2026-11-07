@@ -148,17 +148,25 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         arenaRec[key] = Math.min(1_000_000, (Number(arenaRec[key]) || 0) + 1);
         if (duelWon) trackMission(user, 'arena', 1, now());
       }
-      a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
-      if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
       // سقوط زعيم المنجم أعاد المحرك تشغيله بنفس المسار؛ يُحتسب حتى لو خسر اللاعب بعده في طريق الخروج. هذا ما يُحيي إنجاز «قاتل الزعماء».
       const bossKill = state.bossDefeated === true;
-      if (bossKill) { a.bossWins = (Number(a.bossWins) || 0) + 1; trackMission(user, 'boss', 1, now()); }
       const score = state.collected * 25 + state.mined * 50 + (state.status === 'won' ? 200 : 0);
-      a.bestScore = Math.max(a.bestScore, score); a.rewardEarned += gold;
-      a.zones = a.gems >= 75 || a.bossWins >= 1 ? 3 : a.gems >= 25 || a.runs >= 3 ? 2 : 1;
-      for (const [key, value] of [['runs', 1], ['gems', state.collected], ['score', score], ['play_time', Math.floor(duration)]]) trackMission(user, key, value, now());
-      // مهام المغامرة: عدّادات من هذه الجولة المُعاد تشغيلها فقط (صخور، أعداء، خامات، سقوط زعيم بمفتاحه)
-      trackQuests(user, { mined: state.mined, defeated: state.defeated, ores, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
+      // V19.3 (R4): مبارزة الساحة تجربة مستقلة — لا تُغذّي إحصاءات «المغامرة» ولا مهامها ولا مغامراتها.
+      // للساحة مسارها الخاص أعلاه: سجل المبارزة، ذهب المبارزة المستقل، ومهمة «arena».
+      if (!duelMode) {
+        a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
+        if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
+        if (bossKill) { a.bossWins = (Number(a.bossWins) || 0) + 1; trackMission(user, 'boss', 1, now()); }
+        a.bestScore = Math.max(a.bestScore, score); a.rewardEarned += gold;
+        a.zones = a.gems >= 75 || a.bossWins >= 1 ? 3 : a.gems >= 25 || a.runs >= 3 ? 2 : 1;
+        // V19.3 (R1): «أكمل جولات» لا تكتمل بالخسارة — تُحتسب عند إتمام الجولة فوزاً فقط.
+        // gems/score/play_time تبقى نشاطاً حقيقياً يُحتسب في أي جولة منتهية (قرار R1: لم تُقيَّد).
+        if (state.status === 'won') trackMission(user, 'runs', 1, now());
+        for (const [key, value] of [['gems', state.collected], ['score', score], ['play_time', Math.floor(duration)]]) trackMission(user, key, value, now());
+        // مهام المغامرة: الصخور والأعداء من الجولة المُعاد تشغيلها، والخامات مما دخل المخزن فعلاً (R2:
+        // نصف الخسارة الصادقة يُحتسب نصفاً، والجولة غير الصادقة لا تُحتسب — تماماً كالمحفظة).
+        trackQuests(user, { mined: state.mined, defeated: state.defeated, ores: awarded, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
+      }
       user.revision++; user.updatedAt = now();
       // V6: نتيجة الهدف وقرار المخاطرة تُقرأ من إعادة التشغيل نفسها (لا من العميل) وتُعرض في شاشة الختام.
       const goal = config.mode === 'duel' ? Rules.duelStatus(state) : Rules.goalStatus(state);
