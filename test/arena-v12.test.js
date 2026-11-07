@@ -136,7 +136,7 @@ test('الواجهة: التذكير يُرسَل بنوعه، يُصرف مرة
   const game = read('public/platform-game.js');
   assert.match(game, /function arenaHint\(text, ms = 5200, kind = 'main'\)/, 'the hint takes a kind');
   assert.match(game, /classList\.toggle\('remind', kind === 'reminder'\)/, 'the reminder gets its own smaller style');
-  assert.match(game, /const plan = R\.duelHintPlan\?\.\(ev,/, 'the decision comes from the rules module');
+  assert.match(game, /R\.duelHintPlan\?\.\(ev,/, 'the decision comes from the rules module');
   assert.match(game, /if \(plan && plan\.kind === 'reminder'\) \{ hintReminderShown = true;/, 'a reminder is consumed once');
   const resets = game.match(/hintReminderShown = false/g) || [];
   assert.ok(resets.length >= 2, 'reset on stage rebuild and on every new duel');

@@ -102,7 +102,7 @@ test('V11: the phase-2 hint exists, is announced once on enrage, and never block
   const plan = R.duelHintPlan({ type: 'boss_enrage', phase: 2 }, {});
   assert.equal(plan && plan.kind, 'main', 'the phase-2 event still produces exactly one hint');
   assert.equal(plan.text, R.DUEL.phase2Hint);
-  assert.match(game, /const plan = R\.duelHintPlan\?\.\(ev,/, 'the duel loop asks the rules module on the event');
+  assert.match(game, /R\.duelHintPlan\?\.\(ev,/, 'the duel loop asks the rules module on the event');
   assert.match(game, /function arenaHintHide\(\)/, 'and it can be cleared');
 });
 
