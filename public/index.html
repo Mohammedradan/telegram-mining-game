@@ -391,6 +391,12 @@
       opacity: 0; transition: opacity .18s ease;
     }
     .arena-hint.show { opacity: 1; }
+    /* V12.1: تذكير الصدمة الثانية — أصغر وأقل حجباً من التلميح الأساسي، ويبقى في الثلث العلوي */
+    .arena-hint.remind {
+      font-size: 9.5px; font-weight: 700; padding: 4px 9px; border-radius: 9px;
+      max-width: 72%; background: rgba(28, 14, 4, .82); border-color: rgba(255, 196, 120, .45);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, .45);
+    }
     .arena-hint b { color: #ffd166; }
     .arena-advice { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 8px; }
     .arena-advice:empty { display: none; }
@@ -1575,10 +1581,10 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=15"></script>
+  <script src="/platform-rules.js?v=16"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=1"></script>
-  <script src="/platform-bosses.js?v=5"></script>
+  <script src="/platform-bosses.js?v=6"></script>
   <script src="/platform-arena-scene.js?v=7"></script>
   <script src="/platform-renderer.js?v=13"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
@@ -4630,6 +4636,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=37"></script>
+  <script src="/platform-game.js?v=38"></script>
 </body>
 </html>

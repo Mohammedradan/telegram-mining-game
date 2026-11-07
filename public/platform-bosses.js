@@ -337,26 +337,50 @@
     c.restore();
   }
 
-  function drawWaves(c, waves, tick, reduced) {
+  // V12: خشبة الموجة لونان — الساحة تركوازي كهربائي (لأن الكهرماني كان يلتبس بفوانيس الحلبة)،
+  // ومنجم الزعيم يبقى كما هو تماماً (كهرماني/برتقالي) فلا يتغيّر شكل اللعب الأصلي.
+  const WAVE_INK = {
+    arena: {
+      halo: 'rgba(38, 232, 220, 0.18)',
+      trail: ['rgba(24, 214, 205, 0)', 'rgba(96, 255, 242, 0.42)'],
+      body: ['rgba(16, 128, 138, 0.55)', 'rgba(150, 255, 246, 0.98)'],
+      edge: 'rgba(4, 38, 44, 0.9)', edgeW: 3,
+      core: '#e9fffd', spark: 'rgba(120, 245, 238, .6)',
+    },
+    mine: {
+      halo: 'rgba(255,150,70,0.16)',
+      trail: ['rgba(255,120,60,0)', 'rgba(255,190,110,0.4)'],
+      body: ['rgba(255,120,60,0.35)', 'rgba(255,230,160,0.95)'],
+      edge: null, edgeW: 0,
+      core: '#fff1c9', spark: 'rgba(180,160,140,.55)',
+    },
+  };
+  function drawWaves(c, waves, tick, reduced, mode = 'mine') {
+    const ink = WAVE_INK[mode] || WAVE_INK.mine;
     for (const w of waves) {
       const fade = clamp01(w.ttl / 10), dir = Math.sign(w.vx) || 1;
       c.save(); c.globalAlpha = fade;
       // V11: الموجة الريحية صارت أضيق (١٠px) ليوسّع نافذة القفز، فتحتاج هالة وذيل حركة
       // يبقيانها مرئية. الهالة والذيل تأثير بصري فقط — صندوق الإصابة هو w.w بالضبط.
       if (w.w <= 16) {
-        c.fillStyle = 'rgba(255,150,70,0.16)';
+        c.fillStyle = ink.halo;
         c.beginPath(); c.roundRect(w.x - 7, w.y - 4, w.w + 14, w.h + 8, 11); c.fill();
         const trail = c.createLinearGradient(w.x - dir * 26, 0, w.x, 0);
-        trail.addColorStop(0, 'rgba(255,120,60,0)'); trail.addColorStop(1, 'rgba(255,190,110,0.4)');
+        trail.addColorStop(0, ink.trail[0]); trail.addColorStop(1, ink.trail[1]);
         c.fillStyle = trail;
         c.beginPath(); c.roundRect(dir > 0 ? w.x - 26 : w.x + w.w, w.y + 3, 26, w.h - 6, 6); c.fill();
       }
       const glow = c.createLinearGradient(w.x, 0, w.x + w.w, 0);
-      glow.addColorStop(dir > 0 ? 0 : 1, 'rgba(255,120,60,0.35)'); glow.addColorStop(dir > 0 ? 1 : 0, 'rgba(255,230,160,0.95)');
+      glow.addColorStop(dir > 0 ? 0 : 1, ink.body[0]); glow.addColorStop(dir > 0 ? 1 : 0, ink.body[1]);
       c.fillStyle = glow; c.beginPath(); c.roundRect(w.x, w.y, w.w, w.h, 8); c.fill();
-      c.strokeStyle = '#fff1c9'; c.lineWidth = 2; c.lineCap = 'round';
+      // حدّ داكن (الساحة فقط) يفصل الموجة عن أرضية الحلبة الفاتحة وعن الفوانيس
+      if (ink.edge) {
+        c.strokeStyle = ink.edge; c.lineWidth = ink.edgeW;
+        c.beginPath(); c.roundRect(w.x, w.y, w.w, w.h, 8); c.stroke();
+      }
+      c.strokeStyle = ink.core; c.lineWidth = 2; c.lineCap = 'round';
       c.beginPath(); c.moveTo(dir > 0 ? w.x + w.w : w.x, w.y + 2); c.lineTo(dir > 0 ? w.x + w.w - 9 : w.x + 9, w.y + w.h / 2); c.lineTo(dir > 0 ? w.x + w.w : w.x, w.y + w.h - 2); c.stroke();
-      if (!reduced) { c.fillStyle = 'rgba(180,160,140,.55)'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(w.x + w.w / 2 - dir * (i * 9 + (tick % 5)), w.y + w.h - 3 - (i % 2) * 5, 3 - i * 0.6, 0, TAU); c.fill(); } }
+      if (!reduced) { c.fillStyle = ink.spark; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(w.x + w.w / 2 - dir * (i * 9 + (tick % 5)), w.y + w.h - 3 - (i % 2) * 5, 3 - i * 0.6, 0, TAU); c.fill(); } }
       c.restore();
     }
   }
@@ -413,5 +437,5 @@
     c.restore();
   }
 
-  root.PlatformBosses = { drawBoss, drawTelegraph, drawWaves, drawBossBar, phase, SCALE };
+  root.PlatformBosses = { drawBoss, drawTelegraph, drawWaves, drawBossBar, phase, SCALE, WAVE_INK };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

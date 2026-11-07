@@ -1249,7 +1249,7 @@
       else if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); }
       else drawEnemy(c, enemy, s.tick, reduced);
     }
-    if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced);
+    if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced, arenaMode ? 'arena' : 'mine');
 
     // ---- Hero ----
     drawHeroGhost(c, s.player, s.tick, reduced);

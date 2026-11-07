@@ -1403,6 +1403,8 @@
   // لاعب آلي بسيط يقاتل مبارز المنجم. لا تمسّ الحساب ولا الجولة الجارية، وتتوقف فور مغادرة التبويب.
   const arenaCanvas = el('arena-preview');
   let arenaSim = null, arenaRaf = 0, arenaAcc = 0, arenaStamp = 0, arenaZone = 0, arenaOver = 0, arenaSeed = 7717, arenaHero = null;
+  // V12.1: هل صُرف التذكير المختصر في هذه المبارزة؟ (تذكير واحد لكل مبارزة، لا مع كل ضربة)
+  let hintReminderShown = false;
   const arenaShown = () => Boolean(arenaCanvas && typeof arenaCanvas.getContext === 'function'
     && el('tab-arena')?.classList?.contains('active') && !document.hidden);
   function buildArenaSim() {
@@ -1411,6 +1413,7 @@
     arenaSim = R.create(currentHero, arenaSeed, { zone: arenaZone, mode: 'duel' });
     arenaHero = currentHero;
     arenaOver = 0;
+    arenaHintReset();
     // إطار المعاينة: البطل والخصم في كادر واحد (الجولة الحقيقية تبدأ من مواقعها الطبيعية)
     const p = arenaSim.player, rival = arenaSim.enemies[0];
     if (rival) {
@@ -1445,10 +1448,12 @@
   let arenaParticles = [], arenaFloaters = [], arenaShake = 0;
   // V11: تلميح المرحلة الثانية — نصّ من المحرك نفسه، يظهر عند الاهتياج فقط ويختفي وحده
   let arenaHintTimer = 0;
-  function arenaHint(text, ms = 5200) {
+  function arenaHint(text, ms = 5200, kind = 'main') {
     const box = el('arena-hint');
     if (!box || !text) return;
     box.textContent = text;
+    // التذكير المختصر أصغر وأقل حجباً (CSS: .arena-hint.remind) — نفس الصندوق، نصّ أخفّ
+    box.classList.toggle('remind', kind === 'reminder');
     box.classList.add('show');
     if (arenaHintTimer) { clearTimeout(arenaHintTimer); arenaHintTimer = 0; }
     // ms ≤ 0: تلميح ثابت (للالتقاط البصري) — يُمسح بـ arenaHintHide
@@ -1457,8 +1462,11 @@
   function arenaHintHide() {
     const box = el('arena-hint');
     if (arenaHintTimer) { clearTimeout(arenaHintTimer); arenaHintTimer = 0; }
-    if (box) { box.classList.remove('show'); box.textContent = ''; }
+    if (box) { box.classList.remove('show', 'remind'); box.textContent = ''; }
   }
+  const arenaHintVisible = () => Boolean(el('arena-hint')?.classList?.contains('show'));
+  // V12.1: التذكير المختصر يُصرف مرة واحدة لكل مبارزة (يُعاد تصفيره مع كل مسرح/مبارزة جديدة)
+  function arenaHintReset() { hintReminderShown = false; arenaHintHide(); }
 
   function collectFx(fromSim, withSound = false) {
     if (!fromSim) return;
@@ -1531,7 +1539,15 @@
       } else if (ev.type === 'boss_enrage') {
         sfx('boss_enrage');
         // المرحلة الثانية من مبارز الساحة: تلميح واحد عند الاهتياج (الحدث يقع مرة واحدة في الجولة)
-        if (ev.phase === 2 && R.DUEL?.phase2Hint) arenaHint(R.DUEL.phase2Hint);
+        const plan = R.duelHintPlan?.(ev, { hintVisible: arenaHintVisible(), reminderShown: hintReminderShown });
+        if (plan) arenaHint(plan.text, plan.ms, plan.kind);
+      } else if (ev.type === 'boss_windup' && ev.attack === 'overhead') {
+        sfx('boss_windup');
+        // V12.1: أول صدمة كاسرة بعد خفوت التلميح تحصل على تذكير مختصر واحد — لا مع كل ضربة
+        const plan = R.duelHintPlan?.(ev, {
+          phase: fromSim.enemies?.[0]?.phase, hintVisible: arenaHintVisible(), reminderShown: hintReminderShown,
+        });
+        if (plan && plan.kind === 'reminder') { hintReminderShown = true; arenaHint(plan.text, plan.ms, plan.kind); }
       } else if (ev.type === 'hurt') {
         sfx('hurt');
         arenaShake = Math.max(arenaShake, 0.7);
@@ -1860,6 +1876,7 @@
       return false;
     }
     duelSim = R.create(currentHero, duelTicket?.id ? R.seedFromId(duelTicket.id) : undefined, config);
+    hintReminderShown = false; // V12.1: كل مبارزة تبدأ بتلميحها الأساسي وتذكير واحد متاح
     duelRunning = true; duelPaused = false;
     document.body.classList.add('duel-live');
     const pad = el('arena-pad'); if (pad) pad.hidden = false;

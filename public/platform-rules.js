@@ -92,6 +92,10 @@
     heartsFor: hero => hero.hearts + 1,
     // تلميح المرحلة الثانية: يظهر مرة واحدة عند الاهتياج (لا يحجب اللاعب ولا مؤشرات الخطر)
     phase2Hint: 'اقفز فوق الصدمة المزدوجة، ثم استغل نافذة استشفاء الزعيم للهجوم',
+    // V12.1: تذكير مختصر واحد حين تأتي صدمة كاسرة ثانية بعد خفوت التلميح الأساسي.
+    // السبب المقيس: 56 من 101 صدمة كاسرة في المرحلة الثانية (في 27 من 30 مبارزة) تقع بعد
+    // انتهاء الـ5.2 ثانية، فيبقى اللاعب بلا إرشاد نصّي في أكثر من نصف الصدمات.
+    phase2Reminder: 'انتبه للصدمة القادمة — اقفز أو ابتعد',
     // ارتداد الإصابة في المبارزة (بدل الانتقال إلى نقطة حفظ المنجم): قوة أفقية وإطارات تطبيق
     knock: Object.freeze({ vx: 165, tick: 9 }),
     // ===== مهارة الساحة: «ظل الساكورا» =====
@@ -1778,6 +1782,22 @@
   // سياسة «متقن» نفسها المستخدمة في القياس، تُلعب على المحرك الحقيقي حتى تصل اللحظة
   // المطلوبة (مرحلة الزعيم الثانية، أو موجة على وشك التلامس)، ثم تُجمَّد العرض فقط.
   // مصدر واحد: زر اللقطة في الواجهة وسكربت الرسم كلاهما يقرأ من هنا.
+  // ===== V12.1: خطة التلميح (دالة نقية — بلا مؤقّتات ولا DOM، فتُختبَر مباشرة) =====
+  // الأساسي مرة واحدة عند التحوّل إلى المرحلة الثانية، ثم تذكير واحد فقط عند أول صدمة
+  // كاسرة يبدأ تحذيرها والتلميح مختفٍ. لا تكرار مع كل ضربة، ولا تذكير فوق تلميح ظاهر.
+  const HINT_TIMING = Object.freeze({ main: 5200, reminder: 2600 });
+  const duelHintPlan = (ev, state = {}) => {
+    if (!ev) return null;
+    if (ev.type === 'boss_enrage' && ev.phase === 2 && DUEL.phase2Hint)
+      return { kind: 'main', text: DUEL.phase2Hint, ms: HINT_TIMING.main };
+    if (ev.type !== 'boss_windup' || ev.attack !== 'overhead') return null;
+    if ((Number(state.phase) || 1) < 2) return null;         // الكاسرة في المرحلة الأولى ليست موضوع التلميح
+    if (state.reminderShown) return null;                    // تذكير واحد لكل مبارزة
+    if (state.hintVisible) return null;                      // الأساسي ما زال على الشاشة
+    if (!DUEL.phase2Reminder) return null;
+    return { kind: 'reminder', text: DUEL.phase2Reminder, ms: HINT_TIMING.reminder };
+  };
+
   const captureMask = (sim) => {
     const r = (sim.enemies || []).find(e => !e.dead);
     if (!r) return 0;
@@ -1844,7 +1864,7 @@
 
   return {
     BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,
-    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
+    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, duelHintPlan, HINT_TIMING, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
     rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
     // V6: أهداف الجولة والمفترق والعرق النادر
     GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,
