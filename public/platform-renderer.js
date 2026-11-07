@@ -853,6 +853,15 @@
     }
     c.globalAlpha = 1;
 
+    // V18.1: ضباب أرضي يفصل جدار الخلفية عن المقدمة (نفس فكرة ضباب أفق الساحة).
+    // يُرسم قبل طبقة الديكور الأمامية فقط، فلا يغبّش البطل ولا الأعداء ولا المنصّات.
+    const groundHaze = c.createLinearGradient(0, 244, 0, 302);
+    groundHaze.addColorStop(0, 'rgba(10,18,24,0)');
+    groundHaze.addColorStop(0.7, 'rgba(10,18,24,0.26)');
+    groundHaze.addColorStop(1, 'rgba(10,18,24,0.04)');
+    c.fillStyle = groundHaze;
+    c.fillRect(0, 244, w, 58);
+
     c.save();
     c.translate(-camera, 0);
 
@@ -913,6 +922,10 @@
     ];
     for (const ex of extras) {
       if (ex.x < camera - 80 || ex.x > camera + w + 80) continue;
+      // V18.1: ظل تلامس يثبّت الديكور على خط الأرض (كما يُثبَّت البطل بظلّه)
+      const shadowW = ex.type === 'cart' ? 22 : ex.type === 'chest' ? 18 : 14;
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      c.beginPath(); c.ellipse(ex.x + 16, 300, shadowW, 4.5, 0, 0, Math.PI * 2); c.fill();
       if (ex.type === 'cart') {
         // mine cart
         round(c, ex.x, 284, 32, 14, 3, '#5a4632');

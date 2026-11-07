@@ -54,3 +54,15 @@ test('عرض فقط: الأرض لا تلمس حالة المحاكاة ولا �
   const rules = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
   assert.match(rules, /\{ x: 0, y: 300, w: 720, h: 80 \}/, 'the physics ground boxes are unchanged');
 });
+
+test('V18.1: ضباب أرضي وظل تلامس للديكور — قبل طبقة المقدمة فقط', () => {
+  const haze = renderer.indexOf('V18.1: ضباب أرضي');
+  const fgBlock = renderer.indexOf('c.save();\n    c.translate(-camera, 0);\n\n    // ---- Cavern props');
+  assert.ok(haze > 0, 'the ground haze layer is documented');
+  assert.ok(fgBlock > haze, 'it is painted before the foreground world layer');
+  assert.match(renderer, /const groundHaze = c\.createLinearGradient\(0, 244, 0, 302\);/, 'haze spans the wall base above the floor line');
+  // الظل يُرسم لكائنات الأرض فقط وداخل نفس الحلقة المحجوبة بالكاميرا
+  assert.match(renderer, /V18\.1: ظل تلامس يثبّت الديكور على خط الأرض/, 'props get a contact shadow');
+  assert.match(renderer, /const shadowW = ex\.type === 'cart' \? 22 : ex\.type === 'chest' \? 18 : 14;/, 'shadow width per prop type');
+  assert.ok(renderer.indexOf('ظل تلامس') < renderer.indexOf("if (ex.type === 'cart') {\n        // mine cart"), 'the shadow is laid down before the prop body');
+});
