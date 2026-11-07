@@ -640,6 +640,71 @@
     c.fillStyle = vig; c.fillRect(0, 0, w, 360);
   }
 
+  // V18: أرض المنجم بمنظور — نفس فكرة أرضية الساحة (صفوف تتباعد + شقوق تتلاقى + حصى
+  // بحجم يتغيّر مع العمق + تعتيم مقدمة). عرض بصري فقط: صندوق الأرض في المحاكاة لا يتغيّر،
+  // والإحداثيات هنا في فضاء العالم (الرسم داخل translate(-camera)) فنستخدم مركز الشاشة
+  // كنقطة تلاشٍ عبر camera + w / 2.
+  function drawMineGround(c, box, camera, w, sk) {
+    const top = box.y, bottom = box.y + box.h, depth = bottom - top;
+    const vpx = camera + w / 2, K = 0.16;
+    const rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+
+    // التربة تبقى بلون منجمها (جلد الصخر) لا لوناً موحّداً
+    const g = c.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0, sk.rock[1]); g.addColorStop(0.45, sk.rock[0]); g.addColorStop(1, sk.rock[0]);
+    c.fillStyle = g; c.fillRect(box.x, top, box.w, depth);
+    const dk = c.createLinearGradient(0, top + depth * 0.3, 0, bottom);
+    dk.addColorStop(0, 'rgba(0,0,0,0)'); dk.addColorStop(1, 'rgba(0,0,0,0.62)');
+    c.fillStyle = dk; c.fillRect(box.x, top, box.w, depth);
+
+    // صفوف تتباعد هندسياً كلما اقتربت من المشاهد
+    const ROWS = 5, body = Math.max(8, depth - 9);
+    for (let r = 0; r < ROWS; r++) {
+      const t0 = Math.pow(r / ROWS, 2), t1 = Math.pow((r + 1) / ROWS, 2);
+      const y0 = top + 9 + body * t0, y1 = top + 9 + body * t1;
+      c.fillStyle = `rgba(255,224,170,${0.02 + 0.06 * (1 - t0)})`;
+      c.fillRect(box.x, y0, box.w, Math.max(1, y1 - y0 - 1));
+      c.fillStyle = `rgba(0,0,0,${0.10 + 0.16 * t1})`;
+      c.fillRect(box.x, y1 - 1, box.w, 1);
+    }
+
+    // شقوق طولية تتلاقى نحو مركز الشاشة
+    const step = 92;
+    for (let x = Math.floor(box.x / step) * step; x < box.x + box.w; x += step) {
+      const farX = vpx + (x - vpx) * K;
+      c.strokeStyle = 'rgba(0,0,0,0.20)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(x, bottom); c.lineTo(farX, top + 10); c.stroke();
+      c.strokeStyle = 'rgba(255,235,190,0.05)';
+      c.beginPath(); c.moveTo(x + 1.6, bottom); c.lineTo(farX + 1.6, top + 10); c.stroke();
+    }
+
+    // حصى يكبر كلما اقترب
+    for (let i = 0; i < 30; i++) {
+      const t = rnd(i, box.y);
+      const y = top + 12 + Math.pow(t, 1.6) * Math.max(4, depth - 16);
+      const x = box.x + rnd(i, 7) * box.w;
+      const r = 0.7 + Math.pow(t, 1.4) * 2.2;
+      c.globalAlpha = 0.30 + t * 0.32;
+      c.fillStyle = t > 0.55 ? sk.hi : sk.crack;
+      c.beginPath(); c.ellipse(x, y, r, r * 0.6, 0, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 1;
+    }
+
+    // الحافة العشبية كما كانت: تُقرأ كسطح يقف عليه المقاتل
+    c.fillStyle = sk.top[0]; c.fillRect(box.x, top, box.w, 9);
+    c.fillStyle = sk.top[1]; c.fillRect(box.x, top, box.w, 6);
+    c.fillStyle = sk.top[2]; c.fillRect(box.x, top + 2, box.w, 3);
+    c.fillStyle = sk.moss;
+    for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
+      c.beginPath(); c.ellipse(mx, top + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
+    }
+
+    // تعتيم المقدمة: يقفل الحافة السفلية ويقرأ الأرض كسطح ممتد
+    const fg = c.createLinearGradient(0, bottom - 22, 0, bottom + 6);
+    fg.addColorStop(0, 'rgba(6,4,2,0)'); fg.addColorStop(1, 'rgba(6,4,2,0.5)');
+    c.fillStyle = fg; c.fillRect(box.x, bottom - 22, box.w, 28);
+  }
+
   // ---- Main draw ----
   function draw(canvas, s, opts = {}) {
     const reduced = !!opts.reduced;
@@ -919,6 +984,8 @@
     for (const box of L.platforms) {
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
       if (arenaMode && box.y >= 290) continue; // أرض الساحة يرسمها مشهد الحلبة (منصّة حجرية) لا كتل المنجم
+      // V18: أرض المنجم تُرسم بمنظور (كتلة عريضة عند خط الأرض) بدل الكتلة المسطّحة
+      if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk); continue; }
       // base rock
       round(c, box.x, box.y, box.w, box.h, 4, sk.rock[0]);
       // inner shading
