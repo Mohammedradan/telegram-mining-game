@@ -52,3 +52,14 @@ test('المقاسات القديمة محفوظة: الهاتف الطولي ل
   assert.ok(780 >= 640, 'the breakpoint sits above every phone width');
   assert.match(html, /@media \(max-width: 340px\)/, 'the narrow-phone rule from V13 is still there');
 });
+
+test('الوضع الأفقي يعكس لوحة اللمس: العصا يساراً والأفعال يميناً', () => {
+  const css = html.slice(html.indexOf('@media (orientation: landscape) {\n      body.duel-live #tab-arena > #arena-pad { direction: ltr; }'), html.indexOf('/* ===== V14:'));
+  assert.match(css, /direction: ltr/, 'the pad row is mirrored in landscape');
+  // ترتيب DOM هو ما يُعكس: العصا أولاً ثم أزرار الفعل
+  const pad = html.slice(html.indexOf('<div id="arena-pad"'), html.indexOf('</div>', html.indexOf('<div class="ap-group ap-acts"')));
+  assert.ok(pad.indexOf('id="arena-stick"') < pad.indexOf('ap-acts'), 'the stick is the first child, so mirroring puts it on the left');
+  // الوضع الطولي لا يُعكس
+  const portraitOnly = html.slice(0, html.indexOf('@media (orientation: landscape) {'));
+  assert.doesNotMatch(portraitOnly.slice(portraitOnly.indexOf('.arena-pad {')), /direction: ltr[^]*arena-pad/, 'no mirror outside landscape');
+});
