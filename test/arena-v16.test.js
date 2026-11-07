@@ -18,7 +18,7 @@ test('أرضية الساحة بمنظور: صفوف تتباعد هندسياً
   assert.match(dais, /const sx = x - camera, farX = VPX \+ \(sx - VPX\) \* K;/, 'longitudinal seams pull toward the vanishing point');
   assert.match(dais, /c\.moveTo\(sx, bottom\); c\.lineTo\(farX, top\);/, 'and are drawn from the near edge up to the horizon');
   // الأرضية تمتد تحت 360 كي لا تظهر حافة عند التكبير
-  assert.match(dais, /const top = 300, bottom = 3\d\d;/, 'the platform overshoots the world bottom so zoom never reveals an edge');
+  assert.match(dais, /const bottom = Math\.max\(384, Number\.isFinite\(bottomY\) \? bottomY \+ 14 : 0\);/, 'the platform always overshoots the visible bottom (phase A extends it under the frame)');
 });
 
 test('عمق المشهد: ضباب أفق يفصل الخلفية، وبركات ضوء تتباعد، وظل مقدمة', () => {

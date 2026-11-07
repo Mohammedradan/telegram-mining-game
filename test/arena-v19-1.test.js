@@ -61,10 +61,13 @@ test('عناصر التحكم الضرورية أثناء المبارزة با�
   assert.match(html, /body\.duel-live #arena-pad \{/, 'the touch pad keeps its duel rules');
 });
 
-test('لا تغيير في شكل الحلبة ولا الكاميرا ولا حجم الشخصيات', () => {
+test('المسرح يبقى مِلء الشاشة، وتكوينه وحده تغيّر في المرحلة A', () => {
   assert.match(html, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{\s*position: absolute; inset: 0;/, 'the full-bleed stage rule is unchanged');
-  assert.match(renderer, /const ARENA_MIN_W = 520;/, 'V19 arena framing untouched');
-  assert.match(renderer, /\(arenaMode \? 1\.34 : 1\)/, 'the arena zoom stays 1.34 (no camera change)');
+  // المرحلة A: التكوين صار من المقاتلين (كان مثبّتاً على نسبة الشاشة) — الحلبة فقط، المنجم كما هو.
+  assert.match(renderer, /function arenaLayout\(state, cssW, cssH\)/, 'arena framing is a function of the fighters');
+  assert.match(renderer, /const camera = arena \? arenaCamera\(s, arena\) : R\.cameraFor\(s, w\);/, 'the arena pans, the mine keeps its camera');
+  assert.match(renderer, /fighterScale: 1\.3,/, 'fighters are drawn 1.3x larger (visual only)');
+  assert.match(renderer, /const yTop = arena \? ARENA_FRAME\.groundAt \* pixelH - 360 \* sy/, 'the floor is pinned by the new frame');
 });
 
 test('لا مساس بقواعد القتال ولا الاقتصاد', () => {

@@ -748,6 +748,61 @@
     c.fillStyle = fg; c.fillRect(box.x, bottom - 22, box.w, 28);
   }
 
+  // ===== المرحلة A: تكوين الحلبة (عرض فقط — لا يمسّ المحاكاة) =====
+  // المشكلة المقيسة قبل هذا التعديل: عرض نافذة الساحة كان يُشتق من نسبة الشاشة (520 وحدة كحد أدنى)
+  // فيصبح ارتفاع العالم 1125 وحدة على هاتف 390×844 ⇒ البطل 6% من ارتفاع المسرح، والسماء 94%،
+  // والمقاتلان عند 10% و45% من العرض. هنا يُشتق التكوين من **المقاتلين** لا من الشاشة:
+  // النافذة تكفي المسافة بينهما + هامش، والأرض تُثبَّت عند 80% من الارتفاع، والمقياس يبقى موحّداً.
+  const ARENA_FRAME = Object.freeze({
+    minW: 200,          // أضيق نافذة: مبارزة متلاصقة بلا قصّ
+    maxW: 760,          // سقف مطلق حتى لا يبتعد المشهد كثيراً لو تفرّق المقاتلان
+    minWorldH: 300,     // لا نسحق المشهد رأسياً: نطاق الرسم مصمّم على 300–460
+    groundAt: 0.82,     // خط الأرض عند 82% من ارتفاع المسرح (18% أرضية أمامية للعمق)
+    heroRatio: 0.19,    // هدف: البطل ≈19% من ارتفاع المسرح حين يكونان متقاربين
+    margin: 26,         // هامش كل جهة بين المقاتل والحد
+    fighterScale: 1.3,  // تكبير رسم المقاتلين — بصري فقط، الهيئة الفيزيائية كما هي
+    panLerp: 0.24,      // تلطيف متابعة الكاميرا
+  });
+  const ARENA_WORLD_W = 520;   // عرض ساحة القتال المنطقي كما صُمّم في المحرك
+
+  // النافذة المرئية + موضع الكاميرا، محسوبتان من حالة المحاكاة وحدها (دالة نقية للاختبار)
+  function arenaLayout(state, cssW, cssH) {
+    const aspect = cssW / Math.max(1, cssH);
+    const p = state && state.player ? state.player : { x: 0, w: 24 };
+    const foes = (state && state.enemies) || [];
+    const rival = foes.find((e) => !e.dead) || foes[0] || null;
+    const pc = p.x + p.w / 2;
+    const ec = rival ? rival.x + rival.w / 2 : pc + 160;
+    const sep = Math.abs(ec - pc) + ((p.w + (rival ? rival.w : 0)) / 2);
+    // النافذة = أضيق عرض يستوعب المقاتلين + الهامش. لا نُصغّرها أبداً تحته وإلا قُصّ أحدهم،
+    // ولا نكبّرها أكثر من اللازم وإلا صغر المقاتلان بلا داعٍ.
+    const fitW = sep + ARENA_FRAME.margin * 2;
+    let w = Math.min(ARENA_FRAME.maxW, Math.max(ARENA_FRAME.minW, fitW));
+    // لا نضغط العالم رأسياً أكثر من اللازم: في الشاشات العريضة يفرض ذلك نافذة أوسع
+    w = Math.max(w, ARENA_FRAME.minWorldH * aspect);
+    const worldH = w / aspect;
+    const mid = (pc + ec) / 2;
+    return {
+      w, worldH, aspect,
+      camera: mid - w / 2,             // الكاميرا تُوسّط المقاتلين (كانت مقيّدة عند 0 فتُركت 55% من الحلبة فارغة)
+      top: 360 - ARENA_FRAME.groundAt * worldH,
+      bottom: 360 + (1 - ARENA_FRAME.groundAt) * worldH,
+      ground: 360,
+      heroRatio: (68 * ARENA_FRAME.fighterScale) / worldH,
+      rivalRatio: (82 * ARENA_FRAME.fighterScale) / worldH,
+    };
+  }
+
+  // كاميرا الحلبة بحالة تلطيف صغيرة: تُعاد عند تغيّر المحاكاة أو القفز المفاجئ
+  let arenaCamSim = null, arenaCamX = null;
+  function arenaCamera(state, layout) {
+    if (state !== arenaCamSim) { arenaCamSim = state; arenaCamX = layout.camera; }
+    const target = layout.camera;
+    if (arenaCamX === null || Math.abs(target - arenaCamX) > 220) arenaCamX = target;
+    else arenaCamX += (target - arenaCamX) * ARENA_FRAME.panLerp;
+    return arenaCamX;
+  }
+
   // ---- Main draw ----
   function draw(canvas, s, opts = {}) {
     const reduced = !!opts.reduced;
@@ -768,12 +823,14 @@
     // فاشتقاق عرض النافذة من نسبة الشاشة يجعل مسرحاً طويلاً بعرض ~280 وحدة يقصّ الخصم ويسحق
     // المشهد. نضع حداً أدنى لعرض نافذة الساحة، ونعوّض الفرق بالارتفاع (سماء ممتدة فوق y=0)
     // فيبقى المقياس موحّداً والأرض مثبّتة عند y=360 بلا قصّ ولا تمطيط.
-    const ARENA_MIN_W = 520;
     const aspect = cssW / Math.max(1, cssH);
-    let w = Math.max(arenaMode ? ARENA_MIN_W : 280, (360 / zoom) * aspect);
-    // ارتفاع النافذة يتبع العرض ونسبة الشاشة ⇒ المقياس موحّد دائماً بلا تمطيط
-    const worldH = Math.max(360 / zoom, w / aspect);
-    const scale = pixelW / w, sy = pixelH / worldH, yTop = -(360 - worldH) * sy;
+    // الساحة: النافذة من المقاتلين (arenaLayout) — والمنجم يبقى على معادلته القديمة بلا تغيير.
+    const arena = arenaMode ? arenaLayout(s, cssW, cssH) : null;
+    const w = arena ? arena.w : Math.max(280, (360 / zoom) * aspect);
+    const worldH = arena ? arena.worldH : Math.max(360 / zoom, w / aspect);
+    const scale = pixelW / w, sy = pixelH / worldH;
+    // الأرض عند 80% من ارتفاع المسرح في الحلبة (تُظهر أرضية أمامية للعمق)، وأسفل الشاشة في المنجم
+    const yTop = arena ? ARENA_FRAME.groundAt * pixelH - 360 * sy : -(360 - worldH) * sy;
     c.setTransform(scale, 0, 0, sy, 0, yTop);
 
     // subtle screen shake
@@ -784,7 +841,7 @@
       c.translate(shakeX, shakeY);
     }
 
-    const camera = R.cameraFor(s, w);
+    const camera = arena ? arenaCamera(s, arena) : R.cameraFor(s, w);
     const L = R.levelFor ? R.levelFor(s.zone) : R.LEVEL; // V5: كل منجم له مستواه (الأرض والأخطار والراية واللافتات والبوابة)
     const skin = (root.PlatformScenery ? root.PlatformScenery.skinFor(L.id) : null);
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
@@ -794,7 +851,7 @@
     const arenaId = Number.isInteger(opts.arenaId) ? opts.arenaId : (Number.isInteger(s.arenaId) ? s.arenaId : (s.zone || 0) % 4);
     if (arenaMode) {
       // حلبة النينجا: خلفية يابانية متعدّدة الطبقات (قمر/معبد/ساكورا/بوابة/شلال/ضباب/بتلات)
-      if (ArenaScene && ArenaScene.backdrop) ArenaScene.backdrop(c, w, s.tick, reduced, camera, arenaId, Math.max(0, Math.min(1, Number(opts.arenaHeat) || 0)));
+      if (ArenaScene && ArenaScene.backdrop) ArenaScene.backdrop(c, w, s.tick, reduced, camera, arenaId, Math.max(0, Math.min(1, Number(opts.arenaHeat) || 0)), arena);
       else drawArena(c, w, s.tick, reduced, camera);
     } else {
     // ===== Background =====
@@ -1379,7 +1436,7 @@
     const bosses = root.PlatformBosses;
     if (bosses) for (const enemy of s.enemies) if (enemy.boss) bosses.drawTelegraph(c, enemy, s, reduced);
     if (s.enemies) for (const enemy of s.enemies) {
-      if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, enemy, false, s.tick, reduced, arenaId);
+      if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, enemy, false, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale);
       else if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); }
       else drawEnemy(c, enemy, s.tick, reduced);
     }
@@ -1387,7 +1444,7 @@
 
     // ---- Hero ----
     drawHeroGhost(c, s.player, s.tick, reduced);
-    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId);
+    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale);
     else drawHero(c, s.player, s.tick, reduced);
     // ---- Mining robot companion (V4 equipment) ----
     if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
@@ -1468,5 +1525,5 @@
     if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, sy, 0, yTop); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
   }
 
-  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos, drawGroundMarker, drawTelegraphs };
+  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos, drawGroundMarker, drawTelegraphs, arenaLayout, ARENA_FRAME, ARENA_WORLD_W };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
