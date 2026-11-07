@@ -62,5 +62,7 @@ test('التبديل مربوط فعلاً: يفتح مع الساحة ويُغ�
 
 test('أثناء المبارزة يبقى شريط المبارزة الكاملة فقط — الشاشتان لا تتزاحمان', () => {
   assert.match(html, /body\.duel-live #tab-arena > \*:not\(#arena-stage\):not\(#arena-pad\):not\(#arena-duel-status\):not\(#arena-fs-bar\) \{ display: none !important; \}/, 'the duel still hides every child except its four');
-  assert.ok(!/duel-live[^}]*arena-x-bar/.test(html), 'and nothing re-enables the arena chips during a duel');
+  // V19.1 (D1): الشرائح تُخفى صراحةً في المبارزة (كانت تُخفى ضمناً بالقاعدة العامة) —
+  // أي قاعدة جديدة تخصّ الشريحتين في المبارزة يجب أن تكون «إخفاءً» لا «إظهاراً».
+  assert.match(html, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the arena chips are explicitly hidden during a duel');
 });
