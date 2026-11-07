@@ -750,6 +750,45 @@
 
     .buy-btn:disabled { opacity: .45; filter: grayscale(.4); }
     .buy-btn { transition: transform .08s ease, opacity .2s ease, background .2s ease; }
+
+    /* ===== V15.3: صقل شاشة المبارزة في الوضع الأفقي (من لقطة الجهاز) =====
+       في اللقطة كانت ستة أزرار تتمدد على عرض الشاشة (كل زر ~300px) والعصا صغيرة في الطرف،
+       فالإبهام يتنقل بين أزرار عمالقة. هنا: العصا تكبر مع الشاشة، والأزرار تُقيَّد بعرض إبهام
+       معقول وتتجمّع يميناً، ويبقى الفراغ في المنتصف بين الإبهامين. كل القيم clamp فتعمل من
+       أصغر هاتف أفقي إلى شاشة مكتب عريضة، ولا تنزل تحت 54px لمساً. */
+    @media (orientation: landscape) {
+      body.duel-live #tab-arena > #arena-pad {
+        justify-content: flex-start;
+        padding: 10px clamp(12px, 2vw, 24px) calc(env(safe-area-inset-bottom, 0px) + 8px);
+      }
+      body.duel-live #tab-arena > #arena-pad > #arena-stick {
+        width: clamp(76px, 18vh, 108px); height: clamp(76px, 18vh, 108px);
+      }
+      body.duel-live #tab-arena > #arena-pad > #arena-stick .as-knob {
+        width: clamp(34px, 8vh, 50px); height: clamp(34px, 8vh, 50px);
+      }
+      /* الأفعال لا تتمدد: تتجمّع على اليمين و«قفز» يبقى ملاصقاً للعصا */
+      body.duel-live #tab-arena > #arena-pad > .ap-acts {
+        flex: 0 0 auto; margin-inline-start: auto; gap: clamp(6px, 1vw, 12px);
+      }
+      body.duel-live #tab-arena > #arena-pad > .ap-group button {
+        flex: 0 1 auto; min-width: clamp(56px, 11vw, 92px); padding: 0 clamp(8px, 1.4vw, 16px);
+        min-height: clamp(54px, 9vh, 72px); font-size: clamp(12px, 1.5vw, 15px);
+      }
+      body.duel-live #tab-arena > #arena-pad > .ap-acts .ap-hit {
+        min-width: clamp(72px, 14vw, 118px); font-size: clamp(13px, 1.6vw, 16px);
+      }
+      /* سطر الحالة: كبسولة في المنتصف بدل شريط بعرض الشاشة كاملاً */
+      body.duel-live #tab-arena > #arena-duel-status {
+        left: 50%; right: auto; transform: translateX(-50%);
+        width: max-content; max-width: min(560px, 74%);
+        bottom: calc(clamp(76px, 18vh, 108px) + 26px + env(safe-area-inset-bottom, 0px));
+        font-size: clamp(11px, 1.4vw, 13px); padding: 6px clamp(12px, 2vw, 20px);
+        border-radius: 999px; background: rgba(6, 12, 20, .84);
+      }
+      /* «الشاشة كاملة للعبة» يتقاطع مع اسم الخصم وعدّاد الجولة — يُخفى داخل المبارزة */
+      body.duel-live .arena-fs-bar .fs-note { display: none; }
+    }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
   <link rel="stylesheet" href="/platform.css?v=23">

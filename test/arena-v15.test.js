@@ -73,3 +73,22 @@ test('بقية التبويبات على الشاشة العريضة: المتج
   assert.match(css, /#tab-mining > #ck-stage \{ max-width: min\(520px, 100%\); \}/, 'the mining stage uses a little more width on a big screen');
   assert.match(css, /@media \(min-width: 780px\)/, 'all of it only from 780px up — phones untouched');
 });
+
+test('V15.3: أزرار المبارزة في الأفقي بحجم إبهام لا تتمدد، والعصا تكبر', () => {
+  const start = html.indexOf('/* ===== V15.3');
+  assert.ok(start > 0, 'the landscape polish block exists');
+  const css = html.slice(start, html.indexOf('</style>'));
+  assert.match(css, /@media \(orientation: landscape\)/, 'only in landscape');
+  // الأزرار: عرض مُقيَّد بدل التمدد، ولا تنزل عن حد لمس آمن
+  assert.match(css, /#arena-pad > \.ap-acts \{[^}]*flex: 0 0 auto/, 'the action group no longer stretches');
+  assert.match(css, /#arena-pad > \.ap-acts \{[^}]*margin-inline-start: auto/, 'and is pushed to the right thumb');
+  assert.match(css, /#arena-pad > \.ap-group button \{[^}]*min-width: clamp\(56px, 11vw, 92px\)/, 'thumb-sized width, clamped');
+  assert.match(css, /#arena-pad > \.ap-group button \{[^}]*min-height: clamp\(54px, 9vh, 72px\)/, 'touch height never drops below 54px');
+  // العصا تكبر مع الشاشة
+  assert.match(css, /#arena-stick \{\s*\n\s*width: clamp\(76px, 18vh, 108px\); height: clamp\(76px, 18vh, 108px\);/, 'the stick scales with the screen height');
+  // سطر الحالة كبسولة في المنتصف
+  assert.match(css, /#arena-duel-status \{[^}]*left: 50%; right: auto; transform: translateX\(-50%\)/, 'the status line is centred');
+  assert.match(css, /#arena-duel-status \{[^}]*width: max-content; max-width: min\(560px, 74%\)/, 'and no longer spans the whole screen');
+  // لا نصّ زائد فوق اسم الخصم
+  assert.match(css, /body\.duel-live \.arena-fs-bar \.fs-note \{ display: none; \}/, 'the decorative full-screen note is hidden during a fight');
+});
