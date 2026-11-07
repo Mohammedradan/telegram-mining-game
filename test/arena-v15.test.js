@@ -84,6 +84,7 @@ test('V15.3: أزرار المبارزة في الأفقي بحجم إبهام �
   assert.match(css, /#arena-pad > \.ap-acts \{[^}]*margin-inline-start: auto/, 'and is pushed to the right thumb');
   assert.match(css, /#arena-pad > \.ap-group button \{[^}]*min-width: clamp\(56px, 11vw, 92px\)/, 'thumb-sized width, clamped');
   assert.match(css, /#arena-pad > \.ap-group button \{[^}]*min-height: clamp\(54px, 9vh, 72px\)/, 'touch height never drops below 54px');
+  assert.match(css, /#arena-pad > \.ap-acts \.ap-hit \{[^}]*min-height: clamp\(64px, 9vh, 78px\)/, 'the attack button keeps V14\'s 64px floor');
   // العصا تكبر مع الشاشة
   assert.match(css, /#arena-stick \{\s*\n\s*width: clamp\(76px, 18vh, 108px\); height: clamp\(76px, 18vh, 108px\);/, 'the stick scales with the screen height');
   // سطر الحالة كبسولة في المنتصف
