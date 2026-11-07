@@ -2,6 +2,14 @@
 (function (root) {
   'use strict';
   const R = root.PlatformRules;
+  // B5: علامات الإنذار الأرضية. الوحدة تُحمَّل قبله في الصفحة؛ وإن غاب (نسخة قديمة في الكاش)
+  // تبقى العلامة تعمل بقيم افتراضية مطابقة فلا يسقط الرسم أبداً.
+  const T = root.PlatformTelegraphs || Object.freeze({
+    INK: Object.freeze({ core: '#ffffff', edge: '#000000', danger: '#ff5535' }),
+    FILL_ALPHA_MAX: 0.4, RIM_ALPHA: 0.9, MARKER_H: 9, MARKER_EXTRA_W: 8,
+  });
+  const TAU = Math.PI * 2;
+  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
   // Fallback for cached/legacy rule modules that predate cosmetic run zones.
   const DEFAULT_ZONE = {
     name: '', sky: ['#080e1a', '#0c1e2e', '#112838', '#1a3545', '#1e3a4a'],
@@ -75,6 +83,41 @@
     round(c, x, y, w, h, 2, color);
     c.fillStyle = '#ffffff22';
     c.fillRect(x + 1, y + 1, w - 2, 2);
+  }
+
+  // ---- B5: علامة أرضية لموضع هبوط الخفاش ----------------------------------------------
+  // تُرسم قبل الشخصيات دائماً (فهي لا تحجب لاعباً ولا عدواً)، وارتفاعها 9px فقط.
+  // نغمتان معاً — قلب أبيض وحافة سوداء — فيبقى التباين ≥ 4.5:1 على أي أرضية (انظر platform-telegraphs.js).
+  function drawGroundMarker(c, m, reduced) {
+    const grow = reduced ? 1 : clamp01(m.progress);
+    const half = m.w / 2, y = m.y;
+    // طبق داكن: يُقرأ الشكل على الأرضيات الفاتحة
+    c.globalAlpha = 0.30 + 0.10 * grow;
+    c.fillStyle = T.INK.edge;
+    c.beginPath(); c.ellipse(m.x, y, half, 4.2, 0, 0, TAU); c.fill();
+    // مسحة الخطر: هوية لونية تُفرّق الخفاش عن الزعيم
+    c.globalAlpha = Math.min(T.FILL_ALPHA_MAX, 0.22 + 0.18 * grow);
+    c.fillStyle = T.INK.danger;
+    c.beginPath(); c.ellipse(m.x, y, half * 0.92, 3.3, 0, 0, TAU); c.fill();
+    // حافة بيضاء ثابتة من أول إطار إنذار: تُقرأ على الأرضيات الداكنة، وهي التوقيت نفسه لا زينة
+    c.globalAlpha = T.RIM_ALPHA;
+    c.strokeStyle = T.INK.core; c.lineWidth = 1.4;
+    c.beginPath(); c.ellipse(m.x, y, half, 4.6, 0, 0, TAU); c.stroke();
+    // شريط العدّ التنازلي: يكتمل مع اكتمال الإنذار (ثابت العرض مع تقليل الحركة)
+    const barW = Math.max(1, m.w * grow);
+    c.fillStyle = T.INK.core;
+    c.fillRect(m.x - barW / 2, y - 1.2, barW, 2.4);
+    // علامتا الحدّ: تُظهران عرض العلامة بالضبط = عرض الخفاش + 8px
+    c.fillRect(m.x - half - 0.8, y - 4.5, 1.6, 9);
+    c.fillRect(m.x + half - 0.8, y - 4.5, 1.6, 9);
+    c.globalAlpha = 1;
+  }
+  function drawTelegraphs(c, markers, reduced) {
+    if (!markers || !markers.length) return;
+    for (const m of markers) {
+      if (!m) continue;
+      if (m.kind === 'bat') drawGroundMarker(c, m, reduced);
+    }
   }
 
   // ---- Projectile ----
@@ -1326,6 +1369,9 @@
     }
 
     }
+    // ---- B5: العلامات الأرضية قبل الشخصيات (تحت اللاعب والعدوّ دائماً، لا فوقهما) ----
+    drawTelegraphs(c, opts.telegraphs, reduced);
+
     // ---- Projectiles ----
     if (s.projectiles) for (const proj of s.projectiles) drawProjectile(c, proj);
 
@@ -1422,5 +1468,5 @@
     if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, sy, 0, yTop); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
   }
 
-  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos };
+  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos, drawGroundMarker, drawTelegraphs };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

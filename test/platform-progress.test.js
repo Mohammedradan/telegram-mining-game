@@ -231,9 +231,25 @@ test('R4: a duel moves the arena track only — never the adventure stats, quest
     if (active) { active.status = 'expired'; await store.savePlatformRun(active); }
     await store.savePlatformRun({ id, user_id: uidOf(name), version: R.VERSION, status: 'playing', started_at: Math.floor(Date.now() - seconds * 1000 - 2000), config_json: JSON.stringify({ zone: 0, goal: 0, mode: 'duel', loadout: {} }) });
   });
+  // صورة كاملة للمستخدم قبل المبارزة: كل حقل مغامرة وكل محفظة وكل عدّاد — لا نكتفي بالإحصاءات الثلاثة
+  const before = await (async () => { const u = await store.getUser(uidOf(name)); return JSON.parse(JSON.stringify({
+    adventure: u.state.adventure, ores: u.state.ores || {}, xp: u.state.xp || 0, gold: u.state.gold || 0,
+    quests: u.sync.quests || {}, mines: u.state.mines, duelGold: u.sync.duelGold || 0, platformGold: u.sync.platformGold || 0,
+  })); })();
   const res = await post(name, 'finish', { id, inputs: duel.inputs });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.equal(res.body.won, true);
+  const after = await store.getUser(uidOf(name));
+  // 1) كل عدّاد مغامرة كما كان بالحرف (runs/gems/playSec/defeated/bestScore/rewardEarned/bossWins/zones)
+  assert.deepEqual(after.state.adventure, before.adventure, 'R4: not a single adventure counter moved');
+  // 2) المحفظة: المبارزة لا تنتج خاماً (لا صخور فيها)، فلا يدخل المخزن شيء
+  assert.deepEqual(after.state.ores || {}, before.ores, 'R4: no ore reached the wallet from a duel');
+  // 3) عدّادات مهام المغامرة وسجل الانتصارات في المناجم لم تتغيّر
+  assert.deepEqual(after.sync.quests, before.quests, 'R4: quest counters (rocks/enemies/ores/bosses) are untouched');
+  assert.deepEqual(after.state.mines, before.mines, 'R4: mine wins are untouched');
+  // 4) ذهب المبارزة يذهب إلى سقفه المستقل، لا إلى ذهب المناجم اليومي
+  assert.ok((after.sync.duelGold || 0) > before.duelGold, 'the duel paid into its own daily bucket');
+  assert.equal(after.sync.platformGold || 0, before.platformGold, 'and not into the mining daily bucket');
   const adv = res.body.profile.state.adventure;
   assert.equal(adv.runs, 0, 'R4: a duel is not an adventure run');
   assert.equal(adv.gems, 0);
@@ -244,4 +260,12 @@ test('R4: a duel moves the arena track only — never the adventure stats, quest
   assert.equal(daily.runs.progress, 0, 'R4: and a won duel is not a completed mining run');
   assert.equal(daily.arena.progress, 1, 'the arena mission still counts the duel win');
   assert.equal(res.body.profile.arena.record.wins, 1, 'the server-side arena record still moves');
+  // 5) إنجازات المغامرة لا تُفتح بمبارزة: «أول محاولة» و«جامع الكنوز» و«صانع الذهب» كما كانت
+  const ach = Object.fromEntries(res.body.profile.achievements.items.map((i) => [i.id, i]));
+  assert.equal(ach.first_run.done, false, 'R4: a duel win is not a mining attempt');
+  assert.equal(ach.collector.value, 0, 'R4: no gems credited to the adventure total');
+  assert.equal(ach.earner.value, 0, 'R4: duel gold is not adventure earnings');
+  // 6) ما تبقّى مشتركاً بحكم التصميم (وليس إحصاء مغامرة): الخبرة العامة ومجموع الذهب الكلي
+  assert.ok((after.state.xp || 0) > before.xp, 'XP is the shared global track and a won duel still grants it (by design)');
+  assert.ok(after.state.gold > before.gold, 'and the duel gold is real gold in the wallet (by design)');
 });

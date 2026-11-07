@@ -263,6 +263,21 @@
   }
 
   // تحذير الهجوم على الأرض: أين ستصل الموجتان أو الاندفاع، يشتد كلما اقترب التنفيذ
+  // B5: حافة عالية التباين على حدّ مسار الهجوم (موجة/صدمة/اندفاع). الأبيض يُقرأ على الأرض الداكنة
+  // والأسود على الفاتحة، وأحدهما يبلغ ≥ 4.5:1 على أي خلفية — فلا يتوقف وضوح الخطر على لون المنجم.
+  // ارتفاعها 1.5px فقط: لا تحجب لاعباً ولا عدواً، وتُقرأ كحدّ منطقة لا كمساحة.
+  function laneEdge(c, xa, xb, yTop, yBottom) {
+    const x0 = Math.min(xa, xb), x1 = Math.max(xa, xb), w = x1 - x0;
+    if (!(w > 0)) return;
+    c.globalAlpha = 0.85; c.fillStyle = '#ffffff';
+    c.fillRect(x0, yTop, w, 1.5);
+    c.fillRect(x0, yBottom - 1.5, w, 1.5);
+    c.globalAlpha = 0.72; c.fillStyle = '#000000';
+    c.fillRect(x0, yTop + 1.5, w, 1.1);
+    c.fillRect(x0, yBottom - 2.6, w, 1.1);
+    c.globalAlpha = 1;
+  }
+
   function drawTelegraph(c, e, s, reduced) {
     if (e.dead || e.state !== 'windup') return;
     const t = ease(phase(e)), pulse = reduced ? 1 : 0.75 + Math.sin(s.tick * 0.5) * 0.25, ai = e.ai;
@@ -275,6 +290,7 @@
         c.fillStyle = grad; c.fillRect(x0, 300 - ai.wave.h, reach, ai.wave.h);
         c.fillStyle = `rgba(255,220,180,${0.7 * t})`;
         for (let i = 0; i < 4; i++) { const px = dir > 0 ? x0 + 14 + i * 34 : x0 + reach - 14 - i * 34; c.beginPath(); c.moveTo(px, 292); c.lineTo(px + dir * 9, 289); c.lineTo(px, 286); c.fill(); }
+        laneEdge(c, x0, x0 + reach, 300 - ai.wave.h, 300);
       }
     } else if (e.attack === 'slash') {
       // ضربة قريبة: شريط أحمر قصير أمامه (يُصدّ أو يُبتعد عنه)
@@ -325,6 +341,7 @@
       c.fillStyle = grad; c.fillRect(x0, 300 - wv.h - 2, reach, wv.h + 2);
       c.fillStyle = `rgba(255,215,160,${0.7 * t})`;
       for (let i = 0; i < 4; i++) { const px = dir > 0 ? x0 + 14 + i * 30 : x0 + reach - 14 - i * 30; c.beginPath(); c.moveTo(px, 291); c.lineTo(px + dir * 9, 288); c.lineTo(px, 285); c.fill(); }
+      laneEdge(c, x0, x0 + reach, 300 - wv.h - 2, 300);
     } else if (e.attack === 'charge') {
       const len = ai.chargeTicks * (e.chargeSpeed * (e.enraged ? 1.2 : 1)) / 60, dir = e.aim || 1;
       const x0 = dir > 0 ? e.x + e.w : Math.max(0, e.x - len), x1 = dir > 0 ? Math.min(R.levelFor(s.zone).width, e.x + e.w + len) : e.x;
@@ -333,6 +350,7 @@
       c.fillStyle = grad; c.fillRect(x0, 300 - e.h, x1 - x0, e.h);
       c.fillStyle = `rgba(255,230,190,${0.8 * t})`;
       for (let i = 0; i < 5; i++) { const px = dir > 0 ? x0 + 20 + i * 44 : x1 - 20 - i * 44; c.beginPath(); c.moveTo(px, 300 - e.h / 2 - 8); c.lineTo(px + dir * 12, 300 - e.h / 2); c.lineTo(px, 300 - e.h / 2 + 8); c.fill(); }
+      laneEdge(c, x0, x1, 300 - e.h, 300);
     }
     c.restore();
   }
