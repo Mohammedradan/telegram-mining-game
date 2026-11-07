@@ -17,7 +17,8 @@ async function main() {
   const report = { viewports: [], networkRecovery: false, keyboardWin: false, cosmeticZones: false, regressionSmoke: false, errors };
   fs.mkdirSync(screenshots, { recursive: true });
   async function context(viewport, extras = {}) {
-    const ctx = await browser.newContext({ viewport, hasTouch: true, ...extras });
+    // الأجهزة العريضة تُعامَل ككمبيوتر (مؤشر دقيق) فلا تظهر أزرار اللمس
+    const ctx = await browser.newContext({ viewport, hasTouch: viewport.width < 900, ...extras });
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
     // The scene, style and fonts must work with all external resources unavailable.
@@ -49,6 +50,19 @@ async function main() {
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
       assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}`);
+      // قرار التصميم: أزرار اللمس تلقائيًا على الجوال/التابلت، ومخفية على الكمبيوتر (لوحة المفاتيح)
+      const padState = await page.evaluate(() => ({
+        stick: getComputedStyle(document.getElementById('virtual-joystick')).display,
+        attack: getComputedStyle(document.querySelector('[data-platform-input="16"]')).display,
+        pause: getComputedStyle(document.getElementById('platform-pause')).display,
+      }));
+      assert.notEqual(padState.pause, 'none', 'the pause button stays reachable on every device');
+      if (viewport.width >= 1024) {
+        assert.equal(padState.stick, 'none', 'desktop: the touch joystick is hidden');
+        assert.equal(padState.attack, 'none', 'desktop: touch combat buttons are hidden');
+      } else {
+        assert.notEqual(padState.stick, 'none', 'phone/tablet: the joystick is visible');
+      }
       const right = await page.locator('[data-platform-input="2"]').boundingBox();
       const jump = await page.locator('[data-platform-input="4"]').boundingBox();
       const cdp = await ctx.newCDPSession(page);
@@ -87,7 +101,7 @@ async function main() {
       if (viewport.width === 390) await page.screenshot({ path: path.join(screenshots, 'platform-mobile.png') });
       if (viewport.width === 320) await page.screenshot({ path: path.join(screenshots, 'platform-small-phone.png') });
       if (viewport.width === 844) await page.screenshot({ path: path.join(screenshots, 'platform-landscape.png') });
-      report.viewports.push({ ...viewport, multiTouch: touchReady, pause: true, reloadResume: true, controlsVisible: true });
+      report.viewports.push({ ...viewport, multiTouch: touchReady, pause: true, reloadResume: true, touchPad: viewport.width < 1024 });
       await ctx.close();
     }
     const { ctx, page } = await context({ width: 390, height: 844 });

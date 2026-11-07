@@ -233,6 +233,10 @@ function createSqliteStore(file) {
     async activePlatformRun(userId) {
       return runFromRow(conn.prepare(`SELECT * FROM platform_runs WHERE user_id = ? AND status = 'playing' ORDER BY started_at DESC LIMIT 1`).get(String(userId)));
     },
+    // كل الجولات المفتوحة (منجم ومبارزة معًا): لكل وضع جولته المستقلة فلا تُلغي إحداهما الأخرى
+    async activePlatformRuns(userId) {
+      return conn.prepare(`SELECT * FROM platform_runs WHERE user_id = ? AND status = 'playing' ORDER BY started_at DESC`).all(String(userId)).map(runFromRow);
+    },
     async getPlatformRun(id) { return runFromRow(conn.prepare('SELECT * FROM platform_runs WHERE id = ?').get(String(id))); },
     // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) وconfig_json (لقطة المنجم والمعدات) لا يُلمسان
     async savePlatformRun(run) {
@@ -351,6 +355,9 @@ function createPgStore(url) {
     // جولة منجم المنصّة النشطة للاعب — الاستعلام داخل معاملة اللاعب عبر q() كما في بقية العمليات
     async activePlatformRun(userId) {
       return runFromRow((await q(`SELECT * FROM platform_runs WHERE user_id = $1 AND status = 'playing' ORDER BY started_at DESC LIMIT 1`, [String(userId)])).rows[0]);
+    },
+    async activePlatformRuns(userId) {
+      return (await q(`SELECT * FROM platform_runs WHERE user_id = $1 AND status = 'playing' ORDER BY started_at DESC`, [String(userId)])).rows.map(runFromRow);
     },
     async getPlatformRun(id) { return runFromRow((await q('SELECT * FROM platform_runs WHERE id = $1', [String(id)])).rows[0]); },
     // UPSERT يحدّث الحالة والوصل فقط: started_at (هوية زمن الجولة) وconfig_json (لقطة المنجم والمعدات) لا يُلمسان

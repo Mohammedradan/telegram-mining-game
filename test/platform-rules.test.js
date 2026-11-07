@@ -59,7 +59,7 @@ test('platform: the exit unlocks only after mining and collecting three gems; fa
   const lost = R.create(); lost.status = 'lost'; assert.equal(R.rewardFor(lost), 0);
 });
 test('platform: malformed replay, excess ticks, masks and post-victory actions are rejected', () => {
-  for (const input of [null, [], [{ mask: 64, frames: 1 }], [{ mask: -1, frames: 1 }], [{ mask: 1, frames: .5 }], [{ mask: 1, frames: 0 }], [{ mask: 1, frames: R.MAX_TICKS + 1 }], Array.from({length: R.MAX_SEGMENTS + 1}, () => ({mask:0,frames:1}))]) assert.equal(R.replay(input).ok, false);
+  for (const input of [null, [], [{ mask: R.MAX_MASK + 1, frames: 1 }], [{ mask: -1, frames: 1 }], [{ mask: 1, frames: .5 }], [{ mask: 1, frames: 0 }], [{ mask: 1, frames: R.MAX_TICKS + 1 }], Array.from({length: R.MAX_SEGMENTS + 1}, () => ({mask:0,frames:1}))]) assert.equal(R.replay(input).ok, false);
   assert.equal(R.replay(Array.from({length: R.MAX_SEGMENTS}, () => ({mask:0,frames:1}))).ok, true, 'exactly the cap is still a valid recording (boss fights toggle buttons often)');
   assert.equal(R.replay([...solution().inputs, { mask: 2, frames: 1 }]).reason, 'after_end');
   const loss = R.replay([{mask: 0, frames: R.MAX_TICKS}]); assert.equal(loss.state.status, 'lost');

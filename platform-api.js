@@ -16,6 +16,16 @@ function dailyQuota(sync, potential, at = Date.now()) {
   return { day, gold: allowed, capped: allowed < potential, remaining: Math.max(0, DAILY_GOLD_CAP - used - allowed) };
 }
 
+// سقف يومي مستقل للمبارزات (منفصل تماماً عن سقف التعدين أعلاه): القتال مهارة لا مزرعة.
+// 400 ذهباً/يوم ≈ خمس مبارزات ناجحة في أعمق منجم — كافٍ للتشجيع، وصغير جداً أمام اقتصاد التعدين.
+const DAILY_DUEL_CAP = 400;
+function duelQuota(sync, potential, at = Date.now()) {
+  const day = new Date(at).toISOString().slice(0, 10);
+  if (sync.duelDay !== day) { sync.duelDay = day; sync.duelGold = 0; }
+  const used = Math.max(0, Number(sync.duelGold) || 0);
+  const allowed = Math.max(0, Math.min(Number(potential) || 0, DAILY_DUEL_CAP - used));
+  return { day, gold: allowed, capped: allowed < potential, remaining: Math.max(0, DAILY_DUEL_CAP - used - allowed), cap: DAILY_DUEL_CAP };
+}
 // عرض فقط (لا يعدّل الدفتر): كم استُهلك من سقف اليوم المشترك بين جولات المنصّات والوضع الكلاسيكي وبيع الخامات.
 // عدّاد يوم قديم لا يُحتسب (يُصفَّر عند أول دفع في اليوم الجديد داخل dailyQuota).
 function dailyGoldView(sync, at = Date.now()) {
@@ -51,17 +61,31 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     if (wanted !== undefined && !(Number.isInteger(wanted) && wanted >= 0 && wanted < Rules.MINES.length)) {
       return res.status(400).json({ error: 'منجم غير معروف' });
     }
+    // V6: الهدف يُختار قبل الجولة ويُثبَّت في التذكرة مثل المنجم والمعدات (لا يمكن تبديله بعد البدء).
+    const wantedGoal = req.body?.goal;
+    if (wantedGoal !== undefined && !(Number.isInteger(wantedGoal) && wantedGoal >= 0 && wantedGoal < Rules.GOALS.length)) {
+      return res.status(400).json({ error: 'هدف جولة غير معروف' });
+    }
+    // V7: وضع الجولة — منجم تعدين (mine) أو مبارزة قتال حيّة (duel). يُثبَّت في التذكرة مثل المنجم.
+    const wantedMode = req.body?.mode;
+    if (wantedMode !== undefined && !Rules.MODES.includes(wantedMode)) {
+      return res.status(400).json({ error: 'وضع جولة غير معروف' });
+    }
     const resume = req.body?.resume === true;
     const result = await store.withUsers([req.player.id], async () => {
       const user = await prepare(req.player);
       const loadout = Rules.normalizeLoadout(user.state.equipment);
-      let run = await store.activePlatformRun(req.player.id);
+      // جولة واحدة مفتوحة لكل وضع: مبارزة الساحة لا تُلغي جولة المنجم الجارية والعكس.
+      const mode = wantedMode || 'mine';
+      const openRuns = store.activePlatformRuns ? await store.activePlatformRuns(req.player.id) : [await store.activePlatformRun(req.player.id)].filter(Boolean);
+      let run = openRuns.find((r) => (configOfRun(r)?.mode || 'mine') === mode) || null;
       if (run && (now() - Number(run.started_at) > lifetime || Number(run.version) !== Rules.VERSION)) {
         run.status = 'expired'; await store.savePlatformRun(run); run = null;
       }
       const current = run ? configOfRun(run) : null;
       const zone = wanted ?? current?.zone ?? 0;
-      const stale = Boolean(run) && !resume && (zone !== current.zone || !sameLoadout(current.loadout, loadout));
+      const goal = wantedGoal ?? current?.goal ?? 0;
+      const stale = Boolean(run) && !resume && (zone !== current.zone || goal !== current.goal || mode !== current.mode || !sameLoadout(current.loadout, loadout));
       if (!run || stale) {
         // الفتح يُتحقَّق منه قبل أي استبدال: طلب منجم مقفل لا يُسقط جولة نشطة سليمة
         const status = Rules.mineStatus(zone, user.state.mines, loadout);
@@ -69,7 +93,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
           return { status: 403, error: `المنجم مقفل: ${status.needs.filter((n) => !n.ok).map((n) => n.label).join('، ')}`, needs: status.needs };
         }
         if (run) { run.status = 'expired'; await store.savePlatformRun(run); }
-        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing', config_json: JSON.stringify({ zone, loadout }) };
+        run = { id: crypto.randomUUID(), user_id: req.player.id, version: Rules.VERSION, started_at: now(), status: 'playing', config_json: JSON.stringify({ zone, goal, mode, loadout }) };
         await store.savePlatformRun(run);
       }
       return { id: run.id, version: run.version, seed: Rules.seedFromId(run.id), config: configOfRun(run), startedAt: Number(run.started_at), expiresAt: Number(run.started_at) + lifetime };
@@ -98,19 +122,31 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const potential = breakdown.total; // نفس سقف الـ100: المعالم تفتح أجزاءً منه، والفوز يدفع الباقي
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
       const a = user.state.adventure;
-      const quota = dailyQuota(user.sync, tooSoon ? 0 : potential, now());
+      // مكافآت المبارزة تُسحب من سقفها المستقل، ومكافآت التعدين من سقفه اليومي — لا يزاحم أحدهما الآخر.
+      const duelMode = config.mode === 'duel';
+      const quota = duelMode ? duelQuota(user.sync, tooSoon ? 0 : potential, now()) : dailyQuota(user.sync, tooSoon ? 0 : potential, now());
       const gold = tooSoon ? 0 : quota.gold;
       if (gold) {
-        user.sync.platformGold = (Number(user.sync.platformGold) || 0) + gold;
+        if (duelMode) user.sync.duelGold = (Number(user.sync.duelGold) || 0) + gold;
+        else user.sync.platformGold = (Number(user.sync.platformGold) || 0) + gold;
         user.sync.lastRewardAt.adventure = now();
       }
       user.state.gold += gold; user.state.totalEarned += gold;
       // الخامات تُمنح من نتيجة إعادة التشغيل فقط — لا يُقبل أي رصيد خامات من العميل.
       const wallet = user.state.ores || (user.state.ores = {});
       for (const [k, v] of Object.entries(ores)) wallet[k] = Math.max(0, (Number(wallet[k]) || 0) + v);
+      const duelWon = config.mode === 'duel' && state.status === 'won';
       const xp = grantXp(user.state, state.status === 'won' ? 20 + state.collected : 0);
       const mines = mineProgress(user);
-      if (state.status === 'won') mines.wins[config.zone] = Math.min(1_000_000, mines.wins[config.zone] + 1);
+      // المبارزة ليست فوزاً في المنجم: لا تُفتح بها مناجم ولا تُحتسب في تقدّمها.
+      if (state.status === 'won' && config.mode !== 'duel') mines.wins[config.zone] = Math.min(1_000_000, mines.wins[config.zone] + 1);
+      // سجل الساحة الخادمي يتحرك من مبارزة أعاد الخادم تشغيلها فقط (لا من نتيجة يعلنها العميل).
+      const arenaRec = user.sync.arena?.record;
+      if (config.mode === 'duel' && arenaRec) {
+        const key = state.status === 'won' ? 'wins' : state.status === 'lost' ? 'losses' : 'draws';
+        arenaRec[key] = Math.min(1_000_000, (Number(arenaRec[key]) || 0) + 1);
+        if (duelWon) trackMission(user, 'arena', 1, now());
+      }
       a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
       if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
       // سقوط زعيم المنجم أعاد المحرك تشغيله بنفس المسار؛ يُحتسب حتى لو خسر اللاعب بعده في طريق الخروج. هذا ما يُحيي إنجاز «قاتل الزعماء».
@@ -123,14 +159,20 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       // مهام المغامرة: عدّادات من هذه الجولة المُعاد تشغيلها فقط (صخور، أعداء، خامات، سقوط زعيم بمفتاحه)
       trackQuests(user, { mined: state.mined, defeated: state.defeated, ores, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
       user.revision++; user.updatedAt = now();
-      const receipt = { id: run.id, won: state.status === 'won', zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
+      // V6: نتيجة الهدف وقرار المخاطرة تُقرأ من إعادة التشغيل نفسها (لا من العميل) وتُعرض في شاشة الختام.
+      const goal = config.mode === 'duel' ? Rules.duelStatus(state) : Rules.goalStatus(state);
+      const choice = state.choice || state.fork?.choice || null;
+      const receipt = { id: run.id, won: state.status === 'won', mode: config.mode, zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
+        ...(config.mode === 'duel' ? { duel: { rivalHp: goal.rivalHp, rivalMaxHp: goal.rivalMaxHp, hearts: goal.hearts, blocks: goal.blocks }, arena: { ...arenaRec } } : {}),
+        goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
+        choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true,
         ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
-        dailyRemaining: quota.remaining, ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
+        dailyRemaining: quota.remaining, ...(duelMode ? { duelCap: quota.cap } : {}), ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
-        detail: { won: receipt.won, zone: config.zone, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
+        detail: { won: receipt.won, zone: config.zone, goal: receipt.goal, choice, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
           dailyRemaining: quota.remaining, ores, milestones: state.milestones || [],
           milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
           ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);
@@ -142,4 +184,4 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
     res.json(result);
   }));
 }
-module.exports = { mountPlatform, dailyQuota, dailyGoldView, DAILY_GOLD_CAP, ORE_PRICES, configOfRun };
+module.exports = { mountPlatform, dailyQuota, dailyGoldView, DAILY_GOLD_CAP, DAILY_DUEL_CAP, duelQuota, ORE_PRICES, configOfRun };

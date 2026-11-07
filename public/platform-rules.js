@@ -4,7 +4,11 @@
   else root.PlatformRules = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
-  const VERSION = 5;
+  // V9: توازن المبارزة — قلب إضافي داخل الساحة، استشفاء الخصم 52 إطاراً، ارتداد بدل الانتقال
+  // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
+  // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
+  // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
+  const VERSION = 11;
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -31,9 +35,107 @@
     { id: 'chest',      label: 'صندوق الكنز',     slots: { rare: 2, mid: 1 }, check: s => s.chestFound === true },
   ]);
   const CHEST_SLOTS = Object.freeze({ common: 2, mid: 2, rare: 2 });
+  // ===== V6: أهداف الجولة الثلاثة + مفترق المخاطرة + العرق النادر =====
+  // الهدف يُختار قبل الجولة ويُثبَّت في تذكرة الخادم مثل المنجم والمعدات، فيُعاد التشغيل به ولا يمكن تبديله بعد البدء.
+  // المكافأة الذهبية لم تُمسّ (نفس سقف الـ100 اليومي)؛ الجديد يُدفع من **الخامات** التي تُصرف على معدات الورشة،
+  // لذلك لا تُخلق عملة ولا سقف جديد. كل الأرقام صحيحة وحتمية.
+  const GOALS = Object.freeze([
+    { id: 'ore', short: 'الخام', name: 'جمع الخام', blurb: 'حقيبة ممتلئة: كل بلّورة وصخرة تُحتسب قبل البوابة', hint: 'املأ الحقيبة ثم اعبر البوابة' },
+    { id: 'vein', short: 'العرق', name: 'العرق النادر', blurb: 'ثلاث ضربات متتابعة تكسر العرق قبل أن يتصلّب', hint: 'اصعد إلى المنصة العالية واضرب العرق النادر بسرعة' },
+    { id: 'speed', short: 'سباق', name: 'سباق البوابة', blurb: 'اعبر البوابة قبل 75 ثانية', hint: 'لا تتوقّف: الطريق والبوابة قبل 75 ثانية' },
+  ]);
+  // هدف الخام يتدرّج مع العمق لأن الخامات نفسها أغلى هناك (الكمية واحدة).
+  const oreTarget = zone => 14 + 2 * (Number.isInteger(zone) && zone > 0 ? zone : 0);
+  const SPEED_TICKS = 60 * 75;
+  // «نسمة الخام»: فرصة موقوتة واحدة في منتصف الجولة على منصة المفترق (حتمية من رقم الإطار لا من العشوائية).
+  const ORE_WIND_TICK = 60 * 40;
   const FPS = 60, DT = 1 / FPS, MAX_TICKS = 60 * 150;
-  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32 });
-  const MAX_MASK = 63;
+  // DEFEND (64): صدّ الهجمات القادمة — يشغل الحركة والهجوم معاً، فأمام اللاعب قرار دائم: أهجم أم أصد؟
+  // V8: DODGE (128) مراوغة بحرية، HEAVY (256) ضربة ثقيلة، SOFT (512) مشي تناظري بطيء من عصا التحكم.
+  // كل هذه البتات تدخل في قناع الإدخال المسجّل، فيُعاد تشغيل المباراة على الخادم بنفس النتيجة تماماً.
+  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32, DEFEND: 64, DODGE: 128, HEAVY: 256, SOFT: 512 });
+  const MAX_MASK = 1023;
+  // أوضاع الجولة: mine = منجم التعدين (الافتراضي)، duel = مبارزة قتال حيّة على نفس محرك الحركة.
+  const MODES = Object.freeze(['mine', 'duel']);
+  // مبارزة: خصم واحد بذكاء الزعيم نفسه (مشي ← إنذار ← موجة أرضية أو اندفاع)، والفوز بإسقاطه.
+  // الصدّ له «نَفَس» محدود: لا يمكن الثبات خلف الدرع إلى الأبد — وهذه هي المساحة للمراوغة بالقفز.
+  const GUARD = Object.freeze({ max: 150, regen: 1, breakTicks: 48 });
+  // ===== V8: قتال الأكشن =====
+  // سلسلة ثلاث ضربات خفيفة تتغير فيها الحركة والمدى والدفع (الثالثة قاضية)، وضربة ثقيلة أبطأ وأقوى،
+  // ومراوغة قصيرة بحرية (i-frames) لها مهلة. كل الأرقام صحيحة وحتمية، وكلها تُعاد على الخادم.
+  const COMBAT = Object.freeze({
+    // reachBonus يُضاف إلى مدى البطل، و mul يضرب ضرره: الضربة الأولى مطابقة تماماً لضربة V3 الواحدة
+    // (نفس المدى ونفس الدفع ونفس الضرر) فلا تتغيّر فيزياء أي جولة قديمة، والثانية والثالثة تكبران تدريجياً.
+    chain: Object.freeze([
+      Object.freeze({ mul: 1, reachBonus: 0,  wind: 0, frames: 8,  knock: 100 }),
+      Object.freeze({ mul: 1, reachBonus: 4,  wind: 0, frames: 9,  knock: 150 }),
+      Object.freeze({ mul: 2, reachBonus: 10, wind: 0, frames: 12, knock: 260, finisher: true }),
+    ]),
+    heavy: Object.freeze({ damage: 3, reach: 72, wind: 9, frames: 13, knock: 320, cooldown: 40 }),
+    chainWindow: 28,   // إطارات لإكمال السلسلة قبل أن تعود للضربة الأولى
+    dodge: Object.freeze({ ticks: 14, cooldown: 46, speed: 430, iframes: 12 }),
+    guardBlockCost: 16, // كل صدّ يستهلك نَفَساً إضافياً: الدرع ليس مجانياً
+    softScale: 55,      // المشي التناظري: 55% من سرعة الجري
+  });
+  const DUEL = Object.freeze({
+    // مكافأة أساسية ثابتة + خطوة صغيرة لكل عمق (تحدٍّ أصعب = عائد أعلى قليلاً)، بحد أقصى 80.
+    reward: 60, rewardStep: 4, guardSlow: 55,
+    // ساحة المبارزة داخل أول قطعة أرض صلبة في المستوى (0..560) — لا فجوات ولا أخطار بيئية حولها.
+    rival: Object.freeze({ id: 80, w: 44, h: 64, hp: 34, hpPerZone: 6, patrol: 78, charge: 205, wake: 0, minX: 210, maxX: 470, windup: 38, recover: 52 }),
+    // ضربة قريبة تُصدّ، وضربة كاسرة للدرع تُتفادى بالقفز أو المراوغة أو الابتعاد.
+    // ===== V11: قلوب الساحة مستقلة عن المعدات =====
+    // الساحة تمنح قلباً إضافياً فوق قلوب البطل الأساسية فقط، ولا يُضاف إليها قلب الدرع.
+    // السبب المقيس في تقرير V10: قلوب المعدات وحدها كانت ترفع الفوز من 0% إلى 100% في z2/z3.
+    // التعدين يبقى على قلوب المعدات تماماً (لا مساس بهذه المعادلة).
+    extraHearts: 1,
+    // سقف قلوب الساحة: البطل الأساسي + القلب الإضافي، مهما كان مستوى الدرع
+    heartsFor: hero => hero.hearts + 1,
+    // تلميح المرحلة الثانية: يظهر مرة واحدة عند الاهتياج (لا يحجب اللاعب ولا مؤشرات الخطر)
+    phase2Hint: 'اقفز فوق الصدمة المزدوجة، ثم استغل نافذة استشفاء الزعيم للهجوم',
+    // V12.1: تذكير مختصر واحد حين تأتي صدمة كاسرة ثانية بعد خفوت التلميح الأساسي.
+    // السبب المقيس: 56 من 101 صدمة كاسرة في المرحلة الثانية (في 27 من 30 مبارزة) تقع بعد
+    // انتهاء الـ5.2 ثانية، فيبقى اللاعب بلا إرشاد نصّي في أكثر من نصف الصدمات.
+    phase2Reminder: 'انتبه للصدمة القادمة — اقفز أو ابتعد',
+    // ارتداد الإصابة في المبارزة (بدل الانتقال إلى نقطة حفظ المنجم): قوة أفقية وإطارات تطبيق
+    knock: Object.freeze({ vx: 165, tick: 9 }),
+    // ===== مهارة الساحة: «ظل الساكورا» =====
+    // اندفاع نينجا خلال الخصم بمناعة كاملة، بضربتين عند نقاط محدّدة من الاندفاع. تكلفتها من
+    // نَفَس الدرع نفسه (المعروض في الواجهة) فلا تُكرَّر بلا حدود، ولها مهلة مستقلة.
+    skill: Object.freeze({ cost: 45, cooldown: 150, ticks: 20, dashSpeed: 520, hitTicks: Object.freeze([6, 13]), damage: 3, reach: 46 }),
+    slash: Object.freeze({ reach: 58, recover: 26 }),
+    overhead: Object.freeze({ radius: 74, recover: 40 }),
+  });
+  // سلّم المبارزين: ثلاثة أنماط قتال مختلفة فعلاً (سرعة، إنذار، وترتيب الهجمات) تتبدّل مع عمق المنجم،
+  // فلا يصبح الخصم اللاحق نسخة بصحة أكبر. الأرقام كلها ثابتة وتدخل في التذكرة الخادمية عبر zone.
+  // ===== V10: أربعة أنماط قتال، نمط لكل منطقة، ولكل نمط شخصية تُقرأ =====
+  // balanced: متوازن يعلّم التوقيت والصدّ · swift: سريع يقترب ويضرب ضربتين متتابعتين
+  // wind: موجات مزدوجة وهجمات واسعة تُقفز أو تُراوغ · heavy: زعيم ثقيل مدرّع بمرحلتين.
+  const RIVALS = Object.freeze([
+    Object.freeze({ id: 0, style: 'balanced', name: 'مبارز الظلال', tag: 'متوازن — تعلّم التوقيت والصدّ',
+      hpBonus: 0, patrol: 78, charge: 205, windup: 38, recover: 52, armored: false, boss: false,
+      phases: Object.freeze([['slash', 'wave', 'slash', 'overhead'], ['overhead', 'wave', 'charge', 'slash'], ['charge', 'slash', 'overhead', 'wave']]) }),
+    Object.freeze({ id: 1, style: 'swift', name: 'السيف السريع', tag: 'سريع — ضربتان متتابعتان، لا تترك فجوة',
+      hpBonus: 2, patrol: 106, charge: 240, windup: 30, recover: 46, armored: false, boss: false, doubleSlash: true,
+      phases: Object.freeze([['slash', 'slash', 'charge', 'wave'], ['slash', 'charge', 'slash', 'overhead'], ['charge', 'slash', 'overhead', 'slash']]) }),
+    Object.freeze({ id: 2, style: 'wind', name: 'سيّاف الريح', tag: 'ريح — موجات مزدوجة وهجمات واسعة',
+      hpBonus: 6, patrol: 96, charge: 232, windup: 28, recover: 50, armored: false, boss: false, doubleWave: true, wideSlam: true,
+      // ===== V11: ضبط موجتي الريح =====
+      // الهدف المقيس: توسيع نافذة القفز فوق الموجتين من ١٤ إلى ٢٠ إطاراً، بلا مساس بسرعة اللاعب
+      // ولا بارتفاع قفزته ولا بسرعة الموجة. الحل: نصل السيف أضيق (١٠px بدل ٢٨) فيقصر زمن التلامس،
+      // وإزاحة إطلاق ٢٠px أمام الخصم حتى لا تظهر الموجة داخل جسد اللاعب الملتصق به.
+      // النتيجة: نافذة ١٩–٢٠ إطاراً، والقفزة الخاطئة ما زالت تُصاب (٢٠ من ٦١ توقيتاً فقط).
+      waveTune: Object.freeze({ speed: 190, w: 10, gap: 10, lead: 20 }),
+      phases: Object.freeze([['wave', 'overhead', 'slash', 'wave'], ['wave', 'wave', 'overhead', 'slash'], ['overhead', 'wave', 'charge', 'overhead']]) }),
+    Object.freeze({ id: 3, style: 'heavy', name: 'حارس الساكورا', tag: 'زعيم ثقيل — إنذار طويل، درع لا يُخترق إلا في الاستشفاء',
+      hpBonus: 6, patrol: 62, charge: 180, windup: 54, recover: 72, armored: true, boss: true,
+      wideSlam: true, doubleSlam: true, phases: Object.freeze([['overhead', 'wave', 'overhead', 'charge'], ['overhead', 'wave', 'overhead', 'slash']]) }),
+  ]);
+  // المنطقة 0..3 ← نمطها؛ 4+ تدور على الأنماط الأربعة مع تعميق الصحة (hpPerZone) لا نسخاً متطابقة
+  const rivalFor = zone => RIVALS[((Number(zone) || 0) % 4 + 4) % 4];
+  // ===== V11: ضرر الفأس في الساحة وحدها =====
+  // 1 + floor(المستوى/4): المستويات 0..3 = ضربة واحدة، والرابع يضاعفها. لا يتغيّر ضرر التعدين
+  // (miningPower معادلة أخرى تماماً) ولا ضرر المنجم ولا أي اقتصاد.
+  const arenaAxeBonus = level => Math.max(0, Math.floor(Math.max(0, Math.min(MAX_EQUIP_LEVEL, Number(level) || 0)) / 4));
 
   const CHARACTERS = Object.freeze({
     miner: {
@@ -205,7 +307,9 @@
       checkpoints: [{ from: 1000, to: 1040, at: 1010 }, { from: 1600, to: 1640, at: 1610 }],
       signs: [680, 1430],
       boss: { kind: 'colossus', name: 'عملاق الذهب', w: 58, h: 66, minX: 1800, maxX: 2440, wake: 1750, maxHp: 17, patrolSpeed: 42, chargeSpeed: 0,
-        ai: { walk: 90, windup: 40, recover: 80, enragedWalk: 60, enragedWindup: 30, attacks: ['slam'], wave: { speed: 230, w: 30, h: 22, ttl: 64 } } },
+        ai: { walk: 90, windup: 40, recover: 80, enragedWalk: 60, enragedWindup: 30,
+          attacks: ['slam'], enragedAttacks: ['slam', 'pound'], finalAttacks: ['sweep', 'pound', 'slam'],
+          pound: { radius: 96 }, sweep: { reach: 84 }, wave: { speed: 230, w: 30, h: 22, ttl: 64 } } },
     },
     // المنجم 3 — البلّور: ثلاث فجوات وثلاثة أخطار قصيرة (فتحة بلّور، أشواك موقوتة بطور مختلف، حفرة).
     {
@@ -255,7 +359,10 @@
       checkpoints: [{ from: 700, to: 760, at: 710 }, { from: 1680, to: 1720, at: 1690 }],
       signs: [500, 1140],
       boss: { kind: 'warden', name: 'حارس القلب', w: 56, h: 46, minX: 1840, maxX: 2450, wake: 1800, maxHp: 29, patrolSpeed: 50, chargeSpeed: 215,
-        ai: { walk: 60, windup: 44, recover: 70, enragedWalk: 40, enragedWindup: 32, chargeTicks: 70, attacks: ['charge', 'slam'], enragedAttacks: ['charge', 'slam', 'charge'], wave: { speed: 250, w: 30, h: 22, ttl: 64 } } },
+        ai: { walk: 60, windup: 44, recover: 70, enragedWalk: 40, enragedWindup: 32, chargeTicks: 70,
+          attacks: ['charge', 'slam'], enragedAttacks: ['charge', 'slam', 'charge'],
+          finalAttacks: ['sweep', 'pound', 'charge', 'slam'], pound: { radius: 104 }, sweep: { reach: 88 },
+          wave: { speed: 250, w: 30, h: 22, ttl: 64 } } },
     },
   ];
   const deepFreeze = o => { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) deepFreeze(v); } return o; };
@@ -333,7 +440,9 @@
   function normalizeConfig(input) {
     const src = input && typeof input === 'object' ? input : {};
     const zone = Number.isInteger(src.zone) && src.zone >= 0 && src.zone < MINES.length ? src.zone : 0;
-    return { zone, loadout: normalizeLoadout(src.loadout) };
+    const goal = Number.isInteger(src.goal) && src.goal >= 0 && src.goal < GOALS.length ? src.goal : 0;
+    const mode = MODES.includes(src.mode) ? src.mode : 'mine';
+    return { zone, goal, mode, loadout: normalizeLoadout(src.loadout) };
   }
   // تكلفة الترقية من المستوى الحالي إلى التالي (null عند المستوى الأقصى أو معدّة غير معروفة).
   function equipCost(id, level) {
@@ -357,6 +466,24 @@
       yieldPercent: 100 + 15 * L.bag,
       luck: L.luck,
       robot: L.robot > 0 ? { period: 190 - 28 * L.robot, damage: 1 + L.robot, range: 170 } : null,
+      // ===== V8.2: أثر المعدات على القتال (محدود ومقروء) =====
+      // الفأس: +1 ضرر لكل مستويين (بحد أقصى +2). الدرع: نَفَس درع أطول (+10 لكل مستوى).
+      // المثقاب: مهلة مراوغة ومهارة أقصر (بحد أدنى آمن). الأحذية: سرعة الحركة (محسوبة أعلاه).
+      // كل القيم أعداد صحيحة ومحسوبة من اللقطة المثبّتة في التذكرة، فإعادة تشغيل الخادم متطابقة.
+      // ===== V10: معدات الساحة (بالحدود القصوى لمستويات المعدات القائمة 0..5) =====
+      // الفأس: ضرر السلسلة + كسر دفاع الخصم (ترنّح أطول) — بحد أقصى +2 لكل منهما.
+      // الدرع: نَفَس المهارة (+10 لكل مستوى، حده +50) واستعادته أسرع (+1 إطار/إطار عند المستوى 2+).
+      // المثقاب: مهلة «ظل الساكورا» (٦ إطارات لكل مستوى، بحد أدنى ١٠٠) ومهلة المراوغة.
+      // كل القيم أعداد صحيحة من لقطة التذكرة، فإعادة تشغيل الخادم متطابقة حرفياً.
+      combat: {
+        damage: Math.min(2, Math.floor(L.pickaxe / 2)),
+        guardBreak: Math.min(2, Math.floor(L.pickaxe / 2)),
+        guardStamina: 10 * L.armor,
+        breathRegen: Math.min(1, Math.floor(L.armor / 2)),
+        dodgeCooldown: Math.max(30, COMBAT.dodge.cooldown - 3 * L.drill),
+        skillCooldown: Math.max(90, hero.skillCooldown - 8 * L.drill),
+        duelSkillCooldown: Math.max(100, DUEL.skill.cooldown - 10 * L.drill),
+      },
     };
   }
   const NO_BONUS = 'بلا إضافة';
@@ -371,6 +498,67 @@
     armor:   L => (L ? `+${Math.floor((L + 1) / 2)} قلب · مهلة حماية بعد الإصابة +${(8 * L / 60).toFixed(1)} ثانية` : NO_BONUS),
   };
   const effectText = (id, level) => (EFFECT_TEXT[id] ? EFFECT_TEXT[id](levelOf(level)) : '');
+  // ===== بطاقة معدات الساحة: تُعرض قبل المبارزة وتُحسب من نفس دالة الإحصاءات =====
+  // لا تُرسل للخادم ولا تُغيّر شيئاً: الخادم يبني اللقطة من حفظ اللاعب، وهذه للعرض فقط.
+  function combatGear(heroId, loadout) {
+    const L = normalizeLoadout(loadout), c = loadoutStats(heroId, loadout).combat;
+    const hero = CHARACTERS[heroId] || CHARACTERS.miner, bonus = arenaAxeBonus(L.pickaxe);
+    return [
+      { id: 'pickaxe', name: 'الفأس', level: L.pickaxe, max: MAX_EQUIP_LEVEL,
+        // V11: ضرر الساحة 1 + floor(المستوى/4) — فالزيادة الفعلية تحدث عند المستوى 4
+        effect: bonus ? `ضرر الساحة ${hero.damage + bonus} (‎+${bonus})` : `ضرر الساحة ${hero.damage} — يزيد عند المستوى 4`,
+        detail: c.guardBreak ? `كسر الدفاع +${4 * c.guardBreak} إطار ترنّح` : 'بلا كسر دفاع إضافي' },
+      { id: 'armor', name: 'الدرع', level: L.armor, max: MAX_EQUIP_LEVEL,
+        effect: `نَفَس الدرع ${GUARD.max + c.guardStamina} · القلوب ثابتة في الساحة`,
+        detail: c.breathRegen ? `استعادة الأنفاس +${c.breathRegen}/إطار` : 'بلا استعادة أنفاس إضافية' },
+      { id: 'drill', name: 'المثقاب', level: L.drill, max: MAX_EQUIP_LEVEL,
+        effect: `مهلة ظل الساكورا ${c.duelSkillCooldown} إطار`,
+        detail: `مهلة المراوغة ${c.dodgeCooldown} إطار` },
+    ];
+  }
+  // ===== V11: توصية القتال =====
+  // تُحسب من نفس معادلات المحرك على معدات اللاعب المحفوظة، ولا تُرسل للخادم ولا تمنع دخول منطقة.
+  // الغرض: يعرف اللاعب أين يقف وماذا يربح من الترقية القادمة، دون أن تصبح الترقية شرطاً.
+  function combatAdvice(heroId, loadout) {
+    const L = normalizeLoadout(loadout), st = loadoutStats(heroId, loadout), c = st.combat;
+    const hero = CHARACTERS[heroId] || CHARACTERS.miner;
+    const damage = hero.damage + arenaAxeBonus(L.pickaxe);
+    // أولوية التطوير: أقرب تحسين يغيّر إحساس القتال فعلاً الآن (لا انتظار أربعة مستويات)
+    let priority;
+    if (L.armor < MAX_EQUIP_LEVEL) {
+      priority = { id: 'armor', name: 'الدرع', from: L.armor, to: L.armor + 1,
+        why: `نَفَس الدرع ${GUARD.max + c.guardStamina} ← ${GUARD.max + 10 * (L.armor + 1)}: صدّات أكثر قبل انكسار الدفاع` };
+    } else if (L.drill < MAX_EQUIP_LEVEL) {
+      priority = { id: 'drill', name: 'المثقاب', from: L.drill, to: L.drill + 1,
+        why: `مهلة المهارة ${c.duelSkillCooldown} ← ${Math.max(100, DUEL.skill.cooldown - 10 * (L.drill + 1))} إطاراً` };
+    } else if (L.pickaxe < 4) {
+      priority = { id: 'pickaxe', name: 'الفأس', from: L.pickaxe, to: 4,
+        why: `المستوى 4 يرفع ضرر الساحة من ${damage} إلى ${hero.damage + 1}: أقصر طريق لإنهاء المبارزة` };
+    } else if (L.pickaxe < MAX_EQUIP_LEVEL) {
+      priority = { id: 'pickaxe', name: 'الفأس', from: L.pickaxe, to: MAX_EQUIP_LEVEL,
+        why: `كسر دفاع أطول: ${4 * c.guardBreak} ← ${4 * Math.min(2, Math.floor(MAX_EQUIP_LEVEL / 2))} إطار ترنّح` };
+    } else {
+      priority = null;
+    }
+    return {
+      rows: combatGear(heroId, loadout),
+      arena: { hearts: DUEL.heartsFor(hero), damage, breath: GUARD.max + c.guardStamina,
+        skillCd: c.duelSkillCooldown, dodgeCd: c.dodgeCooldown, guardBreak: 4 * c.guardBreak },
+      // نقاط القوة/الضعف تُقرأ من الأرقام نفسها لا من تخمين: أقوى بند وأضعف بند في هذه اللقطة
+      strength: damage >= hero.damage + 1 ? `ضرر ${damage} لكل ضربة — إنهاء أسرع للمبارزة`
+        : c.guardStamina >= 40 ? `نَفَس ${GUARD.max + c.guardStamina} — يتحمّل صدّات متتالية`
+        : c.duelSkillCooldown <= 110 ? `ظل الساكورا كل ${c.duelSkillCooldown} إطاراً`
+        : c.guardBreak >= 2 ? `كسر دفاع +${4 * c.guardBreak} إطار ترنّح بعد ثلاث ضربات`
+        : c.guardStamina > 0 ? `نَفَس ${GUARD.max + c.guardStamina}: صدّتان أو ثلاث قبل الانكسار`
+        : 'معدات متوازنة بلا نقطة قوة بارزة',
+      weakness: L.armor === 0 ? 'لا نَفَس إضافي: الدرع ينكسر سريعاً أمام الموجات'
+        : L.drill === 0 ? 'مهلة المهارة كاملة (150 إطاراً)'
+        : damage === hero.damage ? 'الضرر الأساسي فقط حتى مستوى الفأس 4'
+        : 'لا ضعف حاسم',
+      priority,
+      optional: 'توصية اختيارية — لا مستوى مطلوباً لدخول أي منطقة',
+    };
+  }
   // عدد ضربات كسر صخرة المنجم للبطل والمعدات الحالية (يُعرض في الواجهة ولا يدخل في أي اقتصاد).
   const hitsToBreak = (heroId, zone, loadout) => Math.ceil(mineOf(zone).rockHp / loadoutStats(heroId, loadout).miningPower);
 
@@ -438,9 +626,75 @@
     };
   }
 
+  // ===== المبارزة: خصم واحد على أرض المنجم نفسها =====
+  // لا صخور ولا بلورات ولا حرّاس آخرين ولا بوابة: النصر بإسقاط الخصم، والخسارة بنفاد القلوب.
+  // الدالة حتمية تماماً (لا عشوائية): نفس البذرة = نفس اتجاه الخصم وموقعه.
+  function duelEnemy(zone, seed) {
+    const r = DUEL.rival, lvl = Math.max(0, Math.min(99, Number(zone) || 0)), arch = rivalFor(lvl);
+    const rnd = prng((Number(seed) >>> 0) || 1);
+    const maxHp = r.hp + arch.hpBonus + r.hpPerZone * lvl;
+    const startX = r.minX + Math.round(rnd() * 130);
+    const walkJitter = Math.round(rnd() * 10);
+    const cycleStart = Math.floor(rnd() * 2);
+    return {
+      id: r.id, type: 'rival', boss: arch.boss === true, armored: arch.armored === true, kind: 'rival',
+      name: arch.name, tag: arch.tag, arch: arch.id, style: arch.style, cycleStart,
+      x: startX, y: 300 - r.h, w: r.w, h: r.h,
+      minX: r.minX, maxX: r.maxX, wake: r.wake, maxHp,
+      patrolSpeed: arch.patrol, chaseSpeed: arch.patrol, chargeSpeed: arch.charge,
+      damage: 1, flying: false,
+      // ثلاث مراحل حسب صحته، ولكل مرحلة ترتيب هجمات مختلف — والبداية من البذرة، فلا مباراتان متطابقتان.
+      ai: {
+        walk: 30 + walkJitter, windup: arch.windup, recover: arch.recover || r.recover,
+        enragedWalk: 24, enragedWindup: 22, chargeTicks: 26,
+        phases: arch.phases.map(list => [...list]),
+        // نمط المنطقة: ضربتان متتابعتان (سريع)، موجتان (ريح)، ضربة واسعة/مزدوجة (ثقيل)
+        doubleSlash: arch.doubleSlash === true, doubleWave: arch.doubleWave === true,
+        wideSlam: arch.wideSlam === true, doubleSlam: arch.doubleSlam === true,
+        wave: { speed: 190, w: 28, h: 20, ttl: 52, gap: 10, ...(arch.waveTune || {}) },
+        slamRadius: arch.id === 3 ? 96 : DUEL.overhead.radius,
+      },
+    };
+  }
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const activeHazard = (h, tick) => (tick + (h.phase || 0)) % h.period < h.active;
   const canExit = s => s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
+
+  // ===== ساحة المفترق: موضع مشتق من تضاريس المنجم نفسه (لا عشوائية ولا تعديل على الأرض) =====
+  // قطعة أرض مستوية قرب راية المنتصف، بعيدة عن الأخطار والصخور والبوابة. فوقها شيئان غير صلبين
+  // (لا يُغيّران فيزياء المستوى): **العرق النادر** يساراً و**صندوق المفترق** يميناً.
+  function perchAt(level) {
+    const cps = level.checkpoints || [];
+    const cp = cps[cps.length - 1] || { at: Math.round(level.width * 0.5) };
+    const ground = (level.platforms || []).filter(p => p.h >= 80);
+    const spans = level.rockSpans || [];
+    const groundAt = x => ground.some(g => x - 6 >= g.x && x + 92 <= g.x + g.w);
+    const hazardClear = x => (level.hazards || []).every(h => x + 92 < h.x - 70 || x > h.x + h.w + 70);
+    const rockClear = x => spans.every(list => list.every(([a, b]) => x + 92 < a - 8 || x > b + 8));
+    const exitClear = x => x + 92 < level.exit.x - 100;
+    const from = Math.max(8, cp.at - 40), to = cp.at + 160;
+    for (let x = from; x <= to; x += 8) if (groundAt(x) && hazardClear(x) && rockClear(x) && exitClear(x)) return { x, y: 300, w: 92 };
+    for (let x = from; x <= to; x += 8) if (groundAt(x) && hazardClear(x) && exitClear(x)) return { x, y: 300, w: 92 };
+    return null;
+  }
+  const oreTotal = s => {
+    let n = 0;
+    for (const k of ORE_ORDER) n += Math.max(0, Math.floor((s.ores || {})[k] || 0));
+    return n;
+  };
+  // حالة الهدف كما تُعرض في الواجهة وتُختم في الإيصال. تُحسب من حالة المحاكاة نفسها فقط.
+  function goalStatus(s) {
+    const goal = GOALS[s.goal || 0] || GOALS[0];
+    if (goal.id === 'ore') {
+      const target = oreTarget(s.zone || 0), now = oreTotal(s);
+      return { id: goal.id, name: goal.name, now, target, done: now >= target };
+    }
+    if (goal.id === 'vein') {
+      const v = s.vein || { hp: 3, maxHp: 3 };
+      return { id: goal.id, name: goal.name, now: Math.max(0, v.maxHp - Math.max(0, v.hp)), target: v.maxHp, done: s.veinBroken === true };
+    }
+    return { id: goal.id, name: goal.name, now: Math.ceil((s.tick || 0) / FPS), target: Math.round(SPEED_TICKS / FPS), done: s.status === 'won' && s.tick <= SPEED_TICKS };
+  }
 
   // ===== الزعيم =====
   // دورة حتمية بلا أي عشوائية: مشي نحو اللاعب ← إنذار يُرى ويُسمع ← هجوم ← استراحة. الهجمات: «صدمة» (موجتان أرضيتان تجريان من جانبيه
@@ -448,14 +702,22 @@
   // صحته لا تعود، والعودة بعد الإصابة إلى راية مدخل الساحة، فالمعركة تُحسم بالمثابرة لا بالحظ. غنيمته خامات فقط (لا ذهب).
   const BOSS_SLOTS = Object.freeze({ mid: 1, rare: 2 });
   // الزعيم مدرَّع خارج مرحلة الاستراحة (بعد هجومه): الضربة تُرَدّ بضرر 0 ويُعرض ذلك للاعب. غير الزعماء يتلقون الضرر كاملاً دائماً.
-  const blow = (enemy, amount) => (enemy.boss && enemy.state !== 'recover' ? 0 : amount);
+  const blow = (enemy, amount) => (enemy.boss && enemy.armored !== false && enemy.state !== 'recover' ? 0 : amount);
   // الاستراحة هي النافذة الوحيدة التي يُصاب فيها الزعيم؛ حدث boss_stun يُعلم العميل (صوت ونجوم) ولا يغيّر شيئاً في الحساب
   function stun(s, b, ticks) {
     b.vx = 0; b.state = 'recover'; b.timer = ticks;
     s.events.push({ type: 'boss_stun', ticks, x: b.x + b.w / 2, y: b.y, id: b.id });
   }
+  // ===== V8: الزعماء على نموذج القتال الجديد، تدريجياً وبنفس عقد V5 =====
+  // ثلاث مراحل لكل زعيم (هادئ ← مهتاج عند 50% ← أخير عند 33%)، ولكل مرحلة ترتيب هجماتها.
+  // الهجمات القديمة كما هي (slam موجتان، charge اندفاع)، ويُضاف:
+  //   pound: صدمة أرضية حول الزعيم لا يوقفها الدرع — تُقفز أو تُبتعد، وإنذارها أطول.
+  //   sweep: ضربة قريبة سريعة تُصدّ بالدرع.
+  // الدرع (لا ضرر إلا في مرحلة الاستراحة) لم يُمسّ، ولا تتغيّر أحداث الخادم ولا الغنائم.
+  const bossList = (ai, b) => (b.final && ai.finalAttacks ? ai.finalAttacks
+    : b.enraged && ai.enragedAttacks ? ai.enragedAttacks : ai.attacks);
   function startWindup(s, b) {
-    const p = s.player, ai = b.ai, list = b.enraged && ai.enragedAttacks ? ai.enragedAttacks : ai.attacks;
+    const p = s.player, ai = b.ai, list = bossList(ai, b);
     b.aim = p.x + p.w / 2 >= b.x + b.w / 2 ? 1 : -1;
     b.facing = b.aim; b.vx = 0;
     b.attack = list[b.cycle % list.length]; b.cycle++;
@@ -467,6 +729,28 @@
     if (b.attack === 'charge') {
       b.state = 'charge'; b.timer = ai.chargeTicks; b.vx = b.aim * Math.round(b.chargeSpeed * fast);
       s.events.push({ type: 'boss_charge', x: b.x + b.w / 2, y: b.y, id: b.id });
+      return;
+    }
+    if (b.attack === 'pound') {
+      // «الصدمة الأرضية»: انفجار نصف قطري حول الزعيم لا يوقفه الدرع (تُقفز أو تُراوغ أو تُبتعد)،
+      // ومعه موجة واحدة باتجاه اللاعب حتى لا يصبح البقاء بعيداً تماماً ملاذاً آمناً.
+      const radius = (ai.pound && ai.pound.radius) || 96, cx = b.x + b.w / 2;
+      const box = { x: cx - radius, y: 300 - 70, w: radius * 2, h: 70 };
+      s.events.push({ type: 'boss_slam', attack: 'pound', unblockable: true, x: cx, y: 300, id: b.id });
+      if (s.player.hearts > 0 && overlap(box, s.player)) hurt(s, cx, { unblockable: true });
+      const wv = ai.wave;
+      s.waves.push({ x: b.aim > 0 ? b.x + b.w : b.x - wv.w, y: 300 - wv.h, w: wv.w, h: wv.h,
+        vx: b.aim * Math.round(wv.speed * fast), ttl: wv.ttl, kind: 'wave' });
+      stun(s, b, ai.recover);
+      return;
+    }
+    if (b.attack === 'sweep') {
+      // ضربة قريبة سريعة: يُصدّها الدرع، ويُبتعد عنها
+      const reach = (ai.sweep && ai.sweep.reach) || 82;
+      const box = { x: b.aim > 0 ? b.x + b.w : b.x - reach, y: b.y + 4, w: reach, h: b.h };
+      s.events.push({ type: 'boss_slam', attack: 'sweep', x: b.x + b.w / 2, y: 300 - b.h / 2, id: b.id });
+      if (s.player.hearts > 0 && overlap(box, s.player)) hurt(s, b.x + b.w / 2);
+      stun(s, b, Math.max(22, Math.round(ai.recover * 0.55)));
       return;
     }
     const wv = ai.wave, speed = Math.round(wv.speed * fast);
@@ -482,6 +766,8 @@
       s.events.push({ type: 'boss_wake', x: cx, y: b.y, id: b.id });
     }
     if (!b.enraged && b.hp * 2 <= b.maxHp) { b.enraged = true; s.events.push({ type: 'boss_enrage', x: cx, y: b.y, id: b.id }); }
+    // المرحلة الأخيرة (الثلث الأخير من الصحة): ترتيب هجمات أخطر واستراحة أقصر — يُعلَن للعميل بنفس حدث الاهتياج
+    if (!b.final && b.hp * 3 <= b.maxHp) { b.final = true; s.events.push({ type: 'boss_enrage', final: true, x: cx, y: b.y, id: b.id }); }
     b.timer--;
     if (b.state === 'walk') {
       const dir = p.x + p.w / 2 >= cx ? 1 : -1;
@@ -500,18 +786,21 @@
       } else if (b.timer <= 0) stun(s, b, ai.recover);
     } else if (b.state === 'recover') {
       b.vx = 0;
-      if (b.timer <= 0) { b.state = 'walk'; b.timer = b.enraged ? ai.enragedWalk : ai.walk; }
+      if (b.timer <= 0) { b.state = 'walk'; b.timer = b.final ? Math.round(ai.enragedWalk * 0.8) : b.enraged ? ai.enragedWalk : ai.walk; }
     }
   }
 
+  const s_mode_duel = (cfg) => cfg && cfg.mode === 'duel';
   function create(heroId = 'miner', seed, config) {
     const hero = CHARACTERS[heroId] || CHARACTERS.miner;
     const cfg = normalizeConfig(config), mine = MINES[cfg.zone];
     const stats = loadoutStats(hero.id, cfg.loadout);
     const layout = layoutFor(seed, cfg.zone, cfg.loadout.luck), level = levelFor(cfg.zone);
-    return {
+    const perch = perchAt(level);
+    const s = {
       seed: seed === undefined || seed === null ? null : Number(seed) >>> 0,
       zone: cfg.zone,
+      goal: cfg.goal,
       loadout: cfg.loadout,
       version: VERSION,
       tick: 0,
@@ -524,14 +813,16 @@
         jumpSpeed: hero.jumpSpeed,
         grounded: true,
         facing: 1,
-        hearts: stats.hearts,
-        maxHearts: stats.maxHearts,
+        // المبارزة: قلوب ثابتة (البطل + 1) لا يزيدها الدرع — والتعدين يبقى على قلوب المعدات تماماً
+        hearts: s_mode_duel(cfg) ? DUEL.heartsFor(hero) : stats.hearts,
+        maxHearts: s_mode_duel(cfg) ? DUEL.heartsFor(hero) : stats.maxHearts,
         invulnerable: 0,
         coyote: 6,
         jumpBuffer: 0,
         attack: 0,
         attackCooldown: stats.attackCooldown,
-        damage: hero.damage,
+        // ضرر الساحة من الفأس بمعادلة V11 (1 + floor(المستوى/4)) والمنجم على معادلته القديمة
+        damage: s_mode_duel(cfg) ? hero.damage + arenaAxeBonus(cfg.loadout.pickaxe) : hero.damage + stats.combat.damage,
         attackRange: hero.attackRange,
         miningPower: stats.miningPower,
         miningReach: stats.miningReach,
@@ -540,9 +831,22 @@
         yieldPercent: stats.yieldPercent,
         robot: stats.robot,
         skillCooldown: 0,
-        skillMaxCooldown: hero.skillCooldown,
+        skillMaxCooldown: s_mode_duel(cfg) ? stats.combat.duelSkillCooldown : stats.combat.skillCooldown,
+        dodgeCooldown: stats.combat.dodgeCooldown,
         pose: 'idle',
         landTimer: 0,
+        guard: { active: false, blocks: 0, timer: 0,
+          stamina: GUARD.max + stats.combat.guardStamina, maxStamina: GUARD.max + stats.combat.guardStamina,
+          regen: GUARD.regen + (s_mode_duel(cfg) ? stats.combat.breathRegen : 0), broken: 0 },
+        // كسر الدفاع (من الفأس): إطارات ترنّح إضافية على ضربات الساحة فقط
+        guardBreakBonus: s_mode_duel(cfg) ? 4 * stats.combat.guardBreak : 0,
+        // ارتداد الإصابة (يُستخدم في الساحة فقط): يُطبَّق في خطوة الحركة قبل التصادم
+        knock: { vx: 0, ticks: 0 },
+        // مهارة الساحة (ظل الساكورا). تبقى null في التعدين وغيره.
+        skill: null,
+        // V8: حالة القتال — سلسلة الضربات والضربة الجارية والضربة الثقيلة والمراوغة
+        combo: 0, comboTimer: 0, swing: null, heavyCooldown: 0, attackBuffer: 0, attackBuffered: 'light',
+        dodge: { ticks: 0, cooldown: 0, dir: 1 },
       },
       checkpoint: 64,
       rocks: layout.rocks.map(r => ({ ...r, hp: mine.rockHp, maxHp: mine.rockHp })),
@@ -554,7 +858,7 @@
         const chaseSpeed = Math.round((e.chaseSpeed || 65) * mine.enemySpeed / 100);
         return {
           ...e,
-          ...(e.boss ? { state: 'sleep', timer: 0, cycle: 0, enraged: false, aim: 1, attack: null, chargeSpeed: Math.round((e.chargeSpeed || 0) * mine.enemySpeed / 100) } : {}),
+          ...(e.boss ? { state: 'sleep', timer: 0, cycle: 0, enraged: false, final: false, aim: 1, attack: null, chargeSpeed: Math.round((e.chargeSpeed || 0) * mine.enemySpeed / 100) } : {}),
           maxHp, patrolSpeed, chaseSpeed,
           hp: maxHp,
           vx: patrolSpeed * dir,
@@ -568,6 +872,14 @@
       }),
       projectiles: [],
       waves: [],
+      // منصة المفترق: العرق النادر (3 ضربات متتابعة) وصندوق المخاطرة (ضربة آمنة أو ثلاث ضربات جشعة).
+      // غير صلبة عمداً: لا تُغيّر فيزياء الأرض ولا حلول الجولات المختبرة.
+      perch,
+      vein: perch ? { x: perch.x, y: perch.y - 34, w: 24, h: 34, hp: 3, maxHp: 3, timer: 0, broken: false } : null,
+      veinBroken: false,
+      fork: perch ? { x: perch.x + 60, y: perch.y - 30, w: 30, h: 30, hits: 0, timer: 0, choice: null, locked: false } : null,
+      choice: null,
+      oreWind: false,
       bossId: (layout.enemies.find(e => e.boss) || {}).id || 0,
       bossDefeated: false,
       collected: 0,
@@ -579,7 +891,23 @@
       ores: emptyOres(),
       lastMask: 0,
       events: [],
+      mode: cfg.mode,
+      // مبارزة: خصم واحد، لا تعدين ولا بوابة — النصر بإسقاطه
+      duel: cfg.mode === 'duel' ? { rivalId: DUEL.rival.id, name: rivalFor(cfg.zone).name, arena: { x0: 24, x1: 540 } } : null,
     };
+    if (cfg.mode === 'duel') {
+      const rival = duelEnemy(cfg.zone, seed);
+      s.rocks = [];
+      s.gems = [];
+      s.hazards = [];
+      s.perch = null; s.vein = null; s.fork = null; s.veinBroken = false; s.choice = null;
+      s.bossId = 0; s.milestones = [];
+      s.enemies = [{ ...rival, state: 'approach', timer: rival.ai.walk, cycle: rival.cycleStart || 0, enraged: false, aim: -1, attack: null,
+        phase: 1, stagger: 0, hp: rival.maxHp, vx: 0, vy: 0, facing: -1, attackCooldown: 0, hurtCooldown: 0, dead: false, alert: true }];
+      s.player.x = 64;
+      s.checkpoint = 64;
+    }
+    return s;
   }
 
   // ضربة على صخرة من اللاعب أو من الروبوت: عند الكسر تُضاف الخامات (مضروبة بنسبة الحقيبة، مقرّبة للأعلى).
@@ -596,16 +924,389 @@
     s.events.push({ type: 'collect', x: rock.x, y: rock.y });
   }
 
-  function hurt(s) {
+  // الصدّ: درعٌ أمامي يشغل الحركة والهجوم. يحمي من ضربات الخصم والموجات الأرضية،
+  // ولا يحمي من الأخطار البيئية (بخار/حفرة/سقوط) — فهذه تعليم مستوى لا قتال.
+  function hurt(s, fromX, opts = {}) {
     const p = s.player;
-    if (p.invulnerable) return;
+    if (p.invulnerable) {
+      // المراوغة تعطي إطارات مناعة: الضربة تمرّ بلا ضرر ويُعلَن ذلك للاعب
+      if (p.dodge?.ticks > 0) s.events.push({ type: 'evade', x: p.x + p.w / 2, y: p.y });
+      return false;
+    }
+    // الصدّ يوقف الضربات العادية فقط؛ الضربة الكاسرة (overhead) تتجاوز الدرع عمداً
+    if (p.guard?.active && opts.unblockable !== true && fromX !== undefined) {
+      p.guard.blocks = (p.guard.blocks || 0) + 1;
+      p.guard.timer = 8;
+      p.guard.stamina = Math.max(0, p.guard.stamina - COMBAT.guardBlockCost);
+      p.invulnerable = 12; // مهلة قصيرة تمنع تراكم الضرر في الإطار نفسه
+      s.events.push({ type: 'guard', x: p.x + p.w / 2, y: p.y, fromX });
+      return false;
+    }
     p.hearts--; s.damage++; p.invulnerable = p.hurtInvulnerable || 90;
     s.events.push({ type: 'hurt', x: p.x, y: p.y });
-    p.x = s.checkpoint; p.y = 240; p.vx = 0; p.vy = 0;
+    if (s.mode === 'duel') {
+      // في الساحة لا يعود اللاعب إلى نقطة حفظ المنجم: يُدفع بعيداً عن مصدر الضربة ويحصل على
+      // إطارات المناعة نفسها. الهدف أن يبقى القتال متصلاً ومرئياً، لا أن يقطع المشهد.
+      const away = fromX !== undefined && fromX < p.x + p.w / 2 ? 1 : -1;
+      p.knock.vx = away * DUEL.knock.vx;
+      p.knock.ticks = DUEL.knock.tick;
+      p.vy = Math.min(p.vy, -180);
+    } else {
+      p.x = s.checkpoint; p.y = 240; p.vx = 0; p.vy = 0;
+    }
     if (p.hearts <= 0) {
       s.status = 'lost';
       p.pose = 'dead';
       s.events.push({ type: 'game_over', x: p.x, y: p.y });
+    }
+    return true;
+  }
+
+  // حالة المبارزة: صحة الخصم وتقدّم القتال (تُعرض في الواجهة وتُختم في الإيصال).
+  function duelStatus(s) {
+    const rival = (s.enemies || []).find(e => e.type === 'rival') || (s.enemies || [])[0] || null;
+    return {
+      id: 'duel', name: rival?.name || 'مبارزة',
+      now: rival ? Math.max(0, rival.maxHp - Math.max(0, rival.hp)) : 0,
+      target: rival ? rival.maxHp : 1,
+      done: s.status === 'won',
+      rivalHp: rival ? Math.max(0, rival.hp) : 0,
+      rivalMaxHp: rival ? rival.maxHp : 0,
+      hearts: Math.max(0, s.player?.hearts || 0),
+      blocks: s.player?.guard?.blocks || 0,
+      combo: s.player?.combo || 0,
+      guard: Math.round(s.player?.guard?.stamina || 0),
+      dodge: s.player?.dodge?.cooldown || 0,
+      phase: rival?.phase || 1,
+      intent: rival?.state === 'windup' ? rival.attack : null,
+    };
+  }
+
+  // ===== العرق النادر =====
+  // كل ضربة تنقص نقطة وتعيد مؤقّت التصلّب (90 إطاراً). إن انتهى المؤقّت قبل الكسر يعود العرق صلباً بالكامل،
+  // فالمهارة هي الضرب المتتابع لا مجرد الوقوف والضغط. الكسر يمنح خاماً نادراً (وهو أغلى ما في المنجم).
+  const VEIN_SLOTS = Object.freeze({ rare: 2 });
+  function hitVein(s) {
+    const v = s.vein, mine = mineOf(s.zone);
+    if (!v || v.broken) return;
+    v.hp = Math.max(0, v.hp - 1);
+    v.timer = 90;
+    if (v.hp > 0) {
+      s.events.push({ type: 'vein_hit', x: v.x + v.w / 2, y: v.y + 8, hp: v.hp, maxHp: v.maxHp, ticks: v.timer });
+      return;
+    }
+    v.broken = true; s.veinBroken = true;
+    const ores = resolveSlots(mine, VEIN_SLOTS);
+    addOres(s.ores, ores);
+    s.events.push({ type: 'vein_break', x: v.x + v.w / 2, y: v.y + 8, ores });
+  }
+  // ===== صندوق المفترق: قرار المخاطرة =====
+  // الضربة الأولى = فتح آمن (خام متوسط + قلب مستعاد). من يضرب ثلاث ضربات قبل انتهاء مؤقّت 120 إطاراً
+  // يفتح الجيب الغني (خام نادر) لكنه يوقظ حارسين في مكانه: مكسب أكبر وثمن واضح. بعد المؤقّت يُقفل الصندوق على اختياره.
+  const FORK_SAFE_SLOTS = Object.freeze({ mid: 2 });
+  const FORK_RICH_SLOTS = Object.freeze({ rare: 2 });
+  function spawnForkGuards(s) {
+    const f = s.fork, mine = mineOf(s.zone), base = GUARDS.goblin;
+    for (let i = 0; i < 2; i++) {
+      const id = 70 + i, x = Math.max(20, Math.min(levelFor(s.zone).width - 60, f.x + (i ? 62 : -62)));
+      const maxHp = base.maxHp + mine.enemyHp;
+      const patrolSpeed = Math.round(base.patrolSpeed * mine.enemySpeed / 100);
+      const chaseSpeed = Math.round(base.chaseSpeed * mine.enemySpeed / 100);
+      s.enemies.push({ id, type: 'goblin', name: 'حارس الجيب', x, y: 300 - base.h, w: base.w, h: base.h,
+        minX: Math.max(0, x - 70), maxX: Math.min(levelFor(s.zone).width - base.w, x + 70),
+        maxHp, hp: maxHp, patrolSpeed, chaseSpeed, damage: 1, flying: false,
+        vx: patrolSpeed, vy: 0, facing: 1, attackCooldown: 0, hurtCooldown: 0, dead: false, alert: false, greed: true });
+    }
+  }
+  function hitFork(s) {
+    const f = s.fork, mine = mineOf(s.zone);
+    if (!f || f.locked) return;
+    f.hits++; f.timer = 120;
+    if (f.hits === 1) {
+      const ores = resolveSlots(mine, FORK_SAFE_SLOTS);
+      addOres(s.ores, ores);
+      const p = s.player, healed = p.hearts < p.maxHearts;
+      if (healed) p.hearts = Math.min(p.maxHearts, p.hearts + 1);
+      f.choice = 'safe'; s.choice = 'safe';
+      s.events.push({ type: 'fork_safe', x: f.x + f.w / 2, y: f.y, ores, healed });
+      return;
+    }
+    if (f.hits >= 3 && f.choice !== 'rich') {
+      const ores = resolveSlots(mine, FORK_RICH_SLOTS);
+      addOres(s.ores, ores);
+      f.choice = 'rich'; f.locked = true; s.choice = 'rich';
+      spawnForkGuards(s);
+      s.events.push({ type: 'fork_rich', x: f.x + f.w / 2, y: f.y, ores, guards: 2 });
+    }
+  }
+
+  // ===== V8: ضربات اللاعب =====
+  // كل ضربة جسم مادي لها ثلاث نوافذ: `wind` قبل الإصابة (تُقرأ كتحضير)، ثم لحظة إصابة واحدة فقط،
+  // ثم `frames` للاسترداد. الضربة الواحدة لا تصيب العدو مرتين أبداً (`hit` قفل داخلي).
+  function meleeBox(s, reach) {
+    const p = s.player;
+    return { x: p.facing > 0 ? p.x + p.w : p.x - reach, y: p.y - 8, w: reach, h: p.h + 16 };
+  }
+  // إصابة واحدة على كل من في الصندوق. تُرجع عدد المصابين.
+  // غير الزعماء يُدفعون دائماً؛ المبارز (armored:false) يترنّح فعلاً فيُقطع إنذاره — تفاعل حقيقي مع الضربة.
+  function strike(s, box, damage, opts = {}) {
+    const p = s.player;
+    let hits = 0;
+    for (const enemy of s.enemies) {
+      if (enemy.dead || !overlap(box, enemy)) continue;
+      const dealt = blow(enemy, damage);
+      enemy.hp -= dealt;
+      enemy.hurtCooldown = opts.hurtTicks || 20;
+      // الدفع كما في V3: يُطبَّق على كل من ليس مدرَّعاً، ويُتجاهَل على درع الزعيم أثناء هجومه
+      if (enemy.armored !== false || dealt > 0 || !enemy.boss) enemy.vx = p.facing * (opts.knock || 100);
+      // الترنّح لا يقطع إنذاراً بدأ فعلاً (وإلا صار الخصم قابلاً للحبس بالضرب المتواصل)،
+      // لكنه يقطع اقترابه ويمنح اللاعب لحظة تنفّس حقيقية.
+      const staggerTicks = (opts.stagger || 0) + (s.mode === 'duel' ? (p.guardBreakBonus || 0) : 0);
+      if (dealt > 0 && enemy.armored === false && staggerTicks >= 12 && (enemy.staggerCd || 0) <= 0 && enemy.state === 'approach') {
+        enemy.stagger = Math.max(enemy.stagger || 0, staggerTicks);
+        enemy.staggerCd = 80; // ترنّح واحد كل ~1.3 ثانية: لا حبس للخصم بالضرب المتواصل
+        enemy.state = 'stagger'; enemy.timer = staggerTicks;
+        s.events.push({ type: 'enemy_stagger', x: enemy.x + enemy.w / 2, y: enemy.y, id: enemy.id });
+      }
+      s.events.push({ type: 'hit', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2, damage: dealt,
+        heavy: Boolean(opts.heavy), stage: opts.stage || 0 });
+      hits++;
+      if (enemy.hp <= 0) {
+        enemy.dead = true;
+        s.defeated = (s.defeated || 0) + 1;
+        s.events.push({ type: 'enemy_death', x: enemy.x + enemy.w / 2, y: enemy.y + enemy.h / 2 });
+      }
+    }
+    return hits;
+  }
+  // الضربة الخفيفة: تُكمل السلسلة (1 ← 2 ← 3) إن جاء الضغط داخل نافذة السلسلة. المرحلة تغيّر المدى والدفع لا الرقم فقط.
+  function startLight(s) {
+    const p = s.player;
+    const stage = p.comboTimer > 0 ? (p.combo >= 3 ? 1 : p.combo + 1) : 1;
+    const cfg = COMBAT.chain[stage - 1];
+    p.swing = { kind: 'light', stage, wind: cfg.wind, ticks: cfg.wind + cfg.frames, damage: Math.max(1, p.damage * cfg.mul),
+      reach: Math.max(1, p.attackRange + cfg.reachBonus), knock: cfg.knock, hit: false, finisher: Boolean(cfg.finisher) };
+    p.attack = Math.max(p.attack, p.attackCooldown);
+    s.events.push({ type: 'swing', stage, x: p.x, y: p.y, facing: p.facing });
+  }
+  // الضربة الثقيلة: تحضير أطول (9 إطارات) وضرر أعلى ودفع كبير، ولها مهلة تمنع تكرارها.
+  function startHeavy(s) {
+    const p = s.player, cfg = COMBAT.heavy;
+    p.swing = { kind: 'heavy', stage: 3, wind: cfg.wind, ticks: cfg.wind + cfg.frames, damage: cfg.damage,
+      reach: cfg.reach, knock: cfg.knock, hit: false, finisher: true };
+    p.attack = Math.max(p.attack, cfg.cooldown);
+    p.heavyCooldown = cfg.cooldown;
+    s.events.push({ type: 'swing', heavy: true, stage: 0, x: p.x, y: p.y, facing: p.facing });
+  }
+  // ظل الساكورا: يتحرك اللاعب بسرعة ثابتة في اتجاه نظره ويضرب مرتين في إطارين محدّدين.
+  // كل الأرقام من DUEL.skill، فإعادة تشغيل الخادم تعطي نفس الإصابات بنفس التوقيت.
+  function updateDuelSkill(s) {
+    const p = s.player, cfg = DUEL.skill;
+    if (!p.skill) return;
+    p.vx = p.facing > 0 ? cfg.dashSpeed : -cfg.dashSpeed;
+    for (; p.skill.hitIdx < cfg.hitTicks.length && cfg.hitTicks[p.skill.hitIdx] >= p.skill.ticks; p.skill.hitIdx++) {
+      const cx = p.x + p.w / 2;
+      const box = { x: cx - cfg.reach, y: p.y - 12, w: cfg.reach * 2, h: p.h + 24 };
+      const hits = strike(s, box, cfg.damage, { knock: 150, stage: 0, heavy: true, stagger: 10 });
+      s.events.push({ type: 'skill_hit', x: cx, y: p.y + p.h / 2, hits, idx: p.skill.hitIdx });
+    }
+    p.skill.ticks--;
+    if (p.skill.ticks <= 0) { p.skill = null; p.vx = 0; }
+  }
+
+  function updateSwing(s) {
+    const p = s.player, sw = p.swing;
+    if (!sw) return;
+    if (!sw.hit) {
+      if (sw.wind > 0) sw.wind--;
+      else {
+        sw.hit = true;
+        const box = meleeBox(s, sw.reach);
+        const hits = strike(s, box, sw.damage, {
+          knock: sw.knock, stage: sw.stage, heavy: sw.kind === 'heavy',
+          stagger: sw.kind === 'heavy' ? 16 : sw.finisher ? 12 : 6,
+        });
+        if (hits && sw.kind === 'light') { p.combo = sw.stage; p.comboTimer = COMBAT.chainWindow; }
+        else if (hits) { p.combo = 0; p.comboTimer = 0; }
+        s.events.push({ type: hits ? 'swing_hit' : 'swing_miss', stage: sw.stage, heavy: sw.kind === 'heavy',
+          x: box.x + box.w / 2, y: p.y, hits });
+      }
+    }
+    sw.ticks--;
+    if (sw.ticks <= 0) p.swing = null;
+  }
+
+  // ===== V8: ذكاء المبارز =====
+  // approach (يقترب ويحافظ على مسافة قتال) ← windup (إنذار مرئي) ← هجوم ← recover ← approach، و stagger عند تلقّي ضربة.
+  // الهجمات: slash (قريبة تُصدّ)، wave (موجة أرضية تُقفز أو تُصدّ)، overhead (كاسرة للدرع تُقفز أو تُراوغ)، charge (اندفاع).
+  // الترتيب من البذرة (cycleStart) والمرحلة من نسبة الصحة — لا عشوائية داخل الجولة، فإعادة التشغيل متطابقة.
+  function rivalPhase(b) {
+    if (b.hp * 4 <= b.maxHp) return 3;
+    if (b.hp * 2 <= b.maxHp) return 2;
+    return 1;
+  }
+  // اختيار الهجوم: ترتيب المرحلة يحفظ التنوّع، ثم تُعدّله قراءة حالة اللاعب — لكن بلا غشّ:
+  // كل بديل مشروط بحالة مرئية للاعب (درع مرفوع، سيف فارغ، مراوغة في المهلة، مسافة بعيدة)،
+  // ولا يتكرر العقاب مرتين متتاليتين (b.cycle % 2) حتى لا يتحوّل الخصم إلى آلة.
+  function pickDuelAttack(s, b) {
+    const p = s.player, ai = b.ai;
+    const phase = rivalPhase(b), list = ai.phases[Math.min(phase, ai.phases.length) - 1];
+    const fallback = list[b.cycle % list.length];
+    const dist = Math.abs(p.x + p.w / 2 - (b.x + b.w / 2));
+    const cycle = b.cycle;
+    // 1) درع مرفوع: الكاسرة تتجاوزه — لكن ليس في كل دورة
+    if (p.guard.active && cycle % 2 === 0 && dist < 110) return 'overhead';
+    // 2) سيف اللاعب فارغ للتوّ (نهاية ضربته) — نافذة العقاب الأساسية
+    if (!p.swing && p.attack > 4 && dist <= 78) return 'slash';
+    // 3) اللاعب يضرب بسلسلة متواصلة قريباً: موجة أرضية تقطع السلسلة (تُقفز أو تُصدّ)
+    if (p.combo >= 2 && dist < 120 && cycle % 2 === 1) return 'wave';
+    // 4) المراوغة في المهلة: لا مفرّ من الكاسرة
+    if (p.dodge.cooldown > 18 && dist < 88) return 'overhead';
+    // 4) ابتعاد اللاعب: موجات واندفاع بدل المطاردة
+    if (dist > 165) return cycle % 2 === 0 ? 'charge' : 'wave';
+    // 5) لا يقترب: يبني مسافة القتال ثم يضرب
+    if (dist > 96 && cycle % 3 === 0) return 'wave';
+    return fallback;
+  }
+  function startDuelWindup(s, b) {
+    const p = s.player, ai = b.ai;
+    const phase = rivalPhase(b), list = ai.phases[Math.min(phase, ai.phases.length) - 1];
+    if (phase !== b.phase) {
+      b.phase = phase;
+      s.events.push({ type: 'boss_enrage', phase, x: b.x + b.w / 2, y: b.y, id: b.id });
+    }
+    b.attack = pickDuelAttack(s, b);
+    b.cycle++;
+    b.aim = p.x + p.w / 2 >= b.x + b.w / 2 ? 1 : -1;
+    b.facing = b.aim; b.vx = 0;
+    // «ردّ الفعل»: إن كان سيف اللاعب فارغاً للتوّ فالخصم يهجم أسرع (0.62×) — عقاب حقيقي
+    // للضرب العشوائي، لكنه يبقى إنذاراً مرئياً (≥ 23 إطاراً) يمكن قراءته والصدّ.
+    const counter = b.attack === 'slash' && !p.swing && p.attack > 4;
+    const fast = (phase === 3 ? 0.72 : phase === 2 ? 0.86 : 1) * (counter ? 0.62 : 1);
+    b.state = 'windup';
+    b.timer = Math.max(12, Math.round(ai.windup * fast));
+    s.events.push({ type: 'boss_windup', attack: b.attack, ticks: b.timer, unblockable: b.attack === 'overhead',
+      counter, x: b.x + b.w / 2, y: b.y, id: b.id });
+  }
+  function fireDuelAttack(s, b) {
+    const p = s.player, ai = b.ai, cx = b.x + b.w / 2;
+    if (b.attack === 'charge') {
+      b.state = 'charge'; b.timer = ai.chargeTicks; b.vx = b.aim * b.chargeSpeed;
+      s.events.push({ type: 'boss_charge', x: cx, y: b.y, id: b.id });
+      return;
+    }
+    if (b.attack === 'slash') {
+      const reach = DUEL.slash.reach;
+      const box = { x: b.aim > 0 ? b.x + b.w : b.x - reach, y: b.y + 8, w: reach, h: b.h - 8 };
+      s.events.push({ type: 'enemy_slash', x: cx, y: b.y, dir: b.aim, id: b.id });
+      if (p.hearts > 0 && overlap(box, p)) hurt(s, cx);
+      b.state = 'recover'; b.timer = DUEL.slash.recover;
+      // السريع: ضربة ثانية بعد ٦ إطارات — مرئية (وميض ثانٍ) وقابلة للصدّ أيضاً
+      if (ai.doubleSlash) b.follow = { tick: s.tick + 6, kind: 'slash' };
+      return;
+    }
+    if (b.attack === 'overhead') {
+      // كاسرة للدرع: إنذارها مختلف، والنجاة منها بالقفز فوقها أو المراوغة أو الخروج من نصف قطرها.
+      const radius = ai.slamRadius || DUEL.overhead.radius;
+      // صدمة الزعيم الواسعة تسري على الأرض وحدها (h=44): القفز فوقها جواب صحيح ومقروء،
+      // وضربة الكاسرة العادية تبقى بكامل الطول فلا تُنجى منها إلا المراوغة أو الخروج من نصف القطر.
+      const box = ai.wideSlam
+        ? { x: cx - radius, y: 300 - 44, w: radius * 2, h: 44 }
+        : { x: cx - radius, y: 300 - 96, w: radius * 2, h: 96 };
+      s.events.push({ type: 'boss_slam', x: cx, y: 300, unblockable: true, id: b.id, radius,
+        wide: radius > DUEL.overhead.radius, phase: b.phase || 1 });
+      if (p.hearts > 0 && overlap(box, p)) hurt(s, cx, { unblockable: true });
+      b.state = 'recover'; b.timer = DUEL.overhead.recover;
+      // الزعيم في مرحلته الثانية: صدمة ثانية بعد ١٤ إطاراً — تُعلن بصوت ووميض قبل وقوعها
+      if (ai.doubleSlam && rivalPhase(b) >= 2) b.follow = { tick: s.tick + 14, kind: 'slam' };
+      return;
+    }
+    // wave: موجة أرضية واحدة باتجاه اللاعب — تُقفز أو تُصدّ
+    // V11: تُطلق من مسافة «lead» أمام الخصم حتى لا تظهر داخل جسد اللاعب الملتصق به
+    // (كانت الضربة القريبة تُصيب حتماً بلا هامش ردّ فعل، وهو أسوأ من كونها صعبة).
+    const wv = ai.wave, lead = wv.lead || 0;
+    // الإزاحة لا تتجاوز جسد اللاعب: لو كان ملتصقاً تُطلق من الحافة كالسابق (خطأ تمركز يُعاقب)
+    const spawnX = (dir) => {
+      const gapToBody = dir > 0 ? p.x - (b.x + b.w) : b.x - (p.x + p.w);
+      const off = Math.max(0, Math.min(lead, gapToBody - 6));
+      return dir > 0 ? b.x + b.w + off : b.x - wv.w - off;
+    };
+    s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
+      vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave' });
+    // سيّاف الريح: موجة ثانية بعد فجوة قصيرة تُلزم اللاعب بالبقاء في الهواء أو المراوغة
+    if (ai.doubleWave) {
+      s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
+        vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave', delay: wv.gap || 10 });
+    }
+    s.events.push({ type: 'boss_slam', x: cx, y: 300, id: b.id });
+    b.state = 'recover'; b.timer = ai.recover;
+  }
+  // الضربة التابعة (سريع/زعيم): تُنفَّذ في إطارها المحدَّد وتُعلَن كحدث مرئي مستقل
+  function duelFollowUp(s, b) {
+    const p = s.player, ai = b.ai, cx = b.x + b.w / 2;
+    if (!b.follow || s.tick < b.follow.tick) return;
+    const kind = b.follow.kind; b.follow = null;
+    if (kind === 'slash') {
+      const reach = DUEL.slash.reach;
+      const box = { x: b.aim > 0 ? b.x + b.w : b.x - reach, y: b.y + 8, w: reach, h: b.h - 8 };
+      s.events.push({ type: 'enemy_slash', x: cx, y: b.y, dir: b.aim, id: b.id, follow: true });
+      if (p.hearts > 0 && overlap(box, p)) hurt(s, cx);
+    } else {
+      const radius = Math.round((ai.slamRadius || DUEL.overhead.radius) * 0.75);
+      const box = ai.wideSlam
+        ? { x: cx - radius, y: 300 - 44, w: radius * 2, h: 44 }
+        : { x: cx - radius, y: 300 - 96, w: radius * 2, h: 96 };
+      s.events.push({ type: 'boss_slam', x: cx, y: 300, unblockable: true, id: b.id, radius, follow: true, phase: b.phase || 1 });
+      if (p.hearts > 0 && overlap(box, p)) hurt(s, cx, { unblockable: true });
+    }
+  }
+  function duelStep(s, b) {
+    const p = s.player, ai = b.ai;
+    const cx = b.x + b.w / 2;
+    duelFollowUp(s, b);
+    const dx = (p.x + p.w / 2) - cx, dist = Math.abs(dx), dir = dx >= 0 ? 1 : -1;
+    const clampX = x => Math.max(b.minX, Math.min(b.maxX, x));
+    b.timer--;
+    if (b.staggerCd > 0) b.staggerCd--;
+    if (b.state === 'sleep') { b.state = 'approach'; b.timer = ai.walk; }
+    if (b.state === 'approach') {
+      b.facing = dir;
+      // مسافة القتال تتغيّر بحالة اللاعب: إن رفع درعه صبر على حدّ السيف، وإن كان بعيداً يشتدّ الضغط.
+      const hold = p.guard.active ? 70 : 54;
+      if (dist > hold) {
+        b.vx = dir * Math.round(b.patrolSpeed * (b.phase >= 3 ? 1.35 : 1));
+        b.x = clampX(b.x + b.vx * DT);
+      } else b.vx = 0;
+      // لا ينتظر الخصم دوره ببرود: إن كان اللاعب يضرب في وجهه متتابعاً هجم قبل انتهاء وقفته
+      if (dist <= 72 && p.combo >= 1 && b.timer > 6) b.timer = 6;
+      if (b.timer <= 0) startDuelWindup(s, b);
+    } else if (b.state === 'retreat') {
+      // تباعد قصير بعد الهجوم: يفتح للمهاجم فرصة مطاردة، ويقلّل تكرار النمط نفسه
+      b.facing = -dir;
+      b.vx = -dir * Math.round(b.patrolSpeed * 0.8);
+      b.x = clampX(b.x + b.vx * DT);
+      if (b.timer <= 0) { b.state = 'approach'; b.timer = ai.walk; }
+    } else if (b.state === 'windup') {
+      b.vx = 0;
+      if (b.timer <= 0) fireDuelAttack(s, b);
+    } else if (b.state === 'charge') {
+      b.x = clampX(b.x + b.vx * DT);
+      if (b.x <= b.minX || b.x >= b.maxX) {
+        s.events.push({ type: 'boss_crash', x: cx, y: b.y + b.h, id: b.id });
+        b.vx = 0; b.state = 'recover'; b.timer = ai.recover + 16;
+        s.events.push({ type: 'boss_stun', ticks: ai.recover + 16, x: cx, y: b.y, id: b.id });
+      } else if (b.timer <= 0) { b.vx = 0; b.state = 'recover'; b.timer = Math.round(ai.recover * 0.7); }
+    } else if (b.state === 'stagger') {
+      b.vx *= 0.8;
+      b.x = clampX(b.x + b.vx * DT);
+      if (b.timer <= 0) { b.state = 'approach'; b.timer = Math.round(ai.walk * 0.6); }
+    } else { // recover
+      b.vx = 0;
+      if (b.timer <= 0) {
+        // كل ثالث هجوم يتبعه تباعد قصير (إيقاع متغيّر يُقرأ ولا يُحفظ)
+        if (b.cycle % 3 === 0 && dist < 90) { b.state = 'retreat'; b.timer = 16; }
+        else { b.state = 'approach'; b.timer = b.phase >= 2 ? ai.enragedWalk : ai.walk; }
+      }
     }
   }
 
@@ -613,14 +1314,68 @@
     if (s.status !== 'playing') return s;
     s.events = []; s.tick++;
     const p = s.player, level = levelFor(s.zone);
+    // مؤقّتات محتوى V6: تصلّب العرق، إغلاق المفترق، ونسمة الخام الموقوتة.
+    if (s.vein && !s.vein.broken && s.vein.timer > 0) {
+      s.vein.timer--;
+      if (s.vein.timer === 0 && s.vein.hp < s.vein.maxHp) {
+        s.vein.hp = s.vein.maxHp;
+        s.events.push({ type: 'vein_harden', x: s.vein.x + s.vein.w / 2, y: s.vein.y + 8 });
+      }
+    }
+    if (s.fork && !s.fork.locked && s.fork.timer > 0) {
+      s.fork.timer--;
+      if (s.fork.timer === 0) {
+        s.fork.locked = true;
+        s.events.push({ type: 'fork_lock', x: s.fork.x + s.fork.w / 2, y: s.fork.y, choice: s.fork.choice });
+      }
+    }
+    if (!s.oreWind && s.perch && s.tick >= ORE_WIND_TICK) {
+      const mine = mineOf(s.zone), top = s.perch.y - 62, span = Math.max(12, (s.perch.w - 24) / 2);
+      for (let i = 0; i < 3; i++) s.gems.push({ x: s.perch.x + 12 + i * span, y: top, taken: false, bonus: true, ore: mine.tier.mid });
+      s.oreWind = true;
+      s.events.push({ type: 'ore_wind', x: s.perch.x + s.perch.w / 2, y: s.perch.y - 40, gems: 3, ore: mine.tier.mid });
+    }
     if (p.invulnerable > 0) p.invulnerable--;
     if (p.attack > 0) p.attack--;
     if (p.skillCooldown > 0) p.skillCooldown--;
+    if (p.heavyCooldown > 0) p.heavyCooldown--;
+    if (p.dodge.cooldown > 0) p.dodge.cooldown--;
+    if (p.comboTimer > 0 && --p.comboTimer === 0) p.combo = 0;
     p.coyote = p.grounded ? 6 : Math.max(0, p.coyote - 1);
     p.jumpBuffer = (mask & INPUT.JUMP) && !(s.lastMask & INPUT.JUMP) ? 6 : Math.max(0, p.jumpBuffer - 1);
     const direction = ((mask & INPUT.RIGHT) ? 1 : 0) - ((mask & INPUT.LEFT) ? 1 : 0);
-    p.vx = direction * p.speed;
-    if (direction) p.facing = direction;
+    // الصدّ: فعّال على الأرض وبلا ضربة جارية، ويستهلك «نَفَساً» محدوداً؛ عند نفاده ينكسر الدرع
+    // لثوانٍ قصيرة فيصير القفز والمراوغة بديلاً حقيقياً. يبطئ الحركة إلى 45%.
+    // المراوغة: اندفاع أرضي قصير بمناعة (12 إطاراً) ومهلة 46 إطاراً — لا حصانة دائمة، بل نافذة توقيت.
+    if ((mask & INPUT.DODGE) && p.dodge.cooldown <= 0 && p.dodge.ticks <= 0 && !p.swing && !p.guard.active && p.guard.broken <= 0) {
+      p.dodge.ticks = COMBAT.dodge.ticks;
+      p.dodge.cooldown = p.dodgeCooldown || COMBAT.dodge.cooldown;
+      p.dodge.dir = direction || p.facing;
+      p.facing = p.dodge.dir;
+      p.invulnerable = Math.max(p.invulnerable, COMBAT.dodge.iframes);
+      s.events.push({ type: 'dodge', x: p.x + p.w / 2, y: p.y, dir: p.dodge.dir });
+    }
+    const dodging = p.dodge.ticks > 0;
+    const wantGuard = Boolean(mask & INPUT.DEFEND) && p.grounded && !p.attack && !dodging;
+    const guarding = wantGuard && p.guard.broken <= 0 && p.guard.stamina > 0;
+    p.guard.active = guarding;
+    if (p.guard.broken > 0) p.guard.broken--;
+    if (guarding) {
+      p.guard.stamina = Math.max(0, p.guard.stamina - 1);
+      if (!p.guard.stamina) {
+        p.guard.broken = GUARD.breakTicks;
+        p.guard.active = false;
+        s.events.push({ type: 'guard_break', x: p.x + p.w / 2, y: p.y });
+      }
+    } else {
+      p.guard.stamina = Math.min(p.guard.maxStamina, p.guard.stamina + (p.guard.regen || GUARD.regen));
+    }
+    if (p.guard.timer > 0) p.guard.timer--;
+    // SOFT (512) = دفع جزئي للعصا ← مشي 55% من السرعة؛ الدفع الكامل جري. المراوغة تتجاوز الاثنين.
+    const soft = Boolean(mask & INPUT.SOFT) && !p.guard.active;
+    p.vx = direction * p.speed * (p.guard.active ? (100 - DUEL.guardSlow) / 100 : soft ? COMBAT.softScale / 100 : 1);
+    if (dodging) p.vx = p.dodge.dir * COMBAT.dodge.speed;
+    if (direction && !dodging) p.facing = direction;
     if (p.jumpBuffer && p.coyote) {
       p.vy = p.jumpSpeed; p.grounded = false; p.coyote = 0; p.jumpBuffer = 0;
       s.events.push({ type: 'jump', x: p.x, y: p.y + p.h });
@@ -632,7 +1387,10 @@
       const reach = p.miningReach || 54;
       const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - reach, y: p.y - 8, w: reach, h: p.h + 16 };
       const rock = s.rocks.find(r => r.hp > 0 && overlap(hitbox, r));
+      // أولوية الضربة: صخرة الخام ثم العرق النادر ثم صندوق المفترق (كلها في المدى نفسه).
       if (rock) hitRock(s, rock, p.miningPower, 'player');
+      else if (s.vein && !s.vein.broken && overlap(hitbox, s.vein)) hitVein(s);
+      else if (s.fork && !s.fork.locked && overlap(hitbox, s.fork)) hitFork(s);
       else s.events.push({ type: 'mine_miss', x: p.x + (p.facing > 0 ? p.w + 10 : -10), y: p.y + 15 });
     }
 
@@ -648,8 +1406,44 @@
       if (target) hitRock(s, target, p.robot.damage, 'robot');
     }
 
-    // ATTACK Action: targets enemies only
-    if ((mask & INPUT.ATTACK) && !p.attack) {
+    // ===== V8.1: لا تضيع ضغطة =====
+    // ضغطة تصل قبل انتهاء التبريد أو أثناء ضربة جارية تُخزَّن حتى 6 إطارات وتُنفَّذ في أول لحظة ممكنة.
+    // الحساب هنا داخل المحاكاة نفسها، فيُعاد على الخادم بنفس النتيجة تماماً (الإدخال المسجّل لا يتغيّر).
+    // يعمل في وضع المبارزة وحده: جولات التعدين القديمة تُعيد إنتاج فيزياء V3 حرفياً حتى مع مدخلات عشوائية.
+    if (s.mode === 'duel') {
+      if (p.attack > 0 || p.swing) {
+        if (mask & INPUT.HEAVY) { p.attackBuffer = 6; p.attackBuffered = 'heavy'; }
+        else if (mask & INPUT.ATTACK) { p.attackBuffer = 6; p.attackBuffered = 'light'; }
+      }
+      if (p.attackBuffer > 0) {
+        if (p.attack <= 0 && !p.swing && !dodging && !p.guard.active) {
+          if (p.attackBuffered === 'heavy' && p.heavyCooldown <= 0) { mask |= INPUT.HEAVY; p.attackBuffer = 0; }
+          else if (p.attackBuffered === 'light') { mask |= INPUT.ATTACK; p.attackBuffer = 0; }
+        } else p.attackBuffer--;
+      }
+    }
+
+    const chainHero = !CHARACTERS[p.hero].ranged;
+    // HEAVY (256): ضربة ثقيلة بطيئة عالية الضرر ولها مهلة تمنع تكرارها. البطل القريب يضرب بها، والرامي يطلق سهماً ثقيلاً.
+    if ((mask & INPUT.HEAVY) && !p.attack && !p.swing && !dodging && !p.guard.active && p.heavyCooldown <= 0) {
+      if (chainHero) startHeavy(s);
+      else {
+        p.attack = p.attackCooldown;
+        p.heavyCooldown = COMBAT.heavy.cooldown;
+        s.projectiles.push({
+          x: p.facing > 0 ? p.x + p.w : p.x - 14, y: p.y + 14,
+          vx: p.facing * 450, vy: 0, w: 14, h: 4,
+          life: Math.ceil(p.attackRange / (450 / FPS)), damage: p.damage + 1, owner: 'player',
+        });
+        s.events.push({ type: 'attack', heavy: true, x: p.x, y: p.y, facing: p.facing, hero: p.hero });
+      }
+    }
+
+    // ATTACK Action: البطل القريب يبدأ/يكمل سلسلة الضربات (كل ضربة تصيب مرة واحدة فقط)،
+    // والرامي يطلق سهماً كما كان. الضغط داخل النافذة يرفع مرحلة السلسلة، فتتغير الحركة والمدى والدفع.
+    if ((mask & INPUT.ATTACK) && !p.attack && !p.swing && !dodging && !p.guard.active) {
+      if (chainHero) startLight(s);
+      else {
       p.attack = p.attackCooldown;
       s.events.push({ type: 'attack', x: p.x, y: p.y, facing: p.facing, hero: p.hero });
       if (p.hero === 'archer') {
@@ -680,10 +1474,26 @@
           }
         }
       }
+      }
     }
 
-    // SKILL Action: character special ability
-    if ((mask & INPUT.SKILL) && p.skillCooldown <= 0) {
+    // ===== ظل الساكورا: مهارة الساحة وحدها =====
+    // تكلفة من نَفَس الدرع + مهلة 150 إطاراً + لا تعمل والدرع مكسور. تُنفّذ بدل مهارة البطل
+    // العامة داخل المبارزة فقط، فتبقى مهارات التعدين كما هي حرفياً.
+    if (s.mode === 'duel') {
+      if ((mask & INPUT.SKILL) && p.skillCooldown <= 0 && !p.skill && p.guard.broken <= 0
+        && p.guard.stamina >= DUEL.skill.cost && !dodging) {
+        p.skill = { ticks: DUEL.skill.ticks, hitIdx: 0 };
+        p.guard.stamina -= DUEL.skill.cost;
+        p.skillCooldown = Math.max(1, p.skillMaxCooldown || DUEL.skill.cooldown);
+        p.attack = 0; p.attackBuffer = 0;
+        p.dodge.ticks = 0;
+        p.invulnerable = Math.max(p.invulnerable, DUEL.skill.ticks);
+        p.vx = p.facing * DUEL.skill.dashSpeed;
+        const cx0 = p.x + p.w / 2;
+        s.events.push({ type: 'skill', hero: p.hero, kind: 'shadow', x: cx0, y: p.y + p.h / 2, facing: p.facing, cost: DUEL.skill.cost });
+      }
+    } else if ((mask & INPUT.SKILL) && p.skillCooldown <= 0) {
       p.skillCooldown = p.skillMaxCooldown;
       s.events.push({ type: 'skill', x: p.x, y: p.y, hero: p.hero });
       if (p.hero === 'miner') {
@@ -737,6 +1547,12 @@
       // hitbox is in scope here (an undefined `hitbox` used to crash every skill).
     }
 
+    if (dodging) p.dodge.ticks--;
+    updateSwing(s);
+    if (s.mode === 'duel') updateDuelSkill(s);
+
+    // الارتداد يغلب الإدخال أثناء إطارات تطبيقه (9 إطارات) ثم يعود التحكم كاملاً
+    if (p.knock && p.knock.ticks > 0) { p.knock.ticks--; p.vx = p.knock.vx; }
     const solids = level.platforms.concat(s.rocks.filter(r => r.hp > 0));
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
     p.x += p.vx * DT;
@@ -745,6 +1561,8 @@
       else if (p.vx < 0) p.x = box.x + box.w;
     }
     p.x = Math.max(0, Math.min(level.width - p.w, p.x));
+    // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
+    if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
     p.vy = Math.min(680, p.vy + 1200 * DT);
     p.y += p.vy * DT;
     const wasGrounded = p.grounded; p.grounded = false;
@@ -796,9 +1614,11 @@
       if (enemy.hurtCooldown > 0) enemy.hurtCooldown--;
       if (enemy.attackCooldown > 0) enemy.attackCooldown--;
 
-      if (enemy.boss) {
-        bossStep(s, enemy);
-      } else if (enemy.flying) {
+      // المبارز يُدار بذكاء الساحة أياً كان نمطه (زعيم المنطقة الرابعة أم لا)؛
+      // زعماء المنجم لهم مسارهم المستقل.
+      if (enemy.type === 'rival') duelStep(s, enemy);
+      else if (enemy.boss) bossStep(s, enemy);
+      else if (enemy.flying) {
         enemy.x += enemy.vx * DT;
         enemy.y = enemy.baseY + Math.sin(s.tick * 0.08 + enemy.id) * 10;
         if (enemy.x <= enemy.minX) { enemy.vx = Math.abs(enemy.patrolSpeed || 55); enemy.facing = 1; }
@@ -823,11 +1643,13 @@
         }
       }
 
-      // Enemy attacking player
-      if (p.hearts > 0 && overlap(p, enemy)) {
+      // Enemy attacking player. المبارز لا يؤذي بالتلاصق العشوائي: ضرره من هجماته المُعلَنة فقط
+      // (والاندفاع هو الحالة التي يصطدم فيها بجسمه)، فلا خسارة قلوب بلا سبب مفهوم.
+      const contact = enemy.type === 'rival' ? enemy.state === 'charge' : true;
+      if (contact && p.hearts > 0 && overlap(p, enemy)) {
         if (!p.invulnerable && enemy.attackCooldown <= 0) {
-          hurt(s);
-          enemy.attackCooldown = 60;
+          hurt(s, enemy.x + enemy.w / 2);
+          enemy.attackCooldown = enemy.armored === false ? 66 : 60;
           s.events.push({ type: 'enemy_attack', x: enemy.x, y: enemy.y, enemyId: enemy.id });
         }
       }
@@ -835,6 +1657,7 @@
 
     for (let i = s.waves.length - 1; i >= 0; i--) {
       const wave = s.waves[i];
+      if (wave.delay > 0) { wave.delay--; continue; } // الموجة الثانية تنتظر فجوتها المعلنة
       wave.x += wave.vx * DT; wave.ttl--;
       if (wave.ttl <= 0) s.waves.splice(i, 1);
     }
@@ -856,32 +1679,40 @@
         const bundle = resolveSlots(mine, CHEST_SLOTS);
         addOres(s.ores, bundle);
         s.events.push({ type: 'chest', x: gem.x, y: gem.y, ores: bundle });
-      } else addOres(s.ores, { [mine.tier.common]: 1 });
-      s.events.push({ type: 'collect', x: gem.x, y: gem.y });
+      } else addOres(s.ores, { [gem.ore || mine.tier.common]: 1 });
+      s.events.push({ type: 'collect', x: gem.x, y: gem.y, bonus: Boolean(gem.bonus) });
     }
     if (p.y > level.height + 50) {
       if (p.invulnerable) { p.x = s.checkpoint; p.y = 240; p.vx = p.vy = 0; }
       else hurt(s);
     }
     for (const hazard of s.hazards || level.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
-    for (const wave of s.waves) if (overlap(p, wave)) hurt(s);
-    if (s.status === 'playing' && canExit(s) && overlap(p, level.exit)) {
+    for (const wave of s.waves) if (!(wave.delay > 0) && overlap(p, wave)) hurt(s, wave.x + wave.w / 2);
+    if (s.status === 'playing' && s.mode !== 'duel' && canExit(s) && overlap(p, level.exit)) {
       s.status = 'won'; s.events.push({ type: 'win', x: p.x, y: p.y });
     }
+    // المبارزة تُحسم بإسقاط الخصم فقط (لا بوابة ولا أهداف تعدين)
+    if (s.mode === 'duel' && s.status === 'playing' && s.enemies.length && s.enemies.every(e => e.dead)) {
+      s.status = 'won';
+      s.events.push({ type: 'duel_win', x: p.x + p.w / 2, y: p.y });
+    }
     if (s.tick >= MAX_TICKS && s.status === 'playing') {
-      s.status = 'lost';
+      s.status = s.mode === 'duel' ? 'lost' : 'lost';
       p.pose = 'dead';
     }
 
     p.pose = s.status === 'won' ? 'victory' :
       s.status === 'lost' || p.hearts <= 0 ? 'dead' :
       p.invulnerable > (p.hurtInvulnerable || 90) - 30 ? 'hurt' : // المعدات تطيل الحماية لا وضعية الإصابة
+      p.dodge.ticks > 0 ? 'dodge' :
+      p.guard.active ? 'guard' :
+      p.swing && p.swing.kind === 'heavy' ? 'heavy' :
       p.attack > 4 ? ((mask & INPUT.ATTACK) ? 'attack' : 'mine') :
       p.landTimer > 2 ? 'land' :
       !p.grounded ? (p.vy < 0 ? 'jump' : 'fall') :
       direction ? 'run' : 'idle';
 
-    updateMilestones(s);
+    if (s.mode !== 'duel') updateMilestones(s);
     s.lastMask = mask;
     return s;
   }
@@ -918,7 +1749,8 @@
   function cameraFor(s, width) {
     const p = s.player, pc = p.x + p.w / 2;
     let left = pc - width * 0.35;
-    const boss = s.bossId && !s.bossDefeated ? s.enemies.find(e => e.id === s.bossId) : null;
+    const boss = s.mode === 'duel' ? (s.enemies.find(e => !e.dead) || null)
+      : s.bossId && !s.bossDefeated ? s.enemies.find(e => e.id === s.bossId) : null;
     if (boss && !boss.dead && boss.state !== 'sleep') {
       const bc = boss.x + boss.w / 2;
       const lo = Math.max(bc + BOSS_VIEW_HALF + 8 - width, pc - width * 0.88), hi = Math.min(bc - BOSS_VIEW_HALF - 8, pc - width * 0.12);
@@ -929,23 +1761,115 @@
   // المكافأة الإجمالية لم تتغير عند الفوز: المعالم تفتح أجزاءً من نفس سقف الـ100،
   // والخسارة تحتفظ بما فتحته فعلاً فقط. لا توجد مكافأة إضافية فوق السقف.
   function rewardBreakdown(s) {
+    if (s.mode === 'duel') {
+      const potential = s.status === 'won' ? duelReward(s.zone) : 0;
+      return { potential, milestoneGold: 0, finalGold: potential, total: potential };
+    }
     const potential = Math.min(100, 40 + s.collected * 4 + s.mined * 6);
     const milestoneGold = Math.min(potential, (s.milestones?.length || 0) * MILESTONE_GOLD);
     const finalGold = s.status === 'won' ? Math.max(0, potential - milestoneGold) : 0;
     return { potential, milestoneGold, finalGold, total: milestoneGold + finalGold };
   }
+  // مكافأة المبارزة: 60 + 4 لكل مستوى عمق (60..80). لا تتضخم مع التكرار، والسقف اليومي المستقل خادمي.
+  const duelReward = zone => DUEL.reward + DUEL.rewardStep * Math.max(0, Math.min(MINES.length - 1, Number(zone) || 0));
   const rewardFor = s => rewardBreakdown(s).total;
   const oreSummary = s => {
     const out = emptyOres();
     for (const k of ORE_ORDER) out[k] = Math.max(0, Math.floor(s.ores?.[k] || 0));
     return out;
   };
+  // ===== V12: لقطات مرجعية للمراجعة البصرية =====
+  // سياسة «متقن» نفسها المستخدمة في القياس، تُلعب على المحرك الحقيقي حتى تصل اللحظة
+  // المطلوبة (مرحلة الزعيم الثانية، أو موجة على وشك التلامس)، ثم تُجمَّد العرض فقط.
+  // مصدر واحد: زر اللقطة في الواجهة وسكربت الرسم كلاهما يقرأ من هنا.
+  // ===== V12.1: خطة التلميح (دالة نقية — بلا مؤقّتات ولا DOM، فتُختبَر مباشرة) =====
+  // الأساسي مرة واحدة عند التحوّل إلى المرحلة الثانية، ثم تذكير واحد فقط عند أول صدمة
+  // كاسرة يبدأ تحذيرها والتلميح مختفٍ. لا تكرار مع كل ضربة، ولا تذكير فوق تلميح ظاهر.
+  const HINT_TIMING = Object.freeze({ main: 5200, reminder: 2600 });
+  const duelHintPlan = (ev, state = {}) => {
+    if (!ev) return null;
+    if (ev.type === 'boss_enrage' && ev.phase === 2 && DUEL.phase2Hint)
+      return { kind: 'main', text: DUEL.phase2Hint, ms: HINT_TIMING.main };
+    if (ev.type !== 'boss_windup' || ev.attack !== 'overhead') return null;
+    if ((Number(state.phase) || 1) < 2) return null;         // الكاسرة في المرحلة الأولى ليست موضوع التلميح
+    if (state.reminderShown) return null;                    // تذكير واحد لكل مبارزة
+    if (state.hintVisible) return null;                      // الأساسي ما زال على الشاشة
+    if (!DUEL.phase2Reminder) return null;
+    return { kind: 'reminder', text: DUEL.phase2Reminder, ms: HINT_TIMING.reminder };
+  };
+
+  const captureMask = (sim) => {
+    const r = (sim.enemies || []).find(e => !e.dead);
+    if (!r) return 0;
+    const me = sim.player, dx = r.x + r.w / 2 - (me.x + me.w / 2), ad = Math.abs(dx);
+    const skillCost = DUEL.skill ? DUEL.skill.cost : Infinity;
+    if (r.state === 'windup') {
+      const close = ad < 118, late = r.timer <= 9;
+      if (close && late) {
+        if (r.attack !== 'overhead') return INPUT.DEFEND;
+        return (r.ai && r.ai.wideSlam) ? INPUT.JUMP : INPUT.DODGE;
+      }
+      if (close) return 0;
+      return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
+    }
+    if (r.state === 'charge' && ad < 130) return INPUT.JUMP;
+    const wave = (sim.waves || []).find(w => !(w.delay > 0) && Math.abs((w.x + w.w / 2) - (me.x + me.w / 2)) < 90);
+    if (wave && me.grounded) return INPUT.JUMP;
+    const safe = r.state === 'recover' || r.state === 'retreat' || r.state === 'stagger';
+    if (safe) {
+      if (ad > 68) return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
+      if (Number.isFinite(skillCost) && me.skillCooldown <= 0 && me.guard.stamina >= skillCost + 10) return INPUT.SKILL;
+      if (me.heavyCooldown <= 0) return INPUT.HEAVY;
+      return INPUT.ATTACK;
+    }
+    if (ad > 70) return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
+    return 0;
+  };
+  // لحظة اللقطة: تحذير الصدمة الكاسرة في المرحلة الثانية (الإنذار مرسوم كاملاً)،
+  // أو موجة ريح قريبة واللاعب في الهواء فوقها.
+  const captureHit = (kind, sim, view = {}) => {
+    if (kind === 'boss') {
+      const r = (sim.enemies || [])[0];
+      if (!r || r.state !== 'windup' || r.attack !== 'overhead' || (r.phase || 1) < 2) return false;
+      const warn = (r.ai && r.ai.windup) || 46;
+      return r.timer <= warn - 12 && r.timer >= 16;
+    }
+    // موجة الريح: اللاعب في أول إطارات القفز (قريب من الأرض) والموجة على وشك ملامسة قدميه —
+    // أفضل لحظة للحكم على حجم الموجة وتباينها مقابل أرض الحلبة.
+    const p = sim.player;
+    if (!p || p.grounded || p.vy >= 0) return false;
+    if (Number.isFinite(view.groundY) && view.groundY - p.y > 40) return false;
+    const w = (sim.waves || []).find(x => !(x.delay > 0));
+    if (!w) return false;
+    const gap = Math.abs((w.x + w.w / 2) - (p.x + p.w / 2));
+    return gap >= 45 && gap <= 95;
+  };
+  // يعيد حالة مجمّدة عند اللحظة المطلوبة، أو null إن لم تصل أي بذرة إليها.
+  const captureSim = (kind, hero = 'miner', { zone = kind === 'boss' ? 3 : 2, loadout = null, attempts = 10, maxTicks = 6000 } = {}) => {
+    for (let a = 0; a < attempts; a++) {
+      const s = create(hero, 2024 + a * 137, { zone, mode: 'duel', loadout });
+      // أرض الحلبة = أدنى مستوى وقف عليه اللاعب (أكبر y)، لا الصخور المرتفعة
+      let groundY = NaN;
+      for (let t = 0; t < maxTicks && s.status === 'playing'; t++) {
+        if (s.player.grounded) groundY = Number.isFinite(groundY) ? Math.max(groundY, s.player.y) : s.player.y;
+        step(s, captureMask(s));
+        if (captureHit(kind, s, { groundY })) return s;
+      }
+    }
+    return null;
+  };
+  const capture = Object.freeze({ mask: captureMask, hit: captureHit, sim: captureSim });
+
   const milestoneList = (zone = 0) => MILESTONES.map(m => ({ id: m.id, label: m.label, gold: MILESTONE_GOLD, ores: milestoneOres(zone, m.id) }));
 
   return {
-    BOSS_SLOTS, MAX_SEGMENTS,
-    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
+    BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,
+    VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, duelHintPlan, HINT_TIMING, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
     rewardFor, rewardBreakdown, oreSummary, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
+    // V6: أهداف الجولة والمفترق والعرق النادر
+    GOALS, goalStatus, oreTarget, oreTotal, perchAt, SPEED_TICKS, ORE_WIND_TICK,
+    // V7: وضع المبارزة الحيّة + الصدّ
+    MODES, DUEL, GUARD, COMBAT, MAX_MASK, RIVALS, rivalFor, duelStatus, duelEnemy, duelReward,
     // المرحلة 3
     MINES, ZONES, EQUIPMENT, EQUIPMENT_ORDER, MAX_EQUIP_LEVEL, ORE_LADDER,
     normalizeConfig, normalizeLoadout, normalizeProgress, loadoutStats, equipCost, effectText, hitsToBreak, mineStatus, mineUnlocked,

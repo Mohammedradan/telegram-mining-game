@@ -22,9 +22,12 @@ function hitsUntilBroken(s, limit = 1200) {
   return hits;
 }
 
-test('phase 3: the engine version is 5 and the config is normalised to safe values', () => {
-  assert.equal(R.VERSION, 5);
-  assert.deepEqual(R.normalizeConfig(undefined), { zone: 0, loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
+test('phase 3+V6+V7+V8: the engine version is 8 and the config is normalised to safe values', () => {
+  assert.equal(R.VERSION, 11);
+  assert.deepEqual(R.normalizeConfig(undefined), { zone: 0, goal: 0, mode: 'mine', loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
+  assert.equal(R.normalizeConfig({ goal: 9 }).goal, 0, 'an unknown goal falls back to the first one');
+  assert.equal(R.normalizeConfig({ goal: 2 }).goal, 2);
+  assert.equal(R.normalizeConfig({ goal: 1.5 }).goal, 0);
   assert.deepEqual(R.normalizeConfig(null), R.normalizeConfig({}));
   const wild = R.normalizeConfig({ zone: 9, loadout: { pickaxe: 99, boots: -3, bag: '2', magnet: 1.9, drill: NaN, robot: Infinity, hacker: 7 } });
   assert.equal(wild.zone, 0, 'an unknown mine falls back to the first one');

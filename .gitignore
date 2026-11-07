@@ -3,3 +3,6 @@ data/
 .env
 npm-debug.log*
 .DS_Store
+
+# لقطات مشهد محلية (npm run shots)
+.shots/
