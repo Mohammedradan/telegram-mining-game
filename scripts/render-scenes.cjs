@@ -149,8 +149,8 @@ frame(mine, { reduced: false }, 'mine-run.png', 960, 540);
 const PHONE_W = 360, PHONE_H = 202, SCALE = 2;
 const captureLoadout = { pickaxe: 2, armor: 2, drill: 2 }; // عتاد L2: منتصف الطريق، لا أقصى ولا صفر
 for (const [kind, file, hint, caption] of [
-  ['boss', 'arena-shot-boss.png', R.DUEL.phase2Hint, 'لقطة (أ): التلميح الأساسي عند التحوّل — المرحلة الثانية'],
-  ['wave', 'arena-shot-wave.png', null, 'لقطة (ج): موجة الريح — اللون التركوازي الجديد'],
+  ['boss', 'arena-shot-boss.png', R.DUEL.phase2Hint, 'لقطة: الزعيم — المرحلة الثانية (مجموعة)'],
+  ['wave', 'arena-shot-wave.png', null, 'لقطة: موجة الريح قريبة (مجموعة)'],
 ]) {
   const sim = R.capture.sim(kind, 'miner', { loadout: captureLoadout });
   if (!sim) { console.log(`تعذّرت لقطة ${kind}: اللحظة لم تُبلَغ`); continue; }
@@ -179,7 +179,7 @@ for (const [kind, file, hint, caption] of [
   if (shot) {
     const heat = Math.max(0, Math.min(1, 1 - Math.max(0, sim.enemies[0].hp) / Math.max(1, sim.enemies[0].maxHp)));
     frame(sim, { arena: true, arenaId: sim.zone % 4, arenaHeat: heat,
-      hint: { text: R.DUEL.phase2Reminder, kind: 'reminder' }, caption: 'لقطة (ب): التذكير المختصر عند الصدمة الثانية' },
+      hint: { text: R.DUEL.phase2Reminder, kind: 'reminder' }, caption: 'لقطة: التذكير المختصر عند الصدمة الثانية (عرض فقط)' },
       'arena-shot-remind.png', PHONE_W * SCALE, PHONE_H * SCALE, SCALE);
     console.log(`   remind: tick ${sim.tick} · مرحلة ${shot.phase} · مؤقّت ${shot.timer}`);
   } else console.log('تعذّرت لقطة التذكير: لم تُبلَغ صدمة كاسرة ثانية');
