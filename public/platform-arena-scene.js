@@ -293,23 +293,47 @@
   }
 
   // ===== أرضية القتال: منصّة حجرية بحافة مزخرفة وحبال وفوانيس معلّقة =====
+  // أرضية القتال بمنظور ثلاثي الأبعاد (عرض بصري فقط — لا يمسّ الفيزياء ولا مواضع المقاتلين):
+  // خط الأفق عند top، والبلاط يتباعد ويتّسع كلما اقترب من المشاهد، والخطوط الطولية تتلاقى
+  // عند نقطة تلاشٍ أبعد، فيقرأ المشهد كساحة لها عمق لا كشريط مسطّح.
   function drawDais(c, w, camera, th, tick, reduced) {
-    const top = 300;
-    const g = c.createLinearGradient(0, top, 0, 360);
-    g.addColorStop(0, '#2a2136'); g.addColorStop(0.2, '#201a2c'); g.addColorStop(1, '#0e0a16');
-    c.fillStyle = g; c.fillRect(0, top, w, 360 - top);
-    // حافة مضيئة تُظهر أرض القتال بوضوح
-    c.fillStyle = 'rgba(255,226,180,0.42)'; c.fillRect(0, top, w, 2);
-    c.fillStyle = 'rgba(255,214,150,0.16)'; c.fillRect(0, top + 2, w, 3);
-    const spill = c.createLinearGradient(0, top, 0, top + 26);
-    spill.addColorStop(0, 'rgba(255,200,140,0.10)'); spill.addColorStop(1, 'rgba(255,200,140,0)');
-    c.fillStyle = spill; c.fillRect(0, top, w, 26);
-    // بلاط حجري
-    for (let x = Math.floor(camera / 72) * 72 - 72; x < camera + w + 72; x += 72) {
-      const sx = x - camera;
-      c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(sx, top + 2, 2, 360 - top - 2);
-      c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(sx + 2, top + 4, 68, 1);
+    const top = 300, bottom = 384;              // نمتد تحت 360 كي لا تظهر حافة عند التكبير
+    const depth = bottom - top;
+    const VPX = w / 2, K = 0.42;                // تقارب الخطوط الطولية عند الأفق
+    const ROWS = 7;
+
+    // قاعدة الأرضية: أفتح عند الأفق (ضوء المشاعل) وأغمق نحو المشاهد
+    const g = c.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0, '#302642'); g.addColorStop(0.35, '#241c33'); g.addColorStop(1, '#110d1d');
+    c.fillStyle = g; c.fillRect(0, top, w, depth + 24);
+
+    // صفوف بلاط بتباعد هندسي: الصفوف القريبة أعلى وأوسع (منظور)
+    for (let r = 0; r < ROWS; r++) {
+      const t0 = Math.pow(r / ROWS, 2.1), t1 = Math.pow((r + 1) / ROWS, 2.1);
+      const y0 = top + depth * t0, y1 = top + depth * t1;
+      c.fillStyle = `rgba(150,132,196,${0.05 + 0.09 * (1 - t0)})`;
+      c.fillRect(0, y0, w, Math.max(1, y1 - y0 - 1));
+      c.fillStyle = 'rgba(0,0,0,0.26)';
+      c.fillRect(0, y1 - 1, w, 1);
     }
+
+    // خطوط طولية تتلاقى عند نقطة التلاشي
+    const step = 96;
+    for (let x = Math.floor(camera / step) * step - step; x < camera + w + step; x += step) {
+      const sx = x - camera, farX = VPX + (sx - VPX) * K;
+      c.strokeStyle = 'rgba(0,0,0,0.28)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(sx, bottom); c.lineTo(farX, top); c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,0.05)';
+      c.beginPath(); c.moveTo(sx + 1.4, bottom); c.lineTo(farX + 1.4, top); c.stroke();
+    }
+
+    // حافة مضيئة تُظهر أرض القتال بوضوح (حدّها البعيد حيث يقف المقاتلون)
+    c.fillStyle = 'rgba(255,226,180,0.30)'; c.fillRect(0, top, w, 1.5);
+    c.fillStyle = 'rgba(255,214,150,0.12)'; c.fillRect(0, top + 1.5, w, 2.5);
+    const spill = c.createLinearGradient(0, top, 0, top + 26);
+    spill.addColorStop(0, 'rgba(255,200,140,0.09)'); spill.addColorStop(1, 'rgba(255,200,140,0)');
+    c.fillStyle = spill; c.fillRect(0, top, w, 26);
+
     // حبال وفوانيس على الحافة
     for (let x = Math.floor(camera / 160) * 160 - 160; x < camera + w + 160; x += 160) {
       const sx = x - camera;
@@ -320,12 +344,36 @@
       c.beginPath(); c.arc(sx + 24, top + 14, 3.2 * fl, 0, TAU); c.fill();
       c.globalAlpha = 1;
     }
-    // ورود ساقطة على الحجر
+    // برك ضوء الفوانيس على الحجر: أوسع وأقوى في المقدمة وأضيق في العمق (منظور + دفء)
+    for (let x = Math.floor(camera / 160) * 160 - 160; x < camera + w + 160; x += 160) {
+      const sx = x - camera + 24;
+      for (let r = 0; r < 3; r++) {
+        const t = (r + 1) / 3;
+        const py = top + depth * Math.pow(t, 2.1);
+        const rad = 26 + 52 * t;
+        const pool = c.createRadialGradient(sx, py, 2, sx, py, rad);
+        const a = 0.10 + 0.07 * t;
+        pool.addColorStop(0, `rgba(255,196,120,${a})`);
+        pool.addColorStop(1, 'rgba(255,196,120,0)');
+        c.fillStyle = pool;
+        c.fillRect(sx - rad, py - rad * 0.34, rad * 2, rad * 0.68);
+      }
+    }
+
+    // ظلمة المقدمة: تنعيم الحافة السفلية كما تفعل الكاميرا القريبة
+    const fg = c.createLinearGradient(0, bottom - 46, 0, bottom + 20);
+    fg.addColorStop(0, 'rgba(6,4,12,0)');
+    fg.addColorStop(1, 'rgba(6,4,12,0.55)');
+    c.fillStyle = fg; c.fillRect(0, bottom - 46, w, 66);
+
+    // ورود ساقطة على الحجر (تظهر الأبعد أصغر: إحساس بالعمق)
     for (let i = 0; i < 26; i++) {
       const x = (hash(i, 31) * (w + 200) + camera * 0.9) % (w + 40) - 20;
-      const y = top + 8 + hash(i, 32) * 40;
-      c.fillStyle = th.petal; c.globalAlpha = 0.18 + hash(i, 33) * 0.2;
-      c.beginPath(); c.ellipse(x, y, 3.2, 1.6, hash(i, 34) * 3, 0, TAU); c.fill();
+      const t = hash(i, 32);
+      const y = top + 6 + Math.pow(t, 1.7) * 62;
+      const near = 0.7 + t * 0.75;
+      c.fillStyle = th.petal; c.globalAlpha = 0.16 + hash(i, 33) * 0.18;
+      c.beginPath(); c.ellipse(x, y, 3.2 * near, 1.6 * near, hash(i, 34) * 3, 0, TAU); c.fill();
       c.globalAlpha = 1;
     }
   }
@@ -373,6 +421,13 @@
 
     // ضباب قريب أمام الأشجار
     drawFog(c, w, camera, th, tick, reduced, 246, 70, 0.75, 0.1);
+
+    // ضباب الأفق: يدفع المعبد والساكورا والتوري إلى الخلف ويجعل حلبة القتال في المقدمة (عمق)
+    const haze = c.createLinearGradient(0, 232, 0, 300);
+    haze.addColorStop(0, 'rgba(52,40,80,0)');
+    haze.addColorStop(0.62, 'rgba(46,34,72,0.18)');
+    haze.addColorStop(1, 'rgba(20,14,34,0.46)');
+    c.fillStyle = haze; c.fillRect(0, 232, w, 68 + 12);
 
     drawDais(c, w, camera, th, tick, reduced);
     drawPetals(c, w, tick, th, reduced);
@@ -515,9 +570,26 @@
 
     c.save();
     c.translate(cx, feet);
-    // ظل أرضي ناعم
-    c.fillStyle = `rgba(0,0,0,${p.air ? 0.16 : 0.38})`;
-    c.beginPath(); c.ellipse(0, 1, 20 * (p.air ? 0.65 : 1), 5, 0, 0, TAU); c.fill();
+    // ظل أرضي بعمق: هالة بيضاوية ناعمة + نواة داكنة. الظل مسطّح على الأرض (scale رأسية)
+    // فيقرأ الجسم كمجسّم واقف على أرضية بمنظور، ولونه ثابت كي يبقى الرسم حتمياً.
+    const shR = 27 * (p.air ? 0.7 : 1), shA = p.air ? 0.2 : 0.54;
+    const sh = c.createRadialGradient(0, 0, 1, 0, 0, shR);
+    sh.addColorStop(0, `rgba(0,0,0,${shA})`);
+    sh.addColorStop(0.5, `rgba(0,0,0,${shA * 0.55})`);
+    sh.addColorStop(1, 'rgba(0,0,0,0)');
+    c.save();
+    c.scale(1, 0.28);
+    c.fillStyle = sh;
+    c.beginPath(); c.arc(0, 0, shR, 0, TAU); c.fill();
+    c.restore();
+    // ظل مرمي في اتجاه واحد (الضوء من القمر خلفهم) + ظل تلامس ضيّق: يقرأ الحجم والاتجاه
+    c.save();
+    c.scale(1, 0.24);
+    c.fillStyle = 'rgba(0,0,0,0.30)';
+    c.beginPath(); c.ellipse(11, 2, shR * 0.78, shR * 0.62, 0, 0, TAU); c.fill();
+    c.fillStyle = 'rgba(0,0,0,0.45)';
+    c.beginPath(); c.ellipse(0, 1, 11, 5, 0, 0, TAU); c.fill();
+    c.restore();
     c.scale(facing, 1);
     c.scale(sc, sc);
     if (p.lean) c.rotate(-p.lean * 0.55);
