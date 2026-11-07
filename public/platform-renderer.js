@@ -721,7 +721,15 @@
     const arenaMode = !!opts.arena;
     // الساحة تُقرَّب (zoom) فتُقرأ كمبارزة: نافذة رأسية أقصر مثبّتة على أرض القتال (y=360 أسفل الشاشة)
     const zoom = Math.max(1, Math.min(2, Number(opts.zoom) || (arenaMode ? 1.34 : 1)));
-    const worldH = 360 / zoom, w = Math.max(280, cssW * worldH / cssH);
+    // V19: الساحة مواضع مقاتليها ثابتة في العالم (البطل ≈230 والخصم ≈380) وليست ملاحَقة بكاميرا،
+    // فاشتقاق عرض النافذة من نسبة الشاشة يجعل مسرحاً طويلاً بعرض ~280 وحدة يقصّ الخصم ويسحق
+    // المشهد. نضع حداً أدنى لعرض نافذة الساحة، ونعوّض الفرق بالارتفاع (سماء ممتدة فوق y=0)
+    // فيبقى المقياس موحّداً والأرض مثبّتة عند y=360 بلا قصّ ولا تمطيط.
+    const ARENA_MIN_W = 520;
+    const aspect = cssW / Math.max(1, cssH);
+    let w = Math.max(arenaMode ? ARENA_MIN_W : 280, (360 / zoom) * aspect);
+    // ارتفاع النافذة يتبع العرض ونسبة الشاشة ⇒ المقياس موحّد دائماً بلا تمطيط
+    const worldH = Math.max(360 / zoom, w / aspect);
     const scale = pixelW / w, sy = pixelH / worldH, yTop = -(360 - worldH) * sy;
     c.setTransform(scale, 0, 0, sy, 0, yTop);
 

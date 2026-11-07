@@ -44,5 +44,6 @@ test('الرسم بلا عشوائية وبلا لمس للمحاكاة: الح�
 });
 
 test('الملف يُقدّم بنسخة جديدة كي لا تُخدم نسخة قديمة من الكاش', () => {
-  assert.match(html, /platform-arena-scene\.js\?v=8/, 'the arena scene buster moved to v=8');
+  // V19 رفع البصمة إلى v=9 (امتداد السماء على المسرح الطويل) — الاختبار يحرس وجودها لا رقمها
+  assert.match(html, /platform-arena-scene\.js\?v=(9|[1-9]\d+)/, 'the arena scene buster is bumped with the scene changes');
 });

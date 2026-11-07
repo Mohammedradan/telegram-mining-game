@@ -381,10 +381,17 @@
   // ===== الخلفية الكاملة =====
   function backdrop(c, w, tick, reduced, camera, arenaId, heat = 0) {
     const th = arenaFor(arenaId);
-    const sky = c.createLinearGradient(0, 0, 0, 360);
-    sky.addColorStop(0, th.sky[0]); sky.addColorStop(0.25, th.sky[1]);
-    sky.addColorStop(0.5, th.sky[2]); sky.addColorStop(0.72, th.sky[3]); sky.addColorStop(1, th.sky[4]);
-    c.fillStyle = sky; c.fillRect(0, 0, w, 360);
+    // V19: الشاشة الطويلة (هاتف عمودي بمسرح مِلء الشاشة) تعرض سماءً فوق y=0، فنملأها بالسماء
+    // والنجوم بدل شريط أسود. الإطار يبقى مثبّتاً على الأرض عند y=360.
+    const SKY_TOP = -420;
+    // سديم مسطّح فوق أعلى نقطة في التدرّج: على شاشة عمودية شديدة الطول قد يُعرض أعلى من -420
+    // فلا يظهر شريط أسود ولا حدّ حاد — لون سماء المنطقة العليا نفسه.
+    c.fillStyle = th.sky[0];
+    c.fillRect(0, -4000, w, 4000 + 360);
+    const sky = c.createLinearGradient(0, SKY_TOP, 0, 360);
+    sky.addColorStop(0, th.sky[0]); sky.addColorStop(0.14, th.sky[0]); sky.addColorStop(0.32, th.sky[1]);
+    sky.addColorStop(0.53, th.sky[2]); sky.addColorStop(0.74, th.sky[3]); sky.addColorStop(1, th.sky[4]);
+    c.fillStyle = sky; c.fillRect(0, SKY_TOP, w, 360 - SKY_TOP);
 
     // نجوم
     for (let i = 0; i < 50; i++) {
@@ -392,6 +399,13 @@
       const y = 96 + hash(i, 42) * 120;
       const tw = reduced ? 0.6 : 0.35 + Math.abs(Math.sin(tick * 0.03 + i)) * 0.6;
       ring(c, x, y, 0.7 + hash(i, 43) * 0.9, '#ffffff', tw * 0.5);
+    }
+    // نجوم السماء العالية (تُرى فقط عندما يكون المسرح أطول من 16:9)
+    for (let i = 0; i < 42; i++) {
+      const x = (hash(i, 71) * (w + 160) - camera * 0.004 + w) % (w + 160) - 80;
+      const y = -820 + hash(i, 72) * 900;
+      const tw = reduced ? 0.5 : 0.25 + Math.abs(Math.sin(tick * 0.024 + i * 1.7)) * 0.5;
+      ring(c, x, y, 0.5 + hash(i, 73) * 0.8, '#ffffff', tw * 0.42);
     }
 
     drawMoon(c, th, w, camera, tick, reduced);
@@ -440,7 +454,7 @@
       const edge = c.createRadialGradient(w / 2, 250, w * 0.2, w / 2, 250, w * 0.8);
       edge.addColorStop(0, 'rgba(0,0,0,0)');
       edge.addColorStop(1, `rgba(190,30,40,${0.28 * heat * pulse})`);
-      c.fillStyle = edge; c.fillRect(0, 0, w, 360);
+      c.fillStyle = edge; c.fillRect(0, -4000, w, 4360);
     }
     const blue = c.createRadialGradient(w * 0.3, 300, 10, w * 0.3, 300, w * 0.42);
     blue.addColorStop(0, th.blueLight); blue.addColorStop(1, 'rgba(0,0,0,0)');
@@ -453,7 +467,7 @@
     // تعتيم الأطراف
     const vig = c.createRadialGradient(w / 2, 210, w * 0.34, w / 2, 210, w * 1.0);
     vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.6)');
-    c.fillStyle = vig; c.fillRect(0, 0, w, 360);
+    c.fillStyle = vig; c.fillRect(0, -4000, w, 4360); // V19: يمتد للتعتيم فوق y=0 على الشاشات الطويلة
     c.globalAlpha = 1;
   }
 
