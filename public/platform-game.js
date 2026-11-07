@@ -1538,13 +1538,15 @@
         sfx('boss_charge');
       } else if (ev.type === 'boss_enrage') {
         sfx('boss_enrage');
-        // المرحلة الثانية من مبارز الساحة: تلميح واحد عند الاهتياج (الحدث يقع مرة واحدة في الجولة)
-        const plan = R.duelHintPlan?.(ev, { hintVisible: arenaHintVisible(), reminderShown: hintReminderShown });
+        // المرحلة الثانية من مبارز الساحة: تلميح واحد عند الاهتياج (الحدث يقع مرة واحدة في الجولة).
+        // V13: في المسرح الاستعراضي فقط (بلا مبارزة) لا تلميحات — البوت يهيّج الزعيم في الخلفية
+        // فلا معنى لإرشاد لاعب غير موجود.
+        const plan = !withSound ? null : R.duelHintPlan?.(ev, { hintVisible: arenaHintVisible(), reminderShown: hintReminderShown });
         if (plan) arenaHint(plan.text, plan.ms, plan.kind);
       } else if (ev.type === 'boss_windup' && ev.attack === 'overhead') {
         sfx('boss_windup');
         // V12.1: أول صدمة كاسرة بعد خفوت التلميح تحصل على تذكير مختصر واحد — لا مع كل ضربة
-        const plan = R.duelHintPlan?.(ev, {
+        const plan = !withSound ? null : R.duelHintPlan?.(ev, {
           phase: fromSim.enemies?.[0]?.phase, hintVisible: arenaHintVisible(), reminderShown: hintReminderShown,
         });
         if (plan && plan.kind === 'reminder') { hintReminderShown = true; arenaHint(plan.text, plan.ms, plan.kind); }

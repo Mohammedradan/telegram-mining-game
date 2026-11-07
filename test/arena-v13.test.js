@@ -94,3 +94,11 @@ test('الضغط المطوّل: ضربة قوية واحدة بعد 260ms، و�
   const release = game.slice(releaseAt, game.indexOf("button.addEventListener(type, release)", releaseAt));
   assert.match(release, /clearHold\(e\.pointerId\)/, 'releasing cancels the pending heavy');
 });
+
+test('لا تلميحات في المسرح الاستعراضي: الإرشاد للمبارزة الحقيقية فقط', () => {
+  const fx = game.slice(game.indexOf('function collectFx'), game.indexOf('function arenaFx'));
+  const plans = fx.match(/const plan = !withSound \? null : R\.duelHintPlan\?\.\(ev,/g) || [];
+  assert.equal(plans.length, 2, 'both hint paths (enrage + second slam) are gated to a live duel');
+  const game2 = read('public/platform-game.js');
+  assert.match(game2, /function arenaFx\(\) \{ if \(arenaSim\) collectFx\(arenaSim\); \}/, 'the preview collects effects without sound, so it is the gated path');
+});
