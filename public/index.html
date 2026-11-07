@@ -790,6 +790,47 @@
       /* «الشاشة كاملة للعبة» يتقاطع مع اسم الخصم وعدّاد الجولة — يُخفى داخل المبارزة */
       body.duel-live .arena-fs-bar .fs-note { display: none; }
     }
+
+    /* ===== V17: تبويب الساحة = شاشة اللعبة =====
+       عن قصد: عند فتح الساحة تُخفى الزخارف (الهيدر، إجمالي الذهب، شريط التنقّل، وما تحت
+       المسرح) ويأخذ المسرح كل المساحة المتبقية — كما في المبارزة، لكن قبل بدئها أيضاً.
+       لا شيء يُحذف نهائياً: «التبويبات» تُعيد الهيدر وشريط التنقّل، و«المزيد» يُعيد
+       السلّم والعدّة والتوصية واللقطات. */
+    .arena-x-bar { display: none; }
+    body.arena-live .arena-x-bar {
+      display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 0 2px;
+    }
+    .arena-x-bar button {
+      font-size: 11px; font-weight: 800; padding: 6px 12px; border-radius: 999px;
+      color: #cfe3f5; background: rgba(18, 28, 42, .9);
+      border: 1px solid rgba(120, 160, 200, .4); min-height: 34px;
+    }
+    .arena-x-bar button[aria-pressed="true"] { background: rgba(56, 189, 248, .28); border-color: #7dd3fc; color: #e8f6ff; }
+    body.arena-live .app-header,
+    body.arena-live .ck-hud,
+    body.arena-live .bottom-nav { display: none !important; }
+    /* عمود واحد على أي عرض: قاعدة الشبكة (عمودان) في V15 خاصة بشاشة الساحة العادية،
+       وهنا نلغيها صراحةً كي يأخذ المسرح العرض كاملاً. لاحقة في الملف فتتغلّب على V15. */
+    body.arena-live #tab-arena.active {
+      display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; overflow: hidden;
+    }
+    /* المسرح يأخذ كل الارتفاع المتاح بدل نسبة ثابتة */
+    body.arena-live:not(.arena-more) #tab-arena > #arena-stage {
+      flex: 1 1 auto; min-height: 0; height: auto; max-height: none;
+      aspect-ratio: auto; margin: 0;
+    }
+    /* كل ما تحت المسرح يختفي في هذا الوضع */
+    body.arena-live:not(.arena-more) #tab-arena > .arena-head,
+    body.arena-live:not(.arena-more) #tab-arena > #arena-ladder,
+    body.arena-live:not(.arena-more) #tab-arena > #arena-gear,
+    body.arena-live:not(.arena-more) #tab-arena > #arena-advice,
+    body.arena-live:not(.arena-more) #tab-arena > .arena-shots,
+    body.arena-live:not(.arena-more) #tab-arena > #classic-system,
+    body.arena-live:not(.arena-more) #tab-arena > .arena-keyhint,
+    body.arena-live:not(.arena-more) #tab-arena > #arena-pad-mode { display: none !important; }
+    /* «المزيد»: تعود اللوحات ويُسمح بالتمرير داخل التبويب */
+    body.arena-live.arena-more #tab-arena.active { overflow-y: auto; }
+    body.arena-live.arena-more #tab-arena > #arena-stage { flex: 0 0 auto; height: auto; aspect-ratio: 16 / 9; }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
   <link rel="stylesheet" href="/platform.css?v=23">
@@ -1438,6 +1479,11 @@
       <button id="arena-fs-pause" type="button">إيقاف</button>
       <span class="fs-note">الشاشة كاملة للعبة</span>
       <button id="arena-fs-exit" type="button" class="fs-exit">انسحاب</button>
+    </div>
+    <!-- V17: في الساحة الشاشة للعبة — هذان الزرّان يعيدان التبويبات أو بقية اللوحات -->
+    <div id="arena-x-bar" class="arena-x-bar" role="group" aria-label="تحكم شاشة الساحة">
+      <button id="arena-tabs-btn" type="button">التبويبات</button>
+      <button id="arena-more-btn" type="button" aria-pressed="false">المزيد</button>
     </div>
     <!-- مسرح حيّ: نفس محرك اللعب ونفس الرسم — اللاعب والخصم يتحركان هنا قبل بدء المبارزة -->
     <div id="arena-stage" class="arena-stage">
@@ -2408,6 +2454,19 @@
         }
       } catch (_) {}
     }
+    // V17: «التبويبات» تُعيد الهيدر وشريط التنقّل، و«المزيد» تُعيد اللوحات تحت المسرح
+    document.getElementById('arena-tabs-btn')?.addEventListener('click', () => {
+      document.body.classList.remove('arena-live', 'arena-more');
+      document.getElementById('arena-more-btn')?.setAttribute('aria-pressed', 'false');
+      document.getElementById('nav-arena')?.focus?.();
+      try { haptic('light'); } catch (_) {}
+    });
+    document.getElementById('arena-more-btn')?.addEventListener('click', (e) => {
+      const on = document.body.classList.toggle('arena-more');
+      e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false');
+      try { haptic('light'); } catch (_) {}
+    });
+
     function arenaPauseLabel() {
       const btn = document.getElementById('arena-fs-pause');
       if (!btn) return;
@@ -4499,6 +4558,12 @@
       });
 
       document.getElementById(`tab-${tabId}`).classList.add('active');
+      // V17: الساحة شاشة اللعبة — يُخفى الهيدر وشريط التنقّل ويأخذ المسرح المساحة كلها
+      document.body.classList.toggle('arena-live', tabId === 'arena');
+      if (tabId !== 'arena') {
+        document.body.classList.remove('arena-more');
+        document.getElementById('arena-more-btn')?.setAttribute('aria-pressed', 'false');
+      }
       const activeBtn = document.getElementById(`nav-${tabId}`);
       activeBtn.classList.add('text-amber-400', 'bg-slate-800/80');
       activeBtn.classList.remove('text-slate-400');
