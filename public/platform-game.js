@@ -1593,6 +1593,9 @@
   function arenaFx() { if (arenaSim) collectFx(arenaSim); }
   function arenaStep() {
     if (!arenaSim) return;
+    // المرحلة B: أثناء شاشة الاستعداد لا تُخطى المحاكاة — المقاتلان في وقفة قتال لا في مبارزة تجريبية
+    // (لا ضرر ولا تحرّك ولا مؤقّت). العرض يبقى حيّاً عبر سقف عرض متزايد، والمبارزة تبدأ من محاكاة جديدة.
+    if (arenaReadyHold()) return;
     if (arenaSim.status !== 'playing') { if (++arenaOver > 90) buildArenaSim(); return; }
     R.step(arenaSim, arenaDemoMask(arenaSim));
     arenaFx();
@@ -1612,11 +1615,36 @@
     if (arenaParticles.length > 160) arenaParticles.splice(0, arenaParticles.length - 160);
     arenaShake = Math.max(0, arenaShake - 0.05);
   }
+  // ===== المرحلة B: وقفة الاستعداد =====
+  // شاشة الاستعداد تعرض المقاتلَين في وقفة قتال، لا مبارزة تجريبية تتحرك وتتلقّى ضرراً خلف اللوحة.
+  // الحل: أثناء ظهورها لا تُخطى المحاكاة (لا خطوة، لا ضرر، لا تحرّك)، ويُعاد الرسم من نسخة عرض
+  // «ساكنة» بسقف زمني متزايد كي يبقى التنفّس حيّاً. النسخة للعرض فقط: المحاكاة الحقيقية
+  // (arenaSim) لا تُعدَّل، والمبارزة تبدأ من محاكاة جديدة كاملة عند الضغط على «ابدأ المبارزة».
+  let arenaPoseTick = 0;
+  function arenaReadyHold() {
+    return !duelRunning && !arenaFrozen
+      && document.body.classList.contains('arena-live')
+      && !document.body.classList.contains('duel-live')
+      && !document.body.classList.contains('arena-more');
+  }
+  function arenaPoseState() {
+    if (!arenaSim) return arenaSim;
+    arenaPoseTick += 1;
+    const p = arenaSim.player;
+    const list = Array.isArray(arenaSim.enemies) ? arenaSim.enemies : [];
+    return Object.assign({}, arenaSim, {
+      tick: arenaPoseTick,
+      player: Object.assign({}, p, { state: 'idle', vx: 0, vy: 0, air: false, attack: 0, pose: null }),
+      enemies: list.map((e) => Object.assign({}, e, { state: 'idle', vx: 0, vy: 0, air: false, attack: 0 })),
+    });
+  }
   function arenaDraw() {
     if (!arenaSim || !arenaCanvas) return;
     // arena: true ← مسرح الساحة يرسم حلبة النينجا (قمر ومعبد وساكورا) لا أنفاق المنجم
+    // نسخة العرض (وقف/تنفّس) تُستخدم فقط في شاشة الاستعداد؛ المبارزة الحقيقية ترسم المحاكاة نفسها.
+    const drawState = arenaReadyHold() ? arenaPoseState() : arenaSim;
     try {
-      renderer.draw(arenaCanvas, arenaSim, {
+      renderer.draw(arenaCanvas, drawState, {
         arena: true, reduced, particles: arenaParticles, floaters: arenaFloaters, shake: arenaShake, beams: [],
       });
     } catch (_) {}

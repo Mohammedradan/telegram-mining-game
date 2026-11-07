@@ -140,7 +140,8 @@ test('the play canvas never paints the ninja arena — even if a duel simulation
 
 test('the arena tab asks the renderer for the arena scene explicitly', () => {
   const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /renderer\.draw\(arenaCanvas, arenaSim, \{\s*arena: true/, 'the preview stage passes arena: true');
+  // المرحلة B: قد يرسم المسرح «نسخة عرض» أثناء شاشة الاستعداد، لكن الطلب يبقى صريحاً: arena: true
+  assert.match(game, /renderer\.draw\(arenaCanvas, (?:arenaSim|drawState), \{\s*arena: true/, 'the preview stage passes arena: true');
 });
 
 test('the arena floor sits exactly on the physics ground so nobody floats', () => {

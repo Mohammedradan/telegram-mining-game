@@ -663,6 +663,13 @@
     c.beginPath(); c.ellipse(11, 2, shR * 0.78, shR * 0.62, 0, 0, TAU); c.fill();
     c.fillStyle = 'rgba(0,0,0,0.45)';
     c.beginPath(); c.ellipse(0, 1, 11, 5, 0, 0, TAU); c.fill();
+    // تنفّس الوقفة (المرحلة B): حركة رسم فقط — تُزيح الجسم والذراعين بلا أي أثر على صندوق التصادم
+    // ولا على التوقيت. تُلغى أثناء الهجوم/القفز/الإصابة حتى لا تُشوّش قراءة الضربة.
+    if (!reduced && !ent.air && !p.air && (ent.state === 'idle' || ent.state === 'approach' || ent.state === 'wake' || !ent.state)) {
+      const br = Math.sin(tick * 0.042 + (isPlayer ? 0 : 1.9));
+      c.translate(0, br * -0.9);
+      c.scale(1 + br * 0.010, 1 - br * 0.004);
+    }
     c.restore();
     c.scale(facing, 1);
     c.scale(sc, sc);

@@ -1100,6 +1100,12 @@
     c.fillRect(0, 318, L.width, 10);
 
     }
+
+    // ===== فضاء العالم (إزاحة الكاميرا) =====
+    // المنجم يفتح إزاحته داخل فرعه أعلاه، أما الحلبة فكانت تُرسم بلا إزاحة بينما ترسم منصّتها
+    // (drawDais) بإزاحة كاملة — فينفصل موضع المقاتلين عن الأرض بمقدار الكاميرا.
+    // هنا تُفتح الإزاحة للحلبة فقط، بنفس المنطق، بلا أي مساس بمسار المنجم.
+    if (arenaMode) { c.save(); c.translate(-camera, 0); }
     // ---- Platforms with detailed stone ----
     const sk = arenaMode ? ARENA_SKIN : (skin || { rock: ['#4c443c', '#5a5048'], top: ['#6b7c3f', '#a58253', '#d8b27c'], moss: '#5a6d35', crack: '#3a342e', hi: '#6b6358' });
     for (const box of L.platforms) {
@@ -1497,6 +1503,7 @@
     }
     c.globalAlpha = 1;
 
+    if (arenaMode) c.restore();
     c.restore();
 
     // ---- Screen effects ----
