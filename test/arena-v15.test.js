@@ -28,14 +28,15 @@ test('شاشة عريضة: عمود للمسرح وعمود للوحة بدل ع
   assert.doesNotMatch(css, /grid-row: 1 \/ span \d+/, 'no huge row span — every span gap would push the pad far down');
   assert.match(css, /#tab-arena > \*:not\(#arena-stage\):not\(#arena-pad\) \{ grid-column: 2; \}/, 'everything else stacks on the right');
   assert.match(css, /#tab-arena > #arena-pad \{ grid-column: 1 \/ -1; \}/, 'the touch pad keeps the full width at the bottom');
-  assert.match(css, /body\.duel-live #tab-arena > #arena-stage \{ height: min\(86vh, 62vw\); \}/, 'in a duel the wide screen gives the stage real height');
+  assert.doesNotMatch(css, /min\(86vh, 62vw\)/, 'no leftover rule: the landscape overlay owns the duel stage height');
   assert.match(css, /aspect-ratio: 16 \/ 9/, 'the stage keeps its aspect so the world is not stretched at large sizes');
 });
 
 test('هاتف أفقي قصير: المسرح يملأ الشاشة واللمس يطفو فوقه', () => {
-  const css = html.slice(html.indexOf('@media (orientation: landscape) and (max-height: 560px)'));
-  assert.match(css, /body\.duel-live #tab-arena > #arena-stage \{[^}]*position: absolute; inset: 0/, 'the stage covers the short landscape screen');
-  assert.match(css, /body\.duel-live #tab-arena > #arena-pad \{[^}]*position: absolute;[^}]*bottom: 0/, 'the pad floats over the bottom edge');
+  const css = html.slice(html.indexOf('@media (orientation: landscape) {'));
+  assert.match(css, /body\.duel-live #tab-arena > #arena-stage \{[^}]*position: absolute; inset: 0/, 'the stage covers the landscape screen');
+  assert.match(css, /body\.duel-live #tab-arena > #arena-pad \{[^}]*position: absolute;[^}]*bottom: 0/, 'the pad is docked to the bottom edge');
+  assert.match(css, /body\.duel-live #tab-arena > #arena-pad \{[^}]*direction: ltr/, 'and mirrored: stick on the left thumb, actions on the right');
   assert.match(css, /linear-gradient\(180deg, rgba\(4, 12, 20, 0\)/, 'with a scrim so buttons stay readable over the art');
   assert.match(css, /#tab-arena > #arena-duel-status \{[^}]*bottom: 104px/, 'the status line clears the pad');
   assert.match(css, /#tab-arena > #arena-fs-bar \{[^}]*position: absolute; top: 0/, 'pause/exit stay reachable at the top');
@@ -54,7 +55,7 @@ test('المقاسات القديمة محفوظة: الهاتف الطولي ل
 });
 
 test('الوضع الأفقي يعكس لوحة اللمس: العصا يساراً والأفعال يميناً', () => {
-  const css = html.slice(html.indexOf('@media (orientation: landscape) {\n      body.duel-live #tab-arena > #arena-pad { direction: ltr; }'), html.indexOf('/* ===== V14:'));
+  const css = html.slice(html.indexOf('@media (orientation: landscape) {'), html.indexOf('/* ===== V14:'));
   assert.match(css, /direction: ltr/, 'the pad row is mirrored in landscape');
   // ترتيب DOM هو ما يُعكس: العصا أولاً ثم أزرار الفعل
   const pad = html.slice(html.indexOf('<div id="arena-pad"'), html.indexOf('</div>', html.indexOf('<div class="ap-group ap-acts"')));
@@ -62,4 +63,13 @@ test('الوضع الأفقي يعكس لوحة اللمس: العصا يسار�
   // الوضع الطولي لا يُعكس
   const portraitOnly = html.slice(0, html.indexOf('@media (orientation: landscape) {'));
   assert.doesNotMatch(portraitOnly.slice(portraitOnly.indexOf('.arena-pad {')), /direction: ltr[^]*arena-pad/, 'no mirror outside landscape');
+});
+
+test('بقية التبويبات على الشاشة العريضة: المتجر عمودان والتعدين يتّسع', () => {
+  const css = html.slice(html.indexOf('/* V15.2:'), html.indexOf('/* ===== V14:'));
+  assert.match(css, /#tab-shop\.active \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, 'shop upgrade rows sit in two columns');
+  assert.match(css, /#tab-shop > #prestige-card[^}]*grid-column: 1 \/ -1/, 'full-width cards keep spanning both columns');
+  assert.match(css, /#tab-shop > div \{ min-width: 0; \}/, 'rows can shrink inside their column instead of overflowing');
+  assert.match(css, /#tab-mining > #ck-stage \{ max-width: min\(520px, 100%\); \}/, 'the mining stage uses a little more width on a big screen');
+  assert.match(css, /@media \(min-width: 780px\)/, 'all of it only from 780px up — phones untouched');
 });
