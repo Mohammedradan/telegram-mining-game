@@ -440,13 +440,11 @@
       }
       body:not(.duel-live) #tab-arena > *:not(#arena-stage):not(#arena-pad) { grid-column: 2; }
       body:not(.duel-live) #tab-arena > #arena-pad { grid-column: 1 / -1; }
-      /* الشاشة العريضة: في المبارزة يكبر المسرح عمودياً بدل أن يبقى شريطاً في وسط الشاشة.
-         62vw تحت سقف الرسم 95.7vw فلا يتغيّر شكل العالم (لا انضغاط). */
-      body.duel-live #tab-arena > #arena-stage { height: min(86vh, 62vw); }
     }
-    /* هاتف أفقي قصير: المسرح يملأ الشاشة واللمس يطفو فوقه، فلا مساحة مهدورة للتمرير.
-       نستخدم "#tab-arena >" ليتغلّب التحديد على قواعد V14 التي تأتي بعده في الملف. */
-    @media (orientation: landscape) and (max-height: 560px) {
+    /* الوضع الأفقي (أي ارتفاع): المسرح يملأ الشاشة واللمس يُرسى على الحافة السفلية، فلا فراغ
+       تحت الأزرار ولا مساحة مهدورة للتمرير. "#tab-arena >" ليتغلّب التحديد على قواعد V14
+       التي تأتي بعده في الملف. */
+    @media (orientation: landscape) {
       body.duel-live #tab-arena { display: block; }
       body.duel-live #tab-arena > #arena-stage {
         position: absolute; inset: 0; width: auto; height: auto; aspect-ratio: auto;
@@ -459,11 +457,33 @@
       body.duel-live #tab-arena > #arena-duel-status {
         position: absolute; left: 8px; right: 8px; bottom: 104px; z-index: 30; margin: 0;
       }
+      /* اللوحة ملتصقة بالحافة السفلية تماماً (لا فراغ تحت الأزرار)، ومعكوسة الاتجاه:
+         في RTL يظهر أول عنصر (العصا) في أقصى اليمين، وdirection:ltr يعكس الصف كاملاً فيصبح
+         الإبهام الأيسر للحركة والأيمن للقتال — وهو ما يوافق الإمساك بالهاتف أفقياً. */
       body.duel-live #tab-arena > #arena-pad {
         position: absolute; left: 0; right: 0; bottom: 0; z-index: 31;
-        padding: 8px 14px calc(env(safe-area-inset-bottom, 0px) + 8px);
+        direction: ltr; align-items: flex-end; gap: 10px;
+        padding: 8px 14px calc(env(safe-area-inset-bottom, 0px) + 6px);
         background: linear-gradient(180deg, rgba(4, 12, 20, 0), rgba(4, 12, 20, .78));
       }
+    }
+
+    /* V15.2: بقية التبويبات على الشاشة العريضة — لا نتركّ عموداً طويلاً واحداً في المنتصف.
+       المتجر: صفوف الترقية عمودان. التعدين: المسرح (المقيّد 440px) يتّسع قليلاً ويبقى متوسطاً.
+       اللعب: المسرح اللعبي مستفيد أصلاً من العرض الكامل، فلا قاعدة له هنا. */
+    @media (min-width: 780px) {
+      #tab-shop.active {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 12px; row-gap: 10px; align-content: start; align-items: start;
+        overflow-x: hidden; overflow-y: auto;
+      }
+      /* العناوين والبطاقات العريضة تمتد على العرض كاملاً */
+      #tab-shop > h2,
+      #tab-shop > #open-workshop-shop,
+      #tab-shop > #prestige-card,
+      #tab-shop > #ore-storage { grid-column: 1 / -1; }
+      #tab-shop > div { min-width: 0; }
+      #tab-mining > #ck-stage { max-width: min(520px, 100%); }
     }
 
     /* ===== V14: الشاشة كاملة للعبة أثناء المبارزة =====
