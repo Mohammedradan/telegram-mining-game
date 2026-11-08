@@ -1000,6 +1000,205 @@
       .ar-rail { flex: 1 1 auto; min-width: 0; }
       .ar-cta { flex: 0 0 42%; width: auto; min-height: 44px; font-size: 14px; }
     }
+    /* ===== المرحلة C: HUD القتال =====
+       ثلاث حالات بصرية منفصلة: الاستعداد (بطاقات معلومات) ← القتال (قرار فقط: صحة، وقت، طاقة،
+       حالات) ← الإيقاف المؤقت (خيارات). أثناء القتال لا تُنقل بطاقات الاستعداد إطلاقاً.
+       كل رقم يُقرأ من المحاكاة نفسها؛ لا رسم تخييلي ولا تغيير في القتال أو الضرر. */
+
+    /* (1) تخطيط المبارزة: المسرح ملء الشاشة، واللوحة وشريط الحالة يطفوان فوقه.
+       السبب: قاعدة «الساحة = شاشة اللعبة» (V17) كانت تتغلّب على قاعدة V14 (بخصوصية أعلى)،
+       فتصبح اللوحة عنصراً في التدفّق أعلى الشاشة فوق المشهد. التصحيح بخصوصية صريحة أعلى. */
+    body.duel-live.arena-live #tab-arena {
+      position: fixed; inset: 0; margin: 0; padding: 0; gap: 0; display: block;
+      background: radial-gradient(130% 70% at 50% 0%, #0e1b28 0%, #05090f 68%);
+    }
+    body.duel-live.arena-live #tab-arena > #arena-stage {
+      position: absolute; inset: 0; width: auto; height: auto; margin: 0;
+      max-height: none; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0;
+    }
+    body.duel-live.arena-live #tab-arena > #arena-pad {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 31;
+      background: linear-gradient(180deg, rgba(4, 10, 18, 0) 0%, rgba(4, 10, 18, .55) 42%, rgba(4, 10, 18, .92) 100%);
+    }
+    body.duel-live.arena-live #tab-arena > #arena-duel-status {
+      position: absolute; left: 50%; transform: translateX(-50%); z-index: 30;
+      /* --cx-pad-h يُحدَّث من ارتفاع اللوحة الفعلي (تتغيّر مع طريقة التحكم وحجم الشاشة) */
+      bottom: calc(env(safe-area-inset-bottom, 0px) + var(--cx-pad-h, 96px) + 8px);
+      width: max-content; max-width: min(560px, 86%); margin: 0;
+      padding: 5px 12px; border-radius: 999px; background: rgba(6, 12, 20, .82);
+      border: 1px solid rgba(120, 160, 200, .22);
+    }
+
+    /* (2) شريط المقاتلَين: شبكة بطرفين وعدّاد في المنتصف — متوازنة بصرياً */
+    .as-hud {
+      display: grid; direction: ltr; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: start; gap: 6px;
+      /* شريط الإيقاف/الانسحاب يطفو في الأعلى، فتنزل اللوحات تحته بلا تقاطع */
+      padding-top: calc(env(safe-area-inset-top, 0px) + 38px);
+    }
+    body.duel-live .arena-fs-bar .fs-note { display: none; }
+    body.duel-live.arena-live #tab-arena > #arena-fs-bar {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 34;
+      padding: calc(env(safe-area-inset-top, 0px) + 6px) 10px 0;
+      background: linear-gradient(180deg, rgba(4, 10, 18, .55), rgba(4, 10, 18, 0));
+    }
+    /* البطل يسار الشاشة دائماً (كالمشهد)، والخصم يمين — والنصّ داخل كل لوحة يبقى عربياً */
+    .as-side, .as-center { direction: rtl; }
+    /* اللوحة شبكة صغيرة: سطر الاسم بعرض البطاقة كاملاً، ثم [صورة] + [صحة/طاقة/قلوب/درع].
+       الصورة في الطرف الخارجي (يسار البطل، يمين الخصم) فلا تُزاحم الاسم. */
+    .as-side {
+      position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr);
+      column-gap: 5px; row-gap: 2px; align-items: center; min-width: 0; padding: 4px 6px;
+      border-radius: 12px; background: linear-gradient(180deg, rgba(9, 13, 24, .92), rgba(9, 13, 24, .46));
+      border: 1px solid rgba(120, 150, 190, .3); box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .as-side.hero { direction: ltr; border-color: rgba(96, 196, 255, .38); }
+    .as-side.rival { direction: rtl; border-color: rgba(232, 121, 249, .34); }
+    .as-meta { display: contents; }
+    .as-nameline { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+    .as-name { display: block; direction: rtl; text-align: right; min-width: 0; font-size: 10.5px; font-weight: 900;
+      color: #eef4ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .as-portrait { grid-row: 2 / span 3; align-self: center; }
+    .as-hp { grid-column: 2; grid-row: 2; }
+    .as-sub { grid-column: 2; grid-row: 3; }
+    .as-guard { grid-column: 2; grid-row: 4; }
+    .as-lvl { text-decoration: none; flex: 0 0 auto; font-size: 7px; font-weight: 900; padding: 0 3px; border-radius: 5px; white-space: nowrap;
+      color: #bfe4ff; background: rgba(56, 189, 248, .16); border: 1px solid rgba(56, 189, 248, .34); }
+    .as-side.rival .as-lvl { color: #ffd9ef; background: rgba(244, 114, 182, .16); border-color: rgba(244, 114, 182, .34); }
+    .as-hp { height: 9px; border-radius: 5px; border: 1px solid rgba(4, 8, 14, .85); }
+    .as-hp b { border-radius: 4px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+    .as-seg { position: absolute; inset: 0; z-index: 2; pointer-events: none; text-decoration: none;
+      background-image: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(4, 8, 14, .55) calc(25% - 1px) 25%); }
+    .as-sub { display: flex; direction: rtl; align-items: center; gap: 4px; width: 100%; min-width: 0; flex-wrap: nowrap; }
+    .as-sub .as-lvl { flex: 0 0 auto; }
+    .as-sub .as-en { flex: 1 1 18px; min-width: 14px; }
+    .as-sub .as-hearts, .as-sub .as-hpnum { flex: 0 0 auto; }
+    .as-en { height: 4px; flex: 1 1 auto; min-width: 0; }
+    .as-hearts { display: flex; gap: 2px; flex: 0 0 auto; }
+    .as-hearts .as-pip { width: 7px; height: 7px; border-radius: 2.5px; background: rgba(30, 40, 58, .95);
+      border: 1px solid rgba(244, 63, 94, .32); transition: background .15s ease, box-shadow .15s ease; }
+    .as-hearts .as-pip.on { background: linear-gradient(180deg, #ff8095, #e11d48);
+      border-color: rgba(255, 160, 180, .9); box-shadow: 0 0 7px rgba(244, 63, 94, .75); }
+    .as-hpnum { flex: 0 0 auto; font-size: 8px; font-weight: 900; color: #ffd7e6; font-variant-numeric: tabular-nums; }
+    .as-guard { display: block; height: 3px; width: 100%; border-radius: 99px; overflow: hidden; background: rgba(0, 0, 0, .5); }
+    .as-guard b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #38bdf8, #a5f3fc); transition: width .15s linear; }
+    .as-portrait { width: 30px; height: 30px; }
+    .as-side.hero .as-hpnum, .as-side.hero .as-sub { direction: rtl; }
+    /* (3) الضرر: رقم صغير عند طرف اللوحة (لا فوق المقاتلين) + وميض حدّ + شريط ظلّي متأخّر */
+    .as-delta { position: absolute; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 900;
+      color: #ffb3c0; text-shadow: 0 2px 8px rgba(0, 0, 0, .95), 0 0 12px rgba(244, 63, 94, .55);
+      pointer-events: none; animation: cxDelta .85s ease-out forwards; }
+    .as-side.hero .as-delta { left: -2px; }
+    .as-side.rival .as-delta { right: -2px; }
+    @keyframes cxDelta {
+      0% { opacity: 0; transform: translateY(0) scale(.7); }
+      22% { opacity: 1; transform: translateY(-4px) scale(1.12); }
+      100% { opacity: 0; transform: translateY(-16px) scale(.95); }
+    }
+    .as-side.hurt { border-color: rgba(255, 110, 130, .85); box-shadow: 0 0 0 1px rgba(255, 90, 110, .5), 0 8px 22px rgba(160, 20, 40, .55); }
+    .as-side.low .as-hp b { background: linear-gradient(90deg, #ef4444, #fb923c); animation: cxLow 1.05s ease-in-out infinite; }
+    @keyframes cxLow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.45); } }
+    /* حالات القتال تُبرز على اللوحة نفسها بدل سطر نصّي */
+    .as-side.guard .as-portrait { box-shadow: 0 0 0 2px #7dd3fc, 0 0 14px rgba(125, 211, 252, .85); }
+    .as-side.dodge .as-portrait { box-shadow: 0 0 0 2px #fde68a, 0 0 14px rgba(253, 230, 138, .8); }
+    .as-side.skillready .as-en b { animation: cxReady 1.3s ease-in-out infinite; }
+    @keyframes cxReady { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.6); } }
+
+    /* (4) منتصف الشاشة: عدّاد الوقت والجولة والسجل — بين اللوحتين لا فوق المقاتلَين */
+    .as-center { align-items: center; padding: 2px 9px 3px; border-radius: 12px;
+      background: linear-gradient(180deg, rgba(8, 11, 20, .92), rgba(8, 11, 20, .4));
+      border: 1px solid rgba(255, 209, 102, .3); box-shadow: 0 6px 18px rgba(0, 0, 0, .45); }
+    .as-center b { font-size: 17px; font-variant-numeric: tabular-nums; }
+    .as-center span { font-size: 8px; letter-spacing: .3px; }
+    .as-rec { display: block; font-size: 7.5px; text-decoration: none; color: #9fb2c8; white-space: nowrap; }
+    .as-center.urgent b { color: #ff9a9a; animation: cxLow 1s ease-in-out infinite; }
+
+    /* (5) هالة الخطر عند آخر قلب */
+    .cx-danger { position: absolute; inset: 0; z-index: 8; pointer-events: none;
+      /* حواف فقط: المقاتلان في الوسط يبقيان واضحين تماماً */
+      box-shadow: inset 0 0 0 2px rgba(239, 68, 68, .35), inset 0 0 54px rgba(239, 68, 68, .3);
+      animation: cxDanger 1.6s ease-in-out infinite; }
+    .cx-danger[hidden] { display: none; }
+    @keyframes cxDanger { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
+
+    /* (6) قائمة الإيقاف المؤقت */
+    .cx-pause { position: absolute; inset: 0; z-index: 36; display: flex; align-items: center; justify-content: center;
+      padding: 14px; pointer-events: auto; background: rgba(4, 7, 14, .74); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); }
+    .cx-pause[hidden] { display: none; }
+    .cx-pause-card { width: min(336px, 100%); max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 7px;
+      padding: 13px 14px calc(13px + env(safe-area-inset-bottom, 0px)); border-radius: 18px;
+      background: linear-gradient(180deg, rgba(24, 17, 40, .99), rgba(9, 7, 18, .99));
+      border: 1px solid rgba(190, 150, 255, .42); box-shadow: 0 24px 60px rgba(0, 0, 0, .72); }
+    .cx-pause-title { font-size: 15px; font-weight: 900; color: #f6ecff; text-align: center; }
+    .cx-pause-sub { margin: 0; font-size: 9.5px; color: #a99cc4; text-align: center; line-height: 1.5; }
+    .cx-pause-stats { display: flex; gap: 6px; }
+    .cx-pause-stats span { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px;
+      padding: 5px 4px; border-radius: 10px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(150, 130, 200, .2); }
+    .cx-pause-stats s { text-decoration: none; font-size: 7.5px; color: #9faec6; }
+    .cx-pause-stats b { font-size: 12px; font-weight: 900; color: #eaf3ff; font-variant-numeric: tabular-nums; }
+    .cx-pause-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 10px;
+      background: rgba(255, 255, 255, .04); border: 1px solid rgba(150, 130, 200, .18); }
+    .cx-pause-label { flex: 1 1 auto; font-size: 9.5px; color: #b9c7d4; }
+    .cx-pause-row button { font-size: 10px; font-weight: 800; padding: 5px 11px; border-radius: 999px; min-height: 30px;
+      color: #cfe3f5; background: rgba(18, 28, 42, .9); border: 1px solid rgba(120, 160, 200, .34); }
+    .cx-pause-row button[aria-pressed="true"] { background: rgba(56, 189, 248, .28); border-color: #7dd3fc; color: #e8f6ff; }
+    .cx-btn { width: 100%; min-height: 42px; border-radius: 12px; font-size: 13px; font-weight: 900; }
+    .cx-btn.primary { color: #f4fff9; background: linear-gradient(135deg, #0ea5e9, #22c55e);
+      border: 1px solid rgba(190, 245, 220, .6); box-shadow: 0 8px 22px rgba(14, 165, 233, .35); }
+    .cx-btn.ghost { color: #ffd9d9; background: rgba(120, 30, 40, .3); border: 1px solid rgba(239, 120, 120, .45); }
+    .cx-btn:active { transform: scale(.985); }
+    /* عدّاد تبريد المهارة على الزر نفسه (يُقرأ من data-cd الذي تضبطه المحاكاة) */
+    .arena-pad [data-duel-input="32"] { position: relative; }
+    .arena-pad [data-duel-input="32"].cool::after {
+      content: attr(data-cd); position: absolute; top: 1px; inset-inline-end: 5px;
+      font-size: 9px; font-weight: 900; color: #dbeafe; opacity: .9; text-shadow: 0 1px 4px rgba(0, 0, 0, .9);
+    }
+    .cx-pause-note { margin: 0; font-size: 8.5px; color: #8f82ab; line-height: 1.5; text-align: center; }
+
+    /* (7) الشاشات القصيرة والعريضة: HUD أصغر لا أضخم، ولا يزحف على المشهد */
+    @media (max-height: 560px) {
+      /* الشريط العلوي (إيقاف/انسحاب) يطفو فوق المسرح فيبقى للوحات مكان تحته دائماً */
+      .as-hud { gap: 4px; padding-top: calc(env(safe-area-inset-top, 0px) + 34px); }
+      .as-side { padding: 3px 5px; gap: 4px; border-radius: 10px; }
+      .as-portrait { width: 26px; height: 26px; }
+      .as-name { font-size: 9.5px; }
+      .as-hp { height: 7px; }
+      .as-en { height: 3px; }
+      .as-hearts .as-pip { width: 6px; height: 6px; }
+      .as-guard { height: 2px; }
+      .as-center b { font-size: 15px; }
+      .as-rec { display: none; }
+      .as-delta { font-size: 11px; }
+      .cx-pause-card { width: min(430px, 100%); }
+      body.duel-live.arena-live #tab-arena > #arena-duel-status { font-size: 10.5px; }
+    }
+    /* هواتف ضيقة جداً: اللوحة تطفو الآن فوق المشهد، فيجب أن تتّسع داخل العرض بدل أن يُقصّ زرّ.
+       تصغير الأهداف هنا لا يغيّر ترتيبها ولا وظائفها (إعادة تصميم التحكم في المرحلة D). */
+    @media (max-width: 430px) {
+      body.duel-live .arena-pad { gap: 5px; padding-inline: 6px; }
+      body.duel-live .arena-pad .ap-group { gap: 5px; }
+      body.duel-live .arena-pad .ap-group button { min-height: 52px; min-width: 0; padding: 0 8px; font-size: 12px; }
+      /* الأزرار تتقاسم العرض المتاح بدل أن يخرج آخرها عن الشاشة */
+      body.duel-live .arena-pad .ap-acts { gap: 5px; min-width: 0; flex: 1 1 auto; }
+      body.duel-live .arena-pad .ap-acts .ap-hit { min-height: 58px; min-width: 0; flex: 1 1 0; font-size: 13px; }
+      body.duel-live .arena-stick { width: 66px; height: 66px; flex: 0 0 66px; }
+      body.duel-live .arena-stick .as-knob { width: 32px; height: 32px; }
+    }
+    @media (max-width: 360px) {
+      .as-name { font-size: 9.5px; }
+      /* 320px: نصوص اللوحة والأزرار تنكمش، ولا يُخرج عنصرٌ حدودَ لوحته */
+      .as-sub { gap: 3px; }
+      .as-lvl { font-size: 6.5px; padding: 0 2px; }
+      .as-hpnum { font-size: 7px; }
+      .as-hud { gap: 4px; }
+      body.duel-live .arena-pad .ap-acts .ap-hit { font-size: 11px; padding: 0 1px; white-space: nowrap; letter-spacing: -.2px; }
+      .as-lvl { font-size: 7px; }
+      .as-portrait { width: 28px; height: 28px; }
+      .as-center b { font-size: 16px; }
+      .as-rec { display: none; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       body.arena-entering #arena-ready, body.arena-entering #arena-stage { animation: none; }
       .ar-balance u { transition: none; }
@@ -1661,28 +1860,66 @@
     <!-- مسرح حيّ: نفس محرك اللعب ونفس الرسم — اللاعب والخصم يتحركان هنا قبل بدء المبارزة -->
     <div id="arena-stage" class="arena-stage">
       <canvas id="arena-preview" aria-label="معاينة حيّة لساحة المبارزة"></canvas>
-      <div class="as-hud">
-        <span class="as-fighter">
+      <!-- المرحلة C: HUD القتال — أشرطة كبيرة، اسم ومستوى، طاقة ومهارة، وضرر أنيق بلا تغطية المقاتلَين -->
+      <div class="as-hud" id="cx-hud">
+        <div class="as-side hero" id="cx-side-hero">
+          <span class="as-delta" id="cx-delta-hero" hidden aria-hidden="true"></span>
+          <div class="as-meta">
+            <div class="as-nameline">
+              <b class="as-name" id="arena-preview-hero">المحارب</b>
+            </div>
+            <i class="as-hp"><s id="arena-ghost-hero"></s><b id="arena-hp-hero"></b><u class="as-seg" aria-hidden="true"></u></i>
+            <div class="as-sub">
+              <s class="as-lvl" id="cx-lvl-hero">مستوى 1</s>
+              <i class="as-en"><b id="arena-en-hero"></b></i>
+              <span class="as-hearts" id="arena-hearts-hero" aria-label="قلوب المقاتل"></span>
+            </div>
+            <i class="as-guard" aria-hidden="true"><b id="cx-guard-hero"></b></i>
+          </div>
           <span class="as-portrait hero" id="arena-portrait-hero" aria-hidden="true"></span>
-          <span class="as-meta">
-            <span class="as-chip" id="arena-preview-hero">المحارب</span>
-            <i class="as-hp"><s id="arena-ghost-hero"></s><b id="arena-hp-hero"></b></i>
-            <i class="as-en"><b id="arena-en-hero"></b></i>
-            <span class="as-hearts" id="arena-hearts-hero" aria-label="قلوب المقاتل"></span>
-          </span>
-        </span>
-        <span class="as-center">
+        </div>
+        <div class="as-center">
           <b id="arena-timer">٠</b>
           <span id="arena-round">مبارزة</span>
-        </span>
-        <span class="as-fighter rival">
-          <span class="as-meta">
-            <span class="as-chip rival" id="arena-preview-rival">المبارز</span>
-            <i class="as-hp rival"><s id="arena-ghost-rival"></s><b id="arena-hp-rival"></b></i>
-            <i class="as-en rival"><b id="arena-en-rival"></b></i>
-          </span>
+          <s class="as-rec" id="cx-record">—</s>
+        </div>
+        <div class="as-side rival" id="cx-side-rival">
+          <span class="as-delta" id="cx-delta-rival" hidden aria-hidden="true"></span>
+          <div class="as-meta">
+            <div class="as-nameline">
+              <b class="as-name" id="arena-preview-rival">المبارز</b>
+            </div>
+            <i class="as-hp rival"><s id="arena-ghost-rival"></s><b id="arena-hp-rival"></b><u class="as-seg" aria-hidden="true"></u></i>
+            <div class="as-sub">
+              <s class="as-lvl" id="cx-lvl-rival">مستوى 1</s>
+              <i class="as-en rival"><b id="arena-en-rival"></b></i>
+              <span class="as-hpnum" id="cx-hpnum-rival">—</span>
+            </div>
+          </div>
           <span class="as-portrait rival" id="arena-portrait-rival" aria-hidden="true"></span>
-        </span>
+        </div>
+      </div>
+      <!-- هالة الخطر: نبض خفيف على الحواف عند آخر قلب — لا يغطّي المقاتلَين ولا يمنع اللمس -->
+      <div class="cx-danger" id="cx-danger" hidden aria-hidden="true"></div>
+      <!-- المرحلة C: قائمة الإيقاف المؤقت — مساحة منظمة للتحكم والإعدادات، لا ازدحام فوق القتال -->
+      <div class="cx-pause" id="cx-pause" hidden aria-label="إيقاف مؤقت للمبارزة">
+        <div class="cx-pause-card" role="dialog" aria-modal="true" aria-labelledby="cx-pause-title">
+          <b class="cx-pause-title" id="cx-pause-title">توقّف مؤقت</b>
+          <p class="cx-pause-sub">الوقت لا يمضي — المبارزة مجمّدة عند هذه اللحظة</p>
+          <div class="cx-pause-stats">
+            <span><s>الوقت</s><b id="cx-pause-time">—</b></span>
+            <span><s>قلوبك</s><b id="cx-pause-hearts">—</b></span>
+            <span><s>الخصم</s><b id="cx-pause-rival">—</b></span>
+          </div>
+          <div class="cx-pause-row" role="group" aria-label="طريقة التحكم">
+            <span class="cx-pause-label">طريقة التحكم</span>
+            <button type="button" data-pad-mode="stick" aria-pressed="true">عصا</button>
+            <button type="button" data-pad-mode="buttons" aria-pressed="false">أزرار</button>
+          </div>
+          <button id="cx-resume" class="cx-btn primary" type="button">متابعة المبارزة</button>
+          <button id="cx-exit" class="cx-btn ghost" type="button">انسحاب</button>
+          <p class="cx-pause-note">الانسحاب يغلق الجولة عند الخادم كما في المسار الحالي: لا فوز ولا خسارة ولا مكافأة.</p>
+        </div>
       </div>
       <!-- المرحلة B: شاشة الاستعداد — واجهة دخول إلى الحلبة. كل رقم من القواعد/السجل، وكل زر يفتح نظاماً قائماً -->
       <div id="arena-ready" class="ar" aria-label="شاشة الاستعداد قبل المبارزة">
@@ -2662,6 +2899,9 @@
       txt('ar-hero-name', m.hero.name);
       txt('ar-hero-role', m.hero.role);
       txt('ar-hero-level', `مستوى ${m.hero.level}`);
+      // نفس الرقم يظهر في HUD القتال (المرحلة C) — مصدر واحد للحقيقة
+      txt('cx-lvl-hero', `مستوى ${m.hero.level}`);
+      txt('cx-record', `${m.record.wins}–${m.record.losses}`);
       txt('ar-hero-hearts', String(m.hero.hearts));
       txt('ar-hero-dmg', String(m.hero.damage));
       txt('ar-hero-breath', String(m.hero.breath));
@@ -2842,6 +3082,8 @@
     // بعد كل مبارزة يتغيّر السجل فتُحدَّث البطاقات فوراً
     window.addEventListener('platform-duel-done', () => {
       toggleArenaLog(false);
+      arenaPausePanel(false);
+      arenaPauseLabel();
       if (typeof renderArenaLadder === 'function') renderArenaLadder();
       else if (typeof renderArenaReady === 'function') renderArenaReady();
     });
@@ -2857,6 +3099,19 @@
       const busy = window.PlatformGame?.duelBusy?.();
       btn.textContent = busy?.paused ? 'متابعة' : 'إيقاف';
     }
+    // المرحلة C: لوحة الإيقاف المؤقت — تظهر عند الإيقاف فقط، وأرقامها من الحالة نفسها
+    function arenaPausePanel(show) {
+      const box = document.getElementById('cx-pause');
+      if (!box) return;
+      if (show) {
+        const b = window.PlatformGame?.duelBusy?.() || {};
+        const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        set('cx-pause-time', b.timeLeft == null ? '—' : `${b.timeLeft} ث`);
+        set('cx-pause-hearts', b.hearts == null ? '—' : `${b.hearts}/${b.maxHearts}`);
+        set('cx-pause-rival', b.rivalHp == null ? '—' : `${Math.round(b.rivalHp)}/${Math.round(b.rivalMaxHp || b.rivalHp)}`);
+      }
+      box.hidden = !show;
+    }
     (() => {
       document.getElementById('arena-fs-pause')?.addEventListener('click', () => {
         const game = window.PlatformGame;
@@ -2864,10 +3119,28 @@
         if (!busy?.running) return;
         if (busy.paused) game.resumeDuel?.(); else game.pauseDuel?.();
         arenaPauseLabel();
+        arenaPausePanel(Boolean(game.duelBusy?.().paused));
       });
       document.getElementById('arena-fs-exit')?.addEventListener('click', () => {
         const game = window.PlatformGame;
         if (!game?.duelAbandon?.()) return;
+        arenaPausePanel(false);
+        arenaFullscreen(false);
+        arenaLog('انسحبت من المبارزة — لا فوز ولا خسارة.');
+      });
+      // لوحة الإيقاف المؤقت: المتابعة تستأنف نفس المحاكاة، والانسحاب يمرّ بنفس دالة الإنهاء
+      document.getElementById('cx-resume')?.addEventListener('click', () => {
+        const game = window.PlatformGame;
+        if (!game?.duelBusy?.().running) { arenaPausePanel(false); return; }
+        game.resumeDuel?.();
+        arenaPauseLabel(); arenaPausePanel(false);
+        try { haptic('light'); } catch (_) {}
+      });
+      document.getElementById('cx-exit')?.addEventListener('click', () => {
+        const game = window.PlatformGame;
+        const done = game?.duelAbandon?.();
+        arenaPausePanel(false);
+        if (!done) return;
         arenaFullscreen(false);
         arenaLog('انسحبت من المبارزة — لا فوز ولا خسارة.');
       });

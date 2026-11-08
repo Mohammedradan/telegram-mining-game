@@ -398,7 +398,9 @@ test('arena fight HUD: hearts, a trailing damage bar and a live combo popup', ()
   assert.match(html, /\.as-hp s \{[^}]*transition: width \.6s/, 'the ghost lags behind so the hit reads');
   assert.match(html, /id="arena-hearts-hero"/, 'the fighter hearts are shown on the stage');
   assert.match(game, /ghostHero\.style\.width = `\$\{heroPct\}%`/, 'the ghost bar follows the same value');
-  assert.match(game, /createElement\('span'\)[\s\S]{0,120}pip\.textContent = '♥'/, 'hearts are real elements driven by player.hearts');
+  // القلوب عناصر حقيقية تُبنى من المحاكاة (نقاط مصغّرة في الطابق C، لا نص ♥)
+  assert.match(game, /function duelHeartsPips\(box, hearts, max\)[\s\S]{0,220}?createElement\('span'\)[\s\S]{0,120}?classList\.add\('on'\)/, 'hearts are real elements driven by player.hearts');
+  assert.match(game, /duelHeartsPips\(heartsBox, p\.hearts, max\)/, 'the pips read the simulation hearts');
   assert.match(game, /text: `×\$\{combo\}/, 'the combo is announced on the fighter');
 });
 
