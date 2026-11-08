@@ -117,7 +117,8 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       if (state.status === 'playing') return { status: 400, error: 'المستوى لم ينتهِ بعد' };
       const duration = state.tick / Rules.FPS;
       if (now() - Number(run.started_at) + 1000 < duration * 1000) return { status: 409, error: 'الجولة أسرع من الزمن الحقيقي؛ أعد المحاولة بعد ثوانٍ' };
-      const ores = Rules.oreSummary(state);
+      const ores = Rules.oreSummary(state);      // ما جُمع في الجولة (للتدقيق والعرض)
+      const awarded = Rules.oreAward(state);     // ما يدخل المخزن فعلاً (V19.2: لا غنيمة بلا إتمام أو محاولة صادقة)
       const breakdown = Rules.rewardBreakdown(state);
       const potential = breakdown.total; // نفس سقف الـ100: المعالم تفتح أجزاءً منه، والفوز يدفع الباقي
       const tooSoon = potential > 0 && now() - (Number(user.sync.lastRewardAt.adventure) || 0) < 20000;
@@ -134,7 +135,7 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       user.state.gold += gold; user.state.totalEarned += gold;
       // الخامات تُمنح من نتيجة إعادة التشغيل فقط — لا يُقبل أي رصيد خامات من العميل.
       const wallet = user.state.ores || (user.state.ores = {});
-      for (const [k, v] of Object.entries(ores)) wallet[k] = Math.max(0, (Number(wallet[k]) || 0) + v);
+      for (const [k, v] of Object.entries(awarded)) wallet[k] = Math.max(0, (Number(wallet[k]) || 0) + v);
       const duelWon = config.mode === 'duel' && state.status === 'won';
       const xp = grantXp(user.state, state.status === 'won' ? 20 + state.collected : 0);
       const mines = mineProgress(user);
@@ -147,17 +148,25 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         arenaRec[key] = Math.min(1_000_000, (Number(arenaRec[key]) || 0) + 1);
         if (duelWon) trackMission(user, 'arena', 1, now());
       }
-      a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
-      if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
       // سقوط زعيم المنجم أعاد المحرك تشغيله بنفس المسار؛ يُحتسب حتى لو خسر اللاعب بعده في طريق الخروج. هذا ما يُحيي إنجاز «قاتل الزعماء».
       const bossKill = state.bossDefeated === true;
-      if (bossKill) { a.bossWins = (Number(a.bossWins) || 0) + 1; trackMission(user, 'boss', 1, now()); }
       const score = state.collected * 25 + state.mined * 50 + (state.status === 'won' ? 200 : 0);
-      a.bestScore = Math.max(a.bestScore, score); a.rewardEarned += gold;
-      a.zones = a.gems >= 75 || a.bossWins >= 1 ? 3 : a.gems >= 25 || a.runs >= 3 ? 2 : 1;
-      for (const [key, value] of [['runs', 1], ['gems', state.collected], ['score', score], ['play_time', Math.floor(duration)]]) trackMission(user, key, value, now());
-      // مهام المغامرة: عدّادات من هذه الجولة المُعاد تشغيلها فقط (صخور، أعداء، خامات، سقوط زعيم بمفتاحه)
-      trackQuests(user, { mined: state.mined, defeated: state.defeated, ores, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
+      // V19.3 (R4): مبارزة الساحة تجربة مستقلة — لا تُغذّي إحصاءات «المغامرة» ولا مهامها ولا مغامراتها.
+      // للساحة مسارها الخاص أعلاه: سجل المبارزة، ذهب المبارزة المستقل، ومهمة «arena».
+      if (!duelMode) {
+        a.runs++; a.gems += state.collected; a.playSec += Math.floor(duration);
+        if (state.defeated) a.defeated = (a.defeated || 0) + state.defeated;
+        if (bossKill) { a.bossWins = (Number(a.bossWins) || 0) + 1; trackMission(user, 'boss', 1, now()); }
+        a.bestScore = Math.max(a.bestScore, score); a.rewardEarned += gold;
+        a.zones = a.gems >= 75 || a.bossWins >= 1 ? 3 : a.gems >= 25 || a.runs >= 3 ? 2 : 1;
+        // V19.3 (R1): «أكمل جولات» لا تكتمل بالخسارة — تُحتسب عند إتمام الجولة فوزاً فقط.
+        // gems/score/play_time تبقى نشاطاً حقيقياً يُحتسب في أي جولة منتهية (قرار R1: لم تُقيَّد).
+        if (state.status === 'won') trackMission(user, 'runs', 1, now());
+        for (const [key, value] of [['gems', state.collected], ['score', score], ['play_time', Math.floor(duration)]]) trackMission(user, key, value, now());
+        // مهام المغامرة: الصخور والأعداء من الجولة المُعاد تشغيلها، والخامات مما دخل المخزن فعلاً (R2:
+        // نصف الخسارة الصادقة يُحتسب نصفاً، والجولة غير الصادقة لا تُحتسب — تماماً كالمحفظة).
+        trackQuests(user, { mined: state.mined, defeated: state.defeated, ores: awarded, boss: bossKill ? (Rules.levelFor(config.zone)?.boss?.kind || null) : null });
+      }
       user.revision++; user.updatedAt = now();
       // V6: نتيجة الهدف وقرار المخاطرة تُقرأ من إعادة التشغيل نفسها (لا من العميل) وتُعرض في شاشة الختام.
       const goal = config.mode === 'duel' ? Rules.duelStatus(state) : Rules.goalStatus(state);
@@ -166,14 +175,14 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
         ...(config.mode === 'duel' ? { duel: { rivalHp: goal.rivalHp, rivalMaxHp: goal.rivalMaxHp, hearts: goal.hearts, blocks: goal.blocks }, arena: { ...arenaRec } } : {}),
         goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
         choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true,
-        ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
+        ores: awarded, oresGathered: ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold, salvage: breakdown.salvage,
         dailyRemaining: quota.remaining, ...(duelMode ? { duelCap: quota.cap } : {}), ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
         detail: { won: receipt.won, zone: config.zone, goal: receipt.goal, choice, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
-          dailyRemaining: quota.remaining, ores, milestones: state.milestones || [],
+          dailyRemaining: quota.remaining, ores: awarded, oresGathered: ores, milestones: state.milestones || [], salvage: breakdown.salvage,
           milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
           ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);
       await store.putUser(user);

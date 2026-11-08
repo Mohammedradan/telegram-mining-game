@@ -492,7 +492,9 @@ function claimWeeklyMission(user, key, now) {
 const advOf = (u) => (u.state.adventure && typeof u.state.adventure === 'object') ? u.state.adventure : {};
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const ACHIEVEMENTS = [
-  { id: 'first_run', icon: '🎬', name: 'أول مغامرة', desc: 'أكمل جولة مغامرة واحدة', target: 1, gold: 25, xp: 10, value: (u) => num(advOf(u).runs) },
+  // V19.3 (R3): العدّاد `runs` يحصي المحاولات المنتهية (فوزاً أو خسارة)، فالاسم والوصف صارا يطابقانه.
+  // المكافأة (25 ذهباً) بقيت كما هي: ترحيب أوّلي، لا تتطلب فوزاً.
+  { id: 'first_run', icon: '🎬', name: 'أول محاولة', desc: 'أنهِ محاولة واحدة في المنجم', target: 1, gold: 25, xp: 10, value: (u) => num(advOf(u).runs) },
   { id: 'score500', icon: '💎', name: 'نتيجة 500', desc: 'حقق أفضل نتيجة 500+', target: 500, gold: 75, xp: 20, value: (u) => num(advOf(u).bestScore) },
   { id: 'combo20', icon: '🔥', name: 'سلسلة 20', desc: 'حقق أعلى سلسلة ×20', target: 20, gold: 75, xp: 20, value: (u) => num(advOf(u).maxCombo) },
   { id: 'collector', icon: '🧲', name: 'جامع الكنوز', desc: 'التقط 300 جوهرة إجمالاً', target: 300, gold: 100, xp: 30, value: (u) => num(advOf(u).gems) },

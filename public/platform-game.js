@@ -50,6 +50,12 @@
   // المرحلة 1: مؤثرات عرض فقط — لا تدخل في R.step ولا في مسار الحركات المرسل للخادم.
   let floaters = [], floatersSpawned = 0, combo = 0, comboUntil = 0, comboPeak = 0, beams = [];
   let frameTime = 0, hitStopUntil = 0, lastHitStop = -1e9;
+  // B5: علامات الإنذار الأرضية (عرض فقط). الوحدة تُحمَّل قبل هذا السكربت، والاحتياط يمنع سقوط الرسم
+  // إن جاء متصفح بنسخة قديمة من الكاش.
+  const Telegraphs = (typeof window !== 'undefined' && window.PlatformTelegraphs) || null;
+  const telegraphsFor = () => (Telegraphs ? Telegraphs.batMarkers(sim, R.BAT) : []);
+  // آخر طور معروف لكل خفاش: لالتقاط لحظة الهبوط (dive ← stun) التي لا يُصدر لها المحرك حدثاً
+  const batPhases = new Map();
   // أسماء نيّة الخصم: يُعلَن الهجوم قبل وقوعه بكلمة واحدة مفهومة (العدالة أساس القتال)
   const INTENT_LABEL = { slash: 'ضربة قريبة', wave: 'موجة — اقفز', overhead: 'كاسرة — اقفز أو رُوغ', charge: 'اندفاع!',
     slam: 'موجة — اقفز', pound: 'صدمة أرضية — اقفز!', sweep: 'ضربة قريبة — صدّها' };
@@ -185,7 +191,7 @@
   const storageKey = () => `platform-run:v1:${owner}`;
   const say = text => { const s = el('platform-status'); if (s) s.textContent = text; };
   const visible = () => !document.hidden && !el('platform-scene').hidden && el('play-panel-adventure').classList.contains('active') && el('tab-play').classList.contains('active');
-  const draw = () => renderer.draw(canvas, sim, { reduced, particles, shake, floaters, beams });
+  const draw = () => renderer.draw(canvas, sim, { reduced, particles, shake, floaters, beams, telegraphs: telegraphsFor() });
 
   function clearInput() {
     keys.clear(); pointers.clear(); pulses.clear();
@@ -224,6 +230,10 @@
         hurt: { freq: 110, dur: 0.18, type: 'sawtooth', slide: 55 },
         win: { freq: 1040, dur: 0.22, type: 'sine', slide: 1560 },
         game_over: { freq: 140, dur: 0.32, type: 'triangle', slide: 70 },
+        // الخفاش (B5): نبرة هابطة سريعة للانقضاض، وطرقة خفيفة للهبوط — لا تُلتبس بضربة الزعيم
+        // (الزعيم 72→38 مثلث ثقيل؛ الخفاش 900→340 سنّ منشاري قصير، والهبوط 220→140).
+        bat_dive: { freq: 900, dur: 0.13, type: 'sawtooth', slide: 340 },
+        bat_land: { freq: 220, dur: 0.1, type: 'triangle', slide: 140 },
         // الزعماء: كل حدث له نبرة تُعرَف بلا نظر (إنذار صاعد، ضربة ثقيلة، انهيار، رنين الدرع)
         clang: { freq: 1500, dur: 0.09, type: 'square', slide: 900 },
         boss_wake: { freq: 90, dur: 0.5, type: 'sawtooth', slide: 52 },
@@ -757,11 +767,31 @@
   }
 
   // خطوة محاكاة واحدة: تسجيل الإدخال ← R.step ← أحداث العرض. يستعملها حلقة الزمن الحقيقي ومُغذّي اختبار المتصفح بلا فرق.
+  // B5: لحظة هبوط الخفاش لا يُصدر لها المحرك حدثاً (ينتقل dive ← stun بصمت). نلتقطها من الحالة
+  // العامة نفسها التي يراها اللاعب: غبار على نقطة الهبوط + طرقة صوتية. عرض فقط — لا تغيير في التوقيت
+  // ولا في الضرر ولا في الحالة، ولذلك تبقى البصمة الحتمية كما هي.
+  function watchBatLandings() {
+    for (const e of sim.enemies || []) {
+      if (!e || !e.flying) continue;
+      const prev = batPhases.get(e.id);
+      batPhases.set(e.id, e.batState);
+      if (prev !== 'dive' || e.batState !== 'stun') continue;
+      beep('bat_land');
+      if (reduced || particles.length >= 84) continue;
+      for (let i = 0; i < 6; i++) {
+        particles.push({ x: e.x + e.w / 2 + (Math.random() - 0.5) * 10, y: R.BAT.floor - 2,
+          vx: (Math.random() - 0.5) * 1.6, vy: -0.5 - Math.random() * 0.7, life: 16 + (i % 4),
+          color: i % 2 ? '#d8cdbb' : '#efe6d6', size: 2.6, glow: false });
+      }
+    }
+  }
+
   function advance(mask) {
     const hpBefore = sim.rocks.map(r => r.hp);
     record(mask); R.step(sim, mask);
     const broken = sim.rocks.filter((r, i) => hpBefore[i] > 0 && r.hp === 0);
     consumeEvents(broken);
+    watchBatLandings();
     if (sim.tick % 120 === 0) save();
   }
   // اختبار المتصفح فقط: يمرّر حركات مسجّلة عبر المسار نفسه (HUD والأحداث والإنهاء والإرسال) دون انتظار 60 إطاراً في الثانية.
@@ -1563,6 +1593,9 @@
   function arenaFx() { if (arenaSim) collectFx(arenaSim); }
   function arenaStep() {
     if (!arenaSim) return;
+    // المرحلة B: أثناء شاشة الاستعداد لا تُخطى المحاكاة — المقاتلان في وقفة قتال لا في مبارزة تجريبية
+    // (لا ضرر ولا تحرّك ولا مؤقّت). العرض يبقى حيّاً عبر سقف عرض متزايد، والمبارزة تبدأ من محاكاة جديدة.
+    if (arenaReadyHold()) return;
     if (arenaSim.status !== 'playing') { if (++arenaOver > 90) buildArenaSim(); return; }
     R.step(arenaSim, arenaDemoMask(arenaSim));
     arenaFx();
@@ -1582,11 +1615,36 @@
     if (arenaParticles.length > 160) arenaParticles.splice(0, arenaParticles.length - 160);
     arenaShake = Math.max(0, arenaShake - 0.05);
   }
+  // ===== المرحلة B: وقفة الاستعداد =====
+  // شاشة الاستعداد تعرض المقاتلَين في وقفة قتال، لا مبارزة تجريبية تتحرك وتتلقّى ضرراً خلف اللوحة.
+  // الحل: أثناء ظهورها لا تُخطى المحاكاة (لا خطوة، لا ضرر، لا تحرّك)، ويُعاد الرسم من نسخة عرض
+  // «ساكنة» بسقف زمني متزايد كي يبقى التنفّس حيّاً. النسخة للعرض فقط: المحاكاة الحقيقية
+  // (arenaSim) لا تُعدَّل، والمبارزة تبدأ من محاكاة جديدة كاملة عند الضغط على «ابدأ المبارزة».
+  let arenaPoseTick = 0;
+  function arenaReadyHold() {
+    return !duelRunning && !arenaFrozen
+      && document.body.classList.contains('arena-live')
+      && !document.body.classList.contains('duel-live')
+      && !document.body.classList.contains('arena-more');
+  }
+  function arenaPoseState() {
+    if (!arenaSim) return arenaSim;
+    arenaPoseTick += 1;
+    const p = arenaSim.player;
+    const list = Array.isArray(arenaSim.enemies) ? arenaSim.enemies : [];
+    return Object.assign({}, arenaSim, {
+      tick: arenaPoseTick,
+      player: Object.assign({}, p, { state: 'idle', vx: 0, vy: 0, air: false, attack: 0, pose: null }),
+      enemies: list.map((e) => Object.assign({}, e, { state: 'idle', vx: 0, vy: 0, air: false, attack: 0 })),
+    });
+  }
   function arenaDraw() {
     if (!arenaSim || !arenaCanvas) return;
     // arena: true ← مسرح الساحة يرسم حلبة النينجا (قمر ومعبد وساكورا) لا أنفاق المنجم
+    // نسخة العرض (وقف/تنفّس) تُستخدم فقط في شاشة الاستعداد؛ المبارزة الحقيقية ترسم المحاكاة نفسها.
+    const drawState = arenaReadyHold() ? arenaPoseState() : arenaSim;
     try {
-      renderer.draw(arenaCanvas, arenaSim, {
+      renderer.draw(arenaCanvas, drawState, {
         arena: true, reduced, particles: arenaParticles, floaters: arenaFloaters, shake: arenaShake, beams: [],
       });
     } catch (_) {}
@@ -1698,7 +1756,16 @@
   let duelFreeze = 0, duelLastCombo = 0, duelPendingMask = 0;
   const duelKeys = new Set(), duelPointers = new Map(), duelPulses = new Map();
   const arenaDuelVisible = () => Boolean(el('tab-arena')?.classList?.contains('active'));
-  const duelBusy = () => ({ running: duelRunning, paused: duelPaused, submitting: duelSubmitting, zone: duelZone, tick: duelSim?.tick || 0, status: duelSim?.status || 'idle' });
+  const duelBusy = () => ({
+    running: duelRunning, paused: duelPaused, submitting: duelSubmitting, zone: duelZone,
+    tick: duelSim?.tick || 0, status: duelSim?.status || 'idle',
+    // حقول عرض فقط لشاشة الإيقاف المؤقت (المرحلة C): تُقرأ من المحاكاة ولا تُغذّيها
+    hearts: duelSim?.player?.hearts ?? null,
+    maxHearts: duelSim?.player?.maxHearts ?? null,
+    rivalHp: duelSim?.enemies?.[0]?.hp ?? null,
+    rivalMaxHp: duelSim?.enemies?.[0]?.maxHp ?? null,
+    timeLeft: duelSim ? Math.max(0, Math.ceil((R.MAX_TICKS - duelSim.tick) / R.FPS)) : null,
+  });
 
   function duelStatusLine(text) {
     const box = el('arena-duel-status');
@@ -1744,9 +1811,42 @@
     } catch (_) {}
   }
   let duelHeartsCache = '';
+  // ===== المرحلة C: HUD القتال =====
+  // كل ما هنا عرض فقط: يقرأ من duelSim ولا يكتب فيه ولا يرسل شيئاً للخادم.
+  let duelSidePrev = null, duelSideSim = null, duelHudTick = 0;
+  function duelSideDelta(side, amount) {
+    if (!(amount > 0)) return;
+    const panel = el(side === 'hero' ? 'cx-side-hero' : 'cx-side-rival');
+    const box = el(side === 'hero' ? 'cx-delta-hero' : 'cx-delta-rival');
+    if (panel) {
+      panel.classList.add('hurt');
+      clearTimeout(panel._hurtTimer);
+      panel._hurtTimer = setTimeout(() => panel.classList.remove('hurt'), 220);
+    }
+    if (!box) return;
+    box.textContent = `-${amount}`;
+    box.hidden = false;
+    box.style.animation = 'none';
+    void box.offsetWidth;           // إعادة تشغيل الرمية من الصفر
+    box.style.animation = '';
+    clearTimeout(box._hideTimer);
+    box._hideTimer = setTimeout(() => { box.hidden = true; }, 860);
+  }
+  function duelHeartsPips(box, hearts, max) {
+    for (let i = 0; i < max; i++) {
+      const pip = document.createElement('span');
+      pip.className = 'as-pip';
+      if (i < hearts) pip.classList.add('on');
+      box.appendChild(pip);
+    }
+  }
   function duelHud() {
     if (!duelSim) return;
     const p = duelSim.player, rival = duelSim.enemies[0];
+    // أسماء اللوحة: اسم المقاتل وحده (المعاينة قبل المبارزة تضيف اسم الساحة — لا مكان له في القتال)
+    const heroNameEl = el('arena-preview-hero'), rivalNameEl = el('arena-preview-rival');
+    if (heroNameEl) heroNameEl.textContent = (R.CHARACTERS && R.CHARACTERS[currentHero] && R.CHARACTERS[currentHero].name) || 'المحارب';
+    if (rivalNameEl && rival) rivalNameEl.textContent = rival.name || 'المبارز';
     const heroPct = Math.max(0, Math.min(100, (p.hearts / Math.max(1, p.maxHearts)) * 100));
     const rivalPct = rival ? Math.max(0, Math.min(100, (rival.hp / Math.max(1, rival.maxHp)) * 100)) : 0;
     const heroBar = el('arena-hp-hero'), rivalBar = el('arena-hp-rival');
@@ -1757,7 +1857,8 @@
       skillBtn.classList.toggle('ready', ready);
       skillBtn.classList.toggle('cool', !ready);
       skillBtn.setAttribute('aria-disabled', ready ? 'false' : 'true');
-      skillBtn.dataset.cd = String(Math.max(0, p.skillCooldown));
+      // العدّاد بالثواني (عرض فقط): يُقرأ من مهلة المهارة نفسها
+      skillBtn.dataset.cd = String(Math.max(0, Math.ceil(p.skillCooldown / (R.FPS || 60))));
     }
     if (heroBar) heroBar.style.width = `${heroPct}%`;
     if (rivalBar) rivalBar.style.width = `${rivalPct}%`;
@@ -1772,22 +1873,69 @@
       if (key !== duelHeartsCache) {
         duelHeartsCache = key;
         heartsBox.textContent = '';
-        for (let i = 0; i < max; i++) {
-          const pip = document.createElement('span');
-          pip.textContent = '♥';
-          if (i < p.hearts) pip.className = 'on';
-          heartsBox.appendChild(pip);
-        }
+        duelHeartsPips(heartsBox, p.hearts, max);
       }
     }
     const heroEn = el('arena-en-hero');
     if (heroEn) heroEn.style.width = `${Math.max(0, Math.min(100, 100 - (p.skillCooldown || 0) / Math.max(1, p.skillMaxCooldown || 1) * 100))}%`;
+    // شريط الخصم = جاهزية هجومه القادم (من مؤقّت المحاكاة نفسه)، لا تكراراً لشريط صحته
     const rivalEn = el('arena-en-rival');
-    if (rivalEn && rival) rivalEn.style.width = `${Math.max(0, Math.min(100, 100 - (rival.hp / Math.max(1, rival.maxHp)) * 100))}%`;
+    if (rivalEn && rival) {
+      const walk = Math.max(1, rival.ai?.walk || 30);
+      rivalEn.style.width = `${Math.max(0, Math.min(100, 100 - (rival.timer || 0) / walk * 100))}%`;
+    }
     const timerEl = el('arena-timer');
     if (timerEl) timerEl.textContent = String(Math.max(0, Math.ceil((R.MAX_TICKS - duelSim.tick) / R.FPS)));
     const roundEl = el('arena-round');
     if (roundEl) roundEl.textContent = duelSim.status === 'playing' ? 'مبارزة' : (duelSim.status === 'won' ? 'انتصار' : 'خسارة');
+    // ===== المرحلة C: اللوحات (اسم/مستوى/صحة رقمية/درع/حالات/ضرر) =====
+    const heroPanel = el('cx-side-hero'), rivalPanel = el('cx-side-rival');
+    const zoneNow = Number.isInteger(duelSim.zone) ? duelSim.zone : duelZone;
+    const lvlRival = el('cx-lvl-rival');
+    if (lvlRival) lvlRival.textContent = `مستوى ${zoneNow + 1}`;
+    const hpNum = el('cx-hpnum-rival');
+    if (hpNum && rival) hpNum.textContent = `${Math.max(0, Math.round(rival.hp))}/${Math.round(rival.maxHp || rival.hp)}`;
+    const guardBar = el('cx-guard-hero');
+    if (guardBar) guardBar.style.width = `${Math.max(0, Math.min(100, (p.guard?.stamina || 0) / Math.max(1, p.guard?.maxStamina || 1) * 100))}%`;
+    const skillReady = p.skillCooldown <= 0 && (p.guard?.broken || 0) <= 0
+      && (p.guard?.stamina || 0) >= (R.DUEL?.skill?.cost || 0) && !p.skill;
+    if (heroPanel) {
+      heroPanel.classList.toggle('guard', Boolean(p.guard && p.guard.active));
+      heroPanel.classList.toggle('dodge', (p.dodge?.ticks || 0) > 0);
+      heroPanel.classList.toggle('skillready', skillReady);
+      heroPanel.classList.toggle('low', p.hearts <= 1);
+    }
+    if (rivalPanel) rivalPanel.classList.toggle('low', Boolean(rival) && rival.hp / Math.max(1, rival.maxHp) <= 0.25);
+    const danger = el('cx-danger');
+    if (danger) danger.hidden = !(duelSim.status === 'playing' && p.hearts <= 1);
+    const centerBox = timerEl ? timerEl.parentElement : null;
+    if (centerBox) centerBox.classList.toggle('urgent', duelSim.status === 'playing' && (R.MAX_TICKS - duelSim.tick) / R.FPS <= 15);
+    // رقم الضرر عند طرف اللوحة: يُشتق من تغيّر الحالة نفسها (لا حدث تخييلي ولا تغيير في الحساب)
+    const heartsNow = p.hearts;
+    const rivalNow = rival ? Math.max(0, Math.round(rival.hp)) : 0;
+    if (duelSideSim !== duelSim) { duelSideSim = duelSim; duelSidePrev = null; }
+    if (duelSidePrev && duelSim.status === 'playing') {
+      if (heartsNow < duelSidePrev.hearts) duelSideDelta('hero', duelSidePrev.hearts - heartsNow);
+      if (rivalNow < duelSidePrev.rival) duelSideDelta('rival', duelSidePrev.rival - rivalNow);
+    }
+    duelSidePrev = { hearts: heartsNow, rival: rivalNow };
+    // شريط الحالة يطفو فوق اللوحة تماماً: ارتفاعها يتغيّر مع طريقة التحكم، فنقيسه مرة كل 30 إطاراً
+    if (++duelHudTick % 30 === 1) {
+      const pad = el('arena-pad');
+      let shown = Boolean(pad) && !pad.hidden;
+      if (shown && typeof window.getComputedStyle === 'function') {
+        try { shown = window.getComputedStyle(pad).display !== 'none'; } catch (_) { shown = true; }
+      }
+      let padH = 0;
+      if (shown && pad && typeof pad.getBoundingClientRect === 'function') {
+        padH = Math.round(pad.getBoundingClientRect().height) || 0;
+      }
+      const rootStyle = document.documentElement && document.documentElement.style;
+      if (rootStyle && typeof rootStyle.setProperty === 'function') {
+        rootStyle.setProperty('--cx-pad-h', `${Math.max(0, padH)}px`);
+      }
+    }
+
     if (duelSim.status === 'playing') {
       const intent = rival && rival.state === 'windup' ? INTENT_LABEL[rival.attack] || 'هجوم' : '';
       const parts = [];

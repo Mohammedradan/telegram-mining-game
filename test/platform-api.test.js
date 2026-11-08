@@ -119,7 +119,7 @@ test('platform API: timeout loss closes once without gold, expired ticket cannot
 test('platform API: a confirmed win is immutable under changed inputs, stolen IDs and ID reuse', async () => {
   const payload = await historical('immutable-win');
   const first = await post('immutable-win', 'finish', payload);
-  assert.equal(first.status, 200); assert.equal(first.body.gold, 98);
+  assert.equal(first.status, 200); assert.equal(first.body.gold, R.rewardFor(payload.state), 'V19.2: cap + completion bonus');
   const owner = `guest_${user('immutable-win')}`;
   const before = await store.getUser(owner);
   const receipt = await store.getPlatformRun(payload.id);
@@ -250,7 +250,7 @@ test('phase 3 API: start issues the config snapshot and defaults to the first mi
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.config, { zone: 0, goal: 0, mode: 'mine', loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
   assert.equal(res.body.version, R.VERSION);
-  assert.equal(R.VERSION, 11);
+  assert.equal(R.VERSION, 12, 'V19.2 (المرحلة A): سلوك الخفاش + اقتصاد الجولة');
   const row = await store.getPlatformRun(res.body.id);
   assert.deepEqual(JSON.parse(row.config_json), res.body.config, 'the snapshot is persisted with the run');
 });
@@ -423,6 +423,30 @@ test('V5 API: a boss that is still standing counts for nothing, and the exit sta
   assert.equal(rush.state.status, 'won');
   const noBoss = rush.inputs.filter(seg => seg.frames > 0).slice(0, 60); // far too short to have beaten anything
   assert.notEqual(R.replay(noBoss, 'miner', R.seedFromId('rush'), config).state.status, 'won');
+});
+
+test('V19.2 API: a lost run pays zero gold — the milestone loot is sealed at the gate, server-side', async () => {
+  const name = 'loss-zero';
+  const owner = `guest_${user(name)}`;
+  const lossId = crypto.randomUUID();
+  await post(name, 'start');
+  await store.withUsers([owner], async () => {
+    const active = await store.activePlatformRun(owner); active.status = 'expired'; await store.savePlatformRun(active);
+    await store.savePlatformRun({ id: lossId, user_id: owner, version: R.VERSION, status: 'playing',
+      config_json: JSON.stringify({ zone: 0, goal: 0, mode: 'mine', loadout: R.normalizeLoadout({}) }),
+      started_at: Date.now() - R.MAX_TICKS / 60 * 1000 - 3000 });
+  });
+  const before = await store.getUser(owner);
+  const goldBefore = before.state.gold, dayGoldBefore = Number(before.sync.platformGold) || 0;
+  const loss = await post(name, 'finish', { id: lossId, inputs: [{ mask: 0, frames: R.MAX_TICKS }] });
+  assert.equal(loss.status, 200, 'the run is accepted and verified');
+  assert.equal(loss.body.won, false);
+  assert.equal(loss.body.gold, 0, 'a loss pays no gold at all (V19.2)');
+  assert.equal(loss.body.milestoneGold, 0, 'and no milestone gold is paid on a loss');
+  assert.equal(loss.body.finalGold, 0);
+  const after = await store.getUser(owner);
+  assert.equal(after.state.gold, goldBefore, 'the wallet does not move');
+  assert.equal(Number(after.sync.platformGold) || 0, dayGoldBefore, 'and the daily counter does not move either');
 });
 
 test('V5 API: the finish body limit fits a long boss recording; the rules still cap it, and an oversized body is refused outright', async () => {

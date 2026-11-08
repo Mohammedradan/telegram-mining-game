@@ -106,7 +106,7 @@ test('worlds: every mine is won by the generic bot at its own unlock gear — ev
     const replay = R.replay(inputs, hero, seed, config);
     assert.equal(replay.ok, true);
     assert.deepEqual(replay.state, state, 'the verified replay reproduces the exact same run');
-    assert.ok(R.rewardFor(state) <= 100, 'the reward cap never moves');
+    assert.ok(R.rewardFor(state) <= R.rewardCap(zone), 'a win never exceeds its mine cap (content + completion bonus)');
     assert.equal(state.bossDefeated, BOSS_ZONES.includes(zone), 'the exit of a boss mine opened because the boss fell');
     assert.ok(state.tick < R.MAX_TICKS * 0.6, 'a winning run leaves the clock plenty of room');
     assert.ok(inputs.length < R.MAX_SEGMENTS / 2, 'and the recording stays far below the segment cap');
@@ -115,11 +115,14 @@ test('worlds: every mine is won by the generic bot at its own unlock gear — ev
   assert.equal(runs, 72);
 });
 
-test('worlds: with no gear at all every hero still beats both bosses (the worst case a real player can be in)', () => {
+test('worlds: every hero beats both bosses with the weakest gear the game actually lets them in with', () => {
+  // V19.2: «بلا أي معدات» ليس حالة يمكن أن يصل إليها لاعب حقيقي في منجم مشروط: الخادم يرفض فتح
+  // منجم 6 بغير pickaxe 4 وarmor 3 (5 قلوب). الاختبار كان يطالب بالفوز بثلاثة قلوب في معركة زعيم
+  // ظهر فيها عدوّ جوّي حقيقي. الحالة الأسوأ الشرعية = متطلبات فتح المنجم نفسها.
   for (const zone of BOSS_ZONES) for (const hero of HEROES) {
-    const seed = R.seedFromId(`bare-${zone}-${hero}`), config = { zone, loadout: {} };
+    const seed = R.seedFromId(`bare-${zone}-${hero}`), config = { zone, loadout: { ...(R.MINES[zone].requires?.gear || {}) } };
     const { state, inputs, stats } = bot(seed, hero, config);
-    assert.equal(state.status, 'won', `${hero} beats the boss of ${R.MINES[zone].id} bare-handed`);
+    assert.equal(state.status, 'won', `${hero} beats the boss of ${R.MINES[zone].id} with the weakest legal gear`);
     assert.deepEqual(R.replay(inputs, hero, seed, config).state, state);
     const fight = stats.bossDeadAt - stats.fightFrom;
     assert.ok(fight >= 300, `the fight is a real fight, not a tap (${fight} ticks)`);
@@ -219,6 +222,9 @@ test('boss: the Warden alternates a charge and a slam, and once enraged opens wi
   const { s, boss } = arena(5);
   place(s, boss.wake); R.step(s, 0);
   const winds = [];
+  // الخفاش عدوّ جوّي حقيقي (V19.2): هنا نقيس إيقاع الزعيم وحده، واللاعب مثبَّت في مكانه بلا دفاع،
+  // فيُعزل الحرّاس الطائرون كي لا يقتلوه فيتوقف الإيقاع قبل اكتمال القياس.
+  s.enemies = s.enemies.filter(e => !e.flying);
   for (let t = 0; t < 3600; t++) {
     place(s, 1450); // far out of every reach: only the boss's own rhythm is measured
     if (t === 700) boss.hp = Math.floor(boss.maxHp / 2);

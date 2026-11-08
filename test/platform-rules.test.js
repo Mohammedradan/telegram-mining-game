@@ -9,7 +9,7 @@ test('platform: deterministic complete level requires movement, mining, jumps an
   assert.equal(state.status, 'won'); assert.equal(state.damage, 0); assert.ok(state.mined >= 1); assert.ok(state.collected >= 3);
   assert.ok(state.player.x > 2500); assert.ok(state.tick > 600 && state.tick < 1200);
   assert.deepEqual(R.replay(inputs).state, state);
-  assert.equal(R.rewardFor(state), 98);
+  assert.equal(R.rewardFor(state), 98 + R.completionBonus(0), 'V19.2: content cap + completion bonus');
 });
 test('platform: gravity lands exactly on ground and a held jump never becomes infinite jumping', () => {
   const s = R.create(); s.player.y = 120; s.player.grounded = false;
@@ -247,7 +247,8 @@ test('phase 2: replay reproduces ore wallet and milestones exactly, and the win 
   const seed = R.seedFromId('ore-win-fixture');
   const { state, inputs } = solution(seed);
   assert.equal(state.status, 'won');
-  assert.equal(R.rewardFor(state), 98, 'win keeps the original 100-gold cap formula');
+  // V19.2: الفوز = سقف المحتوى (98) + علاوة إتمام أول منجم (20). لا يزال تحت سقف المحتوى+العلاوة.
+  assert.equal(R.rewardFor(state), 98 + R.completionBonus(0), 'a win pays the content cap plus the completion bonus');
   const replayed = R.replay(inputs, 'miner', seed);
   assert.equal(replayed.ok, true);
   assert.deepEqual(R.oreSummary(replayed.state), R.oreSummary(state), 'the server credits the same ores');
@@ -256,12 +257,13 @@ test('phase 2: replay reproduces ore wallet and milestones exactly, and the win 
   const haul = R.oreSummary(state);
   assert.ok(Object.values(haul).some(v => v > 0), 'the run yields real ores');
   const breakdown = R.rewardBreakdown(state);
-  assert.equal(breakdown.total, 98);
-  assert.equal(breakdown.milestoneGold + breakdown.finalGold, 98);
-  assert.ok(breakdown.milestoneGold <= 100 && breakdown.finalGold <= 100);
+  assert.equal(breakdown.total, 98 + R.completionBonus(0));
+  assert.equal(breakdown.milestoneGold + breakdown.finalGold + breakdown.salvage, breakdown.total);
+  assert.equal(breakdown.salvage, 0, 'a win needs no salvage');
+  assert.ok(breakdown.total <= R.rewardCap(state.zone));
 });
 
-test('phase 2: milestones unlock only part of the same cap, losses keep milestones but never exceed it', () => {
+test('phase 2 / V19.2: milestones are loot that is sealed at the gate, and a lost run pays no milestone gold', () => {
   const s = R.create('miner', 12345);
   assert.deepEqual(R.oreSummary(s), { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 });
   assert.equal(R.rewardFor(s), 0, 'an untouched lost run pays nothing');
@@ -270,14 +272,19 @@ test('phase 2: milestones unlock only part of the same cap, losses keep mileston
   s.status = 'lost';
   const lost = R.rewardBreakdown(s);
   assert.equal(lost.potential, 100);
-  assert.equal(lost.milestoneGold, 5 * R.MILESTONE_GOLD);
+  assert.equal(lost.milestoneGold, 0, 'milestones are not paid when the run is abandoned or lost');
   assert.equal(lost.finalGold, 0);
-  assert.equal(lost.total, 60, 'no gold is created above the 100 cap');
+  assert.equal(lost.total, 0, 'a 0-second loss pays nothing even with five milestones');
+  s.tick = R.FPS * 120; s.checkpoint = 920; // محاولة صادقة: 120 ثانية وتجاوز أول نقطة حفظ
+  const salvage = R.rewardBreakdown(s);
+  assert.equal(salvage.milestoneGold, 0);
+  assert.equal(salvage.total, R.RUN_REWARD.salvageCap, 'the honest-attempt salvage is capped and small');
+  assert.ok(salvage.total < 100 / 6, 'salvage is far below any win');
   s.status = 'won';
   const won = R.rewardBreakdown(s);
-  assert.equal(won.total, 100);
-  assert.equal(won.finalGold, 40);
-  assert.equal(R.rewardFor(s), 100);
+  assert.equal(won.total, 100 + R.completionBonus(0), 'a win adds the completion bonus above the old cap');
+  assert.equal(won.finalGold, won.total - 5 * R.MILESTONE_GOLD);
+  assert.equal(R.rewardFor(s), won.total);
 });
 
 test('phase 2: ore and milestone events only fire once per achievement', () => {

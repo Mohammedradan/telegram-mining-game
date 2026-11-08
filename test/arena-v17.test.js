@@ -27,25 +27,30 @@ test('الشاشة للعبة: الهيدر والذهب وشريط التنقّ
   assert.match(css, /body\.arena-live \.arena-x-bar \{[\s\S]*?display: flex;/, 'the two chips are the only chrome left');
 });
 
-test('عمود واحد على أي عرض: شبكة العمودين (V15) لا تُطبَّق في وضع الشاشة الكاملة', () => {
-  assert.match(css, /body\.arena-live #tab-arena\.active \{\s*\n\s*display: flex; flex-direction: column;/, 'the two-column grid is explicitly overridden');
+test('المسرح ملء الشاشة داخل التبويب، والأدوات تطفو أعلى المسرح', () => {
+  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena\.active \{[^}]*position: relative; display: block/, 'the tab becomes a positioning frame with no stacked rows');
+  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{[^}]*position: absolute; inset: 0/, 'the stage covers the whole tab');
+  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-x-bar \{[^}]*position: absolute; top: 8px; left: 8px/, 'the chips float in the sky (left)');
+  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \{[^}]*position: absolute; top: 8px; right: 8px/, 'the start button floats in the sky (right) — never over the fighters');
+  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \.arena-duel-btn \{[^}]*min-height: 40px/, 'and shrinks to a compact pill so it does not eat the frame');
   const wideRule = html.indexOf('body:not(.duel-live) #tab-arena.active {');
-  const v17Rule = html.indexOf('body.arena-live #tab-arena.active {');
-  assert.ok(wideRule > 0 && v17Rule > wideRule, 'the override comes later in the stylesheet, so it wins the tie');
+  const v17Rule = html.indexOf('body.arena-live:not(.arena-more) #tab-arena.active {');
+  assert.ok(wideRule > 0 && v17Rule > wideRule, 'the two-column grid (V15) is overridden later in the file, so it loses the tie');
 });
 
-test('المسرح يأخذ كل الارتفاع بدل نسبة ثابتة', () => {
-  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{[^}]*flex: 1 1 auto; min-height: 0/, 'the stage grows into the freed space');
+test('لا نسبة 16:9 ولا سقف ارتفاع في وضع الشاشة الكاملة', () => {
   assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{[^}]*aspect-ratio: auto/, 'no fixed 16:9 box in this mode');
   assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{[^}]*max-height: none/, 'and the old vh cap is lifted');
+  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{[^}]*border: 0; border-radius: 0/, 'full-bleed: no card border/rounding');
 });
 
 test('كل ما تحت المسرح يختفي، ويعود بـ«المزيد»', () => {
   for (const sel of ['#arena-ladder', '#arena-gear', '#arena-advice', '.arena-shots', '#classic-system', '.arena-keyhint', '#arena-pad-mode']) {
     assert.ok(css.includes(`body.arena-live:not(.arena-more) #tab-arena > ${sel}`), `${sel} is hidden in the game-only screen`);
   }
-  assert.match(css, /body\.arena-live\.arena-more #tab-arena\.active \{ overflow-y: auto; \}/, 'the more-view scrolls instead of clipping');
-  assert.match(css, /body\.arena-live\.arena-more #tab-arena > #arena-stage \{[^}]*aspect-ratio: 16 \/ 9/, 'and the stage goes back to its normal ratio so the lists are readable');
+  assert.match(css, /body\.arena-live\.arena-more #tab-arena\.active \{[^}]*overflow-y: auto/, 'the more-view scrolls instead of clipping');
+  assert.match(css, /body\.arena-live\.arena-more #tab-arena > #arena-stage \{[^}]*position: relative; inset: auto;[^}]*aspect-ratio: 16 \/ 9/, 'and the stage returns to the normal flow with its 16:9 box so the lists are readable');
+  assert.match(css, /body\.arena-live\.arena-more #tab-arena > #arena-x-bar,\s*\n\s*body\.arena-live\.arena-more #tab-arena > \.as-bar \{ position: static; max-width: none; \}/, 'the floating tools drop back into the flow');
 });
 
 test('التبديل مربوط فعلاً: يفتح مع الساحة ويُغلق بزرّ «التبويبات»', () => {
@@ -57,5 +62,7 @@ test('التبديل مربوط فعلاً: يفتح مع الساحة ويُغ�
 
 test('أثناء المبارزة يبقى شريط المبارزة الكاملة فقط — الشاشتان لا تتزاحمان', () => {
   assert.match(html, /body\.duel-live #tab-arena > \*:not\(#arena-stage\):not\(#arena-pad\):not\(#arena-duel-status\):not\(#arena-fs-bar\) \{ display: none !important; \}/, 'the duel still hides every child except its four');
-  assert.ok(!/duel-live[^}]*arena-x-bar/.test(html), 'and nothing re-enables the arena chips during a duel');
+  // V19.1 (D1): الشرائح تُخفى صراحةً في المبارزة (كانت تُخفى ضمناً بالقاعدة العامة) —
+  // أي قاعدة جديدة تخصّ الشريحتين في المبارزة يجب أن تكون «إخفاءً» لا «إظهاراً».
+  assert.match(html, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the arena chips are explicitly hidden during a duel');
 });

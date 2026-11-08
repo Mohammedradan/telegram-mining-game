@@ -18,7 +18,7 @@ test('أرضية الساحة بمنظور: صفوف تتباعد هندسياً
   assert.match(dais, /const sx = x - camera, farX = VPX \+ \(sx - VPX\) \* K;/, 'longitudinal seams pull toward the vanishing point');
   assert.match(dais, /c\.moveTo\(sx, bottom\); c\.lineTo\(farX, top\);/, 'and are drawn from the near edge up to the horizon');
   // الأرضية تمتد تحت 360 كي لا تظهر حافة عند التكبير
-  assert.match(dais, /const top = 300, bottom = 3\d\d;/, 'the platform overshoots the world bottom so zoom never reveals an edge');
+  assert.match(dais, /const bottom = Math\.max\(384, Number\.isFinite\(bottomY\) \? bottomY \+ 14 : 0\);/, 'the platform always overshoots the visible bottom (phase A extends it under the frame)');
 });
 
 test('عمق المشهد: ضباب أفق يفصل الخلفية، وبركات ضوء تتباعد، وظل مقدمة', () => {
@@ -44,5 +44,6 @@ test('الرسم بلا عشوائية وبلا لمس للمحاكاة: الح�
 });
 
 test('الملف يُقدّم بنسخة جديدة كي لا تُخدم نسخة قديمة من الكاش', () => {
-  assert.match(html, /platform-arena-scene\.js\?v=8/, 'the arena scene buster moved to v=8');
+  // V19 رفع البصمة إلى v=9 (امتداد السماء على المسرح الطويل) — الاختبار يحرس وجودها لا رقمها
+  assert.match(html, /platform-arena-scene\.js\?v=(9|[1-9]\d+)/, 'the arena scene buster is bumped with the scene changes');
 });

@@ -2,6 +2,14 @@
 (function (root) {
   'use strict';
   const R = root.PlatformRules;
+  // B5: علامات الإنذار الأرضية. الوحدة تُحمَّل قبله في الصفحة؛ وإن غاب (نسخة قديمة في الكاش)
+  // تبقى العلامة تعمل بقيم افتراضية مطابقة فلا يسقط الرسم أبداً.
+  const T = root.PlatformTelegraphs || Object.freeze({
+    INK: Object.freeze({ core: '#ffffff', edge: '#000000', danger: '#ff5535' }),
+    FILL_ALPHA_MAX: 0.4, RIM_ALPHA: 0.9, MARKER_H: 9, MARKER_EXTRA_W: 8,
+  });
+  const TAU = Math.PI * 2;
+  const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
   // Fallback for cached/legacy rule modules that predate cosmetic run zones.
   const DEFAULT_ZONE = {
     name: '', sky: ['#080e1a', '#0c1e2e', '#112838', '#1a3545', '#1e3a4a'],
@@ -75,6 +83,41 @@
     round(c, x, y, w, h, 2, color);
     c.fillStyle = '#ffffff22';
     c.fillRect(x + 1, y + 1, w - 2, 2);
+  }
+
+  // ---- B5: علامة أرضية لموضع هبوط الخفاش ----------------------------------------------
+  // تُرسم قبل الشخصيات دائماً (فهي لا تحجب لاعباً ولا عدواً)، وارتفاعها 9px فقط.
+  // نغمتان معاً — قلب أبيض وحافة سوداء — فيبقى التباين ≥ 4.5:1 على أي أرضية (انظر platform-telegraphs.js).
+  function drawGroundMarker(c, m, reduced) {
+    const grow = reduced ? 1 : clamp01(m.progress);
+    const half = m.w / 2, y = m.y;
+    // طبق داكن: يُقرأ الشكل على الأرضيات الفاتحة
+    c.globalAlpha = 0.30 + 0.10 * grow;
+    c.fillStyle = T.INK.edge;
+    c.beginPath(); c.ellipse(m.x, y, half, 4.2, 0, 0, TAU); c.fill();
+    // مسحة الخطر: هوية لونية تُفرّق الخفاش عن الزعيم
+    c.globalAlpha = Math.min(T.FILL_ALPHA_MAX, 0.22 + 0.18 * grow);
+    c.fillStyle = T.INK.danger;
+    c.beginPath(); c.ellipse(m.x, y, half * 0.92, 3.3, 0, 0, TAU); c.fill();
+    // حافة بيضاء ثابتة من أول إطار إنذار: تُقرأ على الأرضيات الداكنة، وهي التوقيت نفسه لا زينة
+    c.globalAlpha = T.RIM_ALPHA;
+    c.strokeStyle = T.INK.core; c.lineWidth = 1.4;
+    c.beginPath(); c.ellipse(m.x, y, half, 4.6, 0, 0, TAU); c.stroke();
+    // شريط العدّ التنازلي: يكتمل مع اكتمال الإنذار (ثابت العرض مع تقليل الحركة)
+    const barW = Math.max(1, m.w * grow);
+    c.fillStyle = T.INK.core;
+    c.fillRect(m.x - barW / 2, y - 1.2, barW, 2.4);
+    // علامتا الحدّ: تُظهران عرض العلامة بالضبط = عرض الخفاش + 8px
+    c.fillRect(m.x - half - 0.8, y - 4.5, 1.6, 9);
+    c.fillRect(m.x + half - 0.8, y - 4.5, 1.6, 9);
+    c.globalAlpha = 1;
+  }
+  function drawTelegraphs(c, markers, reduced) {
+    if (!markers || !markers.length) return;
+    for (const m of markers) {
+      if (!m) continue;
+      if (m.kind === 'bat') drawGroundMarker(c, m, reduced);
+    }
   }
 
   // ---- Projectile ----
@@ -640,6 +683,126 @@
     c.fillStyle = vig; c.fillRect(0, 0, w, 360);
   }
 
+  // V18: أرض المنجم بمنظور — نفس فكرة أرضية الساحة (صفوف تتباعد + شقوق تتلاقى + حصى
+  // بحجم يتغيّر مع العمق + تعتيم مقدمة). عرض بصري فقط: صندوق الأرض في المحاكاة لا يتغيّر،
+  // والإحداثيات هنا في فضاء العالم (الرسم داخل translate(-camera)) فنستخدم مركز الشاشة
+  // كنقطة تلاشٍ عبر camera + w / 2.
+  function drawMineGround(c, box, camera, w, sk) {
+    const top = box.y, bottom = box.y + box.h, depth = bottom - top;
+    const vpx = camera + w / 2, K = 0.16;
+    const rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+
+    // التربة تبقى بلون منجمها (جلد الصخر) لا لوناً موحّداً
+    const g = c.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0, sk.rock[1]); g.addColorStop(0.45, sk.rock[0]); g.addColorStop(1, sk.rock[0]);
+    c.fillStyle = g; c.fillRect(box.x, top, box.w, depth);
+    const dk = c.createLinearGradient(0, top + depth * 0.3, 0, bottom);
+    dk.addColorStop(0, 'rgba(0,0,0,0)'); dk.addColorStop(1, 'rgba(0,0,0,0.62)');
+    c.fillStyle = dk; c.fillRect(box.x, top, box.w, depth);
+
+    // صفوف تتباعد هندسياً كلما اقتربت من المشاهد
+    const ROWS = 5, body = Math.max(8, depth - 9);
+    for (let r = 0; r < ROWS; r++) {
+      const t0 = Math.pow(r / ROWS, 2), t1 = Math.pow((r + 1) / ROWS, 2);
+      const y0 = top + 9 + body * t0, y1 = top + 9 + body * t1;
+      c.fillStyle = `rgba(255,224,170,${0.02 + 0.06 * (1 - t0)})`;
+      c.fillRect(box.x, y0, box.w, Math.max(1, y1 - y0 - 1));
+      c.fillStyle = `rgba(0,0,0,${0.10 + 0.16 * t1})`;
+      c.fillRect(box.x, y1 - 1, box.w, 1);
+    }
+
+    // شقوق طولية تتلاقى نحو مركز الشاشة
+    const step = 92;
+    for (let x = Math.floor(box.x / step) * step; x < box.x + box.w; x += step) {
+      const farX = vpx + (x - vpx) * K;
+      c.strokeStyle = 'rgba(0,0,0,0.20)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(x, bottom); c.lineTo(farX, top + 10); c.stroke();
+      c.strokeStyle = 'rgba(255,235,190,0.05)';
+      c.beginPath(); c.moveTo(x + 1.6, bottom); c.lineTo(farX + 1.6, top + 10); c.stroke();
+    }
+
+    // حصى يكبر كلما اقترب
+    for (let i = 0; i < 30; i++) {
+      const t = rnd(i, box.y);
+      const y = top + 12 + Math.pow(t, 1.6) * Math.max(4, depth - 16);
+      const x = box.x + rnd(i, 7) * box.w;
+      const r = 0.7 + Math.pow(t, 1.4) * 2.2;
+      c.globalAlpha = 0.30 + t * 0.32;
+      c.fillStyle = t > 0.55 ? sk.hi : sk.crack;
+      c.beginPath(); c.ellipse(x, y, r, r * 0.6, 0, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 1;
+    }
+
+    // الحافة العشبية كما كانت: تُقرأ كسطح يقف عليه المقاتل
+    c.fillStyle = sk.top[0]; c.fillRect(box.x, top, box.w, 9);
+    c.fillStyle = sk.top[1]; c.fillRect(box.x, top, box.w, 6);
+    c.fillStyle = sk.top[2]; c.fillRect(box.x, top + 2, box.w, 3);
+    c.fillStyle = sk.moss;
+    for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
+      c.beginPath(); c.ellipse(mx, top + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
+    }
+
+    // تعتيم المقدمة: يقفل الحافة السفلية ويقرأ الأرض كسطح ممتد
+    const fg = c.createLinearGradient(0, bottom - 22, 0, bottom + 6);
+    fg.addColorStop(0, 'rgba(6,4,2,0)'); fg.addColorStop(1, 'rgba(6,4,2,0.5)');
+    c.fillStyle = fg; c.fillRect(box.x, bottom - 22, box.w, 28);
+  }
+
+  // ===== المرحلة A: تكوين الحلبة (عرض فقط — لا يمسّ المحاكاة) =====
+  // المشكلة المقيسة قبل هذا التعديل: عرض نافذة الساحة كان يُشتق من نسبة الشاشة (520 وحدة كحد أدنى)
+  // فيصبح ارتفاع العالم 1125 وحدة على هاتف 390×844 ⇒ البطل 6% من ارتفاع المسرح، والسماء 94%،
+  // والمقاتلان عند 10% و45% من العرض. هنا يُشتق التكوين من **المقاتلين** لا من الشاشة:
+  // النافذة تكفي المسافة بينهما + هامش، والأرض تُثبَّت عند 80% من الارتفاع، والمقياس يبقى موحّداً.
+  const ARENA_FRAME = Object.freeze({
+    minW: 200,          // أضيق نافذة: مبارزة متلاصقة بلا قصّ
+    maxW: 760,          // سقف مطلق حتى لا يبتعد المشهد كثيراً لو تفرّق المقاتلان
+    minWorldH: 300,     // لا نسحق المشهد رأسياً: نطاق الرسم مصمّم على 300–460
+    groundAt: 0.82,     // خط الأرض عند 82% من ارتفاع المسرح (18% أرضية أمامية للعمق)
+    heroRatio: 0.19,    // هدف: البطل ≈19% من ارتفاع المسرح حين يكونان متقاربين
+    margin: 26,         // هامش كل جهة بين المقاتل والحد
+    fighterScale: 1.3,  // تكبير رسم المقاتلين — بصري فقط، الهيئة الفيزيائية كما هي
+    panLerp: 0.24,      // تلطيف متابعة الكاميرا
+  });
+  const ARENA_WORLD_W = 520;   // عرض ساحة القتال المنطقي كما صُمّم في المحرك
+
+  // النافذة المرئية + موضع الكاميرا، محسوبتان من حالة المحاكاة وحدها (دالة نقية للاختبار)
+  function arenaLayout(state, cssW, cssH) {
+    const aspect = cssW / Math.max(1, cssH);
+    const p = state && state.player ? state.player : { x: 0, w: 24 };
+    const foes = (state && state.enemies) || [];
+    const rival = foes.find((e) => !e.dead) || foes[0] || null;
+    const pc = p.x + p.w / 2;
+    const ec = rival ? rival.x + rival.w / 2 : pc + 160;
+    const sep = Math.abs(ec - pc) + ((p.w + (rival ? rival.w : 0)) / 2);
+    // النافذة = أضيق عرض يستوعب المقاتلين + الهامش. لا نُصغّرها أبداً تحته وإلا قُصّ أحدهم،
+    // ولا نكبّرها أكثر من اللازم وإلا صغر المقاتلان بلا داعٍ.
+    const fitW = sep + ARENA_FRAME.margin * 2;
+    let w = Math.min(ARENA_FRAME.maxW, Math.max(ARENA_FRAME.minW, fitW));
+    // لا نضغط العالم رأسياً أكثر من اللازم: في الشاشات العريضة يفرض ذلك نافذة أوسع
+    w = Math.max(w, ARENA_FRAME.minWorldH * aspect);
+    const worldH = w / aspect;
+    const mid = (pc + ec) / 2;
+    return {
+      w, worldH, aspect,
+      camera: mid - w / 2,             // الكاميرا تُوسّط المقاتلين (كانت مقيّدة عند 0 فتُركت 55% من الحلبة فارغة)
+      top: 360 - ARENA_FRAME.groundAt * worldH,
+      bottom: 360 + (1 - ARENA_FRAME.groundAt) * worldH,
+      ground: 360,
+      heroRatio: (68 * ARENA_FRAME.fighterScale) / worldH,
+      rivalRatio: (82 * ARENA_FRAME.fighterScale) / worldH,
+    };
+  }
+
+  // كاميرا الحلبة بحالة تلطيف صغيرة: تُعاد عند تغيّر المحاكاة أو القفز المفاجئ
+  let arenaCamSim = null, arenaCamX = null;
+  function arenaCamera(state, layout) {
+    if (state !== arenaCamSim) { arenaCamSim = state; arenaCamX = layout.camera; }
+    const target = layout.camera;
+    if (arenaCamX === null || Math.abs(target - arenaCamX) > 220) arenaCamX = target;
+    else arenaCamX += (target - arenaCamX) * ARENA_FRAME.panLerp;
+    return arenaCamX;
+  }
+
   // ---- Main draw ----
   function draw(canvas, s, opts = {}) {
     const reduced = !!opts.reduced;
@@ -656,8 +819,18 @@
     const arenaMode = !!opts.arena;
     // الساحة تُقرَّب (zoom) فتُقرأ كمبارزة: نافذة رأسية أقصر مثبّتة على أرض القتال (y=360 أسفل الشاشة)
     const zoom = Math.max(1, Math.min(2, Number(opts.zoom) || (arenaMode ? 1.34 : 1)));
-    const worldH = 360 / zoom, w = Math.max(280, cssW * worldH / cssH);
-    const scale = pixelW / w, sy = pixelH / worldH, yTop = -(360 - worldH) * sy;
+    // V19: الساحة مواضع مقاتليها ثابتة في العالم (البطل ≈230 والخصم ≈380) وليست ملاحَقة بكاميرا،
+    // فاشتقاق عرض النافذة من نسبة الشاشة يجعل مسرحاً طويلاً بعرض ~280 وحدة يقصّ الخصم ويسحق
+    // المشهد. نضع حداً أدنى لعرض نافذة الساحة، ونعوّض الفرق بالارتفاع (سماء ممتدة فوق y=0)
+    // فيبقى المقياس موحّداً والأرض مثبّتة عند y=360 بلا قصّ ولا تمطيط.
+    const aspect = cssW / Math.max(1, cssH);
+    // الساحة: النافذة من المقاتلين (arenaLayout) — والمنجم يبقى على معادلته القديمة بلا تغيير.
+    const arena = arenaMode ? arenaLayout(s, cssW, cssH) : null;
+    const w = arena ? arena.w : Math.max(280, (360 / zoom) * aspect);
+    const worldH = arena ? arena.worldH : Math.max(360 / zoom, w / aspect);
+    const scale = pixelW / w, sy = pixelH / worldH;
+    // الأرض عند 80% من ارتفاع المسرح في الحلبة (تُظهر أرضية أمامية للعمق)، وأسفل الشاشة في المنجم
+    const yTop = arena ? ARENA_FRAME.groundAt * pixelH - 360 * sy : -(360 - worldH) * sy;
     c.setTransform(scale, 0, 0, sy, 0, yTop);
 
     // subtle screen shake
@@ -668,7 +841,7 @@
       c.translate(shakeX, shakeY);
     }
 
-    const camera = R.cameraFor(s, w);
+    const camera = arena ? arenaCamera(s, arena) : R.cameraFor(s, w);
     const L = R.levelFor ? R.levelFor(s.zone) : R.LEVEL; // V5: كل منجم له مستواه (الأرض والأخطار والراية واللافتات والبوابة)
     const skin = (root.PlatformScenery ? root.PlatformScenery.skinFor(L.id) : null);
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
@@ -678,7 +851,7 @@
     const arenaId = Number.isInteger(opts.arenaId) ? opts.arenaId : (Number.isInteger(s.arenaId) ? s.arenaId : (s.zone || 0) % 4);
     if (arenaMode) {
       // حلبة النينجا: خلفية يابانية متعدّدة الطبقات (قمر/معبد/ساكورا/بوابة/شلال/ضباب/بتلات)
-      if (ArenaScene && ArenaScene.backdrop) ArenaScene.backdrop(c, w, s.tick, reduced, camera, arenaId, Math.max(0, Math.min(1, Number(opts.arenaHeat) || 0)));
+      if (ArenaScene && ArenaScene.backdrop) ArenaScene.backdrop(c, w, s.tick, reduced, camera, arenaId, Math.max(0, Math.min(1, Number(opts.arenaHeat) || 0)), arena);
       else drawArena(c, w, s.tick, reduced, camera);
     } else {
     // ===== Background =====
@@ -788,6 +961,15 @@
     }
     c.globalAlpha = 1;
 
+    // V18.1: ضباب أرضي يفصل جدار الخلفية عن المقدمة (نفس فكرة ضباب أفق الساحة).
+    // يُرسم قبل طبقة الديكور الأمامية فقط، فلا يغبّش البطل ولا الأعداء ولا المنصّات.
+    const groundHaze = c.createLinearGradient(0, 244, 0, 302);
+    groundHaze.addColorStop(0, 'rgba(10,18,24,0)');
+    groundHaze.addColorStop(0.7, 'rgba(10,18,24,0.26)');
+    groundHaze.addColorStop(1, 'rgba(10,18,24,0.04)');
+    c.fillStyle = groundHaze;
+    c.fillRect(0, 244, w, 58);
+
     c.save();
     c.translate(-camera, 0);
 
@@ -848,6 +1030,10 @@
     ];
     for (const ex of extras) {
       if (ex.x < camera - 80 || ex.x > camera + w + 80) continue;
+      // V18.1: ظل تلامس يثبّت الديكور على خط الأرض (كما يُثبَّت البطل بظلّه)
+      const shadowW = ex.type === 'cart' ? 22 : ex.type === 'chest' ? 18 : 14;
+      c.fillStyle = 'rgba(0,0,0,0.28)';
+      c.beginPath(); c.ellipse(ex.x + 16, 300, shadowW, 4.5, 0, 0, Math.PI * 2); c.fill();
       if (ex.type === 'cart') {
         // mine cart
         round(c, ex.x, 284, 32, 14, 3, '#5a4632');
@@ -914,11 +1100,19 @@
     c.fillRect(0, 318, L.width, 10);
 
     }
+
+    // ===== فضاء العالم (إزاحة الكاميرا) =====
+    // المنجم يفتح إزاحته داخل فرعه أعلاه، أما الحلبة فكانت تُرسم بلا إزاحة بينما ترسم منصّتها
+    // (drawDais) بإزاحة كاملة — فينفصل موضع المقاتلين عن الأرض بمقدار الكاميرا.
+    // هنا تُفتح الإزاحة للحلبة فقط، بنفس المنطق، بلا أي مساس بمسار المنجم.
+    if (arenaMode) { c.save(); c.translate(-camera, 0); }
     // ---- Platforms with detailed stone ----
     const sk = arenaMode ? ARENA_SKIN : (skin || { rock: ['#4c443c', '#5a5048'], top: ['#6b7c3f', '#a58253', '#d8b27c'], moss: '#5a6d35', crack: '#3a342e', hi: '#6b6358' });
     for (const box of L.platforms) {
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
       if (arenaMode && box.y >= 290) continue; // أرض الساحة يرسمها مشهد الحلبة (منصّة حجرية) لا كتل المنجم
+      // V18: أرض المنجم تُرسم بمنظور (كتلة عريضة عند خط الأرض) بدل الكتلة المسطّحة
+      if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk); continue; }
       // base rock
       round(c, box.x, box.y, box.w, box.h, 4, sk.rock[0]);
       // inner shading
@@ -1238,6 +1432,9 @@
     }
 
     }
+    // ---- B5: العلامات الأرضية قبل الشخصيات (تحت اللاعب والعدوّ دائماً، لا فوقهما) ----
+    drawTelegraphs(c, opts.telegraphs, reduced);
+
     // ---- Projectiles ----
     if (s.projectiles) for (const proj of s.projectiles) drawProjectile(c, proj);
 
@@ -1245,7 +1442,7 @@
     const bosses = root.PlatformBosses;
     if (bosses) for (const enemy of s.enemies) if (enemy.boss) bosses.drawTelegraph(c, enemy, s, reduced);
     if (s.enemies) for (const enemy of s.enemies) {
-      if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, enemy, false, s.tick, reduced, arenaId);
+      if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, enemy, false, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale);
       else if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); }
       else drawEnemy(c, enemy, s.tick, reduced);
     }
@@ -1253,7 +1450,7 @@
 
     // ---- Hero ----
     drawHeroGhost(c, s.player, s.tick, reduced);
-    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId);
+    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale);
     else drawHero(c, s.player, s.tick, reduced);
     // ---- Mining robot companion (V4 equipment) ----
     if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
@@ -1306,6 +1503,7 @@
     }
     c.globalAlpha = 1;
 
+    if (arenaMode) c.restore();
     c.restore();
 
     // ---- Screen effects ----
@@ -1334,5 +1532,5 @@
     if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, sy, 0, yTop); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
   }
 
-  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos };
+  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos, drawGroundMarker, drawTelegraphs, arenaLayout, ARENA_FRAME, ARENA_WORLD_W };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

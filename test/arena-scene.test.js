@@ -120,7 +120,7 @@ test('the attack telegraph is built from the same fields the engine acts on', ()
 
 test('the arena heats up as the rival weakens and fighters flash when hit', () => {
   const scene = fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-scene.js'), 'utf8');
-  assert.match(scene, /function backdrop\(c, w, tick, reduced, camera, arenaId, heat = 0\)/, 'the backdrop takes the fight heat');
+  assert.match(scene, /function backdrop\(c, w, tick, reduced, camera, arenaId, heat = 0, view\)/, 'the backdrop takes the fight heat (and the visible frame, phase A)');
   assert.match(scene, /if \(heat > 0\.02\)/, 'and only reacts once the rival is hurt');
   assert.match(scene, /const hurtFlash = isPlayer \? \(ent\.invulnerable > 0/, 'a hit flashes the fighter');
   const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
@@ -140,7 +140,8 @@ test('the play canvas never paints the ninja arena — even if a duel simulation
 
 test('the arena tab asks the renderer for the arena scene explicitly', () => {
   const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /renderer\.draw\(arenaCanvas, arenaSim, \{\s*arena: true/, 'the preview stage passes arena: true');
+  // المرحلة B: قد يرسم المسرح «نسخة عرض» أثناء شاشة الاستعداد، لكن الطلب يبقى صريحاً: arena: true
+  assert.match(game, /renderer\.draw\(arenaCanvas, (?:arenaSim|drawState), \{\s*arena: true/, 'the preview stage passes arena: true');
 });
 
 test('the arena floor sits exactly on the physics ground so nobody floats', () => {

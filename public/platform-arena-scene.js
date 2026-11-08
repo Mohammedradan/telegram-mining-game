@@ -84,7 +84,7 @@
     if (!reduced) {
       const drift = (tick * 0.1) % (w + 320) - 160;
       for (let k = 0; k < 3; k++) {
-        c.globalAlpha = 0.05 - k * 0.012;
+        c.globalAlpha = 0.035 - k * 0.009;
         c.fillStyle = '#cdd8ff';
         c.beginPath(); c.ellipse(drift * 0.6 + w * 0.28 + k * 26, y + r * 0.45 + k * 6, 120 - k * 18, 9 - k * 2, 0, 0, TAU); c.fill();
       }
@@ -296,8 +296,10 @@
   // أرضية القتال بمنظور ثلاثي الأبعاد (عرض بصري فقط — لا يمسّ الفيزياء ولا مواضع المقاتلين):
   // خط الأفق عند top، والبلاط يتباعد ويتّسع كلما اقترب من المشاهد، والخطوط الطولية تتلاقى
   // عند نقطة تلاشٍ أبعد، فيقرأ المشهد كساحة لها عمق لا كشريط مسطّح.
-  function drawDais(c, w, camera, th, tick, reduced) {
-    const top = 300, bottom = 384;              // نمتد تحت 360 كي لا تظهر حافة عند التكبير
+  function drawDais(c, w, camera, th, tick, reduced, bottomY) {
+    const top = 300;
+    // نمتد تحت 360 كي لا تظهر حافة عند التكبير، وإلى أسفل الإطار المرئي (أرضية أمامية للعمق)
+    const bottom = Math.max(384, Number.isFinite(bottomY) ? bottomY + 14 : 0);
     const depth = bottom - top;
     const VPX = w / 2, K = 0.42;                // تقارب الخطوط الطولية عند الأفق
     const ROWS = 7;
@@ -379,33 +381,62 @@
   }
 
   // ===== الخلفية الكاملة =====
-  function backdrop(c, w, tick, reduced, camera, arenaId, heat = 0) {
+  function backdrop(c, w, tick, reduced, camera, arenaId, heat = 0, view) {
     const th = arenaFor(arenaId);
-    const sky = c.createLinearGradient(0, 0, 0, 360);
-    sky.addColorStop(0, th.sky[0]); sky.addColorStop(0.25, th.sky[1]);
-    sky.addColorStop(0.5, th.sky[2]); sky.addColorStop(0.72, th.sky[3]); sky.addColorStop(1, th.sky[4]);
-    c.fillStyle = sky; c.fillRect(0, 0, w, 360);
+    // المرحلة A: الإطار المرئي يأتي من المُصيِّر (top/bottom/ground). بدونه تبقى القيم القديمة.
+    const V = view && Number.isFinite(view.top) ? view : null;
+    const HORIZON = 292;
+    // V19: الشاشة الطويلة (هاتف عمودي بمسرح مِلء الشاشة) تعرض سماءً فوق y=0، فنملأها بالسماء
+    // والنجوم بدل شريط أسود. الإطار يبقى مثبّتاً على الأرض عند y=360.
+    const SKY_TOP = V ? V.top : -420;
+    // سديم مسطّح فوق أعلى نقطة في التدرّج: على شاشة عمودية شديدة الطول قد يُعرض أعلى من -420
+    // فلا يظهر شريط أسود ولا حدّ حاد — لون سماء المنطقة العليا نفسه.
+    c.fillStyle = th.sky[0];
+    c.fillRect(0, SKY_TOP - 600, w, (360 - SKY_TOP) + 600);
+    const sky = c.createLinearGradient(0, SKY_TOP, 0, 360);
+    sky.addColorStop(0, th.sky[0]); sky.addColorStop(0.14, th.sky[0]); sky.addColorStop(0.32, th.sky[1]);
+    sky.addColorStop(0.53, th.sky[2]); sky.addColorStop(0.74, th.sky[3]); sky.addColorStop(1, th.sky[4]);
+    c.fillStyle = sky; c.fillRect(0, SKY_TOP, w, 360 - SKY_TOP);
 
-    // نجوم
-    for (let i = 0; i < 50; i++) {
+    // نجوم: كثافة ثابتة لكل وحدة طول داخل الشريط المرئي (لا شريط فارغ أعلى الشاشة)
+    const skyBand = Math.max(60, HORIZON - SKY_TOP);
+    const starCount = Math.round(Math.min(150, skyBand * 0.34));
+    for (let i = 0; i < starCount; i++) {
       const x = (hash(i, 41) * (w + 200) - camera * 0.01 + w) % (w + 200) - 100;
-      const y = 96 + hash(i, 42) * 120;
+      const y = SKY_TOP + 4 + Math.pow(hash(i, 42), 0.85) * (skyBand - 14);
       const tw = reduced ? 0.6 : 0.35 + Math.abs(Math.sin(tick * 0.03 + i)) * 0.6;
       ring(c, x, y, 0.7 + hash(i, 43) * 0.9, '#ffffff', tw * 0.5);
     }
+    // طبقة نجوم أعلى/أبعد (parallax أبطأ) — تُثري أعلى الإطار
+    const farStars = Math.round(Math.min(80, skyBand * 0.16));
+    for (let i = 0; i < farStars; i++) {
+      const x = (hash(i, 71) * (w + 160) - camera * 0.004 + w) % (w + 160) - 80;
+      const y = SKY_TOP + 2 + hash(i, 72) * skyBand * 0.62;
+      const tw = reduced ? 0.5 : 0.25 + Math.abs(Math.sin(tick * 0.024 + i * 1.7)) * 0.5;
+      ring(c, x, y, 0.5 + hash(i, 73) * 0.8, '#ffffff', tw * 0.42);
+    }
 
-    drawMoon(c, th, w, camera, tick, reduced);
+    // القمر يُثبَّت في الثلث الأعلى من الشريط المرئي ويكبر مع ضيق الإطار (لقطة سينمائية)
+    if (V) {
+      const moonY = HORIZON - skyBand * 0.66;
+      const k = Math.max(0.5, Math.min(1.15, skyBand / 300));
+      drawMoon(c, { ...th, moonY, moonR: th.moonR * k }, w, camera, tick, reduced);
+    } else {
+      drawMoon(c, th, w, camera, tick, reduced);
+    }
     drawMountains(c, w, camera, th, tick);
 
     // شلال بعيد
     if (th.waterfall) drawWaterfall(c, w * 0.3 - camera * 0.06, 128, 168, 34, th, tick, reduced);
 
+    // مقاس الديكور يتبع الشريط المرئي: الإطار الضيق يجعل العناصر نفسها عملاقة بلا هذا التطبيع
+    const PS = V ? Math.max(0.72, Math.min(1.02, skyBand / 320)) : 1;
     // المعبد في العمق
-    drawTemple(c, w * 0.52 - camera * 0.14, 292, 1.12, th, tick, reduced);
+    drawTemple(c, w * 0.62 - camera * 0.14, 292, 1.12 * PS, th, tick, reduced);
 
     // صف أشجار الساكورا (متوسط)
     for (let i = Math.floor((camera * 0.3) / 300) - 1; i < Math.ceil((camera * 0.3 + w) / 300) + 1; i++) {
-      drawSakura(c, i * 300 - camera * 0.3 + 60, 292, 0.95 + hash(i, 51) * 0.25, th, tick, reduced, i * 3.3);
+      drawSakura(c, i * 300 - camera * 0.3 + 60, 292, (0.95 + hash(i, 51) * 0.25) * PS, th, tick, reduced, i * 3.3);
     }
 
     // ضباب متوسط
@@ -414,9 +445,9 @@
     // بوابة توري وفوانيس (قريب)
     for (let i = Math.floor((camera * 0.55) / 420) - 1; i < Math.ceil((camera * 0.55 + w) / 420) + 1; i++) {
       const bx = i * 420 - camera * 0.55 + 150;
-      drawTorii(c, bx, 296, 1.05, th);
-      drawLantern(c, bx - 96, 264, 1.05, th, tick, reduced);
-      drawLantern(c, bx + 96, 264, 1.05, th, tick, reduced);
+      drawTorii(c, bx, 296, 1.05 * PS, th);
+      drawLantern(c, bx - 96 * PS, 264 + (1 - PS) * 40, 1.05 * PS, th, tick, reduced);
+      drawLantern(c, bx + 96 * PS, 264 + (1 - PS) * 40, 1.05 * PS, th, tick, reduced);
     }
 
     // ضباب قريب أمام الأشجار
@@ -425,12 +456,38 @@
     // ضباب الأفق: يدفع المعبد والساكورا والتوري إلى الخلف ويجعل حلبة القتال في المقدمة (عمق)
     const haze = c.createLinearGradient(0, 232, 0, 300);
     haze.addColorStop(0, 'rgba(52,40,80,0)');
-    haze.addColorStop(0.62, 'rgba(46,34,72,0.18)');
-    haze.addColorStop(1, 'rgba(20,14,34,0.46)');
+    haze.addColorStop(0.62, 'rgba(46,34,72,0.26)');
+    haze.addColorStop(1, 'rgba(16,11,30,0.62)');
     c.fillStyle = haze; c.fillRect(0, 232, w, 68 + 12);
+    // غلالة إضافية فوق خط الأفق: تفصل طبقة الديكور عن طبقة القتال (عمق بلا حجب)
+    if (V) {
+      const veil = c.createLinearGradient(0, 250, 0, 306);
+      veil.addColorStop(0, 'rgba(10,7,20,0)');
+      veil.addColorStop(1, 'rgba(10,7,20,0.34)');
+      c.fillStyle = veil; c.fillRect(0, 250, w, 56);
+    }
 
-    drawDais(c, w, camera, th, tick, reduced);
+    drawDais(c, w, camera, th, tick, reduced, V ? V.bottom : 0);
     drawPetals(c, w, tick, th, reduced);
+
+    // ===== المرحلة A: تأطير المقدمة =====
+    // مع الإطار الجديد تظهر أرضية أمامية واسعة أسفل الشاشة (شبكة بلاط فارغة). نُغلقها بتدرّج داكن
+    // وبتلات كبيرة ضبابية: عمق سينمائي بلا حجب — كل هذا أسفل خط أقدام المقاتلين (y>360).
+    if (V && V.bottom > 380) {
+      const fgTop = V.bottom - (V.bottom - 366) * 0.55;
+      const fgG = c.createLinearGradient(0, fgTop, 0, V.bottom);
+      fgG.addColorStop(0, 'rgba(4,3,10,0)');
+      fgG.addColorStop(1, 'rgba(4,3,10,0.85)');
+      c.fillStyle = fgG; c.fillRect(0, fgTop, w, V.bottom - fgTop + 2);
+      for (let i = 0; i < 5; i++) {
+        const x = (hash(i, 91) * (w + 140) + camera * 1.2) % (w + 140) - 70;
+        const y = fgTop + 16 + hash(i, 92) * (V.bottom - fgTop - 40);
+        c.globalAlpha = 0.16 + hash(i, 93) * 0.14;
+        c.fillStyle = th.petal;
+        c.beginPath(); c.ellipse(x, y, 16 + hash(i, 94) * 22, 5 + hash(i, 95) * 6, hash(i, 96) * 3, 0, TAU); c.fill();
+      }
+      c.globalAlpha = 1;
+    }
 
     // إضاءة ملوّنة: زرقاء من جهة البطل وحمراء من جهة الخصم (تُكمل من المشهد)
     // وكلما اقترب الخصم من السقوط (heat) يشتدّ الأحمر ونبض الأطراف — توتر المبارزة
@@ -440,7 +497,7 @@
       const edge = c.createRadialGradient(w / 2, 250, w * 0.2, w / 2, 250, w * 0.8);
       edge.addColorStop(0, 'rgba(0,0,0,0)');
       edge.addColorStop(1, `rgba(190,30,40,${0.28 * heat * pulse})`);
-      c.fillStyle = edge; c.fillRect(0, 0, w, 360);
+      c.fillStyle = edge; c.fillRect(0, -4000, w, 4360);
     }
     const blue = c.createRadialGradient(w * 0.3, 300, 10, w * 0.3, 300, w * 0.42);
     blue.addColorStop(0, th.blueLight); blue.addColorStop(1, 'rgba(0,0,0,0)');
@@ -453,7 +510,7 @@
     // تعتيم الأطراف
     const vig = c.createRadialGradient(w / 2, 210, w * 0.34, w / 2, 210, w * 1.0);
     vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.6)');
-    c.fillStyle = vig; c.fillRect(0, 0, w, 360);
+    c.fillStyle = vig; c.fillRect(0, -4000, w, 4360); // V19: يمتد للتعتيم فوق y=0 على الشاشات الطويلة
     c.globalAlpha = 1;
   }
 
@@ -542,7 +599,7 @@
     return base;
   }
 
-  function drawNinja(c, ent, isPlayer, tick, reduced, arenaId) {
+  function drawNinja(c, ent, isPlayer, tick, reduced, arenaId, drawScale) {
     const skin = isPlayer ? SKINS.player : SKINS.rival;
     const p = poseOf(ent, isPlayer, tick);
     const w = ent.w || 24, h = ent.h || 38;
@@ -566,10 +623,27 @@
     }
     const facing = ent.facing >= 0 ? 1 : -1;
     // الرسم منمّذ على 92 وحدة ثم يُقاس: البطل أصغر قليلاً من المبارز لكنه مقروء
-    const sc = (isPlayer ? 68 : 82) / 92;
+    // المرحلة A: تكبير بصري موحّد (1.3) — الرسم فقط، الهيئة الفيزيائية (24×38 / 44×64) لا تتغيّر
+    const boost = Number.isFinite(drawScale) && drawScale > 0 ? drawScale : 1;
+    const sc = ((isPlayer ? 68 : 82) / 92) * boost;
 
     c.save();
     c.translate(cx, feet);
+    // المرحلة A: هالة فصل داكنة خلف المقاتل — تفصله عن معبد/بوابة مزدحمين وتُقرأ الشخصية أولاً
+    const vh = 92 * sc;
+    const halo = c.createRadialGradient(0, -vh * 0.52, 3, 0, -vh * 0.52, vh * 0.95);
+    halo.addColorStop(0, 'rgba(5,4,14,0.72)');
+    halo.addColorStop(0.62, 'rgba(5,4,14,0.34)');
+    halo.addColorStop(1, 'rgba(5,4,14,0)');
+    c.fillStyle = halo;
+    c.beginPath(); c.ellipse(0, -vh * 0.50, vh * 0.62, vh * 0.80, 0, 0, TAU); c.fill();
+    // ضوء خلفي ملوّن (أزرق للبطل، أرجواني للخصم): يفصل الصورة الظلية عن أي خلفية بلا تعديل رسم الجسم
+    const back = c.createRadialGradient(0, -vh * 0.55, 2, 0, -vh * 0.55, vh * 0.85);
+    back.addColorStop(0, isPlayer ? 'rgba(96,196,255,0.30)' : 'rgba(232,121,249,0.30)');
+    back.addColorStop(0.55, isPlayer ? 'rgba(70,150,255,0.12)' : 'rgba(200,90,220,0.12)');
+    back.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = back;
+    c.beginPath(); c.ellipse(0, -vh * 0.52, vh * 0.55, vh * 0.70, 0, 0, TAU); c.fill();
     // ظل أرضي بعمق: هالة بيضاوية ناعمة + نواة داكنة. الظل مسطّح على الأرض (scale رأسية)
     // فيقرأ الجسم كمجسّم واقف على أرضية بمنظور، ولونه ثابت كي يبقى الرسم حتمياً.
     const shR = 27 * (p.air ? 0.7 : 1), shA = p.air ? 0.2 : 0.54;
@@ -589,6 +663,13 @@
     c.beginPath(); c.ellipse(11, 2, shR * 0.78, shR * 0.62, 0, 0, TAU); c.fill();
     c.fillStyle = 'rgba(0,0,0,0.45)';
     c.beginPath(); c.ellipse(0, 1, 11, 5, 0, 0, TAU); c.fill();
+    // تنفّس الوقفة (المرحلة B): حركة رسم فقط — تُزيح الجسم والذراعين بلا أي أثر على صندوق التصادم
+    // ولا على التوقيت. تُلغى أثناء الهجوم/القفز/الإصابة حتى لا تُشوّش قراءة الضربة.
+    if (!reduced && !ent.air && !p.air && (ent.state === 'idle' || ent.state === 'approach' || ent.state === 'wake' || !ent.state)) {
+      const br = Math.sin(tick * 0.042 + (isPlayer ? 0 : 1.9));
+      c.translate(0, br * -0.9);
+      c.scale(1 + br * 0.010, 1 - br * 0.004);
+    }
     c.restore();
     c.scale(facing, 1);
     c.scale(sc, sc);
