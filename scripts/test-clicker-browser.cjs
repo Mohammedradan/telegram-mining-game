@@ -668,6 +668,11 @@ async function main() {
     // ---------------------------------------------------------------- the crew, the companion and the walk (display only)
     assert.equal(await page.evaluate(() => document.getElementById('ck-crew').hidden), true, 'no crew before anything is bought');
     await page.evaluate(() => { state.owned.bot = 3; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 2 }); updateUI(); });
+    // الرسم يتبع الحالة في إطار لاحق أحيانًا: ننتظر ظهور الطاقم فعليًا قبل قياسه (كان getComputedStyle يصطدم بعنصر غير مرسوم بعد)
+    await page.waitForFunction(() => {
+      const box = document.getElementById('ck-crew');
+      return box && !box.hidden && box.querySelector('.ck-crew-rig') && document.querySelector('.ck-companion');
+    }, null, { timeout: 5000 }).catch(() => {});
     const crew = await page.evaluate(() => {
       const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
       const box = document.getElementById('ck-crew'), kids = [...box.children].filter((c) => !c.classList.contains('ck-crew-more'));
@@ -687,6 +692,7 @@ async function main() {
     await page.touchscreen.tap(rigBox.x + rigBox.width / 2, rigBox.y + rigBox.height / 2);
     assert.equal(await page.evaluate(() => state.gold), gCrew, 'tapping the crew is scenery: it never mines');
     await page.evaluate(() => { state.owned.bot = 9; state.owned.rig = 3; updateUI(); });
+    await page.waitForFunction(() => document.querySelectorAll('#ck-crew .ck-crew-more').length === 2, null, { timeout: 5000 }).catch(() => {});
     assert.deepEqual(await page.evaluate(() => [document.querySelectorAll('#ck-crew .ck-crew-bot').length, document.querySelectorAll('#ck-crew .ck-crew-rig').length, [...document.querySelectorAll('#ck-crew .ck-crew-more')].map((b) => b.textContent)]), [5, 2, ['+1', '+4']], 'what the lane cannot hold becomes a +N badge');
     // the walk: stride (lean, squash, weight), a breathing shadow and dust behind the feet while he walks; breathing again when he stops
     const walk = await page.evaluate(async () => {
