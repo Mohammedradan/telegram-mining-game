@@ -103,8 +103,27 @@ async function main() {
       const start = await read(page);
       assert.equal(start.zone, flow.zone); assert.equal(start.hero, flow.hero);
       assert.deepEqual(start.boss && [start.boss.name, start.boss.state, start.boss.defeated], [flow.boss, 'sleep', false], 'the boss waits at the far end');
-      assert.equal(await page.locator('#mission-boss').isVisible(), true, 'the mission card shows the boss row');
-      assert.equal(await page.locator('#mission-boss').textContent(), '0/1');
+      // بطاقة المهام تُخفى بقواعد تصميم صريحة: @media(max-height:470px) (platform.css:548-549)،
+      // stage-ultra (platform.css:595)، أو fit-3 الذي يضيفه syncOverlayFit عند قياس فيض (platform.css:610).
+      // لا نطلب ظهورها حيث تخفيها القواعد، ونطلبه في كل وضع تعرضها فيه، ونتحقق دائمًا من بيانات الزعيم نفسها.
+      const mission = await page.evaluate(() => {
+        const row = document.getElementById('mission-boss').closest('.mission-row');
+        const card = document.getElementById('overlay-mission');
+        const stage = document.querySelector('.mine-stage');
+        const overlay = document.getElementById('platform-overlay');
+        return {
+          rowHidden: row.hidden, cardDisplay: getComputedStyle(card).display,
+          stage: stage.className, overlay: overlay.className,
+          hiddenByDesign: window.matchMedia('(max-height: 470px)').matches
+            || stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-3'),
+        };
+      });
+      assert.equal(mission.rowHidden, false, 'بيانات الزعيم موجودة في الجولة دائمًا');
+      assert.equal(mission.cardDisplay === 'none', mission.hiddenByDesign, `بطاقة المهام مخفية فقط حين تفرض القواعد ذلك (stage="${mission.stage}")`);
+      if (!mission.hiddenByDesign) {
+        assert.equal(await page.locator('#mission-boss').isVisible(), true, 'the mission card shows the boss row');
+        assert.equal(await page.locator('#mission-boss').textContent(), '0/1');
+      }
 
       const seed = R.seedFromId(start.ticket), config = start.config;
       // the real-time loop may have stepped a few idle ticks before the pause landed: the bot continues from exactly there

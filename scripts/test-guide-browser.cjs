@@ -295,8 +295,26 @@ async function main() {
       await page.locator('#open-guide').scrollIntoViewIfNeeded();
       const btn = await box(page, '#open-guide');
       assert.ok(btn.l >= 0 && btn.r <= vp.width && btn.t >= 0 && btn.h >= 34, `${tag}: the button is on screen and tappable (${btn.w}x${btn.h})`);
-      const kicker = await box(page, '.overlay-kicker');
-      assert.ok(kicker.h >= 22, `${tag}: the caption pill keeps its height (${kicker.h}px): overflow hidden on a flex item let it shrink to 12px on a short screen`);
+      // كبسولة العنوان تتقلّص عمدًا على stage-short (19px) وتُخفى عمدًا على stage-ultra (platform.css:594)
+      // أو عندما يقيس syncOverlayFit فيضًا فيضيف fit-2 (platform.css:608). الشرط يحرس العقد: تظهر دائمًا
+      // إلا حين يفرض التصميم إخفاءها، وحين تظهر لا يُقصّ نصّها ولا تنكمش إلى 12px.
+      const pill = await page.evaluate(() => {
+        const el = document.querySelector('#platform-overlay .overlay-kicker');
+        const stage = document.querySelector('.mine-stage');
+        const overlay = document.getElementById('platform-overlay');
+        const cs = getComputedStyle(el), b = el.getBoundingClientRect();
+        return {
+          display: cs.display, h: Math.round(b.height), clipped: el.scrollWidth > el.clientWidth + 1,
+          stage: stage.className, overlay: overlay.className,
+          hiddenByDesign: stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-2'),
+        };
+      });
+      const pillHidden = pill.display === 'none';
+      assert.equal(pillHidden, pill.hiddenByDesign, `${tag}: الكبسولة مخفية فقط حين يفرض التصميم ذلك (stage="${pill.stage}")`);
+      if (!pillHidden) {
+        assert.ok(pill.h >= 18, `${tag}: الكبسولة تحتفظ بارتفاعها المضغوط (${pill.h}px؛ المصمَّم على stage-short هو 19px)`);
+        assert.equal(pill.clipped, false, `${tag}: نص الكبسولة لا يُقصّ`);
+      }
       const title = await page.evaluate(() => document.getElementById('platform-title').textContent);
       for (const text of OVERLAY_TITLES) {
         await page.evaluate((t) => { document.getElementById('platform-title').textContent = t; }, text);

@@ -2,6 +2,8 @@
 // CHROMIUM_PATH=/path/to/chromium npm run test:browser
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
+// سقوف المكافأة تُقرأ من المحرك المشترك، لا من أرقام مكتوبة في الاختبار.
+const R = require('../public/platform-rules');
 const fs = require('node:fs');
 const path = require('node:path');
 const base = process.env.TEST_APP_URL || 'http://127.0.0.1:3000';
@@ -151,7 +153,12 @@ async function main() {
     assert.ok(Array.isArray(committed.milestones) && committed.milestones.length === final.milestones);
     report.feel = { floatersSpawned: final.floatersSpawned, comboPeak: final.comboPeak, missionComplete: true,
       milestones: final.milestones, ores: final.ores, goldSplit: { milestone: committed.milestoneGold, final: committed.finalGold } };
-    assert.equal(committed.won, true); assert.ok(committed.gold > 0 && committed.gold <= 100);
+    assert.equal(committed.won, true);
+    // سقف الجولة في المحرك = 100 (سقف المحتوى) + علاوة إتمام (20 + 10×المنجم): 120 في المنجم 0 و130 في المنجم 1.
+    // الرقم الثابت 100 كان سقف المحتوى وحده قبل إضافة علاوة الإتمام (public/platform-rules.js: RUN_REWARD/rewardCap).
+    const rewardCap = R.rewardCap(final.zone);
+    assert.ok(rewardCap >= R.RUN_REWARD.base, `cap ${rewardCap} never drops below the content cap`);
+    assert.ok(committed.gold > 0 && committed.gold <= rewardCap, `gold ${committed.gold} within the engine cap ${rewardCap} (zone ${final.zone})`);
     assert.equal((await read(page)).pending, true);
     await page.reload();
     await page.waitForFunction(() => window.PlatformGame?.inspect().pending && !document.getElementById('platform-retry').hidden);
