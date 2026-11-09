@@ -30,7 +30,8 @@ async function waitReady() {
 }
 function connect(guest) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws?guest=${guest}`);
+    // الهوية لم تعد في الرابط: أول رسالة بعد الفتح تحمل المصادقة.
+    const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws`);
     ws.messages = [];
     ws.waiters = [];
     ws.on('message', (raw) => {
@@ -55,6 +56,7 @@ function connect(guest) {
       });
     });
     ws.on('open', () => {
+      ws.send(JSON.stringify({ type: 'auth', guest }));
       sockets.push(ws);
       // open is only the transport handshake; welcome confirms server readiness.
       ws.waitFor('welcome').then(() => resolve(ws), reject);

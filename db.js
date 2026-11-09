@@ -264,8 +264,13 @@ function createPgStore(url) {
   const { Pool } = require('pg');
   // اتصالات داخلية (localhost أو شبكة Render الداخلية) بلا SSL، وغيرها بـ SSL كما تفرضه السحابة
   const isLocal = /localhost|127\.0\.0\.1|\.internal\b/.test(url);
+  // مهلات صريحة: قواعد البيانات المجانية (Neon/Supabase/Render) تُوقف الحوسبة عند الخمول،
+  // فطلب بلا مهلة قد يتعلّق دقيقة كاملة عند أول اتصال بعد سكون. القيم قابلة للضبط من البيئة.
   const pool = new Pool({
     connectionString: url,
+    max: Math.max(1, Math.min(50, Number(process.env.PG_POOL_MAX) || 10)),
+    connectionTimeoutMillis: Math.max(1000, Number(process.env.PG_CONNECT_TIMEOUT_MS) || 10000),
+    idleTimeoutMillis: Math.max(1000, Number(process.env.PG_IDLE_TIMEOUT_MS) || 30000),
     ssl: !isLocal && process.env.PGSSL !== 'disable' ? { rejectUnauthorized: false } : undefined,
   });
   const ready = pool.query(SCHEMA_PG);

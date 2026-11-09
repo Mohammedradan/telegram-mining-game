@@ -1372,19 +1372,70 @@ const raceCode = () => {
   return raceRooms.has(code) ? raceCode() : code;
 };
 
+// حدود اتصالات السباق: سقف للاتصالات غير الموثّقة لكل عنوان، ومهلة مصادقة قصيرة،
+// ونافذة معدّل للرسائل. السقف يخصّ ما قبل المصادقة فقط: شبكات الهاتف تُخفي آلاف
+// المستخدمين خلف عنوان واحد، فسقف صارم على الاتصالات الموثّقة يقطع لاعبين أبرياء.
+// المصادقة تأتي في أول رسالة لا في رابط الاتصال: initData توقيع صالح 24 ساعة، ووضعه
+// في URL يعرّضه لسجلات الوكيل/الخادم وأي أداة تسجيل. الرابط الآن بلا أي سر.
+const WS_MAX_PENDING_PER_IP = Number(process.env.WS_MAX_PENDING_PER_IP || 24);
+const WS_AUTH_TIMEOUT_MS = Number(process.env.WS_AUTH_TIMEOUT_MS || 8000);
+const WS_MSG_WINDOW_MS = 2000;
+const WS_MSG_MAX_PER_WINDOW = 80;
+const wsPendingByIp = new Map();
+
+function releasePendingSocket(ip) {
+  const left = (wsPendingByIp.get(ip) || 1) - 1;
+  if (left > 0) wsPendingByIp.set(ip, left); else wsPendingByIp.delete(ip);
+}
+
+function wsClientIp(req) {
+  const forwarded = CONFIG.trustProxyHops > 0 ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
+  return forwarded || String(req.socket?.remoteAddress || 'unknown');
+}
+
 function setupMultiplayer(httpServer) {
   if (!WebSocketServer) return; // السباقات معطّلة فقط — بقية اللعبة تعمل
   const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 4096 });
 
-  wss.on('connection', async (ws, req) => {
-    const url = new URL(req.url, 'http://localhost');
-    const auth = authenticate(url.searchParams.get('initData') || '', url.searchParams.get('guest'));
-    const player = auth.player || null;
-    if (!player) { ws.close(4001, 'auth required'); return; }
+  wss.on('connection', (ws, req) => {
+    const ip = wsClientIp(req);
+    const pending = wsPendingByIp.get(ip) || 0;
+    if (pending >= WS_MAX_PENDING_PER_IP) { try { ws.close(4003, 'too many connections'); } catch (_) {} return; }
+    wsPendingByIp.set(ip, pending + 1);
+    let pendingReleased = false;
+    const releasePending = () => {
+      if (pendingReleased) return;
+      pendingReleased = true;
+      releasePendingSocket(ip);
+    };
+    ws.once('close', releasePending);
+
+    const authTimer = setTimeout(() => {
+      if (!ws.player && ws.readyState === ws.OPEN) { try { ws.close(4001, 'auth required'); } catch (_) {} }
+    }, WS_AUTH_TIMEOUT_MS);
+    if (typeof authTimer.unref === 'function') authTimer.unref();
+
+    // أول رسالة فقط: { type: 'auth', initData } أو { type: 'auth', guest } في وضع التطوير.
+    const onHandshake = (raw) => {
+      let msg = null;
+      try { msg = JSON.parse(raw.toString()); } catch (_) { msg = null; }
+      if (!msg || typeof msg !== 'object' || msg.type !== 'auth') { try { ws.close(4001, 'auth required'); } catch (_) {} return; }
+      const auth = authenticate(typeof msg.initData === 'string' ? msg.initData : '', typeof msg.guest === 'string' ? msg.guest : '');
+      if (!auth.player) { clearTimeout(authTimer); try { ws.close(4001, 'auth required'); } catch (_) {} return; }
+      clearTimeout(authTimer);
+      releasePending();
+      ws.off('message', onHandshake);
+      startRaceSession(ws, auth.player);
+    };
+    ws.on('message', onHandshake);
+  });
+
+  async function startRaceSession(ws, player) {
     try { const dbUser = await store.getUser(player.id); if (dbUser?.name && dbUser.name !== 'ضيف') player.name = dbUser.name; } catch (_) {}
 
     if (ws.readyState !== ws.OPEN) return;
     ws.player = { ...player, roomId: null, ready: false, lastProgress: 0 };
+    ws.msgWindow = { start: Date.now(), count: 0 };
     sendWs(ws, { type: 'welcome', id: player.id, name: player.name });
 
     const leaveRoom = (notify = true) => {
@@ -1429,6 +1480,11 @@ function setupMultiplayer(httpServer) {
 
     ws.on('message', async (raw) => {
       if (raw.length > 4096) return;
+      // نافذة معدّل بسيطة لكل اتصال: رسائل السباق قليلة أصلاً، وما يتجاوزها سلوك آلي.
+      const nowMs = Date.now();
+      if (nowMs - ws.msgWindow.start > WS_MSG_WINDOW_MS) ws.msgWindow = { start: nowMs, count: 0 };
+      ws.msgWindow.count += 1;
+      if (ws.msgWindow.count > WS_MSG_MAX_PER_WINDOW) { try { ws.close(4008, 'too many messages'); } catch (_) {} return; }
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
       if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
@@ -1540,7 +1596,7 @@ function setupMultiplayer(httpServer) {
 
     ws.on('close', leaveRoom);
     ws.on('error', () => leaveRoom());
-  });
+  }
 
   const heartbeat = setInterval(() => {
     for (const ws of wss.clients) {
