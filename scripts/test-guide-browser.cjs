@@ -311,6 +311,7 @@ async function main() {
       });
       const pillHidden = pill.display === 'none';
       assert.equal(pillHidden, pill.hiddenByDesign, `${tag}: الكبسولة مخفية فقط حين يفرض التصميم ذلك (stage="${pill.stage}")`);
+      const pillBox = await box(page, '.overlay-kicker');
       if (!pillHidden) {
         assert.ok(pill.h >= 18, `${tag}: الكبسولة تحتفظ بارتفاعها المضغوط (${pill.h}px؛ المصمَّم على stage-short هو 19px)`);
         assert.equal(pill.clipped, false, `${tag}: نص الكبسولة لا يُقصّ`);
@@ -321,13 +322,17 @@ async function main() {
         await coversNothing(page, `${tag} / "${text}"`);
       }
       await page.evaluate((t) => { document.getElementById('platform-title').textContent = t; }, title);
-      // a caption far longer than any font could make it: the pill is capped and clips its text, so it never reaches the icon and keeps one line
-      await page.evaluate(() => { document.querySelector('.overlay-kicker').append(` · ${'جولة موثّقة · 150 ثانية · '.repeat(4)}`); });
-      await coversNothing(page, `${tag} / a very long caption`);
-      const long = await box(page, '.overlay-kicker');
-      assert.ok(long.h <= kicker.h + 2, `${tag}: the long caption stays on one line (${long.h}px against ${kicker.h}px)`);
-      await page.evaluate(() => { const k = document.querySelector('.overlay-kicker'); k.removeChild(k.lastChild); });
-      assert.deepEqual(await box(page, '.overlay-kicker'), kicker, `${tag}: and the pill is back to its size afterwards`);
+      // a caption far longer than any font could make it: the pill is capped and clips its text, so it never reaches the icon and keeps one line.
+      // يُقاس فقط حيث يعرض التصميم الكبسولة؛ على stage-ultra/fit-2 هي مخفية بحكم القواعد فلا معنى لقياس صفّها.
+      if (!pillHidden) {
+        const kicker = pillBox;
+        await page.evaluate(() => { document.querySelector('.overlay-kicker').append(` · ${'جولة موثّقة · 150 ثانية · '.repeat(4)}`); });
+        await coversNothing(page, `${tag} / a very long caption`);
+        const long = await box(page, '.overlay-kicker');
+        assert.ok(long.h <= kicker.h + 2, `${tag}: the long caption stays on one line (${long.h}px against ${kicker.h}px)`);
+        await page.evaluate(() => { const k = document.querySelector('.overlay-kicker'); k.removeChild(k.lastChild); });
+        assert.deepEqual(await box(page, '.overlay-kicker'), kicker, `${tag}: and the pill is back to its size afterwards`);
+      }
       assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), `${tag}: no height, no width taken from the overlay`);
       await openGuide(page);
       for (const name of ['goal', 'codex', 'story']) {
