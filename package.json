@@ -10,6 +10,7 @@
     "test": "node --test test/*.test.js",
     "test:visual": "node scripts/visual-arena.cjs",
     "shots": "node scripts/render-scenes.cjs",
+    "test:coach": "node scripts/test-coach-browser.cjs",
     "test:browser": "node scripts/test-platform-browser.cjs",
     "test:clicker": "node scripts/test-clicker-browser.cjs",
     "test:deepdive": "node scripts/test-deepdive-browser.cjs",

@@ -19,6 +19,10 @@ async function main() {
   async function context(viewport, extras = {}) {
     // الأجهزة العريضة تُعامَل ككمبيوتر (مؤشر دقيق) فلا تظهر أزرار اللمس
     const ctx = await browser.newContext({ viewport, hasTouch: viewport.width < 900, ...extras });
+    // الإرشاد يظهر مرة واحدة لكل جهاز جديد (platform-coach:v1) فيغطي أزرار اللوحة. هذا الاختبار يبدأ
+    // بجهاز «شاهد الإرشاد» كي يقيس اللعب لا طبقة الشرح؛ سلوك اللعبة نفسه لم يُغيَّر، وللإرشاد اختبار مستقل
+    // (scripts/test-coach-browser.cjs) يثبت ظهوره وإغلاقه.
+    await ctx.addInitScript(() => { try { localStorage.setItem('platform-coach:v1', '1'); } catch (_) {} });
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
     // The scene, style and fonts must work with all external resources unavailable.

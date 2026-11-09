@@ -82,7 +82,13 @@ jobs:
           done
           cat /tmp/platform-server.log
           exit 1
+      - name: Run first-run coach browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Coach E2E" test:coach
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
       - name: Run platform browser end-to-end tests
+        if: ${{ !cancelled() }}
         run: bash scripts/ci-run-e2e.sh "Platform E2E" test:browser
         env:
           TEST_APP_URL: http://127.0.0.1:3000

@@ -31,6 +31,10 @@ async function main() {
 
   async function context(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, ...extras });
+    // الإرشاد يظهر مرة واحدة لكل جهاز جديد (platform-coach:v1) فيغطي أزرار اللوحة. هذا الاختبار يبدأ
+    // بجهاز «شاهد الإرشاد» كي يقيس اللعب لا طبقة الشرح؛ سلوك اللعبة نفسه لم يُغيَّر، وللإرشاد اختبار مستقل
+    // (scripts/test-coach-browser.cjs) يثبت ظهوره وإغلاقه.
+    await ctx.addInitScript(() => { try { localStorage.setItem('platform-coach:v1', '1'); } catch (_) {} });
     // FONT_STRESS=1.4 spreads every glyph by that many px: a stand-in for a machine whose font is wider than ours (the CI runner's was:
     // a line wrapped there that does not wrap here). The layout checks compare the page with itself, so they must pass at any value.
     if (process.env.FONT_STRESS) await ctx.addInitScript((px) => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = `*{letter-spacing:${px}px !important}`; document.head.appendChild(s); }); }, Number(process.env.FONT_STRESS));

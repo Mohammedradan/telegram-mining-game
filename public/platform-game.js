@@ -1393,7 +1393,8 @@
   function maybeCoach() {
     const box = el('platform-coach');
     if (!box) return;
-    if (coachSeen() || running || pending) { box.hidden = true; return; }
+    // الإرشاد لا يظهر على جولة قائمة: جارية، أو متوقفة تنتظر «متابعة الجولة»، أو تذكرة بانتظار الخادم.
+    if (coachSeen() || running || paused || pending) { box.hidden = true; return; }
     coachIndex = 0; showCoachStep();
   }
   el('coach-next')?.addEventListener('click', () => {

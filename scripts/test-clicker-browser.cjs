@@ -718,7 +718,12 @@ async function main() {
     await rm.ctx.close();
 
     // ---------------------------------------------------------------- other screens: nothing overflows, everything reachable
-    for (const viewport of [{ width: 360, height: 740 }, { width: 375, height: 667 }, { width: 320, height: 568 }, { width: 844, height: 390 }, { width: 821, height: 934 }, { width: 1280, height: 800 }]) {
+    // المقاسات المطلوبة صريحًا: هواتف رأسية شائعة (320/360/375/390) + الأفقي القصير (844×390) + لوحي/مكتبي.
+    for (const viewport of [
+      { width: 320, height: 568 }, { width: 360, height: 740 }, { width: 360, height: 800 },
+      { width: 375, height: 667 }, { width: 375, height: 812 }, { width: 390, height: 844 },
+      { width: 844, height: 390 }, { width: 821, height: 934 }, { width: 1280, height: 800 },
+    ]) {
       const tag = `${viewport.width}x${viewport.height}`;
       const v = await open(viewport);
       const m = await v.page.evaluate(() => {

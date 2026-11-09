@@ -47,6 +47,10 @@ async function main() {
   const raw = new Database(dbFile);
   async function context(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, ...extras });
+    // الإرشاد يظهر مرة واحدة لكل جهاز جديد (platform-coach:v1) فيغطي أزرار اللوحة. هذا الاختبار يبدأ
+    // بجهاز «شاهد الإرشاد» كي يقيس اللعب لا طبقة الشرح؛ سلوك اللعبة نفسه لم يُغيَّر، وللإرشاد اختبار مستقل
+    // (scripts/test-coach-browser.cjs) يثبت ظهوره وإغلاقه.
+    await ctx.addInitScript(() => { try { localStorage.setItem('platform-coach:v1', '1'); } catch (_) {} });
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_FAILED|favicon|fonts\.g|telegram\.org/.test(m.text())) errors.push(`console: ${m.text()}`); });
