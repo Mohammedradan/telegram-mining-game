@@ -176,8 +176,21 @@ async function main() {
     assert.equal(await page.locator('#stars-shop').count(), 0, 'no real-money shop is introduced');
     assert.equal(await page.locator('#legacy-adventure').isVisible(), false, 'the side-scroller remains the default play view');
     assert.equal(await page.evaluate(() => adv.running), false, 'the hidden legacy round stays stopped');
-    await page.locator('#nav-arena').click(); assert.equal(await page.locator('#arena-start-btn').isVisible(), true);
-    await page.locator('#arena-start-btn').click(); assert.equal(await page.evaluate(() => document.getElementById('arena-start-btn').disabled), true);
+    // القصد الأصلي (قبل تثبيت عقد الساحة الجديد): تبويب الساحة يعرض زر بدء فعّالًا بعد جولة مؤكدة،
+    // ولا يبقى مقفلًا. في الواجهة الحالية الزر الرئيسي للساحة هو #ar-start (مبارزة المنصّة على المسرح)،
+    // أما #arena-start-btn الكلاسيكي فانتقل داخل details#classic-system المطوي عمدًا.
+    // لا نضغط أيًّا منهما: كلاهما يبدأ مبارزة ويغيّر حالة اللعبة، وقفل زر البدء أثناء القتال
+    // مغطّى في test/arena-ui.test.js — فنقيس العقد نفسه بلا بدء مبارزة غير مطلوبة.
+    await page.locator('#nav-arena').click();
+    assert.equal(await page.locator('#ar-start').isVisible(), true, 'the arena primary CTA is on screen after a confirmed run');
+    assert.equal(await page.locator('#ar-start').isEnabled(), true, 'and it is not stuck disabled');
+    assert.equal(await page.evaluate(() => window.PlatformGame.duelBusy().running), false, 'no duel is running behind the CTA');
+    assert.equal(await page.locator('#classic-system #arena-start-btn').count(), 1, 'the classic start button still lives in its folded section');
+    assert.equal(await page.locator('#classic-system #arena-start-btn').isVisible(), false, 'the folded classic section keeps it hidden');
+    // عرض الساحة المركّز (body.arena-live) يُخفي الشريط السفلي؛ زر «التبويبات» هو مخرج المستخدم منه.
+    await page.locator('#arena-tabs-btn').click();
+    assert.equal(await page.evaluate(() => document.body.classList.contains('arena-live')), false, 'the tabs button restores the normal chrome');
+    assert.equal(await page.locator('#nav-play').isVisible(), true, 'and the bottom navigation comes back');
     // Corrupt/expired local receipts must not permanently lock the start button.
     await page.locator('#nav-play').click();
     await page.evaluate(() => {
@@ -306,7 +319,13 @@ async function main() {
     // the start overlay never clips its top on short screens and every button stays reachable
     const reach = await landPage.evaluate(() => {
       const ov = document.getElementById('platform-overlay'), kicker = ov.querySelector('.overlay-kicker');
-      ov.scrollTop = 0; const topOk = kicker.getBoundingClientRect().top >= ov.getBoundingClientRect().top;
+      const title = document.getElementById('platform-title');
+      const visible = (el) => Boolean(el) && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none';
+      ov.scrollTop = 0;
+      // الكبسولة «جولة موثّقة» تُخفى عمدًا على stage-ultra (platform.css:594) كما في 844×390، وrect عنصر مخفي = 0
+      // فلا تصلح مرجعًا. المرجع هو أول عنصر ظاهر فعليًا في أعلى الطبقة: الكبسولة إن ظهرت، وإلا العنوان.
+      const probe = visible(kicker) ? kicker : title;
+      const topOk = visible(probe) && probe.getBoundingClientRect().top >= ov.getBoundingClientRect().top;
       ov.scrollTop = ov.scrollHeight; const b = document.getElementById('open-workshop-overlay').getBoundingClientRect();
       return { topOk, bottomOk: b.bottom <= ov.getBoundingClientRect().bottom + 1 };
     });
