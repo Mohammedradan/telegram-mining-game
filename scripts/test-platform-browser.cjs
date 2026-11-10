@@ -75,6 +75,13 @@ async function main() {
         await page.locator(`#nav-${tab}`).click();
         await inspectViewport(`${tab} ${viewport.width}x${viewport.height}`);
       }
+      // The arena's immersive-ready view intentionally hides the bottom navigation.
+      // Restore the normal app chrome through its visible exit control before returning
+      // to the platform scene; subsequent checks must use controls the player can reach.
+      const arenaTabsExit = page.locator('#arena-tabs-btn');
+      if (await arenaTabsExit.isVisible()) await arenaTabsExit.click();
+      await page.locator('#nav-play').click();
+      await inspectViewport(`play return ${viewport.width}x${viewport.height}`);
       let starts = 0; page.on('request', req => { if (req.url().endsWith('/api/platform/start')) starts++; });
       await page.evaluate(() => { const b = document.getElementById('platform-start'); b.click(); b.click(); b.click(); });
       await page.waitForFunction(() => window.PlatformGame.inspect().running);
