@@ -489,11 +489,11 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 }
 
 
-/* The guide button (including its "new" badge) is anchored to the top-right
-   of every mobile round overlay. Reserve its lane in every compact fit state, not
-   only fit-2: long end-of-round titles can trigger fit-1/fit-3/fit-4 as content changes. */
+/* Match the guide's reserved corner lane only when the overlay is compressed
+   or scrolls. A global top padding makes the 320x568 start panel overflow and pushes
+   its primary action below the visible part of the overlay. */
 @media (max-width: 600px) {
-  #platform-scene .mine-overlay {
-    padding-top: 56px;
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-2) {
+    padding-top: 50px;
   }
 }
