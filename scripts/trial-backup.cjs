@@ -5,9 +5,11 @@
 //   node scripts/trial-backup.cjs verify  <ملف>          فحص سلامة النسخة وعدد الصفوف
 //   node scripts/trial-backup.cjs restore <ملف> --yes    استعادة (SQLite: الخادم يجب أن يكون متوقفاً)
 //
-// • SQLite: يستخدم واجهة النسخ الاحتياطي في better-sqlite3 (آمنة أثناء عمل الخادم).
-// • PostgreSQL: pg_dump إن وُجد (الأنسب)، وإلا تصدير JSON لكل الجداول عبر عميل pg.
-//   الاستعادة من JSON تحذف صفوف الجداول المستهدفة ثم تُدخلها من جديد داخل معاملة واحدة.
+// • SQLite: نسخة كاملة من ملف القاعدة عبر واجهة better-sqlite3 (آمنة أثناء عمل الخادم) ⇒ ملف .db.
+// • PostgreSQL: تصدير JSON فقط — لا يُستدعى pg_dump إطلاقًا. لكل جدول من TABLES يُصدَّر
+//   { table, columns, rows } إلى ملف .json واحد.
+//   الاستعادة تقبل ملف SQLite (.db) أو ملف JSON؛ وفي حالة JSON تحذف صفوف الجداول المستهدفة
+//   ثم تُدخلها من جديد داخل معاملة واحدة.
 // لا يُطبع أي سر. لا يُعدّل أي ملف شيفرة.
 const fs = require('node:fs');
 const path = require('node:path');

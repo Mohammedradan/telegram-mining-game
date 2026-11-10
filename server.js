@@ -24,6 +24,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const { loadConfig, productionConfigErrors, configWarnings } = require('./config');
 const { createRateLimiter } = require('./rate-limit');
+const { clientIpDetailsFromRequest } = require('./ws-client-ip');
 const { securityHeaders } = require('./security-headers');
 const CONFIG = loadConfig();
 const BOT_TOKEN = CONFIG.botToken;
@@ -1382,6 +1383,7 @@ const WS_AUTH_TIMEOUT_MS = Number(process.env.WS_AUTH_TIMEOUT_MS || 8000);
 const WS_MSG_WINDOW_MS = 2000;
 const WS_MSG_MAX_PER_WINDOW = 80;
 const wsPendingByIp = new Map();
+let wsRejectLogAt = 0;
 
 function releasePendingSocket(ip) {
   const left = (wsPendingByIp.get(ip) || 1) - 1;
@@ -1389,18 +1391,40 @@ function releasePendingSocket(ip) {
 }
 
 function wsClientIp(req) {
-  const forwarded = CONFIG.trustProxyHops > 0 ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '';
-  return forwarded || String(req.socket?.remoteAddress || 'unknown');
+  // العنوان يُقرأ من يمين السلسلة بعدد القفزات الموثوقة — لا من أول عنصر (انظر ws-client-ip.js).
+  return clientIpDetailsFromRequest(req, CONFIG.trustProxyHops);
 }
+
+// معرّف مؤقت للدلو يتيح مقارنة الاتصالات في السجل **بلا كتابة عنوان أي لاعب**:
+// HMAC بمفتاح عشوائي لكل عملية ⇒ لا يمكن عكس المعرّف إلى عنوان، ويتغيّر مع كل تشغيل.
+const WS_REJECT_ID_KEY = crypto.randomBytes(16);
+const wsRejectionId = (ip) => crypto.createHmac('sha256', WS_REJECT_ID_KEY).update(String(ip)).digest('hex').slice(0, 8);
 
 function setupMultiplayer(httpServer) {
   if (!WebSocketServer) return; // السباقات معطّلة فقط — بقية اللعبة تعمل
   const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 4096 });
 
   wss.on('connection', (ws, req) => {
-    const ip = wsClientIp(req);
+    const clientInfo = wsClientIp(req);
+    const ip = clientInfo.ip;
     const pending = wsPendingByIp.get(ip) || 0;
-    if (pending >= WS_MAX_PENDING_PER_IP) { try { ws.close(4003, 'too many connections'); } catch (_) {} return; }
+    if (pending >= WS_MAX_PENDING_PER_IP) {
+      // سجل تشخيصي عند الرفض فقط، **بلا أي عنوان IP**: يكفي لمعرفة إن كان عدد القفزات
+      // مضبوطًا (دلو مشترك لعنوان وسيط) أو مفتوحًا، عبر عدد عناصر الترويسة ومصدر القيمة.
+      // معرّف مؤقت (HMAC) يتيح مقارنة الاتصالات المرفوضة دون كشف عناوين اللاعبين.
+      // سطر واحد كل 10 ثوانٍ كحد أقصى: الرفض نفسه قد يتكرر آلاف المرات أثناء هجوم.
+      try {
+        if (Date.now() - wsRejectLogAt > 10000) {
+          wsRejectLogAt = Date.now();
+          const source = clientInfo.source === 'forwarded'
+            ? 'ترويسة الوكيل'
+            : `عنوان المقبس (${clientInfo.reason})`;
+          console.warn(`⚠️ رفض اتصال WebSocket — السقف ${WS_MAX_PENDING_PER_IP}، عناصر X-Forwarded-For: ${clientInfo.chainLength}، القفزات الموثوقة: ${clientInfo.hops}، المصدر: ${source}، معرّف مؤقت: ${wsRejectionId(ip)}`);
+        }
+      } catch (_) {}
+      try { ws.close(4003, 'too many connections'); } catch (_) {}
+      return;
+    }
     wsPendingByIp.set(ip, pending + 1);
     let pendingReleased = false;
     const releasePending = () => {
