@@ -1,0 +1,286 @@
+/* MineQuest Arena visual polish — presentation only; no combat, rewards or state logic. */
+#tab-arena {
+  --arena-gold: #f6c96b;
+  --arena-gold-soft: rgba(246, 201, 107, .22);
+  --arena-ice: #9bdcff;
+  --arena-panel: rgba(8, 16, 29, .84);
+  --arena-line: rgba(155, 190, 220, .2);
+  color: #edf5ff;
+  isolation: isolate;
+}
+#tab-arena:not(.arena-live) {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(88, 63, 135, .17), transparent 48%),
+    linear-gradient(155deg, rgba(14, 24, 42, .94), rgba(6, 12, 23, .96));
+}
+#tab-arena .arena-stage {
+  border: 1px solid rgba(246, 201, 107, .48);
+  border-radius: 20px;
+  background: #081321;
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, .34),
+    0 0 0 1px rgba(255, 255, 255, .035),
+    0 0 28px rgba(92, 125, 180, .13),
+    inset 0 1px 0 rgba(255, 255, 255, .13);
+  isolation: isolate;
+}
+#tab-arena .arena-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(4, 10, 20, .42), transparent 28%, transparent 72%, rgba(4, 10, 20, .35)),
+    radial-gradient(ellipse at 50% 48%, transparent 45%, rgba(3, 8, 17, .28) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .045);
+}
+#tab-arena #arena-preview { position: relative; z-index: 0; }
+#tab-arena .as-hud {
+  z-index: 3;
+  inset: 9px 10px auto;
+  gap: 8px;
+  align-items: stretch;
+}
+#tab-arena .as-side {
+  min-width: 0;
+  padding: 7px 9px 6px;
+  border: 1px solid rgba(148, 180, 212, .27);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(5, 14, 27, .91), rgba(12, 24, 41, .78));
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .08);
+  backdrop-filter: blur(8px);
+}
+#tab-arena #cx-side-hero { border-color: rgba(81, 190, 226, .42); }
+#tab-arena #cx-side-rival { border-color: rgba(231, 104, 132, .42); }
+#tab-arena .as-name {
+  color: #f4f8ff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .1px;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .8);
+}
+#tab-arena .as-lvl { color: #a9bfd5; font-size: 8px; }
+#tab-arena .as-hp {
+  height: 7px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(0, 0, 0, .58);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .5);
+}
+#tab-arena .as-hp b { box-shadow: 0 0 9px rgba(91, 224, 174, .3); }
+#tab-arena .as-hp.rival b { box-shadow: 0 0 9px rgba(255, 112, 132, .28); }
+#tab-arena .as-en { height: 4px; }
+#tab-arena .as-portrait {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+#tab-arena .as-center {
+  align-self: flex-start;
+  min-width: 42px;
+  margin-top: 3px;
+  padding: 6px 5px;
+  border: 1px solid rgba(246, 201, 107, .38);
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(75, 51, 21, .88), rgba(19, 23, 34, .9));
+  box-shadow: 0 4px 13px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+#tab-arena .as-center b { color: #ffe3a0; font-size: 17px; }
+#tab-arena .as-center span { color: #e2c78e; font-size: 8px; }
+#tab-arena .as-record,
+#tab-arena #arena-record {
+  padding: 7px 11px;
+  border: 1px solid rgba(246, 201, 107, .24);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(23, 32, 48, .96), rgba(10, 17, 30, .96));
+  color: #d9e5f4;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+#tab-arena .as-bar {
+  gap: 10px;
+  align-items: stretch;
+}
+#tab-arena .arena-duel-btn,
+#tab-arena #arena-start-btn {
+  min-height: 52px;
+  padding: 10px 18px;
+  border: 1px solid rgba(255, 231, 169, .76);
+  border-radius: 15px;
+  background: linear-gradient(115deg, #f7d783 0%, #e9ad4d 48%, #c9812c 100%);
+  color: #25180b;
+  font-size: 14px;
+  font-weight: 1000;
+  letter-spacing: .15px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .3);
+  box-shadow: 0 7px 18px rgba(181, 113, 31, .24), inset 0 1px 0 rgba(255, 255, 255, .55), inset 0 -2px 0 rgba(111, 62, 14, .2);
+}
+#tab-arena .arena-duel-btn:hover,
+#tab-arena #arena-start-btn:hover { filter: brightness(1.07); transform: translateY(-1px); }
+#tab-arena .arena-duel-btn:active,
+#tab-arena #arena-start-btn:active { transform: translateY(1px) scale(.985); }
+#tab-arena .arena-ladder {
+  gap: 8px;
+  padding: 2px 1px 5px;
+}
+#tab-arena .al-row {
+  min-height: 58px;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(145, 174, 204, .19);
+  border-radius: 14px;
+  background: linear-gradient(115deg, rgba(19, 32, 51, .95), rgba(9, 18, 32, .96));
+  color: #e5edf7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .14), inset 0 1px 0 rgba(255, 255, 255, .035);
+  transition: border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+#tab-arena .al-row:not(.locked):hover {
+  border-color: rgba(155, 220, 255, .5);
+  transform: translateY(-1px);
+}
+#tab-arena .al-row.active {
+  border-color: rgba(246, 201, 107, .82);
+  background: linear-gradient(115deg, rgba(75, 55, 25, .76), rgba(20, 27, 39, .98));
+  box-shadow: 0 0 0 1px rgba(246, 201, 107, .18), 0 6px 17px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255, 232, 177, .11);
+}
+#tab-arena .al-row.locked { filter: saturate(.55); opacity: .58; }
+#tab-arena .al-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #713b45, #321e32);
+  border-color: rgba(255, 157, 170, .48);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .13), 0 3px 8px rgba(0, 0, 0, .25);
+}
+#tab-arena .al-row.active .al-avatar {
+  background: linear-gradient(145deg, #9b702d, #4c351d);
+  border-color: rgba(255, 224, 153, .65);
+}
+#tab-arena .al-name { color: #f5f7fb; font-size: 12px; }
+#tab-arena .al-sub { color: #a8b9cd; font-size: 9px; }
+#tab-arena .al-reward { color: #ffdc8a; font-size: 11px; }
+#tab-arena .al-badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(4, 11, 21, .72);
+}
+#tab-arena #arena-gear,
+#tab-arena #arena-advice {
+  padding: 10px 11px;
+  border: 1px solid rgba(139, 173, 205, .17);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(16, 29, 47, .88), rgba(8, 16, 29, .86));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035), 0 5px 14px rgba(0, 0, 0, .12);
+}
+#tab-arena #arena-gear .ag-head b,
+#tab-arena #arena-advice .av-head b { color: #f4e4c1; }
+#tab-arena #arena-advice .av-next { border-color: rgba(246, 201, 107, .24); }
+#tab-arena .arena-shots {
+  gap: 7px;
+  margin: 2px 0 5px;
+}
+#tab-arena .arena-shots button {
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  border-color: rgba(145, 190, 220, .25);
+  background: rgba(17, 31, 49, .82);
+  color: #c8d9eb;
+}
+#tab-arena .arena-pad-mode {
+  gap: 7px;
+  padding: 5px 2px;
+}
+#tab-arena .arena-pad-mode button {
+  min-height: 34px;
+  padding: 6px 13px;
+  border-radius: 10px;
+  border-color: rgba(145, 190, 220, .25);
+  background: rgba(15, 28, 45, .92);
+  color: #c9d9e9;
+}
+#tab-arena .arena-pad-mode button[aria-pressed="true"] {
+  border-color: rgba(111, 211, 246, .65);
+  background: linear-gradient(135deg, rgba(30, 111, 146, .48), rgba(19, 56, 82, .76));
+  color: #e5f8ff;
+  box-shadow: inset 0 -2px 0 rgba(100, 210, 245, .3);
+}
+#tab-arena .arena-pad {
+  gap: 10px;
+  padding: 9px;
+  border: 1px solid rgba(132, 171, 205, .2);
+  border-radius: 17px;
+  background: linear-gradient(135deg, rgba(13, 26, 43, .94), rgba(7, 15, 27, .96));
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+#tab-arena .arena-stick {
+  border-color: rgba(140, 190, 220, .46);
+  background: radial-gradient(circle at 50% 35%, rgba(61, 111, 148, .42), rgba(7, 16, 29, .98));
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .58), 0 3px 9px rgba(0, 0, 0, .2);
+}
+#tab-arena .arena-stick .as-knob {
+  background: linear-gradient(145deg, #72b5d7, #315f83);
+  border-color: rgba(173, 226, 255, .56);
+}
+#tab-arena .ap-group button {
+  min-width: 42px;
+  min-height: 42px;
+  border: 1px solid rgba(150, 184, 212, .28);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #263d56, #14263b);
+  color: #eff7ff;
+  font-weight: 900;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .23), inset 0 1px 0 rgba(255, 255, 255, .09);
+}
+#tab-arena .ap-group .ap-hit { background: linear-gradient(145deg, #a84b55, #612d3c); border-color: rgba(255, 151, 160, .5); color: #fff0f1; }
+#tab-arena .ap-group .ap-heavy { background: linear-gradient(145deg, #b47a38, #69451f); border-color: rgba(255, 208, 130, .5); color: #fff1d6; }
+#tab-arena .ap-group .ap-guard { background: linear-gradient(145deg, #287d91, #17495f); border-color: rgba(119, 218, 235, .45); }
+#tab-arena .ap-group .ap-dodge { background: linear-gradient(145deg, #5c65a5, #343d70); border-color: rgba(166, 174, 255, .42); }
+#tab-arena .ap-group .ap-skill { background: linear-gradient(145deg, #8a4e9c, #4d2b69); border-color: rgba(225, 167, 255, .48); }
+#tab-arena .arena-keyhint {
+  color: #9eb1c8;
+  border-color: rgba(145, 174, 204, .18);
+  background: rgba(9, 18, 31, .64);
+}
+#tab-arena #classic-system {
+  border: 1px solid rgba(145, 174, 204, .18);
+  border-radius: 14px;
+  background: rgba(9, 18, 31, .68);
+  overflow: hidden;
+}
+#tab-arena #classic-system > summary {
+  min-height: 46px;
+  padding: 10px 12px;
+  color: #d9e5f4;
+  cursor: pointer;
+}
+#tab-arena #classic-system[open] > summary { border-bottom: 1px solid rgba(145, 174, 204, .16); }
+#tab-arena .arena-duel-status {
+  border-color: rgba(246, 201, 107, .24);
+  background: rgba(17, 28, 44, .86);
+  color: #f4dfb5;
+}
+#tab-arena .arena-fs-bar,
+#tab-arena .arena-x-bar { z-index: 30; }
+#tab-arena button:focus-visible {
+  outline: 2px solid #f6c96b;
+  outline-offset: 3px;
+}
+@media (max-width: 430px) {
+  #tab-arena .as-hud { inset: 7px 7px auto; gap: 5px; }
+  #tab-arena .as-side { padding: 6px 7px 5px; border-radius: 11px; }
+  #tab-arena .as-portrait { width: 29px; height: 29px; }
+  #tab-arena .as-center { min-width: 34px; padding: 5px 3px; }
+  #tab-arena .as-center b { font-size: 14px; }
+  #tab-arena .as-name { font-size: 10px; }
+  #tab-arena .arena-pad { gap: 6px; padding: 7px; }
+  #tab-arena .ap-group { gap: 5px; }
+  #tab-arena .ap-group button { min-width: 38px; min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tab-arena .al-row,
+  #tab-arena .arena-duel-btn,
+  #tab-arena #arena-start-btn { transition: none !important; }
+}
