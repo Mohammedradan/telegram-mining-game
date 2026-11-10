@@ -416,3 +416,74 @@
     transition-duration: .01ms !important;
   }
 }
+
+
+/* App-wide viewport and scroll contract:
+   - The document itself never scrolls.
+   - Main tabs own their long-content scroll; the focused play view stays fixed.
+   - Nested modal/list scrollers remain intentional and keep touch scrolling contained. */
+html,
+body {
+  overscroll-behavior: none;
+}
+body {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.tab-content {
+  min-width: 0;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
+}
+.tab-content:not(#tab-play) {
+  overflow-x: hidden;
+}
+.play-panel,
+.panel-scroll {
+  min-width: 0;
+}
+.panel-scroll {
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+/* Compact portrait/landscape phones: release vertical room for the actual game
+   controls instead of letting the start panel or bottom navigation be pushed out. */
+@media (max-height: 700px) {
+  #platform-scene .mine-stage {
+    min-height: clamp(130px, 25vh, 200px);
+  }
+}
+@media (max-height: 700px) and (min-width: 380px) {
+  #platform-scene .mine-controls {
+    gap: 6px;
+  }
+}
+
+/* Preserve device safe areas even in the immersive, header-hidden game view. */
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) {
+  gap: 4px !important;
+  padding-top: max(4px, env(safe-area-inset-top, 0px)) !important;
+  padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Scroll remains available by touch, but mobile scrollbars no longer look like
+   an accidental second page or a browser chrome artifact. */
+@media (hover: none), (pointer: coarse) {
+  .tab-content,
+  .panel-scroll,
+  .mine-overlay,
+  .mines-list {
+    scrollbar-width: none;
+  }
+  .tab-content::-webkit-scrollbar,
+  .panel-scroll::-webkit-scrollbar,
+  .mine-overlay::-webkit-scrollbar,
+  .mines-list::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
