@@ -497,3 +497,38 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     padding-top: 50px;
   }
 }
+
+/* Very short usable play area on compact portrait phones (e.g. 320x568):
+   keep the goal choices and primary action visible without asking the player to scroll. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-overlay {
+    --ov-gap: 3px;
+    padding: 6px 8px;
+  }
+  #platform-scene .mine-overlay .overlay-kicker,
+  #platform-scene .mine-overlay > .overlay-lead,
+  #platform-scene .mine-overlay .overlay-help,
+  #platform-scene .mine-overlay .overlay-mission,
+  #platform-scene .mine-overlay .goal-hint {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay h3 {
+    font-size: 15px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay .goal-option {
+    padding: 4px 2px;
+  }
+  #platform-scene .mine-overlay .goal-option .ui-icon {
+    width: 13px;
+    height: 13px;
+  }
+  #platform-scene .mine-overlay #platform-start {
+    min-height: 40px;
+    padding: 7px 16px;
+  }
+  #platform-scene .mine-overlay .overlay-row button {
+    min-height: 34px;
+    padding-block: 5px;
+  }
+}
