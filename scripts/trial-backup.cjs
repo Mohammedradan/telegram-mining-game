@@ -8,8 +8,19 @@
 // • SQLite: نسخة كاملة من ملف القاعدة عبر واجهة better-sqlite3 (آمنة أثناء عمل الخادم) ⇒ ملف .db.
 // • PostgreSQL: تصدير JSON فقط — لا يُستدعى pg_dump إطلاقًا. لكل جدول من TABLES يُصدَّر
 //   { table, columns, rows } إلى ملف .json واحد.
+//   الجداول تُقرأ **داخل معاملة واحدة**:
+//     BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY  … COMMIT
+//   فكل الصفوف من لقطة واحدة متّسقة (لا صفوف نصف مكتوبة، ولا فروق بين الجداول)، وROLLBACK
+//   عند أي فشل، ويُغلق الاتصال في كل الحالات. كل جدول داخل SAVEPOINT: الجدول غير الموجود
+//   (42P01) يُجهض المعاملة في PostgreSQL، فنتراجع إلى نقطة الحفظ (ROLLBACK TO SAVEPOINT)
+//   ونحرّرها (RELEASE SAVEPOINT) لتعود المعاملة صالحة، يُصدَّر الجدول فارغًا، وتُقرأ بقية
+//   الجداول في المعاملة نفسها ثم COMMIT.
+//   TLS: التحقق من الشهادة **مفعّل افتراضيًا**. شهادة سلطة خاصة (Neon/Supabase/Render) عبر
+//   PGSSLROOTCERT=/path/ca.pem، وقاعدة محلية بلا TLS، وPGSSL=disable للتجاهل الصريح فقط.
+//   PGSSL=no-verify تعطيل صريح للتحقق (لا يُستخدم تلقائيًا أبدًا) ويطبع تحذيرًا.
 //   الاستعادة تقبل ملف SQLite (.db) أو ملف JSON؛ وفي حالة JSON تحذف صفوف الجداول المستهدفة
 //   ثم تُدخلها من جديد داخل معاملة واحدة.
+//   **لم تُجرَّب الاستعادة على خادم PostgreSQL حقيقي** (لا يوجد خادم في بيئة التطوير).
 // لا يُطبع أي سر. لا يُعدّل أي ملف شيفرة.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -52,26 +63,92 @@ async function backupSqlite(file) {
   return dest;
 }
 
-async function backupPostgres(url) {
-  const dir = outDir();
-  const dest = path.join(dir, `game-${STAMP}.json`);
-  const { Client } = require('pg');
-  const client = new Client({ connectionString: url, ssl: /localhost|127\.0\.0\.1|\.internal\b/.test(url) ? undefined : { rejectUnauthorized: false } });
-  await client.connect();
+// TLS الصحيح: التحقق من الشهادة مفعّل افتراضيًا (سلطة النظام)، وشهادة سلطة خاصة تُمرَّر ملفًا.
+// لا نُعطّل التحقق تلقائيًا؛ التعطيل يحتاج PGSSL=no-verify صريحًا ويطبع تحذيرًا.
+function pgSslConfig(url, env = process.env) {
+  const mode = String(env.PGSSL || '').trim().toLowerCase();
+  if (mode === 'disable') return { ssl: undefined, warning: null };
+  const isLocal = /localhost|127\.0\.0\.1|::1|\.internal\b/.test(String(url || ''));
+  if (isLocal) return { ssl: undefined, warning: null };
+  const caPath = String(env.PGSSLROOTCERT || '').trim();
+  if (mode === 'no-verify') {
+    return { ssl: { rejectUnauthorized: false }, warning: '⚠️ PGSSL=no-verify: التحقق من شهادة PostgreSQL معطّل صراحةً — لا تستخدمه إلا مؤقتًا ومع سبب.' };
+  }
+  const ssl = { rejectUnauthorized: true };
+  if (caPath) ssl.ca = fs.readFileSync(caPath, 'utf8');
+  return { ssl, warning: null };
+}
+
+function pgClientOptions(url, env = process.env) {
+  const { ssl, warning } = pgSslConfig(url, env);
+  if (warning) console.warn(warning);
+  return { connectionString: url, ssl };
+}
+
+// تصدير كل الجداول من لقطة واحدة: معاملة واحدة REPEATABLE READ READ ONLY ثم COMMIT،
+// وROLLBACK عند أي فشل. لا تُغلق هذه الدالة الاتصال — مسؤولية المستدعي.
+const PG_SNAPSHOT_BEGIN = 'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY';
+
+// كل جدول يُقرأ داخل نقطة حفظ (SAVEPOINT) خاصة به.
+// السبب: أي خطأ داخل معاملة PostgreSQL — ومنه 42P01 لجدول غير موجود — يُجهض المعاملة كلها،
+// فيصير كل استعلام لاحق يفشل بالرمز 25P02 («current transaction is aborted») حتى نتراجع.
+// التراجع إلى نقطة الحفظ يعيد المعاملة إلى حالة صالحة فنكمل بقية الجداول في **نفس** اللقطة
+// (REPEATABLE READ) وفي **نفس** المعاملة، ولا يُفتح اتصال ولا معاملة جديدة.
+const tableSavepoint = (index) => `trial_backup_table_${index}`;
+
+async function exportPostgresSnapshot(client, tables = TABLES) {
+  const dump = { createdAt: new Date().toISOString(), driver: 'postgres', tables: {} };
+  await client.query(PG_SNAPSHOT_BEGIN);
+  let finished = false;
   try {
-    const dump = { createdAt: new Date().toISOString(), driver: 'postgres', tables: {} };
-    for (const table of TABLES) {
+    for (const [index, table] of tables.entries()) {
+      const savepoint = tableSavepoint(index);
+      await client.query(`SAVEPOINT ${savepoint}`);
       try {
         const res = await client.query(`SELECT * FROM ${table}`);
         dump.tables[table] = res.rows;
+        await client.query(`RELEASE SAVEPOINT ${savepoint}`);
       } catch (err) {
-        if (err.code !== '42P01') throw err; // جدول غير موجود في نسخة أقدم — يُتجاهل
+        if (err.code !== '42P01') throw err; // فشل حقيقي ⇒ تُلغى المعاملة كلها في الخارج
+        // جدول غير موجود في نسخة أقدم: تراجع إلى نقطة الحفظ لإنعاش المعاملة، ثم حرّرها،
+        // فتبقى دورة كل جدول متناسقة (SAVEPOINT … ROLLBACK TO/RELEASE) بلا نقاط حفظ متراكمة.
+        try {
+          await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+          await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+        } catch (recoverErr) {
+          const wrapped = new Error(`تعذّر تجاوز الجدول الغائب ${table}: ${recoverErr.message}`);
+          wrapped.cause = recoverErr;
+          throw wrapped;
+        }
         dump.tables[table] = [];
       }
     }
+    await client.query('COMMIT');
+    finished = true;
+    return dump;
+  } catch (err) {
+    if (!finished) { try { await client.query('ROLLBACK'); } catch (_) { /* الاتصال نفسه مقطوع */ } }
+    throw err;
+  }
+}
+
+async function backupPostgres(url, options = {}) {
+  const dir = options.dir || outDir();
+  const dest = path.join(dir, `game-${options.stamp || STAMP}.json`);
+  const makeClient = options.createClient || (() => {
+    const { Client } = require('pg');
+    return new Client(pgClientOptions(url, options.env || process.env));
+  });
+  const client = makeClient(url);
+  try {
+    await client.connect();
+    const dump = await exportPostgresSnapshot(client, options.tables || TABLES);
     fs.writeFileSync(dest, JSON.stringify(dump));
-  } finally { await client.end(); }
-  return dest;
+    return dest;
+  } finally {
+    // لا نُبقي اتصالاً مفتوحًا حتى لو فشل التصدير أو الاتصال نفسه.
+    try { await client.end(); } catch (_) { /* already closed */ }
+  }
 }
 
 async function verify(file) {
@@ -115,7 +192,7 @@ async function restorePostgres(file) {
   const dump = JSON.parse(fs.readFileSync(file, 'utf8'));
   const { Client } = require('pg');
   const url = dbConfig().url;
-  const client = new Client({ connectionString: url, ssl: /localhost|127\.0\.0\.1|\.internal\b/.test(url) ? undefined : { rejectUnauthorized: false } });
+  const client = new Client(pgClientOptions(url));
   await client.connect();
   try {
     await client.query('BEGIN');
@@ -136,7 +213,7 @@ async function restorePostgres(file) {
   return url.replace(/:\/\/[^@]+@/, '://***@');
 }
 
-(async () => {
+async function main() {
   const cfg = dbConfig();
   if (command === 'backup') {
     const dest = cfg.driver === 'postgres' ? await backupPostgres(cfg.url) : await backupSqlite(cfg.file);
@@ -155,4 +232,12 @@ async function restorePostgres(file) {
   }
   console.log('الاستخدام: backup [--out dir] | verify <file> | restore <file> --yes');
   process.exitCode = 2;
-})().catch((err) => { console.error('❌', err.message); process.exitCode = 1; });
+}
+
+if (require.main === module) {
+  main().catch((err) => { console.error('❌', err.message); process.exitCode = 1; });
+}
+
+module.exports = {
+  TABLES, PG_SNAPSHOT_BEGIN, tableSavepoint, exportPostgresSnapshot, backupPostgres, pgSslConfig, pgClientOptions,
+};
