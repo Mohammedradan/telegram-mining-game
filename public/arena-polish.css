@@ -166,17 +166,17 @@
   border-radius: 999px;
   background: rgba(4, 11, 21, .72);
 }
-#tab-arena #arena-gear,
-#tab-arena #arena-advice {
+#tab-arena .arena-gear,
+#tab-arena .arena-advice {
   padding: 10px 11px;
   border: 1px solid rgba(139, 173, 205, .17);
   border-radius: 14px;
   background: linear-gradient(145deg, rgba(16, 29, 47, .88), rgba(8, 16, 29, .86));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035), 0 5px 14px rgba(0, 0, 0, .12);
 }
-#tab-arena #arena-gear .ag-head b,
-#tab-arena #arena-advice .av-head b { color: #f4e4c1; }
-#tab-arena #arena-advice .av-next { border-color: rgba(246, 201, 107, .24); }
+#tab-arena .arena-gear .ag-head b,
+#tab-arena .arena-advice .av-head b { color: #f4e4c1; }
+#tab-arena .arena-advice .av-next { border-color: rgba(246, 201, 107, .24); }
 #tab-arena .arena-shots {
   gap: 7px;
   margin: 2px 0 5px;
