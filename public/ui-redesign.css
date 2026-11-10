@@ -230,3 +230,20 @@ button:active { filter: brightness(1.12); }
 @media (prefers-reduced-motion: reduce) {
   button, .play-subnav-btn { transition: none !important; }
 }
+
+
+/* Preserve the original game viewport budgets on focused and compact play screens. */
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) {
+  gap: 4px !important;
+  padding: 4px !important;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  body.ck-cave {
+    gap: 4px !important;
+    padding: 4px !important;
+  }
+  body.ck-cave .ck-hud { min-height: 42px; }
+  body.ck-cave .balance-strip { padding-block: 4px !important; }
+  body.ck-cave .bottom-nav { padding: 3px !important; }
+  body.ck-cave .bottom-nav button { min-height: 44px; padding-block: 4px !important; }
+}
