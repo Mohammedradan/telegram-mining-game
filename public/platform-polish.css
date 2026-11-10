@@ -532,3 +532,68 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     padding-block: 5px;
   }
 }
+
+
+/* Focused compact start panel: remove duplicate shortcuts, keep only decisions
+   a player needs before entering the mine. The main workshop remains in the
+   game's primary navigation; control tuning stays available during play. */
+@media (max-width: 600px) {
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) {
+    --ov-gap: 5px;
+  }
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) #platform-title {
+    margin-top: 10px;
+  }
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) #open-workshop-overlay,
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) #overlay-help,
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) #ctl-settings {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) .overlay-row {
+    width: min(340px, 100%);
+    margin-top: 2px;
+  }
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) .mine-select {
+    width: 100%;
+    min-height: 38px;
+  }
+}
+
+/* On the shortest phones, the mission is already represented by the selected
+   goal and live HUD. Remove its duplicate card and secondary copy to protect
+   the primary start action; do not remove any gameplay action. */
+@media (max-width: 380px) and (max-height: 680px) {
+  #platform-scene .mine-overlay {
+    --ov-gap: 3px;
+    padding: 6px 8px;
+  }
+  #platform-scene .mine-overlay .overlay-kicker,
+  #platform-scene .mine-overlay > .overlay-lead,
+  #platform-scene .mine-overlay .overlay-mission,
+  #platform-scene .mine-overlay .goal-hint {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay h3 {
+    margin: 2px 0;
+    font-size: 16px;
+    line-height: 1.12;
+  }
+  #platform-scene .mine-overlay .goal-options {
+    gap: 5px;
+  }
+  #platform-scene .mine-overlay .goal-option {
+    min-height: 48px;
+    padding: 4px 3px;
+  }
+  #platform-scene .mine-overlay .goal-option i {
+    font-size: 9px;
+  }
+  #platform-scene .mine-overlay #platform-start {
+    min-height: 42px;
+    margin-block: 2px;
+  }
+  #platform-scene .mine-overlay .overlay-row button {
+    min-height: 36px;
+    padding-block: 5px;
+  }
+}
