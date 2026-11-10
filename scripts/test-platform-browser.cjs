@@ -71,7 +71,7 @@ async function main() {
         opening.start.top >= opening.overlay.top - 1 &&
         opening.start.bottom <= opening.overlay.bottom + 1,
         `start action remains inside opening overlay: ${JSON.stringify(opening)}`);
-      for (const tab of ['mining', 'shop', 'friends', 'leaderboard', 'arena', 'play']) {
+      for (const tab of ['play', 'mining', 'shop', 'friends', 'leaderboard', 'arena']) {
         await page.locator(`#nav-${tab}`).click();
         await inspectViewport(`${tab} ${viewport.width}x${viewport.height}`);
       }
