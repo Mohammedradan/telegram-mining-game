@@ -8,7 +8,7 @@ const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
 
 test('ارتفاع التطبيق يتبع الحجم الفعلي (لا مساحة ميتة بعد التدوير أو تغيير النافذة)', () => {
-  const block = html.slice(html.indexOf('// V15: ارتفاع التطبيق'), html.indexOf('// --- DOM Elements ---'));
+  const block = html.slice(html.indexOf('// V16: قِس الارتفاع المرئي الحالي'), html.indexOf('// --- DOM Elements ---'));
   assert.match(block, /window\.visualViewport\?\.height \|\| window\.innerHeight/, 'reads the live viewport, not a cached number');
   assert.match(block, /setProperty\('--app-height'/, 'and writes the CSS variable the body height reads');
   assert.match(block, /Math\.abs\(stable - live\) <= 120/, 'Telegram stable height only wins while it still matches the real screen');
