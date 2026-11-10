@@ -597,3 +597,9 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     padding-block: 5px;
   }
 }
+
+@media (max-width: 380px) and (max-height: 680px) {
+  /* The short-phone entry uses the default mine; mine selection and workshop
+     remain reachable from the game's main sections after entering. */
+  #platform-scene .mine-overlay .overlay-row { display: none !important; }
+}
