@@ -58,13 +58,19 @@ jobs:
         run: npm test
         env:
           TEST_DATABASE_URL: postgres://mining_test:local_test_only@localhost:5432/mining_test
+      - name: Trial smoke — auth, save/restore across restart, WebSocket handshake
+        run: node scripts/trial-smoke.cjs
       - name: Verify WebSocket race protocol against PostgreSQL
         run: node --test test/multiplayer.test.js
         env:
           TEST_RACE_DATABASE_URL: postgres://mining_test:local_test_only@localhost:5432/mining_test
+      # يعمل حتى لو فشلت اختبارات الوحدة أعلاه: E2E إشارة مستقلة، وبدون هذا يظهر
+      # ERR_CONNECTION_REFUSED في كل مجموعات E2E ويخفي الفشل الحقيقي.
       - name: Install Chromium for platform browser tests
+        if: ${{ !cancelled() }}
         run: npx playwright-core install --with-deps chromium
       - name: Start local app for browser tests
+        if: ${{ !cancelled() }}
         run: |
           PORT=3000 HOST=127.0.0.1 ALLOW_GUEST_AUTH=true BOT_MODE=off npm start > /tmp/platform-server.log 2>&1 &
           echo $! > /tmp/platform-server.pid
@@ -76,7 +82,13 @@ jobs:
           done
           cat /tmp/platform-server.log
           exit 1
+      - name: Run first-run coach browser end-to-end test
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-run-e2e.sh "Coach E2E" test:coach
+        env:
+          TEST_APP_URL: http://127.0.0.1:3000
       - name: Run platform browser end-to-end tests
+        if: ${{ !cancelled() }}
         run: bash scripts/ci-run-e2e.sh "Platform E2E" test:browser
         env:
           TEST_APP_URL: http://127.0.0.1:3000

@@ -24,6 +24,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const { loadConfig, productionConfigErrors, configWarnings } = require('./config');
 const { createRateLimiter } = require('./rate-limit');
+const { clientIpDetailsFromRequest } = require('./ws-client-ip');
 const { securityHeaders } = require('./security-headers');
 const CONFIG = loadConfig();
 const BOT_TOKEN = CONFIG.botToken;
@@ -1372,19 +1373,93 @@ const raceCode = () => {
   return raceRooms.has(code) ? raceCode() : code;
 };
 
+// حدود اتصالات السباق: سقف للاتصالات غير الموثّقة لكل عنوان، ومهلة مصادقة قصيرة،
+// ونافذة معدّل للرسائل. السقف يخصّ ما قبل المصادقة فقط: شبكات الهاتف تُخفي آلاف
+// المستخدمين خلف عنوان واحد، فسقف صارم على الاتصالات الموثّقة يقطع لاعبين أبرياء.
+// المصادقة تأتي في أول رسالة لا في رابط الاتصال: initData توقيع صالح 24 ساعة، ووضعه
+// في URL يعرّضه لسجلات الوكيل/الخادم وأي أداة تسجيل. الرابط الآن بلا أي سر.
+const WS_MAX_PENDING_PER_IP = Number(process.env.WS_MAX_PENDING_PER_IP || 24);
+const WS_AUTH_TIMEOUT_MS = Number(process.env.WS_AUTH_TIMEOUT_MS || 8000);
+const WS_MSG_WINDOW_MS = 2000;
+const WS_MSG_MAX_PER_WINDOW = 80;
+const wsPendingByIp = new Map();
+let wsRejectLogAt = 0;
+
+function releasePendingSocket(ip) {
+  const left = (wsPendingByIp.get(ip) || 1) - 1;
+  if (left > 0) wsPendingByIp.set(ip, left); else wsPendingByIp.delete(ip);
+}
+
+function wsClientIp(req) {
+  // العنوان يُقرأ من يمين السلسلة بعدد القفزات الموثوقة — لا من أول عنصر (انظر ws-client-ip.js).
+  return clientIpDetailsFromRequest(req, CONFIG.trustProxyHops);
+}
+
+// معرّف مؤقت للدلو يتيح مقارنة الاتصالات في السجل **بلا كتابة عنوان أي لاعب**:
+// HMAC بمفتاح عشوائي لكل عملية ⇒ لا يمكن عكس المعرّف إلى عنوان، ويتغيّر مع كل تشغيل.
+const WS_REJECT_ID_KEY = crypto.randomBytes(16);
+const wsRejectionId = (ip) => crypto.createHmac('sha256', WS_REJECT_ID_KEY).update(String(ip)).digest('hex').slice(0, 8);
+
 function setupMultiplayer(httpServer) {
   if (!WebSocketServer) return; // السباقات معطّلة فقط — بقية اللعبة تعمل
   const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 4096 });
 
-  wss.on('connection', async (ws, req) => {
-    const url = new URL(req.url, 'http://localhost');
-    const auth = authenticate(url.searchParams.get('initData') || '', url.searchParams.get('guest'));
-    const player = auth.player || null;
-    if (!player) { ws.close(4001, 'auth required'); return; }
+  wss.on('connection', (ws, req) => {
+    const clientInfo = wsClientIp(req);
+    const ip = clientInfo.ip;
+    const pending = wsPendingByIp.get(ip) || 0;
+    if (pending >= WS_MAX_PENDING_PER_IP) {
+      // سجل تشخيصي عند الرفض فقط، **بلا أي عنوان IP**: يكفي لمعرفة إن كان عدد القفزات
+      // مضبوطًا (دلو مشترك لعنوان وسيط) أو مفتوحًا، عبر عدد عناصر الترويسة ومصدر القيمة.
+      // معرّف مؤقت (HMAC) يتيح مقارنة الاتصالات المرفوضة دون كشف عناوين اللاعبين.
+      // سطر واحد كل 10 ثوانٍ كحد أقصى: الرفض نفسه قد يتكرر آلاف المرات أثناء هجوم.
+      try {
+        if (Date.now() - wsRejectLogAt > 10000) {
+          wsRejectLogAt = Date.now();
+          const source = clientInfo.source === 'forwarded'
+            ? 'ترويسة الوكيل'
+            : `عنوان المقبس (${clientInfo.reason})`;
+          console.warn(`⚠️ رفض اتصال WebSocket — السقف ${WS_MAX_PENDING_PER_IP}، عناصر X-Forwarded-For: ${clientInfo.chainLength}، القفزات الموثوقة: ${clientInfo.hops}، المصدر: ${source}، معرّف مؤقت: ${wsRejectionId(ip)}`);
+        }
+      } catch (_) {}
+      try { ws.close(4003, 'too many connections'); } catch (_) {}
+      return;
+    }
+    wsPendingByIp.set(ip, pending + 1);
+    let pendingReleased = false;
+    const releasePending = () => {
+      if (pendingReleased) return;
+      pendingReleased = true;
+      releasePendingSocket(ip);
+    };
+    ws.once('close', releasePending);
+
+    const authTimer = setTimeout(() => {
+      if (!ws.player && ws.readyState === ws.OPEN) { try { ws.close(4001, 'auth required'); } catch (_) {} }
+    }, WS_AUTH_TIMEOUT_MS);
+    if (typeof authTimer.unref === 'function') authTimer.unref();
+
+    // أول رسالة فقط: { type: 'auth', initData } أو { type: 'auth', guest } في وضع التطوير.
+    const onHandshake = (raw) => {
+      let msg = null;
+      try { msg = JSON.parse(raw.toString()); } catch (_) { msg = null; }
+      if (!msg || typeof msg !== 'object' || msg.type !== 'auth') { try { ws.close(4001, 'auth required'); } catch (_) {} return; }
+      const auth = authenticate(typeof msg.initData === 'string' ? msg.initData : '', typeof msg.guest === 'string' ? msg.guest : '');
+      if (!auth.player) { clearTimeout(authTimer); try { ws.close(4001, 'auth required'); } catch (_) {} return; }
+      clearTimeout(authTimer);
+      releasePending();
+      ws.off('message', onHandshake);
+      startRaceSession(ws, auth.player);
+    };
+    ws.on('message', onHandshake);
+  });
+
+  async function startRaceSession(ws, player) {
     try { const dbUser = await store.getUser(player.id); if (dbUser?.name && dbUser.name !== 'ضيف') player.name = dbUser.name; } catch (_) {}
 
     if (ws.readyState !== ws.OPEN) return;
     ws.player = { ...player, roomId: null, ready: false, lastProgress: 0 };
+    ws.msgWindow = { start: Date.now(), count: 0 };
     sendWs(ws, { type: 'welcome', id: player.id, name: player.name });
 
     const leaveRoom = (notify = true) => {
@@ -1429,6 +1504,11 @@ function setupMultiplayer(httpServer) {
 
     ws.on('message', async (raw) => {
       if (raw.length > 4096) return;
+      // نافذة معدّل بسيطة لكل اتصال: رسائل السباق قليلة أصلاً، وما يتجاوزها سلوك آلي.
+      const nowMs = Date.now();
+      if (nowMs - ws.msgWindow.start > WS_MSG_WINDOW_MS) ws.msgWindow = { start: nowMs, count: 0 };
+      ws.msgWindow.count += 1;
+      if (ws.msgWindow.count > WS_MSG_MAX_PER_WINDOW) { try { ws.close(4008, 'too many messages'); } catch (_) {} return; }
       let msg;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
       if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
@@ -1540,7 +1620,7 @@ function setupMultiplayer(httpServer) {
 
     ws.on('close', leaveRoom);
     ws.on('error', () => leaveRoom());
-  });
+  }
 
   const heartbeat = setInterval(() => {
     for (const ws of wss.clients) {

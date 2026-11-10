@@ -31,6 +31,10 @@ async function main() {
 
   async function context(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, ...extras });
+    // الإرشاد يظهر مرة واحدة لكل جهاز جديد (platform-coach:v1) فيغطي أزرار اللوحة. هذا الاختبار يبدأ
+    // بجهاز «شاهد الإرشاد» كي يقيس اللعب لا طبقة الشرح؛ سلوك اللعبة نفسه لم يُغيَّر، وللإرشاد اختبار مستقل
+    // (scripts/test-coach-browser.cjs) يثبت ظهوره وإغلاقه.
+    await ctx.addInitScript(() => { try { localStorage.setItem('platform-coach:v1', '1'); } catch (_) {} });
     // FONT_STRESS=1.4 spreads every glyph by that many px: a stand-in for a machine whose font is wider than ours (the CI runner's was:
     // a line wrapped there that does not wrap here). The layout checks compare the page with itself, so they must pass at any value.
     if (process.env.FONT_STRESS) await ctx.addInitScript((px) => { document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = `*{letter-spacing:${px}px !important}`; document.head.appendChild(s); }); }, Number(process.env.FONT_STRESS));
@@ -291,21 +295,44 @@ async function main() {
       await page.locator('#open-guide').scrollIntoViewIfNeeded();
       const btn = await box(page, '#open-guide');
       assert.ok(btn.l >= 0 && btn.r <= vp.width && btn.t >= 0 && btn.h >= 34, `${tag}: the button is on screen and tappable (${btn.w}x${btn.h})`);
-      const kicker = await box(page, '.overlay-kicker');
-      assert.ok(kicker.h >= 22, `${tag}: the caption pill keeps its height (${kicker.h}px): overflow hidden on a flex item let it shrink to 12px on a short screen`);
+      // كبسولة العنوان تتقلّص عمدًا على stage-short (19px) وتُخفى عمدًا على stage-ultra (platform.css:594)
+      // أو عندما يقيس syncOverlayFit فيضًا فيضيف fit-2 (platform.css:608). الشرط يحرس العقد: تظهر دائمًا
+      // إلا حين يفرض التصميم إخفاءها، وحين تظهر لا يُقصّ نصّها ولا تنكمش إلى 12px.
+      const pill = await page.evaluate(() => {
+        const el = document.querySelector('#platform-overlay .overlay-kicker');
+        const stage = document.querySelector('.mine-stage');
+        const overlay = document.getElementById('platform-overlay');
+        const cs = getComputedStyle(el), b = el.getBoundingClientRect();
+        return {
+          display: cs.display, h: Math.round(b.height), clipped: el.scrollWidth > el.clientWidth + 1,
+          stage: stage.className, overlay: overlay.className,
+          hiddenByDesign: stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-2'),
+        };
+      });
+      const pillHidden = pill.display === 'none';
+      assert.equal(pillHidden, pill.hiddenByDesign, `${tag}: الكبسولة مخفية فقط حين يفرض التصميم ذلك (stage="${pill.stage}")`);
+      const pillBox = await box(page, '.overlay-kicker');
+      if (!pillHidden) {
+        assert.ok(pill.h >= 18, `${tag}: الكبسولة تحتفظ بارتفاعها المضغوط (${pill.h}px؛ المصمَّم على stage-short هو 19px)`);
+        assert.equal(pill.clipped, false, `${tag}: نص الكبسولة لا يُقصّ`);
+      }
       const title = await page.evaluate(() => document.getElementById('platform-title').textContent);
       for (const text of OVERLAY_TITLES) {
         await page.evaluate((t) => { document.getElementById('platform-title').textContent = t; }, text);
         await coversNothing(page, `${tag} / "${text}"`);
       }
       await page.evaluate((t) => { document.getElementById('platform-title').textContent = t; }, title);
-      // a caption far longer than any font could make it: the pill is capped and clips its text, so it never reaches the icon and keeps one line
-      await page.evaluate(() => { document.querySelector('.overlay-kicker').append(` · ${'جولة موثّقة · 150 ثانية · '.repeat(4)}`); });
-      await coversNothing(page, `${tag} / a very long caption`);
-      const long = await box(page, '.overlay-kicker');
-      assert.ok(long.h <= kicker.h + 2, `${tag}: the long caption stays on one line (${long.h}px against ${kicker.h}px)`);
-      await page.evaluate(() => { const k = document.querySelector('.overlay-kicker'); k.removeChild(k.lastChild); });
-      assert.deepEqual(await box(page, '.overlay-kicker'), kicker, `${tag}: and the pill is back to its size afterwards`);
+      // a caption far longer than any font could make it: the pill is capped and clips its text, so it never reaches the icon and keeps one line.
+      // يُقاس فقط حيث يعرض التصميم الكبسولة؛ على stage-ultra/fit-2 هي مخفية بحكم القواعد فلا معنى لقياس صفّها.
+      if (!pillHidden) {
+        const kicker = pillBox;
+        await page.evaluate(() => { document.querySelector('.overlay-kicker').append(` · ${'جولة موثّقة · 150 ثانية · '.repeat(4)}`); });
+        await coversNothing(page, `${tag} / a very long caption`);
+        const long = await box(page, '.overlay-kicker');
+        assert.ok(long.h <= kicker.h + 2, `${tag}: the long caption stays on one line (${long.h}px against ${kicker.h}px)`);
+        await page.evaluate(() => { const k = document.querySelector('.overlay-kicker'); k.removeChild(k.lastChild); });
+        assert.deepEqual(await box(page, '.overlay-kicker'), kicker, `${tag}: and the pill is back to its size afterwards`);
+      }
       assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), `${tag}: no height, no width taken from the overlay`);
       await openGuide(page);
       for (const name of ['goal', 'codex', 'story']) {

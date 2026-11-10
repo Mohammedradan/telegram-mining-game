@@ -4972,8 +4972,9 @@
       race.socketReady = false;
       race.connecting = new Promise((resolve, reject) => {
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const auth = tg?.initData ? `initData=${encodeURIComponent(tg.initData)}` : `guest=${encodeURIComponent(guestId)}`;
-        const ws = new WebSocket(`${proto}//${location.host}/ws?${auth}`);
+        // بلا أي بيانات هوية في الرابط: initData توقيع صالح 24 ساعة ولا يجوز أن يُسجَّل في سجلات
+        // الوكيل/الخادم. المصادقة تُرسل في أول رسالة بعد فتح الاتصال.
+        const ws = new WebSocket(`${proto}//${location.host}/ws`);
         race.ws = ws;
         let welcomed = false;
         let failed = false;
@@ -4987,7 +4988,12 @@
           fail('انتهت مهلة تجهيز اتصال السباق');
           try { ws.close(); } catch (e) {}
         }, 8000);
-        // Do not resolve on open: server identity loading may still be in flight.
+        // المصادقة في أول رسالة. لا نحل الوعد عند الفتح: الخادم قد ينتظر تحميل هوية اللاعب.
+        ws.onopen = () => {
+          try {
+            ws.send(JSON.stringify({ type: 'auth', initData: tg?.initData || '', guest: tg?.initData ? '' : guestId }));
+          } catch (e) { fail('تعذّر إرسال مصادقة السباق'); }
+        };
         ws.onerror = () => fail('تعذّر الاتصال بخادم السباقات');
         ws.onclose = () => {
           clearTimeout(timer);

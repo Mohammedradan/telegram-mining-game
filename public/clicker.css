@@ -916,6 +916,11 @@ body.ck-cave .ck-sound { display: grid; }
 /* الأفقي القصير: ميداليات في عمود، الصخرة والمعدّن في الوسط، والأزرار مكدّسة جانباً */
 @media (orientation: landscape) and (max-height: 520px) {
   body:has(#tab-mining.active) .app-header { display: none !important; }
+  /* سقف العرض المكتبي (@media min-width:780px في index.html → 520px) يتعارض مع شبكة الأعمدة الثلاثة هنا:
+     تبقى للساحة ~150px فتنكمش الصخرة إلى 54px عند 844×390. في الأفقي القصير نعيد للمسرح عرضه الكامل،
+     ونضع أرضية لمس للصخرة حتى لا ينزل هدف النقر تحت 84px على أي هاتف أفقي. */
+  #tab-mining > #ck-stage { max-width: 760px; }
+  .ck-area { --rock-w: max(88px, min(35cqw, 52cqh)); }
   .ck-stage {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) minmax(0, 190px);

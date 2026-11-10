@@ -2,6 +2,8 @@
 // CHROMIUM_PATH=/path/to/chromium npm run test:browser
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
+// سقوف المكافأة تُقرأ من المحرك المشترك، لا من أرقام مكتوبة في الاختبار.
+const R = require('../public/platform-rules');
 const fs = require('node:fs');
 const path = require('node:path');
 const base = process.env.TEST_APP_URL || 'http://127.0.0.1:3000';
@@ -19,6 +21,10 @@ async function main() {
   async function context(viewport, extras = {}) {
     // الأجهزة العريضة تُعامَل ككمبيوتر (مؤشر دقيق) فلا تظهر أزرار اللمس
     const ctx = await browser.newContext({ viewport, hasTouch: viewport.width < 900, ...extras });
+    // الإرشاد يظهر مرة واحدة لكل جهاز جديد (platform-coach:v1) فيغطي أزرار اللوحة. هذا الاختبار يبدأ
+    // بجهاز «شاهد الإرشاد» كي يقيس اللعب لا طبقة الشرح؛ سلوك اللعبة نفسه لم يُغيَّر، وللإرشاد اختبار مستقل
+    // (scripts/test-coach-browser.cjs) يثبت ظهوره وإغلاقه.
+    await ctx.addInitScript(() => { try { localStorage.setItem('platform-coach:v1', '1'); } catch (_) {} });
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
     // The scene, style and fonts must work with all external resources unavailable.
@@ -147,7 +153,12 @@ async function main() {
     assert.ok(Array.isArray(committed.milestones) && committed.milestones.length === final.milestones);
     report.feel = { floatersSpawned: final.floatersSpawned, comboPeak: final.comboPeak, missionComplete: true,
       milestones: final.milestones, ores: final.ores, goldSplit: { milestone: committed.milestoneGold, final: committed.finalGold } };
-    assert.equal(committed.won, true); assert.ok(committed.gold > 0 && committed.gold <= 100);
+    assert.equal(committed.won, true);
+    // سقف الجولة في المحرك = 100 (سقف المحتوى) + علاوة إتمام (20 + 10×المنجم): 120 في المنجم 0 و130 في المنجم 1.
+    // الرقم الثابت 100 كان سقف المحتوى وحده قبل إضافة علاوة الإتمام (public/platform-rules.js: RUN_REWARD/rewardCap).
+    const rewardCap = R.rewardCap(final.zone);
+    assert.ok(rewardCap >= R.RUN_REWARD.base, `cap ${rewardCap} never drops below the content cap`);
+    assert.ok(committed.gold > 0 && committed.gold <= rewardCap, `gold ${committed.gold} within the engine cap ${rewardCap} (zone ${final.zone})`);
     assert.equal((await read(page)).pending, true);
     await page.reload();
     await page.waitForFunction(() => window.PlatformGame?.inspect().pending && !document.getElementById('platform-retry').hidden);
@@ -165,8 +176,21 @@ async function main() {
     assert.equal(await page.locator('#stars-shop').count(), 0, 'no real-money shop is introduced');
     assert.equal(await page.locator('#legacy-adventure').isVisible(), false, 'the side-scroller remains the default play view');
     assert.equal(await page.evaluate(() => adv.running), false, 'the hidden legacy round stays stopped');
-    await page.locator('#nav-arena').click(); assert.equal(await page.locator('#arena-start-btn').isVisible(), true);
-    await page.locator('#arena-start-btn').click(); assert.equal(await page.evaluate(() => document.getElementById('arena-start-btn').disabled), true);
+    // القصد الأصلي (قبل تثبيت عقد الساحة الجديد): تبويب الساحة يعرض زر بدء فعّالًا بعد جولة مؤكدة،
+    // ولا يبقى مقفلًا. في الواجهة الحالية الزر الرئيسي للساحة هو #ar-start (مبارزة المنصّة على المسرح)،
+    // أما #arena-start-btn الكلاسيكي فانتقل داخل details#classic-system المطوي عمدًا.
+    // لا نضغط أيًّا منهما: كلاهما يبدأ مبارزة ويغيّر حالة اللعبة، وقفل زر البدء أثناء القتال
+    // مغطّى في test/arena-ui.test.js — فنقيس العقد نفسه بلا بدء مبارزة غير مطلوبة.
+    await page.locator('#nav-arena').click();
+    assert.equal(await page.locator('#ar-start').isVisible(), true, 'the arena primary CTA is on screen after a confirmed run');
+    assert.equal(await page.locator('#ar-start').isEnabled(), true, 'and it is not stuck disabled');
+    assert.equal(await page.evaluate(() => window.PlatformGame.duelBusy().running), false, 'no duel is running behind the CTA');
+    assert.equal(await page.locator('#classic-system #arena-start-btn').count(), 1, 'the classic start button still lives in its folded section');
+    assert.equal(await page.locator('#classic-system #arena-start-btn').isVisible(), false, 'the folded classic section keeps it hidden');
+    // عرض الساحة المركّز (body.arena-live) يُخفي الشريط السفلي؛ زر «التبويبات» هو مخرج المستخدم منه.
+    await page.locator('#arena-tabs-btn').click();
+    assert.equal(await page.evaluate(() => document.body.classList.contains('arena-live')), false, 'the tabs button restores the normal chrome');
+    assert.equal(await page.locator('#nav-play').isVisible(), true, 'and the bottom navigation comes back');
     // Corrupt/expired local receipts must not permanently lock the start button.
     await page.locator('#nav-play').click();
     await page.evaluate(() => {
@@ -295,7 +319,13 @@ async function main() {
     // the start overlay never clips its top on short screens and every button stays reachable
     const reach = await landPage.evaluate(() => {
       const ov = document.getElementById('platform-overlay'), kicker = ov.querySelector('.overlay-kicker');
-      ov.scrollTop = 0; const topOk = kicker.getBoundingClientRect().top >= ov.getBoundingClientRect().top;
+      const title = document.getElementById('platform-title');
+      const visible = (el) => Boolean(el) && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none';
+      ov.scrollTop = 0;
+      // الكبسولة «جولة موثّقة» تُخفى عمدًا على stage-ultra (platform.css:594) كما في 844×390، وrect عنصر مخفي = 0
+      // فلا تصلح مرجعًا. المرجع هو أول عنصر ظاهر فعليًا في أعلى الطبقة: الكبسولة إن ظهرت، وإلا العنوان.
+      const probe = visible(kicker) ? kicker : title;
+      const topOk = visible(probe) && probe.getBoundingClientRect().top >= ov.getBoundingClientRect().top;
       ov.scrollTop = ov.scrollHeight; const b = document.getElementById('open-workshop-overlay').getBoundingClientRect();
       return { topOk, bottomOk: b.bottom <= ov.getBoundingClientRect().bottom + 1 };
     });

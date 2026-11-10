@@ -52,8 +52,9 @@ function raceConnectionHarness() {
   let timerId = 0;
   class FakeSocket {
     static OPEN = 1;
-    constructor() { this.readyState = 0; instances.push(this); }
+    constructor(url) { this.url = url; this.readyState = 0; this.sent = []; instances.push(this); }
     open() { this.readyState = 1; this.onopen?.(); }
+    send(data) { this.sent.push(data); }
     message(data) { this.onmessage?.({ data }); }
     close() { this.readyState = 3; this.onclose?.(); }
   }
@@ -69,6 +70,24 @@ function raceConnectionHarness() {
   const ensure = vm.runInContext(`(${html.slice(start, end).trim()})`, context);
   return { race, instances, timers, ensure };
 }
+
+test('browser race auth travels in the first message, never in the socket URL', async () => {
+  const h = raceConnectionHarness();
+  const pending = h.ensure();
+  const socket = h.instances[0];
+  // initData توقيع صالح 24 ساعة: لا يجوز أن يظهر في رابط يُسجَّل في سجلات الوكيل/الخادم.
+  assert.equal(socket.url, 'wss://example.test/ws');
+  assert.doesNotMatch(socket.url, /initData|guest/i);
+  socket.open();
+  assert.equal(socket.sent.length, 1);
+  const auth = JSON.parse(socket.sent[0]);
+  assert.equal(auth.type, 'auth');
+  assert.equal(auth.initData, '');
+  assert.equal(auth.guest, 'test');
+  socket.message('{"type":"welcome","id":"player"}');
+  await pending;
+  assert.equal(h.race.socketReady, true);
+});
 
 test('browser race connection waits for welcome, not transport open', async () => {
   const h = raceConnectionHarness();

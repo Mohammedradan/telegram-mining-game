@@ -35,10 +35,30 @@ async function main() {
     await page.waitForFunction(() => document.getElementById('tab-mining').classList.contains('active'));
     // the painted art is part of the screen: wait until every image the hub shows has really loaded
     await page.waitForFunction(() => [...document.querySelectorAll('#tab-mining img, #ck-nodes img')].every((i) => i.complete && i.naturalWidth > 0), null, { timeout: 20000 });
+    // والشيء نفسه لصور الخلفية التي يرسمها الستايل (المشهد والصخرتان). التأكيد أدناه يقرأ سجلّ performance،
+    // فقراءته قبل اكتمال الطلب كانت تسقط أحيانًا بلا عيب في المنتج (سباق: cave-portrait.jpg لم يكن قد اكتمل بعد).
+    // هنا ننتظر حالة تحميل فعلية (decode/naturalWidth) بدل تكبير أي مهلة.
+    await page.waitForFunction(() => {
+      const urls = ['.ck-scene', '#ck-hero', '.ck-ore-img']
+        .map((s) => document.querySelector(s))
+        .flatMap((el) => [...String(el ? getComputedStyle(el).backgroundImage : '').matchAll(/url\((["']?)(.*?)\1\)/g)].map((m) => m[2]))
+        .filter((u) => /cave-portrait\.jpg|hero-sheet\.webp|ore-sheet\.webp/.test(u));
+      if (!urls.length) return false;
+      window.__artProbe = window.__artProbe || new Map();
+      for (const u of urls) {
+        let img = window.__artProbe.get(u);
+        if (!img) { img = new Image(); img.src = u; window.__artProbe.set(u, img); }
+        if (!(img.complete && img.naturalWidth > 0)) return false;
+      }
+      return true;
+    }, null, { timeout: 10000 }).catch(() => {});
     return { ctx, page };
   }
   // Drains the ops queue so the server and the screen agree before comparing them.
   const settle = (page) => page.waitForFunction(() => !SYNC.inflight && SYNC.pending.length === 0 && SYNC.clicks === 0, null, { timeout: 20000, polling: 100 });
+  // اللمس في المتصفح حدثان: touch ثم click يُولَّد بعده. locator.tap() يعود قبل أن ينفّذ المعالج أحيانًا،
+  // فكان تأكيد الأثر يقرأ الحالة القديمة (سُجّل مرة على زر الإغلاق). ننتظر الأثر الفعلي ثم نؤكّد كما هو.
+  const afterTap = (page, fn, timeout = 5000) => page.waitForFunction(fn, null, { timeout, polling: 50 }).catch(() => {});
   // A synthetic pointerdown on the rock: runs the page's real handler and reads the DOM in the same task (no timing races).
   const TAP = `(opt) => {
     const btn = document.getElementById('mine-btn'), r = document.querySelector('#mine-btn .ck-bob').getBoundingClientRect();
@@ -196,8 +216,9 @@ async function main() {
     assert.equal(empty.dGold, 0, 'a refused tap credits nothing');
     assert.equal(empty.dClicks, 0, 'a refused tap queues nothing for the server');
     assert.equal(empty.streak, 0, 'a refused tap does not extend the streak');
-    await page.evaluate(() => { state.energy = state.maxEnergy; updateUI(); });
-    assert.equal(await page.evaluate(() => document.getElementById('energy-container').dataset.level), 'full');
+    // الملء والقراءة في نفس المهمة: كان بينهما رحلة ذهاب/عودة يُحدّث فيها الخادم الطاقة فيقرأ التأكيد 'ok' أحيانًا
+    const refill = await page.evaluate(() => { state.energy = state.maxEnergy; updateUI(); return document.getElementById('energy-container').dataset.level; });
+    assert.equal(refill, 'full');
     report.energy = { low: true, empty: true, refill: true };
     await wait(2200); // the notice and the status pill finish
     await settle(page);
@@ -281,6 +302,7 @@ async function main() {
     assert.equal(sheet.art, true, 'the big medal shows the painted pickaxe');
     const goldBeforeBuy = await page.evaluate(() => state.gold);
     await page.locator('#ck-sheet-buy').tap();
+    await afterTap(page, () => state.owned.click === 1);
     const bought = await page.evaluate(() => { const q = (s) => document.querySelector(s); return { owned: state.owned.click, power: state.clickPower, gold: state.gold, cost: state.costs.click, sheetCost: q('#ck-sheet-cost').textContent, sheetOwned: q('#ck-sheet-owned').textContent, now: q('#ck-sheet-now').textContent,
       nodeLvl: q('[data-ck-item="click"] .cv-lvl').textContent, nodeTag: q('[data-ck-item="click"] .ck-node-tag b').textContent, costNums: [...document.querySelectorAll('#ck-layer .ck-num.is-cost')].map((e) => e.textContent), p: ClickerFX.inspect().particles, open: !q('#ck-sheet').hidden }; });
     assert.equal(bought.owned, 1);
@@ -315,6 +337,7 @@ async function main() {
     await page.locator('[data-ck-item="rig"]').tap();
     await page.waitForFunction(() => !document.getElementById('ck-sheet').hidden);
     await page.locator('#ck-sheet-close').tap();
+    await afterTap(page, () => document.getElementById('ck-sheet').hidden);
     assert.equal(await page.evaluate(() => document.getElementById('ck-sheet').hidden), true, 'the close button closes the window');
     report.upgrades = { ringFills: true, readyArrow: true, pointer: true, bought: true, serverAgrees: true, windowChained: true, closes: ['Escape', 'backdrop', 'button'] };
 
@@ -386,6 +409,7 @@ async function main() {
     // 13) sound toggle persists across reloads (default is on, quiet synthesized ticks)
     assert.equal(await page.evaluate(() => ClickerFX.inspect().muted), false, 'sound is on by default');
     await page.locator('#ck-sound').tap();
+    await afterTap(page, () => document.getElementById('ck-sound').getAttribute('aria-pressed') === 'true');
     assert.equal(await page.evaluate(() => [document.getElementById('ck-sound').getAttribute('aria-pressed'), localStorage.getItem('mining-fx-muted')].join()), 'true,true');
     await page.reload();
     await page.waitForFunction(() => window.ClickerFX && window.ClickerFX.active && typeof serverMode !== 'undefined' && serverMode === true, null, { timeout: 20000 });
@@ -644,6 +668,11 @@ async function main() {
     // ---------------------------------------------------------------- the crew, the companion and the walk (display only)
     assert.equal(await page.evaluate(() => document.getElementById('ck-crew').hidden), true, 'no crew before anything is bought');
     await page.evaluate(() => { state.owned.bot = 3; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 2 }); updateUI(); });
+    // الرسم يتبع الحالة في إطار لاحق أحيانًا: ننتظر ظهور الطاقم فعليًا قبل قياسه (كان getComputedStyle يصطدم بعنصر غير مرسوم بعد)
+    await page.waitForFunction(() => {
+      const box = document.getElementById('ck-crew');
+      return box && !box.hidden && box.querySelector('.ck-crew-rig') && document.querySelector('.ck-companion');
+    }, null, { timeout: 5000 }).catch(() => {});
     const crew = await page.evaluate(() => {
       const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
       const box = document.getElementById('ck-crew'), kids = [...box.children].filter((c) => !c.classList.contains('ck-crew-more'));
@@ -663,6 +692,7 @@ async function main() {
     await page.touchscreen.tap(rigBox.x + rigBox.width / 2, rigBox.y + rigBox.height / 2);
     assert.equal(await page.evaluate(() => state.gold), gCrew, 'tapping the crew is scenery: it never mines');
     await page.evaluate(() => { state.owned.bot = 9; state.owned.rig = 3; updateUI(); });
+    await page.waitForFunction(() => document.querySelectorAll('#ck-crew .ck-crew-more').length === 2, null, { timeout: 5000 }).catch(() => {});
     assert.deepEqual(await page.evaluate(() => [document.querySelectorAll('#ck-crew .ck-crew-bot').length, document.querySelectorAll('#ck-crew .ck-crew-rig').length, [...document.querySelectorAll('#ck-crew .ck-crew-more')].map((b) => b.textContent)]), [5, 2, ['+1', '+4']], 'what the lane cannot hold becomes a +N badge');
     // the walk: stride (lean, squash, weight), a breathing shadow and dust behind the feet while he walks; breathing again when he stops
     const walk = await page.evaluate(async () => {
@@ -718,7 +748,12 @@ async function main() {
     await rm.ctx.close();
 
     // ---------------------------------------------------------------- other screens: nothing overflows, everything reachable
-    for (const viewport of [{ width: 360, height: 740 }, { width: 375, height: 667 }, { width: 320, height: 568 }, { width: 844, height: 390 }, { width: 821, height: 934 }, { width: 1280, height: 800 }]) {
+    // المقاسات المطلوبة صريحًا: هواتف رأسية شائعة (320/360/375/390) + الأفقي القصير (844×390) + لوحي/مكتبي.
+    for (const viewport of [
+      { width: 320, height: 568 }, { width: 360, height: 740 }, { width: 360, height: 800 },
+      { width: 375, height: 667 }, { width: 375, height: 812 }, { width: 390, height: 844 },
+      { width: 844, height: 390 }, { width: 821, height: 934 }, { width: 1280, height: 800 },
+    ]) {
       const tag = `${viewport.width}x${viewport.height}`;
       const v = await open(viewport);
       const m = await v.page.evaluate(() => {
