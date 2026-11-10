@@ -489,11 +489,11 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 }
 
 
-/* The guide's corner badge needs a reserved top lane on compressed overlays,
-   including the long end-of-round title at 390x844. Keep this selector more specific
-   than the compact 10px padding above so the title and goal cards clear the full badge. */
+/* The guide button (including its "new" badge) is anchored to the top-right
+   of every mobile round overlay. Reserve its lane in every compact fit state, not
+   only fit-2: long end-of-round titles can trigger fit-1/fit-3/fit-4 as content changes. */
 @media (max-width: 600px) {
-  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-2) {
-    padding-top: 60px;
+  #platform-scene .mine-overlay {
+    padding-top: 56px;
   }
 }
