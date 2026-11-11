@@ -681,27 +681,13 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 /* Reserve the complete guide button + "new" badge footprint (54px) plus a
    small gap in normal compressed phone overlays. The ultra-short 320x568
    opening has its own compact override above, preserving the start action. */
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-height: 681px) {
   #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) {
     padding-top: 58px;
   }
 }
 
-/* Post-merge regression fix:
-   Keep the primary action reachable in the ultra-short opening overlay even
-   when the mine picker/settings continue below the fold, and reserve the
-   guide button's corner so long end-of-round titles never sit underneath it. */
-@media (max-width: 380px) and (max-height: 600px) {
-  #platform-scene .mine-overlay #platform-start {
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    flex: 0 0 auto;
-    align-self: center;
-    box-shadow: 0 -8px 16px rgba(4, 10, 18, .72), 0 6px 18px rgba(196, 129, 44, .28);
-  }
-}
-
+/* Compact phone title stays clear of the guide button without changing overlay flow. */
 @media (max-width: 600px) {
   #platform-scene .mine-overlay #platform-title {
     width: calc(100% - 88px);
