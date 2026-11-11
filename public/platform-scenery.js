@@ -24,8 +24,9 @@
     { x: 1440, type: 'chest' }, { x: 1760, type: 'barrel' }, { x: 2040, type: 'cart' }, { x: 2320, type: 'chest' },
   ];
   const THEME = {
-    iron: ['cart', 'barrel', 'cart', 'barrel', 'chest'], gold: ['chest', 'cart', 'chest', 'barrel'], crystal: ['cluster', 'cluster', 'cart', 'cluster', 'chest'],
-    lava: ['barrel', 'skull', 'barrel', 'cart'], legend: ['cluster', 'skull', 'chest', 'cluster'],
+    iron: ['cart', 'rig', 'barrel', 'robot', 'chest'], gold: ['chest', 'rig', 'robot', 'barrel'],
+    crystal: ['cluster', 'robot', 'cart', 'cluster', 'rig', 'chest'],
+    lava: ['barrel', 'rig', 'skull', 'robot', 'cart'], legend: ['cluster', 'robot', 'rig', 'chest', 'cluster'],
   };
   const propCache = new Map();
   function propsFor(level) {
@@ -62,6 +63,46 @@
       round(c, p.x, 284, 22, 16, 9, '#cfc6b0'); round(c, p.x + 4, 295, 14, 7, 3, '#b9af98');
       c.fillStyle = '#231a14'; c.beginPath(); c.arc(p.x + 7, 291, 3, 0, TAU); c.arc(p.x + 15, 291, 3, 0, TAU); c.fill();
       c.fillRect(p.x + 10, 295, 2, 4);
+    } else if (p.type === 'rig') {
+      // منصة حفر آلية: هيكل مثبت بالأرض، مكبس يتحرك ورأس حفر يدور عند نقطة التماس.
+      const lift = reduced ? 0 : Math.sin(tick * 0.18) * 3.2;
+      c.save(); c.translate(p.x, 0);
+      c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(17, 299, 18, 3, 0, 0, TAU); c.fill();
+      round(c, 2, 291, 30, 8, 3, '#26323b'); round(c, 5, 293, 24, 3, 2, '#81909b');
+      round(c, 5, 242, 5, 51, 2, '#52616d'); round(c, 24, 242, 5, 51, 2, '#52616d');
+      round(c, 4, 240, 26, 7, 2, '#273640'); round(c, 7, 241, 20, 2, 1, '#d4a94f');
+      round(c, 10, 248 + lift, 14, 19, 3, '#738593');
+      round(c, 12, 251 + lift, 10, 6, 2, '#25323c');
+      c.fillStyle = '#e6b957'; c.fillRect(15, 255 + lift, 4, 3);
+      c.fillStyle = '#b8c7d1'; c.fillRect(16, 267 + lift, 2, 16);
+      c.save(); c.translate(17, 285 + lift); c.rotate(reduced ? 0 : tick * 0.22);
+      c.fillStyle = '#d5e0e7'; c.beginPath(); c.moveTo(-7, -2); c.lineTo(0, -10); c.lineTo(7, -2); c.lineTo(0, 6); c.closePath(); c.fill();
+      c.strokeStyle = '#35434e'; c.lineWidth = 1.5; c.stroke(); c.restore();
+      if (!reduced && Math.floor(tick / 5) % 2 === 0) {
+        c.fillStyle = '#ffc45c'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(17 + Math.sin(tick * 0.7 + i * 2) * (5 + i), 288 + Math.cos(tick * 0.6 + i) * 3, 1.3, 0, TAU); c.fill(); }
+      }
+      c.restore();
+    } else if (p.type === 'robot') {
+      // عامل آلي متحرك على جنزير: يتمايل، يرفع ذراع المطرقة، ويومض مصباح الفحص.
+      const bob = reduced ? 0 : Math.sin(tick * 0.12) * 1.5;
+      const swing = reduced ? 0 : Math.sin(tick * 0.16) * 0.28;
+      c.save(); c.translate(p.x + 17, 300 + bob);
+      c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(0, 0, 15, 3, 0, 0, TAU); c.fill();
+      round(c, -14, -12, 28, 10, 5, '#26343e');
+      c.fillStyle = '#a6b3bc'; for (let i = -10; i <= 10; i += 10) { c.beginPath(); c.arc(i, -7, 3.2, 0, TAU); c.fill(); }
+      round(c, -10, -34, 20, 22, 5, '#637887'); round(c, -7, -31, 14, 12, 3, '#263640');
+      c.fillStyle = '#e7bd61'; c.fillRect(-5, -29, 10, 2);
+      c.save(); c.translate(-10, -29); c.rotate(-swing);
+      round(c, -3, -2, 7, 16, 3, '#9eabb4'); c.restore();
+      c.save(); c.translate(10, -29); c.rotate(swing + 0.28);
+      round(c, -2, -2, 6, 15, 3, '#9eabb4');
+      round(c, -5, 10, 12, 4, 2, '#d7a94e'); c.restore();
+      round(c, -8, -48, 16, 14, 4, '#b6c4cc');
+      round(c, -5, -45, 10, 8, 3, '#273945');
+      c.fillStyle = reduced ? '#f2d06b' : (Math.floor(tick / 8) % 2 ? '#6ee7ff' : '#f2d06b');
+      c.beginPath(); c.arc(0, -41, 2.7, 0, TAU); c.fill();
+      c.fillStyle = '#d9e2e8'; c.fillRect(-3, -52, 6, 3);
+      c.restore();
     }
   }
 
