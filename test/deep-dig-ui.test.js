@@ -273,7 +273,7 @@ test('robot HUD is present, hidden without the upgrade, and exposes accessible p
     assert.match(ui, new RegExp("\\$\\('" + id + "'\\)"), 'UI caches ' + id);
   }
   assert.match(html, /dd-robot[^>]*hidden/, 'the robot HUD starts hidden');
-  assert.match(css, /\\.dd-robot\\[data-working="1"\\]/, 'working state has a visual treatment');
-  assert.match(ui, /s\\.robotDig/, 'HUD reads model-reported robot progress');
+  assert.ok(css.includes('.dd-robot[data-working="1"]'), 'working state has a visual treatment');
+  assert.ok(ui.includes('s.robotDig'), 'HUD reads model-reported robot progress');
   assert.match(ui, /robot_mined/, 'robot collection has feedback');
 });
