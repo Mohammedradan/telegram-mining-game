@@ -134,7 +134,8 @@
 
   // ======================= الوحدة التفاعلية =======================
   let opts = null, els = null, game = null, rend = null, sound = null, rec = emptyRecord();
-  let phase = 'closed', paused = false, raf = 0, lastTs = 0, clock = 0, cam = 0, holdUntil = 0;\n  let deepSession = null, replayFrames = [], pendingAscend = false, replayOverflow = false, starting = false, settling = false;
+  let phase = 'closed', paused = false, raf = 0, lastTs = 0, clock = 0, cam = 0, holdUntil = 0;
+  let deepSession = null, replayFrames = [], pendingAscend = false, replayOverflow = false, starting = false, settling = false;
   let stick = { x: 0, y: 0, mag: 0 }, keys = { l: false, r: false, u: false, d: false }, axis = 'v', padPointer = null;
   const particles = createParticles(CFG.PARTICLES[2]);
   const meter = createQuality();
@@ -430,8 +431,9 @@
   }
 
   // ---------- دورة اللعب ----------
-  function newGame(seed) {
-    const eq = (opts.getEquipment && opts.getEquipment()) || {};
+  function newGame(seed, equipment) {
+    const eq = equipment || (opts.getEquipment && opts.getEquipment()) || {};
+    replayFrames = []; pendingAscend = false; replayOverflow = false;
     seedUsed = seed != null ? seed >>> 0 : (opts.seed != null ? opts.seed >>> 0 : Math.floor(rngOf()() * 4294967296) >>> 0);
     game = DD.create({ seed: seedUsed || 1, equipment: eq });
     droneOn = DD.normalizeEquipment(eq).robot >= 1;
@@ -475,7 +477,17 @@
     }
     if (phase === 'run' && !paused && game) {
       if (clock >= holdUntil) {
-        DD.advance(game, dt, currentDir());
+        const input = currentDir();
+        const beforeTick = game.tick;
+        DD.advance(game, dt, input);
+        const advanced = game.tick - beforeTick;
+        if (deepSession && advanced > 0 && !replayOverflow) {
+          for (let i = 0; i < advanced; i++) {
+            replayFrames.push({ dx: input.dx, dy: input.dy, ...(i === 0 && pendingAscend ? { ascend: true } : {}) });
+            if (replayFrames.length > 108000) { replayOverflow = true; replayFrames.length = 0; break; }
+          }
+          if (advanced > 0) pendingAscend = false;
+        }
         handleEvents(DD.drainEvents(game));
         if (game.status === 'done') finishRun();
       }
@@ -574,7 +586,7 @@
   function ropeNow() {
     if (phase !== 'run' || paused || !game) return false;
     const ok = DD.ascend(game);
-    if (ok) { handleEvents(DD.drainEvents(game)); renderHud(true); wake(); }
+    if (ok) { if (deepSession) pendingAscend = true; handleEvents(DD.drainEvents(game)); renderHud(true); wake(); }
     return ok;
   }
 
