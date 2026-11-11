@@ -373,7 +373,7 @@ async function main() {
       const probe = visible(kicker) ? kicker : title;
       const topOk = visible(probe) && probe.getBoundingClientRect().top >= ov.getBoundingClientRect().top;
       ov.scrollTop = ov.scrollHeight; const b = document.getElementById('open-workshop-overlay').getBoundingClientRect();
-      return { topOk, bottomOk: b.bottom <= ov.getBoundingClientRect().bottom + 1, overlay: (() => { const r=ov.getBoundingClientRect(); return {top:r.top,bottom:r.bottom,scrollTop:ov.scrollTop,scrollHeight:ov.scrollHeight,clientHeight:ov.clientHeight}; })(), title: (() => { const r=title.getBoundingClientRect(), cs=getComputedStyle(title); return {top:r.top,bottom:r.bottom,display:cs.display,position:cs.position,marginTop:cs.marginTop,transform:cs.transform}; })(), kicker: (() => { const r=kicker.getBoundingClientRect(),cs=getComputedStyle(kicker); return {top:r.top,bottom:r.bottom,display:cs.display}; })(), stageClass: ov.parentElement.className };
+      return { topOk, bottomOk: b.bottom <= ov.getBoundingClientRect().bottom + 1 };
     });
     assert.equal(reach.topOk, true, `opening overlay title stays inside its top edge: ${JSON.stringify(reach)}`);
     assert.equal(reach.bottomOk, true, `opening overlay action stays inside its bottom edge: ${JSON.stringify(reach)}`);
