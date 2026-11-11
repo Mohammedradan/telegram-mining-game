@@ -7,6 +7,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createStore } = require('../db');
+const DeepDig = require('../public/deep-dig');
+const { replayDeepDig } = require('../lib/deep-dig-replay');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mining-deep-dig-'));
 const file = path.join(dir, 'game.db');
@@ -81,4 +83,52 @@ test('Deep Dig API: rejects unfinished, malformed, and foreign sessions without 
   const saved = await store.getUser(`guest_${guest('reject')}`);
   assert.deepEqual(saved.state.ores, { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 });
   assert.equal((await store.getDeepDigRun(ticket.body.id)).status, 'playing');
+});
+
+test('Deep Dig API: settles replayed kept ores once and returns the saved receipt on retries', async () => {
+  const ticket = await post('settle', 'start');
+  assert.equal(ticket.status, 200);
+  const session = { seed: ticket.body.seed, equipment: ticket.body.equipment };
+  const game = DeepDig.create(session);
+  const frames = [];
+  let ascended = false;
+  for (let i = 0; i < 5000 && game.status === 'running'; i++) {
+    let frame;
+    if (!ascended && game.miner.row >= 1) {
+      frame = { dx: 0, dy: 0, ascend: true };
+      assert.equal(DeepDig.ascend(game), true);
+      ascended = true;
+    } else {
+      frame = { dx: 0, dy: ascended ? 0 : 1 };
+    }
+    frames.push(frame);
+    DeepDig.advance(game, DeepDig.DT, { dx: frame.dx, dy: frame.dy });
+  }
+  assert.equal(game.status, 'done', 'test path should finish by ascending the rope');
+  const expected = replayDeepDig({ frames }, session);
+  assert.equal(expected.ok, true);
+  assert.deepEqual(expected.result, game.result);
+  const compact = [];
+  for (const frame of frames) {
+    const last = compact[compact.length - 1];
+    if (!frame.ascend && last && !last.ascend && last.dx === frame.dx && last.dy === frame.dy) last.ticks++;
+    else compact.push({ ...frame, ticks: 1 });
+  }
+  const elapsed = Date.now() - ticket.body.startedAt;
+  const wait = Math.max(0, expected.duration * 1000 - elapsed - 1000);
+  if (wait) await new Promise((resolve) => setTimeout(resolve, wait + 30));
+  const first = await post('settle', 'finish', { id: ticket.body.id, frames: compact });
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  assert.equal(first.body.ok, true);
+  assert.deepEqual(first.body.kept, Object.fromEntries(['copper','iron','gold','crystal','lava'].map(k => [k, expected.result.kept[k] || 0])));
+  const second = await post('settle', 'finish', { id: ticket.body.id, frames: [] });
+  assert.equal(second.status, 200);
+  assert.equal(second.body.duplicate, true);
+  const saved = await store.getUser(`guest_${guest('settle')}`);
+  for (const key of ['copper','iron','gold','crystal','lava']) {
+    assert.equal(saved.state.ores[key], expected.result.kept[key] || 0);
+  }
+  const ledger = (await store.ledgerFor(saved.id)).filter(e => e.kind === 'deep_dig_finish');
+  assert.equal(ledger.length, 1);
+  assert.equal(ledger[0].session, `deep-dig:${ticket.body.id}`);
 });
