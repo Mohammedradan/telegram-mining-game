@@ -62,9 +62,12 @@ function mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare,
       }
       const config = configOf(run);
       const replay = replayDeepDig({ frames: req.body?.frames }, config);
-      if (!replay.ok) return { status: 400, error: 'تعذر التحقق من حركات الحفر' };
-      if (replay.status !== 'done' || !replay.result) {
-        return { status: 400, error: 'يجب إنهاء الجولة قبل طلب المكافأة' };
+      if (!replay.ok || replay.status !== 'done' || !replay.result) {
+        // A malformed or mismatched replay is terminal for this ticket; the player can start a fresh run.
+        run.status = 'rejected';
+        run.updated_at = now();
+        await store.saveDeepDigRun(run);
+        return { status: 400, error: 'تعذر التحقق من حركات الحفر؛ ابدأ جولة جديدة' };
       }
       if (now() - Number(run.started_at) + 1000 < replay.duration * 1000) {
         return { status: 409, error: 'مدة الجولة لا تطابق الزمن المنقضي؛ أعد المحاولة' };
