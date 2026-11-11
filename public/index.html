@@ -2301,7 +2301,7 @@
         <li><b>الحبل</b> يرفعك بكل غنيمتك، و<b>الإغماء</b> يفقدك نصفها.</li>
       </ul>
       <p id="dd-intro-note" class="dd-note"></p>
-      <p class="dd-note">نسخة تجريبية: لا ذهب ولا مكافآت بعد — يُسجَّل أفضل عمق لديك فقط.</p>
+      <p class="dd-note">عند الاتصال بالخادم، تُضاف الخامات التي تنجو بها إلى مخزونك؛ وبيعها يخضع لسقف الذهب اليومي.</p>
       <button id="dd-start" class="cv-btn cv-btn-gold dd-primary" type="button">ابدأ النزول</button>
       <button id="dd-intro-back" class="cv-btn dd-secondary" type="button">رجوع للكهف</button>
     </section>
@@ -5621,6 +5621,18 @@
     // الحفر العميق (عميل فقط): المعدات تُقرأ من state.equipment فقط ولا يكتب ذهباً ولا عمليات؛ إن تعطّل لا تظهر ميداليته
     const deepDiveReady = !!window.DeepDigUI?.init({
       getEquipment: () => state.equipment, haptic,
+      onStart: async () => {
+        if (!serverMode) return null; // وضع محلي بلا مكافآت خادمية
+        return api('/api/deep-dig/start', { method: 'POST', body: '{}' });
+      },
+      onFinish: async (session, frames) => {
+        if (!serverMode || !session?.id) throw new Error('يلزم الاتصال بالخادم لتأكيد غنيمة الحفر');
+        const receipt = await api('/api/deep-dig/finish', {
+          method: 'POST', body: JSON.stringify({ id: session.id, frames }),
+        });
+        if (receipt.profile) adoptServerState(receipt.profile);
+        return receipt;
+      },
       onOpen: () => { try { window.PlatformGame?.pause(); } catch (_) {} },
       onClose: () => { try { window.ClickerFX?.syncSound?.(); } catch (_) {} updateUI(); },
       onMute: () => { try { window.ClickerFX?.syncSound?.(); } catch (_) {} },

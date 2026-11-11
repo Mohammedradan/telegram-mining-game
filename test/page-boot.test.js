@@ -63,6 +63,11 @@ function bootPage({ me, source = script }) {
     fetch: async (url) => {
       log.fetches.push(String(url));
       if (String(url).startsWith('/api/me')) return { ok: true, status: 200, json: async () => me };
+      if (String(url).startsWith('/api/deep-dig/start')) return { ok: true, status: 200, json: async () => ({
+        id: 'boot-deep-dig-ticket', seed: 123456, equipment: { pickaxe: 0, boots: 0, bag: 0, magnet: 0, drill: 0, robot: 0, luck: 0, armor: 0 },
+        startedAt: Date.now(), expiresAt: Date.now() + 1800000, profile: me,
+      }) };
+      if (String(url).startsWith('/api/deep-dig/finish')) return { ok: true, status: 200, json: async () => ({ ok: true, keptCount: 2, profile: me }) };
       return { ok: false, status: 404, json: async () => ({ error: 'not found' }) };
     },
     Audio: function () { return { play: async () => {}, pause: noop, load: noop }; },
@@ -387,7 +392,7 @@ test('the workshop medal opens the workshop instead of a window, and the CTA sta
   assert.deepEqual(page.log.errors, []);
 });
 
-test('the deep-dive medal opens the full-screen dive: intro first, a run descends, the rope banks the loot, the record stays on the device and nothing is sent to the server', async () => {
+test('the deep-dive medal opens the full-screen dive: intro first, a run descends, the rope banks the loot and the server ticket is settled', async () => {
   const page = bootPage({ me: meResponse });
   await page.settle();
   showMiningTab(page);
@@ -404,7 +409,7 @@ test('the deep-dive medal opens the full-screen dive: intro first, a run descend
   assert.equal(dd.inspect().phase, 'intro');
   assert.equal(paused, 1, 'a paused platformer round must not run behind it');
   assert.equal(dd.inspect().game.depthM, 0);
-  assert.equal(dd.startRun(), true);
+  assert.equal(await dd.startRun(), true);
   assert.equal(dd.inspect().phase, 'run');
   assert.equal(JSON.parse(page.ctx.localStorage.getItem('mining-deep-dig')).hinted, true, 'the first-run hint is remembered as soon as it was shown (not only after a finished run)');
   dd.debug.setStick(0, 1);                                    // the stick pushed down
@@ -431,7 +436,8 @@ test('the deep-dive medal opens the full-screen dive: intro first, a run descend
   assert.equal(dd.inspect().record.runs, 1, 'the record survives a reopen');
   dd.close();
   const sent = page.log.fetches.slice(sentBefore);
-  assert.deepEqual(sent, [], `the dive never talks to the server: ${sent.join(', ')}`);
+  assert.ok(sent.some((url) => url.startsWith('/api/deep-dig/start')), `the dive receives a server ticket: ${sent.join(', ')}`);
+  assert.ok(sent.some((url) => url.startsWith('/api/deep-dig/finish')), `the finished dive submits its replay: ${sent.join(', ')}`);
   assert.equal(page.dbg().state.gold, meResponse.state.gold, 'no gold was written');
   assert.deepEqual(page.log.errors, []);
 });
@@ -495,7 +501,7 @@ test('the dive pauses on Escape and when the page loses focus, never reads equip
   const dd = page.ctx.DeepDigUI;
   page.ctx.PlatformGame = { pause: noop, refresh: noop };
   page.byId('dd-overlay').hidden = true;
-  dd.open(); dd.startRun();
+  dd.open(); await dd.startRun();
   assert.equal(dd.inspect().phase, 'run');
   assert.equal(dd.pause('test'), true);
   assert.equal(dd.inspect().phase, 'paused');

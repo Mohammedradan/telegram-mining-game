@@ -135,6 +135,7 @@
   // ======================= الوحدة التفاعلية =======================
   let opts = null, els = null, game = null, rend = null, sound = null, rec = emptyRecord();
   let phase = 'closed', paused = false, raf = 0, lastTs = 0, clock = 0, cam = 0, holdUntil = 0;
+  let deepSession = null, replayFrames = [], pendingAscend = false, replayOverflow = false, starting = false, settling = false;
   let stick = { x: 0, y: 0, mag: 0 }, keys = { l: false, r: false, u: false, d: false }, axis = 'v', padPointer = null;
   const particles = createParticles(CFG.PARTICLES[2]);
   const meter = createQuality();
@@ -430,8 +431,9 @@
   }
 
   // ---------- دورة اللعب ----------
-  function newGame(seed) {
-    const eq = (opts.getEquipment && opts.getEquipment()) || {};
+  function newGame(seed, equipment) {
+    const eq = equipment || (opts.getEquipment && opts.getEquipment()) || {};
+    replayFrames = []; pendingAscend = false; replayOverflow = false;
     seedUsed = seed != null ? seed >>> 0 : (opts.seed != null ? opts.seed >>> 0 : Math.floor(rngOf()() * 4294967296) >>> 0);
     game = DD.create({ seed: seedUsed || 1, equipment: eq });
     droneOn = DD.normalizeEquipment(eq).robot >= 1;
@@ -475,7 +477,17 @@
     }
     if (phase === 'run' && !paused && game) {
       if (clock >= holdUntil) {
-        DD.advance(game, dt, currentDir());
+        const input = currentDir();
+        const beforeTick = game.tick;
+        DD.advance(game, dt, input);
+        const advanced = game.tick - beforeTick;
+        if (deepSession && advanced > 0 && !replayOverflow) {
+          for (let i = 0; i < advanced; i++) {
+            replayFrames.push({ dx: input.dx, dy: input.dy, ...(i === 0 && pendingAscend ? { ascend: true } : {}) });
+            if (replayFrames.length > 108000) { replayOverflow = true; replayFrames.length = 0; break; }
+          }
+          if (advanced > 0) pendingAscend = false;
+        }
         handleEvents(DD.drainEvents(game));
         if (game.status === 'done') finishRun();
       }
@@ -505,9 +517,10 @@
     raf = 0; lastTs = 0;
   }
 
-  function startRun() {
-    if (!game || (phase !== 'intro' && phase !== 'summary')) return false;
-    if (phase === 'summary') newGame();
+  function activateRun(session) {
+    deepSession = session && typeof session.id === 'string' ? session : null;
+    if (deepSession) newGame(deepSession.seed, deepSession.equipment);
+    else if (phase === 'summary') newGame();
     paused = false;
     setPhase('run');
     stats.runs++;
@@ -519,9 +532,42 @@
     return true;
   }
 
+  function startRun() {
+    if (!game || starting || (phase !== 'intro' && phase !== 'summary')) return false;
+    if (typeof opts.onStart !== 'function') return activateRun(null);
+    starting = true;
+    let request;
+    try { request = opts.onStart(); }
+    catch (error) {
+      starting = false;
+      banner(error?.message || 'تعذر بدء جولة موثوقة؛ تحقق من الاتصال', 'warning', 4200);
+      return false;
+    }
+    if (!request || typeof request.then !== 'function') {
+      starting = false;
+      return activateRun(request);
+    }
+    return Promise.resolve(request).then((session) => activateRun(session)).catch((error) => {
+      banner(error?.message || 'تعذر بدء جولة موثوقة؛ تحقق من الاتصال', 'warning', 4200);
+      return false;
+    }).finally(() => { starting = false; });
+  }
+
+  function compactReplay(frames) {
+    const out = [];
+    for (const frame of frames) {
+      const last = out[out.length - 1];
+      if (!frame.ascend && last && !last.ascend && last.dx === frame.dx && last.dy === frame.dy) last.ticks++;
+      else out.push({ dx: frame.dx, dy: frame.dy, ...(frame.ascend ? { ascend: true } : {}), ticks: 1 });
+      if (out.length > 12000) return null;
+    }
+    return out;
+  }
+
   function finishRun() {
     const res = game.result;
-    if (!res) return;
+    if (!res || settling) return;
+    settling = true;
     const applied = applyResult(rec, res);
     rec = applied.rec;
     saveRecords(opts.storage, rec);
@@ -533,12 +579,26 @@
     renderHud(true);
     draw();
     stopLoop();
+    if (deepSession && typeof opts.onFinish === 'function') {
+      const frames = replayOverflow ? null : compactReplay(replayFrames);
+      if (!frames) {
+        banner('تعذر إرسال سجل الجولة كاملاً؛ لم تُمنح خامات هذه الجولة', 'warning', 5000);
+        deepSession = null; settling = false; return;
+      }
+      Promise.resolve(opts.onFinish(deepSession, frames)).then((receipt) => {
+        if (!receipt || receipt.ok !== true) throw new Error('لم يؤكد الخادم حفظ غنيمة الحفر');
+        banner(`تم حفظ خامات الجولة في مخزونك — ${receipt.keptCount || 0} خامة`, 'success', 4200);
+        deepSession = null; replayFrames = [];
+      }).catch((error) => {
+        banner(error?.message || 'تعذر حفظ خامات الجولة؛ لم تُضف إلى المخزون', 'warning', 5000);
+      }).finally(() => { settling = false; });
+    } else settling = false;
   }
 
   function ropeNow() {
     if (phase !== 'run' || paused || !game) return false;
     const ok = DD.ascend(game);
-    if (ok) { handleEvents(DD.drainEvents(game)); renderHud(true); wake(); }
+    if (ok) { if (deepSession) pendingAscend = true; handleEvents(DD.drainEvents(game)); renderHud(true); wake(); }
     return ok;
   }
 

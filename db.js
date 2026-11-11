@@ -98,6 +98,12 @@ CREATE TABLE IF NOT EXISTS platform_runs (
   status TEXT NOT NULL, result_json TEXT, started_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL, config_json TEXT
 );
+CREATE TABLE IF NOT EXISTS deep_dig_runs (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
+  status TEXT NOT NULL, result_json TEXT, started_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL, config_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_user ON deep_dig_runs (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
@@ -132,6 +138,12 @@ CREATE TABLE IF NOT EXISTS platform_runs (
   updated_at BIGINT NOT NULL, config_json TEXT
 );
 ALTER TABLE platform_runs ADD COLUMN IF NOT EXISTS config_json TEXT;
+CREATE TABLE IF NOT EXISTS deep_dig_runs (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
+  status TEXT NOT NULL, result_json TEXT, started_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL, config_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_user ON deep_dig_runs (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
 `;
@@ -246,6 +258,16 @@ function createSqliteStore(file) {
         .run(String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
           run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now(),
           run.config_json == null ? null : String(run.config_json));
+    },
+    async activeDeepDigRun(userId) { return runFromRow(conn.prepare("SELECT * FROM deep_dig_runs WHERE user_id = ? AND status = 'playing' ORDER BY started_at DESC LIMIT 1").get(String(userId))); },
+    async getDeepDigRun(id) { return runFromRow(conn.prepare('SELECT * FROM deep_dig_runs WHERE id = ?').get(String(id))); },
+    async saveDeepDigRun(run) {
+      conn.prepare(`INSERT INTO deep_dig_runs (id, user_id, version, status, result_json, started_at, updated_at, config_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET status = excluded.status, result_json = excluded.result_json, updated_at = excluded.updated_at`)
+        .run(String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
+          run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(),
+          Number(run.updated_at) || Date.now(), String(run.config_json || '{}'));
     },
     async getPending(id) { return conn.prepare('SELECT count FROM pending_referrals WHERE id = ?').get(String(id))?.count || 0; },
     async addPending(id) {
@@ -373,6 +395,16 @@ function createPgStore(url) {
       [String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
         run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(), Number(run.updated_at) || Date.now(),
         run.config_json == null ? null : String(run.config_json)]);
+    },
+    async activeDeepDigRun(userId) { return runFromRow((await q("SELECT * FROM deep_dig_runs WHERE user_id = $1 AND status = 'playing' ORDER BY started_at DESC LIMIT 1", [String(userId)])).rows[0]); },
+    async getDeepDigRun(id) { return runFromRow((await q('SELECT * FROM deep_dig_runs WHERE id = $1', [String(id)])).rows[0]); },
+    async saveDeepDigRun(run) {
+      await q(`INSERT INTO deep_dig_runs (id, user_id, version, status, result_json, started_at, updated_at, config_json)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT(id) DO UPDATE SET status = EXCLUDED.status, result_json = EXCLUDED.result_json, updated_at = EXCLUDED.updated_at`,
+      [String(run.id), String(run.user_id), Number(run.version) || 1, String(run.status || 'playing'),
+        run.result_json == null ? null : String(run.result_json), Number(run.started_at) || Date.now(),
+        Number(run.updated_at) || Date.now(), String(run.config_json || '{}')]);
     },
     async close() { await pool.end(); },
   };

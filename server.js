@@ -13,6 +13,7 @@ const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, de
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
 const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
+const { mountDeepDig } = require('./deep-dig-api');
 const Quests = require('./quests');
 const Prestige = require('./public/prestige-rules');
 // قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
@@ -1112,7 +1113,8 @@ function rateLimit(name, maxPerMinute) {
 // Render يضع بروكسي واحداً أمام الخدمة: نثق بآخر X-Forwarded-For يضيفه هو فقط، لا بما يرسله العميل
 app.set('trust proxy', CONFIG.trustProxyHops);
 app.use(securityHeaders({ production: IS_PRODUCTION }));
-app.use(express.json({ limit: '64kb' })); // جولة زعيم طويلة ≈ 800-1500 مقطع حركة (≈ 23 بايت لكل مقطع)؛ السقف الفعلي 2400 مقطع في القواعد المشتركة
+app.use('/api/deep-dig', express.json({ limit: '512kb' })); // الحفر العميق يرسل مقاطع مضغوطة مستقلة
+app.use(express.json({ limit: '64kb' })); // بقية واجهات اللعبة تحت سقفها الأصلي
 // فن «الكهف» (صور المشهد والمعدّن والأيقونات) يُطلب دائماً برقم نسخة ?v= في الرابط، فيُخزَّن أسبوعاً دون إعادة تحقق؛
 // عند تغيير صورة يُرفع الرقم في index.html وcss وcave-art.js (يحرس ذلك اختبار في test/clicker-fx.test.js).
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -1306,6 +1308,7 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
 // وتحديد المعدل ومعالجة الأخطاء المعتمدة أعلاه (platform-api.js).
 // ---------------------------------------------------------------------------
 mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, trackQuests: (user, facts) => Quests.addRun(user.sync.quests, facts), now: Date.now });
+mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, now: Date.now });
 
 // ---------------------------------------------------------------------------
 // ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص
