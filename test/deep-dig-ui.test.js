@@ -262,3 +262,18 @@ test('deep-mine machinery: the drill upgrade adds a spinning tool and the robot 
     'the working robot draws a beam to the tile being mined');
   assert.doesNotThrow(() => trace({ drill: 5, robot: 5 }, true), 'maximum equipment remains render-safe');
 });
+
+
+test('robot HUD is present, hidden without the upgrade, and exposes accessible progress styling', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'deep-dig.css'), 'utf8');
+  const ui = fs.readFileSync(path.join(__dirname, '..', 'public', 'deep-dig-ui.js'), 'utf8');
+  for (const id of ['dd-robot', 'dd-robot-label', 'dd-robot-fill', 'dd-robot-percent']) {
+    assert.match(html, new RegExp('id="' + id + '"'), 'robot HUD element ' + id);
+    assert.match(ui, new RegExp("\\$\\('" + id + "'\\)"), 'UI caches ' + id);
+  }
+  assert.match(html, /dd-robot[^>]*hidden/, 'the robot HUD starts hidden');
+  assert.match(css, /\\.dd-robot\\[data-working="1"\\]/, 'working state has a visual treatment');
+  assert.match(ui, /s\\.robotDig/, 'HUD reads model-reported robot progress');
+  assert.match(ui, /robot_mined/, 'robot collection has feedback');
+});
