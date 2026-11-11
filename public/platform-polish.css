@@ -732,3 +732,42 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     padding: 5px 12px;
   }
 }
+
+
+/* 320x568: stack the three goal cards in one compact row. The previous
+   stacked layout consumed the 146px overlay before the primary action. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-overlay .overlay-goals {
+    width: 100%;
+    min-width: 0;
+  }
+  #platform-scene .mine-overlay .goal-options {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+  }
+  #platform-scene .mine-overlay .goal-option {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 3px 2px;
+    border-radius: 9px;
+  }
+  #platform-scene .mine-overlay .goal-option i {
+    display: none;
+  }
+  #platform-scene .mine-overlay .goal-option b {
+    font-size: 9px;
+    line-height: 1.1;
+    white-space: normal;
+  }
+  #platform-scene .mine-overlay .goal-option .ui-icon {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+}
