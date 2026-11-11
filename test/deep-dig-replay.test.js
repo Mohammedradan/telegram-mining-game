@@ -2,16 +2,17 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { replayDeepDig } = require('../lib/deep-dig-replay');
+const { replayDeepDig, MAX_FRAMES } = require('../lib/deep-dig-replay');
 
-test('Deep Dig replay is deterministic for the same seed, equipment, and inputs', () => {
+const session = Object.freeze({ seed: 123456, equipment: { pickaxe: 2, bag: 1 } });
+
+test('Deep Dig replay is deterministic for the same server session and inputs', () => {
   const frames = Array.from({ length: 180 }, (_, i) => ({
-    dt: 1 / 60,
     dx: 0,
     dy: i < 150 ? 1 : 0,
   }));
-  const a = replayDeepDig({ seed: 123456, frames }, { pickaxe: 2, bag: 1 });
-  const b = replayDeepDig({ seed: 123456, frames }, { pickaxe: 2, bag: 1 });
+  const a = replayDeepDig({ frames }, session);
+  const b = replayDeepDig({ frames }, session);
   assert.equal(a.ok, true);
   assert.equal(b.ok, true);
   assert.deepEqual(a.result, b.result);
@@ -19,17 +20,25 @@ test('Deep Dig replay is deterministic for the same seed, equipment, and inputs'
   assert.ok(Math.abs(a.duration - 3) < 1e-9);
 });
 
-test('Deep Dig replay rejects client-supplied invalid or oversized input', () => {
-  assert.equal(replayDeepDig({ seed: 0, frames: [{ dt: 1 / 60, dx: 0, dy: 0 }] }).ok, false);
-  assert.equal(replayDeepDig({ seed: 1, frames: [{ dt: 0.2, dx: 0, dy: 0 }] }).reason, 'invalid_frame');
-  assert.equal(replayDeepDig({ seed: 1, frames: [{ dt: 1 / 60, dx: 2, dy: 0 }] }).reason, 'invalid_frame');
-  assert.equal(replayDeepDig({ seed: 1, frames: [{ dt: 1 / 60, dx: 0, dy: 0, ascend: true }] }).reason, 'invalid_ascend');
-  assert.equal(replayDeepDig({ seed: 1, frames: new Array(120001).fill({ dt: 0, dx: 0, dy: 0 }) }).reason, 'invalid_replay');
+test('Deep Dig replay does not accept a client-selected seed or equipment', () => {
+  const frames = [{ dx: 0, dy: 0 }];
+  const out = replayDeepDig({ seed: 1, equipment: { pickaxe: 99 }, frames }, session);
+  const expected = replayDeepDig({ frames }, session);
+  assert.equal(out.ok, true);
+  assert.deepEqual(out.result, expected.result);
+  assert.equal(replayDeepDig({ frames }, { seed: 0, equipment: {} }).reason, 'invalid_replay');
+  assert.equal(replayDeepDig({ frames }, null).reason, 'invalid_payload');
 });
 
-test('Deep Dig replay returns only a server-derived neutral run state', () => {
-  const out = replayDeepDig({ seed: 7, frames: [{ dt: 0, dx: 0, dy: 0 }] });
+test('Deep Dig replay rejects malformed directions, invalid rope actions, and oversized input', () => {
+  assert.equal(replayDeepDig({ frames: [{ dx: 2, dy: 0 }] }, session).reason, 'invalid_frame');
+  assert.equal(replayDeepDig({ frames: [{ dx: 0, dy: 0, ascend: 'yes' }] }, session).reason, 'invalid_frame');
+  assert.equal(replayDeepDig({ frames: new Array(MAX_FRAMES + 1).fill({ dx: 0, dy: 0 }) }, session).reason, 'invalid_replay');
+  assert.equal(replayDeepDig({ frames: [{ dx: 0, dy: 0, ascend: true }] }, session).reason, 'invalid_ascend');
+});
+
+test('Deep Dig replay derives its time from fixed simulation ticks, not client timing', () => {
+  const out = replayDeepDig({ frames: [{ dx: 0, dy: 0 }, { dx: 0, dy: 0 }] }, session);
   assert.equal(out.ok, true);
-  assert.equal(out.result, null);
-  assert.equal(out.status, 'running');
+  assert.ok(Math.abs(out.duration - 2 / 60) < 1e-9);
 });
