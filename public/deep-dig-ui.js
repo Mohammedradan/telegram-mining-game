@@ -366,7 +366,7 @@
     const s = DD.summary(game);
     const robotLevel = game.eq && game.eq.robot || 0;
     const robotDig = robotLevel > 0 ? s.robotDig : null;
-    const sig = [s.depthM, s.layer, s.hp, s.maxHp, s.bagCount, s.bagCap, s.value, s.state === 'rope' ? 1 : 0, phase, robotLevel, robotDig ? robotDig.col + ',' + robotDig.row + ',' + Math.floor(robotDig.progress * 20) : 'idle'].concat(DD.ORE_IDS.map((k) => s.bag[k])).join('|');
+    const sig = [s.depthM, s.layer, s.hp, s.maxHp, s.bagCount, s.bagCap, s.value, s.state === 'rope' ? 1 : 0, phase, robotLevel, s.robotBlocked ? 1 : 0, robotDig ? robotDig.col + ',' + robotDig.row + ',' + Math.floor(robotDig.progress * 20) : 'idle'].concat(DD.ORE_IDS.map((k) => s.bag[k])).join('|');
     if (!force && sig === hudSig) return;
     hudSig = sig;
     els.depth.textContent = depthText(s.depthM);
@@ -395,10 +395,10 @@
       if (robotLevel > 0) {
         const progress = robotDig ? Math.round(robotDig.progress * 100) : 0;
         els.robot.dataset.working = robotDig ? '1' : '';
-        els.robotLabel.textContent = robotDig ? 'الروبوت يحفر خامة قريبة' : 'الروبوت جاهز للمساعدة';
+        els.robotLabel.textContent = robotDig ? 'الروبوت يحفر خامة قريبة' : (s.robotBlocked ? 'الحقيبة ممتلئة — أفرغها' : 'الروبوت جاهز للمساعدة');
         setVar(els.robotFill, '--fill', `${progress}%`);
         els.robotPercent.textContent = `${progress}%`;
-        setAttr(els.robot, 'aria-label', robotDig ? `الروبوت يحفر: ${progress}%` : 'الروبوت جاهز للمساعدة');
+        setAttr(els.robot, 'aria-label', robotDig ? `الروبوت يحفر: ${progress}%` : (s.robotBlocked ? 'الحقيبة ممتلئة؛ أفرغها ليواصل الروبوت' : 'الروبوت جاهز للمساعدة'));
       }
     }
     const canRope = phase === 'run' && s.row >= 1 && s.state !== 'rope' && s.state !== 'faint' && s.state !== 'win';

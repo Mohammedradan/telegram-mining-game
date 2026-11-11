@@ -576,3 +576,31 @@ test('robot assistant never mines while the player is actively steering', () => 
   assert.equal(DD.kindAt(g, 2, 10), T.ORE);
   assert.equal(g.bag.gold, 0);
 });
+
+
+test('robot assistant preserves low-value ore when the bag is full and reports the blockage', () => {
+  const g = blank({ equipment: { robot: 3, bag: 0 } });
+  place(g, 3, 10);
+  g.bag.gold = 8;
+  g.bagCount = 8;
+  put(g, 4, 10, T.ORE, DD.ORE_N.iron);
+  run(g, NONE, 2);
+  assert.equal(DD.kindAt(g, 4, 10), T.ORE, 'the robot leaves ore that cannot improve a full bag');
+  assert.equal(g.bag.gold, 8);
+  assert.equal(g.bag.iron, 0);
+  assert.equal(DD.summary(g).robotBlocked, true, 'the HUD can explain why the robot is waiting');
+});
+
+test('robot assistant may replace the cheapest bag ore when a better ore is nearby', () => {
+  const g = blank({ equipment: { robot: 3 } });
+  place(g, 3, 10);
+  g.bag.copper = 8;
+  g.bagCount = 8;
+  put(g, 4, 10, T.ORE, DD.ORE_N.gold);
+  run(g, NONE, 2);
+  assert.equal(DD.kindAt(g, 4, 10), T.AIR, 'the better ore is mined');
+  assert.equal(g.bag.copper, 7);
+  assert.equal(g.bag.gold, 1);
+  assert.equal(g.bagCount, 8, 'replacement preserves bag capacity');
+  assert.equal(DD.summary(g).robotBlocked, false);
+});
