@@ -517,28 +517,40 @@
     raf = 0; lastTs = 0;
   }
 
-  async function startRun() {
+  function activateRun(session) {
+    deepSession = session && typeof session.id === 'string' ? session : null;
+    if (deepSession) newGame(deepSession.seed, deepSession.equipment);
+    else if (phase === 'summary') newGame();
+    paused = false;
+    setPhase('run');
+    stats.runs++;
+    if (sound) { sound.unlock(); sound.start(-1); }
+    renderHud(true);
+    if (!rec.hinted) { banner('اسحب العصا نحو الأسفل لتحفر — الحبل يرفعك بكل غنيمتك', 'hint', CFG.HINT_MS); rec.hinted = true; saveRecords(opts.storage, rec); }
+    lastTs = 0;
+    wake();
+    return true;
+  }
+
+  function startRun() {
     if (!game || starting || (phase !== 'intro' && phase !== 'summary')) return false;
+    if (typeof opts.onStart !== 'function') return activateRun(null);
     starting = true;
-    try {
-      let session = null;
-      if (typeof opts.onStart === 'function') session = await opts.onStart();
-      deepSession = session && typeof session.id === 'string' ? session : null;
-      if (deepSession) newGame(deepSession.seed, deepSession.equipment);
-      else if (phase === 'summary') newGame();
-      paused = false;
-      setPhase('run');
-      stats.runs++;
-      if (sound) { sound.unlock(); sound.start(-1); }
-      renderHud(true);
-      if (!rec.hinted) { banner('اسحب العصا نحو الأسفل لتحفر — الحبل يرفعك بكل غنيمتك', 'hint', CFG.HINT_MS); rec.hinted = true; saveRecords(opts.storage, rec); }
-      lastTs = 0;
-      wake();
-      return true;
-    } catch (error) {
+    let request;
+    try { request = opts.onStart(); }
+    catch (error) {
+      starting = false;
       banner(error?.message || 'تعذر بدء جولة موثوقة؛ تحقق من الاتصال', 'warning', 4200);
       return false;
-    } finally { starting = false; }
+    }
+    if (!request || typeof request.then !== 'function') {
+      starting = false;
+      return activateRun(request);
+    }
+    return Promise.resolve(request).then((session) => activateRun(session)).catch((error) => {
+      banner(error?.message || 'تعذر بدء جولة موثوقة؛ تحقق من الاتصال', 'warning', 4200);
+      return false;
+    }).finally(() => { starting = false; });
   }
 
   function compactReplay(frames) {
