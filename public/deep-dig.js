@@ -200,7 +200,7 @@
         gasT: 0, gasNext: CFG.gasGrace, rope: null, faintT: 0, winT: 0, maxRow: 0, lastBump: -999,
       },
       bag: emptyBag(), bagCount: 0,
-      loose: [], clouds: [], events: [],
+      loose: [], clouds: [], events: [], robot: { dig: null },
       counts: { dug: 0, ores: 0, hits: 0 },
     };
   }
@@ -498,6 +498,39 @@
     }
   }
 
+  // الروبوت المرافق يحفر خامة مجاورة تلقائياً عندما يتوقف العامل عن الحركة.
+  // التنفيذ داخل المحرك الحتمي نفسه، لذلك يعيد الخادم إنتاجه من سجل الأزرار دون ثقة بالعميل.
+  function updateRobotAssist(game, input) {
+    const level = game.eq.robot || 0;
+    const m = game.miner;
+    if (!level || game.status !== 'running' || m.state !== 'idle' || m.move || m.state === 'rope' ||
+        Math.sign(Number(input && input.dx) || 0) || Math.sign(Number(input && input.dy) || 0)) {
+      if (game.robot) game.robot.dig = null;
+      return;
+    }
+    const candidates = [[0, -1], [-1, 0], [1, 0], [0, 1]]
+      .map(([dc, dr]) => ({ c: m.col + dc, r: m.row + dr, ore: oreAt(game, m.col + dc, m.row + dr) }))
+      .filter((p) => kindAt(game, p.c, p.r) === TILE.ORE && p.ore > 0)
+      .sort((a, b) => b.ore - a.ore || a.r - b.r || a.c - b.c);
+    const target = candidates[0];
+    if (!target) { game.robot.dig = null; return; }
+    let dig = game.robot.dig;
+    if (!dig || dig.col !== target.c || dig.row !== target.r) {
+      dig = game.robot.dig = { col: target.c, row: target.r, t: 0, need: digTime(game, target.c, target.r, TILE.ORE) / (1 + level * 0.35), hits: 0 };
+    }
+    dig.t += DT;
+    if (dig.t >= dig.hits * CFG.hitPeriod) {
+      dig.hits++;
+      emit(game, 'robot_dig_hit', { c: dig.col, r: dig.row, ore: target.ore });
+    }
+    if (dig.t >= dig.need) {
+      const { col, row } = dig;
+      game.robot.dig = null;
+      completeDig(game, col, row, TILE.ORE);
+      emit(game, 'robot_mined', { c: col, r: row, ore: target.ore });
+    }
+  }
+
   // ───────────────────────────── النبضة الرئيسية ─────────────────────────────
   function tick(game, input) {
     if (game.status !== 'running') return false;
@@ -516,6 +549,7 @@
         if (m.stun > 0) m.state = 'hurt';
         else { if (m.state === 'hurt') m.state = 'idle'; decide(game, input, 0); }
     }
+    if (game.status === 'running') updateRobotAssist(game, input);
     if (game.status === 'running') environment(game);
     return true;
   }
@@ -538,7 +572,7 @@
       layer: layerIndex(m.row), hp: m.hp, maxHp: game.stats.maxHp,
       bag: Object.assign({}, game.bag), bagCount: game.bagCount, bagCap: game.stats.bagCap,
       value: bagValue(game.bag), legend: game.legend, time: game.time, tick: game.tick,
-      loose: game.loose.length, clouds: game.clouds.length,
+      loose: game.loose.length, clouds: game.clouds.length, robotDig: game.robot?.dig ? { col: game.robot.dig.col, row: game.robot.dig.row, progress: Math.min(1, game.robot.dig.t / game.robot.dig.need) } : null,
     };
   }
 

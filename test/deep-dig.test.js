@@ -550,3 +550,29 @@ test('layer events fire once per newly reached layer', () => {
   for (let i = 0; i < ticksFor(8); i++) { DD.tick(g, DOWN); for (const e of DD.drainEvents(g)) if (e.type === 'layer') layers.push(e.index); }
   assert.deepEqual(layers, [0, 1, 2]);
 });
+
+
+test('robot assistant: mines adjacent ore while the miner is idle and its loot is deterministic', () => {
+  const g = blank({ equipment: { robot: 2 } });
+  place(g, 3, 10); put(g, 4, 10, T.ORE, DD.ORE_N.gold);
+  assert.equal(g.bag.gold, 0);
+  run(g, NONE, 2);
+  assert.equal(DD.kindAt(g, 4, 10), T.AIR, 'the robot removes the ore tile');
+  assert.equal(g.bag.gold, 1, 'the ore enters the normal limited bag');
+  assert.equal(g.bagCount, 1);
+  assert.ok(types(DD.drainEvents(g)).includes('robot_mined'));
+
+  const withoutRobot = blank();
+  place(withoutRobot, 3, 10); put(withoutRobot, 4, 10, T.ORE, DD.ORE_N.gold);
+  run(withoutRobot, NONE, 2);
+  assert.equal(DD.kindAt(withoutRobot, 4, 10), T.ORE, 'without the upgrade the ore stays untouched');
+  assert.equal(withoutRobot.bag.gold, 0);
+});
+
+test('robot assistant never mines while the player is actively steering', () => {
+  const g = blank({ equipment: { robot: 5 } });
+  place(g, 3, 10); air(g, 4, 10); put(g, 2, 10, T.ORE, DD.ORE_N.gold);
+  run(g, RIGHT, 0.5);
+  assert.equal(DD.kindAt(g, 2, 10), T.ORE);
+  assert.equal(g.bag.gold, 0);
+});

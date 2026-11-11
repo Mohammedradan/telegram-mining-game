@@ -373,9 +373,10 @@
 
     function drawDrone(g, f, px, py) {
       const T = L.tile, face = g.miner.face || 1, m = g.miner, s = T * 0.2;
-      const working = m.state === 'dig' && !!m.dig;
-      const targetX = working ? L.ox + (m.dig.col + 0.5) * T : px - face * T * 0.62;
-      const targetY = working ? (m.dig.row - f.cam) * T - T * 0.82 : py - T * 0.82;
+      const activeDig = m.state === 'dig' && m.dig ? m.dig : (g.robot && g.robot.dig ? g.robot.dig : null);
+      const working = !!activeDig;
+      const targetX = working ? L.ox + (activeDig.col + 0.5) * T : px - face * T * 0.62;
+      const targetY = working ? (activeDig.row - f.cam) * T - T * 0.82 : py - T * 0.82;
       const x = targetX + (working ? -face * T * 0.58 : 0);
       const y = targetY + Math.sin(f.t * (working ? 5.2 : 3.1)) * T * 0.045;
       ctx.save(); ctx.translate(x, y);
