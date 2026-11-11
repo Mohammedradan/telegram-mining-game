@@ -571,8 +571,8 @@ test('robot assistant: mines adjacent ore while the miner is idle and its loot i
 
 test('robot assistant never mines while the player is actively steering', () => {
   const g = blank({ equipment: { robot: 5 } });
-  place(g, 3, 10); put(g, 4, 10, T.ORE, DD.ORE_N.gold);
+  place(g, 3, 10); air(g, 4, 10); put(g, 2, 10, T.ORE, DD.ORE_N.gold);
   run(g, RIGHT, 0.5);
-  assert.equal(DD.kindAt(g, 4, 10), T.ORE);
+  assert.equal(DD.kindAt(g, 2, 10), T.ORE);
   assert.equal(g.bag.gold, 0);
 });
