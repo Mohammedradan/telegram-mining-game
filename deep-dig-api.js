@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { replayDeepDig, MAX_FRAMES } = require('./lib/deep-dig-replay');
+const { replayDeepDig } = require('./lib/deep-dig-replay');
 const DeepDig = require('./public/deep-dig');
 
 const VERSION = 1;
@@ -84,7 +84,7 @@ function mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare,
       // نُظهرها في إيصال الجولة ولا نحوّلها إلى ذهب أو خامة أخرى.
       const receipt = {
         id: run.id, ok: true, reason: replay.result.reason,
-        depthM: replay.result.depthM, value: replay.result.value, keptCount: replay.result.keptCount,
+        depthM: replay.result.depthM, value: replay.result.value,
         kept, relics: Math.max(0, Math.floor(Number(replay.result.kept?.relic) || 0)),
         lost: replay.result.lost, keptCount: replay.result.keptCount,
         profile: null,
