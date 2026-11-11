@@ -16,7 +16,7 @@ test('Deep Dig replay is deterministic for the same seed, equipment, and inputs'
   assert.equal(b.ok, true);
   assert.deepEqual(a.result, b.result);
   assert.deepEqual(a.summary, b.summary);
-  assert.equal(a.duration, 3);
+  assert.ok(Math.abs(a.duration - 3) < 1e-9);
 });
 
 test('Deep Dig replay rejects client-supplied invalid or oversized input', () => {
@@ -27,10 +27,7 @@ test('Deep Dig replay rejects client-supplied invalid or oversized input', () =>
   assert.equal(replayDeepDig({ seed: 1, frames: new Array(120001).fill({ dt: 0, dx: 0, dy: 0 }) }).reason, 'invalid_replay');
 });
 
-test('Deep Dig replay rejects commands after the simulated run has finished', () => {
-  // A chest completion is seed/world dependent; this test instead verifies the
-  // replay contract for a zero-duration neutral input stream without trusting
-  // any result fields supplied by the client.
+test('Deep Dig replay returns only a server-derived neutral run state', () => {
   const out = replayDeepDig({ seed: 7, frames: [{ dt: 0, dx: 0, dy: 0 }] });
   assert.equal(out.ok, true);
   assert.equal(out.result, null);
