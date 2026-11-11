@@ -1113,7 +1113,8 @@ function rateLimit(name, maxPerMinute) {
 // Render يضع بروكسي واحداً أمام الخدمة: نثق بآخر X-Forwarded-For يضيفه هو فقط، لا بما يرسله العميل
 app.set('trust proxy', CONFIG.trustProxyHops);
 app.use(securityHeaders({ production: IS_PRODUCTION }));
-app.use('/api/deep-dig', express.json({ limit: '512kb' })); // الحفر العميق يرسل مقاطع مضغوطة مستقلة\napp.use(express.json({ limit: '64kb' })); // بقية واجهات اللعبة تحت سقفها الأصلي
+app.use('/api/deep-dig', express.json({ limit: '512kb' })); // الحفر العميق يرسل مقاطع مضغوطة مستقلة
+app.use(express.json({ limit: '64kb' })); // بقية واجهات اللعبة تحت سقفها الأصلي
 // فن «الكهف» (صور المشهد والمعدّن والأيقونات) يُطلب دائماً برقم نسخة ?v= في الرابط، فيُخزَّن أسبوعاً دون إعادة تحقق؛
 // عند تغيير صورة يُرفع الرقم في index.html وcss وcave-art.js (يحرس ذلك اختبار في test/clicker-fx.test.js).
 app.use(express.static(path.join(__dirname, 'public'), {
