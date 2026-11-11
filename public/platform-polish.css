@@ -771,3 +771,54 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     flex: 0 0 auto;
   }
 }
+
+
+/* Ultra-compact start screen: remove non-essential briefing blocks so the
+   primary action and mine selector fit without scrolling on 320x568. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-overlay {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 8px 6px;
+    overflow-y: auto;
+  }
+  #platform-scene .mine-overlay::before,
+  #platform-scene .mine-overlay::after {
+    display: none;
+    content: none;
+  }
+  #platform-scene .mine-overlay .overlay-kicker,
+  #platform-scene .mine-overlay .overlay-lead,
+  #platform-scene .mine-overlay .overlay-help,
+  #platform-scene .mine-overlay .overlay-mission {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay h3 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay .goal-hint {
+    margin: 0;
+    font-size: 9px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay #platform-start {
+    min-height: 36px;
+    padding: 5px 12px;
+    margin: 0;
+  }
+  #platform-scene .mine-overlay .overlay-row {
+    gap: 5px;
+  }
+  #platform-scene .mine-overlay .mine-select,
+  #platform-scene .mine-overlay #open-workshop-overlay {
+    min-height: 34px;
+    padding: 5px 7px;
+    font-size: 10px;
+  }
+  #platform-scene .mine-overlay #ctl-settings {
+    margin-top: 0;
+  }
+}
