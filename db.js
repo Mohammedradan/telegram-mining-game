@@ -105,12 +105,6 @@ CREATE TABLE IF NOT EXISTS deep_dig_runs (
 );
 CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_user ON deep_dig_runs (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
-CREATE TABLE IF NOT EXISTS deep_dig_runs (
-  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
-  status TEXT NOT NULL, result_json TEXT, started_at BIGINT NOT NULL,
-  updated_at BIGINT NOT NULL, config_json TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_user ON deep_dig_runs (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
 `;
@@ -144,6 +138,12 @@ CREATE TABLE IF NOT EXISTS platform_runs (
   updated_at BIGINT NOT NULL, config_json TEXT
 );
 ALTER TABLE platform_runs ADD COLUMN IF NOT EXISTS config_json TEXT;
+CREATE TABLE IF NOT EXISTS deep_dig_runs (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, version INTEGER NOT NULL,
+  status TEXT NOT NULL, result_json TEXT, started_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL, config_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_user ON deep_dig_runs (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
 `;
