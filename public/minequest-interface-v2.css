@@ -1,0 +1,142 @@
+/* MineQuest interface foundation v2 — visual-only mobile UX improvements.
+   Keep gameplay, economy, persistence and server contracts unchanged. */
+:root {
+  --mq2-bg: #070c16;
+  --mq2-surface: rgba(14, 23, 38, .94);
+  --mq2-surface-raised: rgba(22, 34, 53, .96);
+  --mq2-line: rgba(166, 184, 208, .18);
+  --mq2-gold: #f4c45e;
+  --mq2-gold-bright: #ffe5a1;
+  --mq2-muted: #9aabc1;
+  --mq2-radius: 17px;
+}
+
+/* Clearer hierarchy without changing the app's fixed-height layout. */
+.app-header {
+  border-radius: 18px !important;
+  border-color: rgba(244, 196, 94, .24) !important;
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(244, 196, 94, .10), transparent 46%),
+    linear-gradient(125deg, rgba(24, 37, 58, .98), rgba(10, 17, 30, .97)) !important;
+}
+#username { letter-spacing: .15px; }
+.balance-strip {
+  border-color: rgba(244, 196, 94, .34) !important;
+  background:
+    linear-gradient(105deg, rgba(54, 39, 17, .9), rgba(17, 25, 40, .96)) !important;
+}
+#gold-counter { font-variant-numeric: tabular-nums; }
+
+/* Main play destinations: consistent tap targets and a more legible selected state. */
+.play-subnav {
+  gap: 8px !important;
+  padding: 2px 1px 5px;
+}
+.play-subnav-btn {
+  min-height: 48px !important;
+  border-radius: 14px !important;
+  border-color: rgba(155, 174, 198, .2) !important;
+  background: linear-gradient(180deg, rgba(25, 38, 58, .96), rgba(12, 20, 34, .98)) !important;
+  color: #b4c1d2 !important;
+  font-size: 11px !important;
+  line-height: 1.15;
+}
+.play-subnav-btn .subnav-icon {
+  width: 18px !important;
+  height: 18px !important;
+}
+.play-subnav-btn.active,
+.play-subnav-btn[aria-selected="true"] {
+  color: var(--mq2-gold-bright) !important;
+  border-color: rgba(244, 196, 94, .72) !important;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(244, 196, 94, .2), transparent 78%),
+    linear-gradient(180deg, rgba(93, 65, 28, .72), rgba(35, 29, 23, .96)) !important;
+  box-shadow: inset 0 -2px 0 rgba(255, 213, 125, .82), 0 5px 14px rgba(0, 0, 0, .2) !important;
+}
+
+/* Six primary destinations remain in one row; labels share one rhythm on narrow phones. */
+.bottom-nav {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 4px !important;
+  padding: 5px !important;
+  border-radius: 18px !important;
+  border-color: rgba(160, 179, 204, .22) !important;
+  background:
+    linear-gradient(180deg, rgba(20, 32, 51, .98), rgba(7, 13, 24, .99)) !important;
+}
+.bottom-nav button {
+  min-width: 0;
+  min-height: 58px !important;
+  padding: 7px 1px 6px !important;
+  justify-content: center;
+  border: 1px solid transparent !important;
+  border-radius: 13px !important;
+  color: #9aabc1 !important;
+  background: transparent !important;
+  gap: 4px;
+}
+.bottom-nav button .nav-icon {
+  width: 21px !important;
+  height: 21px !important;
+  flex: 0 0 auto;
+}
+.bottom-nav button span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px !important;
+  line-height: 1.15;
+  font-weight: 850 !important;
+}
+.bottom-nav button.text-amber-400,
+.bottom-nav button[aria-current="page"] {
+  color: var(--mq2-gold-bright) !important;
+  border-color: rgba(244, 196, 94, .32) !important;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(244, 196, 94, .2), transparent 78%),
+    linear-gradient(180deg, rgba(100, 70, 29, .5), rgba(35, 29, 23, .58)) !important;
+  box-shadow: inset 0 -2px 0 rgba(255, 213, 125, .72), 0 3px 12px rgba(0, 0, 0, .16);
+}
+
+/* Consistent, responsive action buttons in ordinary panels; leave in-world controls alone. */
+.tab-content:not(#tab-play) button:not(.ck-node):not(.dd-pad):not(.dd-rope),
+#tab-play .play-panel button:not(.platform-control):not(.arena-duel-btn) {
+  touch-action: manipulation;
+}
+#tab-shop .buy-btn,
+#open-workshop-shop,
+#sell-all-ore,
+#tab-friends > button {
+  min-height: 46px !important;
+  border-radius: 13px !important;
+  font-weight: 900 !important;
+}
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+  filter: saturate(.55);
+}
+button:focus-visible,
+.play-subnav-btn:focus-visible,
+.bottom-nav button:focus-visible {
+  outline: 2px solid var(--mq2-gold-bright) !important;
+  outline-offset: 2px !important;
+}
+
+/* Compact screens: preserve all six destinations without clipping or accidental horizontal scroll. */
+@media (max-width: 370px) {
+  .bottom-nav { gap: 2px !important; padding: 4px !important; }
+  .bottom-nav button { min-height: 54px !important; padding-inline: 0 !important; }
+  .bottom-nav button .nav-icon { width: 19px !important; height: 19px !important; }
+  .bottom-nav button span { font-size: 9px !important; }
+  .play-subnav { gap: 5px !important; }
+  .play-subnav-btn { min-height: 45px !important; padding-inline: 2px !important; font-size: 10px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav button,
+  .play-subnav-btn,
+  button { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
