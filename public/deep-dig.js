@@ -200,7 +200,7 @@
         gasT: 0, gasNext: CFG.gasGrace, rope: null, faintT: 0, winT: 0, maxRow: 0, lastBump: -999,
       },
       bag: emptyBag(), bagCount: 0,
-      loose: [], clouds: [], events: [], robot: { dig: null },
+      loose: [], clouds: [], events: [], robot: { dig: null, blocked: false },
       counts: { dug: 0, ores: 0, hits: 0 },
     };
   }
@@ -498,6 +498,16 @@
     }
   }
 
+  // لا يبدأ الروبوت حفر خام لا يمكن وضعه في الحقيبة الممتلئة أو استبداله بخام أعلى قيمة.
+  function robotCanCollect(game, oreN) {
+    if (game.bagCount < game.stats.bagCap) return true;
+    const id = ORE_IDS[oreN - 1];
+    if (!id) return false;
+    let cheapest = Infinity;
+    for (const key of ORE_IDS) if (game.bag[key] > 0) cheapest = Math.min(cheapest, ORES[key].price);
+    return cheapest < ORES[id].price;
+  }
+
   // الروبوت المرافق يحفر خامة مجاورة تلقائياً عندما يتوقف العامل عن الحركة.
   // التنفيذ داخل المحرك الحتمي نفسه، لذلك يعيد الخادم إنتاجه من سجل الأزرار دون ثقة بالعميل.
   function updateRobotAssist(game, input) {
@@ -505,15 +515,20 @@
     const m = game.miner;
     if (!level || game.status !== 'running' || m.state !== 'idle' || m.move || m.state === 'rope' ||
         Math.sign(Number(input && input.dx) || 0) || Math.sign(Number(input && input.dy) || 0)) {
-      if (game.robot) game.robot.dig = null;
+      if (game.robot) { game.robot.dig = null; game.robot.blocked = false; }
       return;
     }
     const candidates = [[0, -1], [-1, 0], [1, 0], [0, 1]]
       .map(([dc, dr]) => ({ c: m.col + dc, r: m.row + dr, ore: oreAt(game, m.col + dc, m.row + dr) }))
       .filter((p) => kindAt(game, p.c, p.r) === TILE.ORE && p.ore > 0)
       .sort((a, b) => b.ore - a.ore || a.r - b.r || a.c - b.c);
-    const target = candidates[0];
-    if (!target) { game.robot.dig = null; return; }
+    const target = candidates.find((p) => robotCanCollect(game, p.ore));
+    if (!target) {
+      game.robot.dig = null;
+      game.robot.blocked = candidates.length > 0;
+      return;
+    }
+    game.robot.blocked = false;
     let dig = game.robot.dig;
     if (!dig || dig.col !== target.c || dig.row !== target.r) {
       dig = game.robot.dig = { col: target.c, row: target.r, t: 0, need: digTime(game, target.c, target.r, TILE.ORE) / (1 + level * 0.35), hits: 0 };
@@ -572,7 +587,7 @@
       layer: layerIndex(m.row), hp: m.hp, maxHp: game.stats.maxHp,
       bag: Object.assign({}, game.bag), bagCount: game.bagCount, bagCap: game.stats.bagCap,
       value: bagValue(game.bag), legend: game.legend, time: game.time, tick: game.tick,
-      loose: game.loose.length, clouds: game.clouds.length, robotDig: game.robot?.dig ? { col: game.robot.dig.col, row: game.robot.dig.row, progress: Math.min(1, game.robot.dig.t / game.robot.dig.need) } : null,
+      loose: game.loose.length, clouds: game.clouds.length, robotBlocked: !!game.robot?.blocked, robotDig: game.robot?.dig ? { col: game.robot.dig.col, row: game.robot.dig.row, progress: Math.min(1, game.robot.dig.t / game.robot.dig.need) } : null,
     };
   }
 
