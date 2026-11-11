@@ -673,3 +673,13 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   }
   #platform-scene .action-btn span { font-size: 7px; }
 }
+
+
+/* The guide badge sits in the overlay's top corner. Reserve its 44px lane in
+   every compressed phone state so neither the title nor goal choices can slide
+   underneath it when the round summary changes. */
+@media (max-width: 600px) {
+  #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) {
+    padding-top: 50px;
+  }
+}
