@@ -36,6 +36,52 @@ async function main() {
   try {
     for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 568 }, { width: 844, height: 390 }, { width: 1280, height: 800 }]) {
       const { ctx, page } = await context(viewport, { reducedMotion: 'reduce' });
+      // The opening screen and every main tab must remain inside the real viewport.
+      // Long tab content may scroll internally, but the document itself must never become a second scroller.
+      const inspectViewport = async (label) => {
+        const layout = await page.evaluate(() => {
+          const active = document.querySelector('.tab-content.active');
+          const nav = document.querySelector('.bottom-nav');
+          const rect = el => {
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+          };
+          return {
+            viewport: { width: innerWidth, height: innerHeight },
+            document: { clientHeight: document.documentElement.clientHeight, scrollHeight: document.documentElement.scrollHeight },
+            body: { clientHeight: document.body.clientHeight, scrollHeight: document.body.scrollHeight, overflowY: getComputedStyle(document.body).overflowY },
+            active: rect(active), nav: rect(nav),
+            overlay: rect(document.querySelector('#platform-overlay:not([hidden])')),
+            start: rect(document.getElementById('platform-start')),
+            overlayScroll: document.getElementById('platform-overlay').scrollHeight - document.getElementById('platform-overlay').clientHeight
+          };
+        });
+        assert.ok(layout.document.scrollHeight <= layout.document.clientHeight + 1,
+          `${label}: document must not scroll: ${JSON.stringify(layout)}`);
+        assert.equal(layout.body.overflowY, 'hidden', `${label}: body is the fixed app frame`);
+        assert.ok(layout.nav && layout.nav.top >= 0 && layout.nav.bottom <= viewport.height + 1,
+          `${label}: bottom navigation remains visible: ${JSON.stringify(layout)}`);
+        assert.ok(layout.active && layout.active.top >= 0 && layout.active.bottom <= viewport.height + 1,
+          `${label}: active tab remains inside viewport: ${JSON.stringify(layout)}`);
+        return layout;
+      };
+      const opening = await inspectViewport(`opening ${viewport.width}x${viewport.height}`);
+      assert.ok(opening.overlay && opening.start &&
+        opening.start.top >= opening.overlay.top - 1 &&
+        opening.start.bottom <= opening.overlay.bottom + 1,
+        `start action remains inside opening overlay: ${JSON.stringify(opening)}`);
+      for (const tab of ['play', 'mining', 'shop', 'friends', 'leaderboard', 'arena']) {
+        await page.locator(`#nav-${tab}`).click();
+        await inspectViewport(`${tab} ${viewport.width}x${viewport.height}`);
+      }
+      // The arena's immersive-ready view intentionally hides the bottom navigation.
+      // Restore the normal app chrome through its visible exit control before returning
+      // to the platform scene; subsequent checks must use controls the player can reach.
+      const arenaTabsExit = page.locator('#arena-tabs-btn');
+      if (await arenaTabsExit.isVisible()) await arenaTabsExit.click();
+      await page.locator('#nav-play').click();
+      await inspectViewport(`play return ${viewport.width}x${viewport.height}`);
       let starts = 0; page.on('request', req => { if (req.url().endsWith('/api/platform/start')) starts++; });
       await page.evaluate(() => { const b = document.getElementById('platform-start'); b.click(); b.click(); b.click(); });
       await page.waitForFunction(() => window.PlatformGame.inspect().running);

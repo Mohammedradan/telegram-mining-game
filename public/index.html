@@ -1215,6 +1215,8 @@
   <link rel="stylesheet" href="/ui-redesign.css?v=1">
   <!-- Arena visual polish — presentation only -->
   <link rel="stylesheet" href="/arena-polish.css?v=1">
+  <!-- Platform gameplay UI polish — visual-only responsive controls and HUD -->
+  <link rel="stylesheet" href="/platform-polish.css?v=1">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -2409,17 +2411,17 @@
     // Init Telegram WebApp
     const tg = window.Telegram?.WebApp;
 
-    // V15: ارتفاع التطبيق يتبع الحجم الفعلي دائماً. سابقاً كان يُكتب مرة واحدة من تيليجرام فقط،
-    // فإذا فُتحت النافذة بحجم مختلف (أو دُوِّر الهاتف، أو كُبّرت النافذة) بقيت مساحة ميتة أسفل
-    // الشاشة. الآن نقرأ الحجم الحيّ عند كل تغيير، ونستخدم ارتفاع تيليجرام المستقر فقط إذا كان
-    // مطابقاً تقريباً للحجم الحيّ (حتى لا يقفز التطبيق عند فتح لوحة المفاتيح داخل تيليجرام).
+    // V16: قِس الارتفاع المرئي الحالي عند كل تغيير، لأن viewportStableHeight قد يكون
+    // أكبر من المساحة التي يراها اللاعب فعلياً (شريط تيليجرام/لوحة المفاتيح)، فيدفع
+    // شريط التنقل أو أدوات اللعب خارج الشاشة ويخلق إحساساً بتمرير غير مقصود.
+    // نستخدم الارتفاع المستقر كخطة احتياطية فقط إذا تعذّر قياس النافذة الحية.
     const setAppHeight = (h) => {
       try { document.documentElement.style.setProperty('--app-height', `${h}px`); } catch (e) {}
     };
     const syncAppHeight = () => {
       const live = Math.round(window.visualViewport?.height || window.innerHeight || 0);
       const stable = Math.round(Number(tg?.viewportStableHeight) || 0);
-      const h = (stable > 0 && Math.abs(stable - live) <= 120) ? stable : live;
+      const h = live > 0 ? live : stable;
       if (h > 0) setAppHeight(h);
     };
 

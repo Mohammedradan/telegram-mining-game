@@ -42,7 +42,9 @@
    وسهولة الوصول إليه، ولا يغطّي عنوانًا ولا أهدافًا. المقاسات التي لا تنضغط (360×740، 360×800، 375×667، 375×812،
    390×844 بالخط العادي، 821×934) لا تتغيّر بأي بكسل. */
 @media (max-width: 600px) {
-  .mine-overlay:is(.overlay-scrolls, .fit-2) { padding-top: 50px; }
+  /* The overlay can switch between fit-1..fit-4 as the round title and summary
+     change. Reserve the guide corner in every compressed state, not fit-2 alone. */
+  .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) { padding-top: 50px; }
 }
 
 /* ---------- النافذة ---------- */

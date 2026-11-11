@@ -24,6 +24,15 @@ test('small screens: body height follows the real viewport and tabs scroll inter
   assert.match(style, /height:\s*var\(--app-height,\s*100vh\)/);
   assert.match(style, /@supports \(height: 100dvh\)\s*\{\s*body \{ height: var\(--app-height, 100dvh\); \}/);
   assert.match(style, /\.tab-content\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s);
+  const viewportScript = html.slice(html.indexOf('// V16: قِس الارتفاع المرئي الحالي'), html.indexOf('// --- DOM Elements ---'));
+  assert.match(viewportScript, /const syncAppHeight = \(\) => \{[^}]*const h = live > 0 \? live : stable;/s,
+    'the visible viewport is authoritative; Telegram stable height is fallback only');
+  const polish = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-polish.css'), 'utf8');
+  assert.match(polish, /html,\s*body\s*\{[^}]*overscroll-behavior:\s*none;/s);
+  assert.match(polish, /body\s*\{[^}]*overflow:\s*hidden;/s);
+  assert.match(polish, /\.tab-content\s*\{[^}]*overscroll-behavior-y:\s*contain;/s);
+  assert.match(polish, /@media\s*\(hover:\s*none\),\s*\(pointer:\s*coarse\)/s,
+    'touch devices hide decorative scrollbar chrome without disabling content scrolling');
   for (const tab of ['tab-shop', 'tab-leaderboard', 'tab-arena']) {
     const tag = html.match(new RegExp(`<main id="${tab}" class="([^"]*)"`));
     assert.ok(tag, `${tab} should exist`);
