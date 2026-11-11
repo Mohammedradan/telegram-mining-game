@@ -205,6 +205,19 @@
     for (const e of events) {
       const cx = num(e.c) + 0.5, cy = num(e.r) + 0.5;
       switch (e.type) {
+        case 'robot_dig_hit': {
+          sfx('dig', { hard: DD.hardnessAt(e.r) });
+          sparks(cx, cy, 3, '#8deaff', 1.8);
+          break;
+        }
+        case 'robot_mined': {
+          const kind = DD.ORES[e.ore] ? DD.ORES[e.ore].name : 'خام';
+          sfx('ore', { kind: e.ore });
+          sparks(cx, cy, 10, '#8deaff', 2.8);
+          label(cx, cy - 0.3, `الروبوت جمع ${kind}`, '#9deeff');
+          haptic('light');
+          break;
+        }
         case 'dig_hit': {
           sfx('dig', { hard: DD.hardnessAt(e.r) });
           dust(cx, cy - 0.05, 2, layerColor(e.r), 0.5);
@@ -351,7 +364,9 @@
   function renderHud(force) {
     if (!els || !game) return;
     const s = DD.summary(game);
-    const sig = [s.depthM, s.layer, s.hp, s.maxHp, s.bagCount, s.bagCap, s.value, s.state === 'rope' ? 1 : 0, phase].concat(DD.ORE_IDS.map((k) => s.bag[k])).join('|');
+    const robotLevel = game.eq && game.eq.robot || 0;
+    const robotDig = robotLevel > 0 ? s.robotDig : null;
+    const sig = [s.depthM, s.layer, s.hp, s.maxHp, s.bagCount, s.bagCap, s.value, s.state === 'rope' ? 1 : 0, phase, robotLevel, robotDig ? robotDig.col + ',' + robotDig.row + ',' + Math.floor(robotDig.progress * 20) : 'idle'].concat(DD.ORE_IDS.map((k) => s.bag[k])).join('|');
     if (!force && sig === hudSig) return;
     hudSig = sig;
     els.depth.textContent = depthText(s.depthM);
@@ -375,6 +390,17 @@
       if (b) b.textContent = String(n);
     }
     els.chips.hidden = !anyChip;                          // الصف الثاني يظهر فقط حين توجد غنيمة (يوفر مساحة)
+    if (els.robot) {
+      els.robot.hidden = robotLevel <= 0;
+      if (robotLevel > 0) {
+        const progress = robotDig ? Math.round(robotDig.progress * 100) : 0;
+        els.robot.dataset.working = robotDig ? '1' : '';
+        els.robotLabel.textContent = robotDig ? 'الروبوت يحفر خامة قريبة' : 'الروبوت جاهز للمساعدة';
+        setVar(els.robotFill, '--fill', `${progress}%`);
+        els.robotPercent.textContent = `${progress}%`;
+        setAttr(els.robot, 'aria-label', robotDig ? `الروبوت يحفر: ${progress}%` : 'الروبوت جاهز للمساعدة');
+      }
+    }
     const canRope = phase === 'run' && s.row >= 1 && s.state !== 'rope' && s.state !== 'faint' && s.state !== 'win';
     els.rope.disabled = !canRope;
     els.rope.dataset.loot = s.bagCount > 0 ? '1' : '';
@@ -673,7 +699,7 @@
     els = {
       overlay: $('dd-overlay'), canvas: $('dd-canvas'), close: $('dd-close'), sound: $('dd-sound'), depth: $('dd-depth'), layer: $('dd-layer'), layerBox: $('dd-layerbox'),
       hearts: $('dd-hearts'), bagBox: $('dd-bag'), bagCount: $('dd-bag-count'), bagFill: $('dd-bag-fill'), value: $('dd-value'), chips: $('dd-chips'),
-      banner: $('dd-banner'), live: $('dd-live'), pad: $('dd-pad'), stick: $('dd-stick'), rope: $('dd-rope'),
+      banner: $('dd-banner'), live: $('dd-live'), robot: $('dd-robot'), robotLabel: $('dd-robot-label'), robotFill: $('dd-robot-fill'), robotPercent: $('dd-robot-percent'), pad: $('dd-pad'), stick: $('dd-stick'), rope: $('dd-rope'),
       intro: $('dd-intro'), introBest: $('dd-intro-best'), introGear: $('dd-intro-gear'), introNote: $('dd-intro-note'), start: $('dd-start'), introBack: $('dd-intro-back'),
       pause: $('dd-pause'), resume: $('dd-resume'), quit: $('dd-quit'),
       summary: $('dd-summary'), sumTitle: $('dd-sum-title'), sumSub: $('dd-sum-sub'), sumDepth: $('dd-sum-depth'), sumBest: $('dd-sum-best'), sumLoot: $('dd-sum-loot'),
