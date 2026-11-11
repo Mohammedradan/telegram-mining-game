@@ -101,7 +101,7 @@ async function main() {
         await page.keyboard.up('d');
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
-      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}`);
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}: ${JSON.stringify({ bounds, viewport, scene: await page.locator('#platform-scene').boundingBox(), nav: await page.locator('.bottom-nav').boundingBox() })}`);
       // قرار التصميم: أزرار اللمس تلقائيًا على الجوال/التابلت، ومخفية على الكمبيوتر (لوحة المفاتيح)
       const padState = await page.evaluate(() => ({
         stick: getComputedStyle(document.getElementById('virtual-joystick')).display,
@@ -375,7 +375,8 @@ async function main() {
       ov.scrollTop = ov.scrollHeight; const b = document.getElementById('open-workshop-overlay').getBoundingClientRect();
       return { topOk, bottomOk: b.bottom <= ov.getBoundingClientRect().bottom + 1 };
     });
-    assert.deepEqual(reach, { topOk: true, bottomOk: true });
+    assert.equal(reach.topOk, true, `opening overlay title stays inside its top edge: ${JSON.stringify(reach)}`);
+    assert.equal(reach.bottomOk, true, `opening overlay action stays inside its bottom edge: ${JSON.stringify(reach)}`);
     report.workshop.minesMapLandscape = true;
     assert.deepEqual(errors, []);
     await wsLand.ctx.close();

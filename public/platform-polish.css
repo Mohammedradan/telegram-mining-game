@@ -681,9 +681,732 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 /* Reserve the complete guide button + "new" badge footprint (54px) plus a
    small gap in normal compressed phone overlays. The ultra-short 320x568
    opening has its own compact override above, preserving the start action. */
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-height: 681px) {
   #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) {
     padding-top: 58px;
   }
 }
 
+/* Compact phone title stays clear of the guide button without changing overlay flow. */
+@media (max-width: 600px) {
+  #platform-scene .mine-overlay #platform-title {
+    width: calc(100% - 88px);
+    max-width: 340px;
+    box-sizing: border-box;
+    margin-inline: auto;
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* Ultra-compact 320x568 opening: reclaim vertical space above the primary CTA.
+   Keep all three goal choices and the mine picker; only tighten their visual rhythm. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-overlay {
+    --ov-gap: 2px;
+    padding: 3px 8px 4px;
+  }
+  #platform-scene .mine-overlay h3 {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.05;
+  }
+  #platform-scene .mine-overlay .goal-options {
+    gap: 3px;
+  }
+  #platform-scene .mine-overlay .goal-option {
+    min-height: 38px;
+    padding: 2px;
+  }
+  #platform-scene .mine-overlay .goal-option .ui-icon {
+    width: 13px;
+    height: 13px;
+  }
+  #platform-scene .mine-overlay .goal-option b {
+    font-size: 9px;
+    line-height: 1.15;
+  }
+  #platform-scene .mine-overlay #platform-start {
+    min-height: 36px;
+    margin: 0;
+    padding: 5px 12px;
+  }
+}
+
+
+/* 320x568: stack the three goal cards in one compact row. The previous
+   stacked layout consumed the 146px overlay before the primary action. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-overlay .overlay-goals {
+    width: 100%;
+    min-width: 0;
+  }
+  #platform-scene .mine-overlay .goal-options {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+  }
+  #platform-scene .mine-overlay .goal-option {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 3px 2px;
+    border-radius: 9px;
+  }
+  #platform-scene .mine-overlay .goal-option i {
+    display: none;
+  }
+  #platform-scene .mine-overlay .goal-option b {
+    font-size: 9px;
+    line-height: 1.1;
+    white-space: normal;
+  }
+  #platform-scene .mine-overlay .goal-option .ui-icon {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+}
+
+
+/* Ultra-compact start screen: remove non-essential briefing blocks so the
+   primary action and mine selector fit without scrolling on 320x568. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-overlay {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 8px 6px;
+    overflow-y: auto;
+  }
+  #platform-scene .mine-overlay::before,
+  #platform-scene .mine-overlay::after {
+    display: none;
+    content: none;
+  }
+  #platform-scene .mine-overlay .overlay-kicker,
+  #platform-scene .mine-overlay .overlay-lead,
+  #platform-scene .mine-overlay .overlay-help,
+  #platform-scene .mine-overlay .overlay-mission {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay h3 {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay .goal-hint {
+    margin: 0;
+    font-size: 9px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay #platform-start {
+    min-height: 36px;
+    padding: 5px 12px;
+    margin: 0;
+  }
+  #platform-scene .mine-overlay .overlay-row {
+    gap: 5px;
+  }
+  #platform-scene .mine-overlay .mine-select,
+  #platform-scene .mine-overlay #open-workshop-overlay {
+    min-height: 34px;
+    padding: 5px 7px;
+    font-size: 10px;
+  }
+  #platform-scene .mine-overlay #ctl-settings {
+    margin-top: 0;
+  }
+}
+
+
+/* Opening overlay on 320x568: use a compact, non-scrolling layout.
+   The previous flex spacer + nested overflow let the overlay's contents grow
+   beyond the 146px stage and pushed the primary action below its frame.
+   Keep the three goal choices, start CTA, mine picker, and collapsed settings. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto;
+    align-content: center;
+    justify-items: center;
+    gap: 3px;
+    padding: 4px 8px;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::before,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::after {
+    display: none !important;
+    content: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-kicker,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-lead,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-help,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-mission,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .goal-hint,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #open-workshop-overlay {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
+    width: calc(100% - 88px);
+    max-width: none;
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.05;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-options {
+    width: 100%;
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option {
+    min-width: 0;
+    min-height: 38px;
+    padding: 2px;
+    gap: 1px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option .ui-icon {
+    width: 12px;
+    height: 12px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option b {
+    font-size: 8.5px;
+    line-height: 1.05;
+    white-space: normal;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option i {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-start {
+    min-width: 180px;
+    min-height: 34px;
+    margin: 0;
+    padding: 4px 12px;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-row {
+    display: flex !important;
+    width: min(240px, 100%);
+    min-width: 0;
+    margin: 0;
+    gap: 0;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select {
+    display: flex !important;
+    flex: 1 1 100%;
+    min-width: 0;
+    min-height: 30px;
+    padding: 3px 6px;
+    justify-content: center;
+    gap: 4px;
+    font-size: 9px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select .mine-select-label {
+    display: none;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select b {
+    font-size: 9px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #ctl-settings {
+    display: block !important;
+    width: min(240px, 100%);
+    margin: 0;
+    font-size: 9px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #ctl-settings > summary {
+    padding: 2px 7px;
+    font-size: 9px;
+    line-height: 1.25;
+  }
+}
+
+
+/* Final 320x568 fit: reserve a compact guide corner, keep the opening choices
+   in four short rows, and stop the control pad from extending under bottom nav. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-stage {
+    flex: 0 1 145px;
+    min-height: 145px;
+  }
+  #platform-scene .mine-controls-actions .action-btn {
+    min-height: 38px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 36px 34px 32px 28px;
+    align-content: center;
+    justify-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    overflow: hidden;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::before,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::after {
+    display: none !important;
+    content: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-kicker,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-lead,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-help,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-mission,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .goal-hint,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #open-workshop-overlay,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #ctl-settings {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
+    width: calc(100% - 88px);
+    max-width: none;
+    min-height: 36px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1.05;
+  }
+  #platform-scene #open-guide {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+  }
+  #platform-scene #open-guide .guide-new {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-options {
+    width: 100%;
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option {
+    min-width: 0;
+    min-height: 34px;
+    padding: 2px;
+    gap: 1px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option .ui-icon {
+    width: 11px;
+    height: 11px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option b {
+    font-size: 8px;
+    line-height: 1.05;
+    white-space: normal;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option i {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-start {
+    min-width: 180px;
+    min-height: 32px;
+    margin: 0;
+    padding: 3px 12px;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-row {
+    display: flex !important;
+    width: min(240px, 100%);
+    min-width: 0;
+    margin: 0;
+    gap: 0;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select {
+    display: flex !important;
+    flex: 1 1 100%;
+    min-width: 0;
+    min-height: 28px;
+    padding: 2px 6px;
+    justify-content: center;
+    gap: 4px;
+    font-size: 9px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select .mine-select-label {
+    display: none;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select b {
+    font-size: 9px;
+  }
+}
+
+
+/* Enforce the compact game stack with explicit flex sizing; the normal
+   min-height/flex-grow rules otherwise let the stage consume the control lane. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene .mine-stage {
+    flex: 0 0 145px !important;
+    width: 100%;
+    height: 145px;
+    min-height: 145px !important;
+  }
+  #platform-scene .mine-controls {
+    flex: 0 0 82px;
+    height: 82px;
+    min-height: 82px;
+    padding: 4px;
+    gap: 4px;
+  }
+  #platform-scene .virtual-joystick {
+    flex: 0 0 68px;
+    width: 68px !important;
+    height: 68px !important;
+  }
+  #platform-scene .mine-controls-actions {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+  }
+  #platform-scene .mine-controls-actions .action-btn {
+    min-width: 0;
+    min-height: 34px !important;
+    height: 34px;
+    padding: 2px 1px;
+  }
+  #platform-scene .mine-controls-actions .action-btn .ui-icon {
+    width: 14px;
+    height: 14px;
+  }
+  #platform-scene .mine-controls-actions .action-btn span {
+    font-size: 7px;
+    line-height: 1;
+  }
+}
+
+
+/* Landscape phones: the stage is shallow, so use a compact horizontal
+   opening panel rather than a vertically scrolling overlay. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 24px 36px 34px 26px;
+    align-content: center;
+    justify-items: center;
+    gap: 2px;
+    padding: 3px 12px;
+    overflow: hidden;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::before,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::after {
+    display: none !important;
+    content: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-kicker,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-lead,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-help,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-mission,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .goal-hint,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #open-workshop-overlay,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #ctl-settings {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
+    width: calc(100% - 88px);
+    min-height: 24px;
+    max-width: none;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #platform-scene #open-guide {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 4px;
+  }
+  #platform-scene #open-guide .guide-new {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-options {
+    width: 100%;
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option {
+    min-width: 0;
+    min-height: 34px;
+    padding: 2px 4px;
+    gap: 1px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option .ui-icon {
+    width: 12px;
+    height: 12px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option b {
+    font-size: 9px;
+    line-height: 1;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option i {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-start {
+    min-width: 180px;
+    min-height: 32px;
+    margin: 0;
+    padding: 3px 12px;
+    font-size: 11px;
+    line-height: 1;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-row {
+    display: flex !important;
+    width: min(260px, 100%);
+    min-width: 0;
+    margin: 0;
+    gap: 0;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select {
+    display: flex !important;
+    flex: 1 1 100%;
+    min-width: 0;
+    min-height: 26px;
+    padding: 2px 6px;
+    justify-content: center;
+    gap: 4px;
+    font-size: 9px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select .mine-select-label {
+    display: none;
+  }
+}
+
+
+/* Short landscape game layout (e.g. 844x390):
+   reclaim the vertical space above the playfield and reserve a real control
+   lane before the fixed bottom navigation. No controls are removed. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene {
+    min-height: 0 !important;
+    height: 100%;
+    gap: 3px;
+    overflow: hidden;
+  }
+  #platform-scene > .mine-heading,
+  #platform-scene > .mine-economy {
+    display: none !important;
+  }
+  #platform-scene > .mine-hero-bar {
+    flex: 0 0 30px;
+    min-height: 30px;
+    padding: 2px 4px;
+    gap: 3px;
+  }
+  #platform-scene > .mine-hero-bar .mine-hero-btn {
+    min-height: 25px;
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+  #platform-scene > .mine-hud {
+    flex: 0 0 30px;
+    min-height: 30px;
+    padding: 2px 5px;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  #platform-scene > .mine-hud #platform-resources {
+    flex-wrap: nowrap;
+    gap: 3px;
+    overflow: hidden;
+  }
+  #platform-scene > .mine-hud .res-chip {
+    min-height: 20px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+  #platform-scene > .mine-hud #platform-progress {
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+  #platform-scene > .mine-stage {
+    flex: 1 1 90px !important;
+    min-height: 90px !important;
+    max-height: none;
+  }
+  #platform-scene > .mine-controls {
+    flex: 0 0 70px !important;
+    height: 70px;
+    min-height: 70px;
+    max-height: 70px;
+    padding: 3px;
+    gap: 5px;
+    overflow: hidden;
+  }
+  #platform-scene > .mine-controls .virtual-joystick {
+    flex: 0 0 60px;
+    width: 60px !important;
+    height: 60px !important;
+  }
+  #platform-scene > .mine-controls .mine-controls-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(2, 29px);
+    gap: 3px;
+    align-content: center;
+  }
+  #platform-scene > .mine-controls .action-btn,
+  #platform-scene > .mine-controls .mine-controls-actions .action-btn {
+    min-width: 0 !important;
+    width: 100%;
+    min-height: 29px !important;
+    height: 29px;
+    max-height: 29px;
+    padding: 1px 2px;
+    gap: 1px;
+    border-radius: 7px;
+    border-bottom-width: 2px;
+  }
+  #platform-scene > .mine-controls .action-btn .ui-icon {
+    width: 13px;
+    height: 13px;
+  }
+  #platform-scene > .mine-controls .action-btn span {
+    display: block;
+    font-size: 7px;
+    line-height: 1;
+  }
+  #platform-scene #open-guide {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 5px;
+  }
+  #platform-scene #open-guide .guide-new {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
+    padding-top: 40px;
+  }
+}
+
+
+/* During the landscape start sheet, temporarily give the overlay the HUD
+   lane so all choices and the start action fit without an inner scrollbar.
+   HUD and character selection return as soon as the round begins. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene:has(#platform-overlay:not([hidden])) > .mine-hero-bar,
+  #platform-scene:has(#platform-overlay:not([hidden])) > .mine-hud {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
+    padding: 3px 12px !important;
+    grid-template-rows: 24px 34px 32px 26px;
+    gap: 2px;
+  }
+}
+
+
+/* Keep the first visible title anchored inside the overlay after returning
+   from the mines map; the compact landscape grid must not inherit heading margins. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
+    margin: 0 !important;
+    padding: 0;
+    align-self: center;
+    justify-self: center;
+    transform: none;
+    position: relative;
+    inset: auto;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-kicker {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+
+/* Landscape regression hardening: explicitly size the touch-control lane.
+   The previous rule only set grid tracks on a flex container, so the action
+   row kept its intrinsic height and the 110px joystick pushed into the nav. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene > .mine-stage {
+    flex: 1 1 50px !important;
+    min-height: 50px !important;
+    max-height: none !important;
+  }
+  #platform-scene > .mine-controls {
+    flex: 0 0 70px !important;
+    width: 100%;
+    height: 70px !important;
+    min-height: 70px !important;
+    max-height: 70px !important;
+    box-sizing: border-box;
+    padding: 3px !important;
+    overflow: hidden;
+  }
+  #platform-scene > .mine-controls > .virtual-joystick {
+    flex: 0 0 60px !important;
+    width: 60px !important;
+    height: 60px !important;
+    min-width: 60px !important;
+    min-height: 60px !important;
+    max-width: 60px !important;
+    max-height: 60px !important;
+  }
+  #platform-scene > .mine-controls > .mine-controls-actions {
+    display: grid !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(2, 29px) !important;
+    gap: 3px !important;
+    align-content: center;
+  }
+  #platform-scene > .mine-controls > .mine-controls-actions > .action-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 29px !important;
+    height: 29px !important;
+    max-height: 29px !important;
+    padding: 1px 2px !important;
+  }
+  #platform-scene > .mine-controls > .mine-controls-actions > .action-btn .ui-icon {
+    width: 13px !important;
+    height: 13px !important;
+  }
+  #platform-scene > .mine-controls > .mine-controls-actions > .action-btn span {
+    display: block !important;
+    font-size: 7px !important;
+    line-height: 1 !important;
+  }
+  #platform-scene > .mine-status {
+    flex: 0 0 14px;
+    min-height: 14px !important;
+    max-height: 14px;
+    overflow: hidden;
+    padding: 0 4px;
+    line-height: 14px;
+    font-size: 8px;
+  }
+  #platform-scene #open-guide {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-width: 36px !important;
+    max-height: 36px !important;
+    transform: none !important;
+  }
+}
