@@ -144,9 +144,12 @@ async function main() {
     const settledOres = await page.evaluate(() => ({ ...state.ores }));
     assert.ok(Object.keys(settledOres).some((k) => (settledOres[k] || 0) > (oresBeforeDeepDig[k] || 0)), 'a real server-verified dive credits at least one kept ore');
     report.economy.serverSettlement = { ores: true };
+    const settledSeed = (await I(page)).seed;
+    await newRun(page);
+    assert.notEqual((await I(page)).seed, settledSeed, 'a settled ticket starts a fresh world');
 
     // 6) keyboard: arrows steer, R pulls the rope, Escape pauses and resumes; nothing leaks to the hub miner behind
-    await newRun(page);
+    await page.evaluate(() => DeepDigUI.debug.freeze(true));
     await page.evaluate(BLANK); await page.evaluate(() => DeepDigUI.debug.teleport(3, 6)); await page.evaluate(air(3, 6, 8));
     await page.keyboard.down('ArrowDown');
     assert.equal((await I(page)).keys.d, true);
@@ -173,7 +176,7 @@ async function main() {
     await newRun(page);
     const fresh = await I(page);
     assert.deepEqual([fresh.game.depthM, fresh.game.bagCount], [0, 0], 'a new dive starts at the surface with an empty bag');
-    assert.notEqual(fresh.seed, seed1, 'with a new world');
+    assert.equal(Number.isInteger(fresh.seed), true, 'the restarted run keeps a valid server-issued seed (an unbanked ticket may be reused)');
 
     // 8) ore: digging an ore tile fills the bag, the HUD chip + value update; a full bag swaps its cheapest piece for a better ore
     await page.evaluate(BLANK);
