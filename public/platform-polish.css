@@ -1190,3 +1190,113 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     display: none;
   }
 }
+
+
+/* Short landscape game layout (e.g. 844x390):
+   reclaim the vertical space above the playfield and reserve a real control
+   lane before the fixed bottom navigation. No controls are removed. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene {
+    min-height: 0 !important;
+    height: 100%;
+    gap: 3px;
+    overflow: hidden;
+  }
+  #platform-scene > .mine-heading,
+  #platform-scene > .mine-economy {
+    display: none !important;
+  }
+  #platform-scene > .mine-hero-bar {
+    flex: 0 0 30px;
+    min-height: 30px;
+    padding: 2px 4px;
+    gap: 3px;
+  }
+  #platform-scene > .mine-hero-bar .mine-hero-btn {
+    min-height: 25px;
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+  #platform-scene > .mine-hud {
+    flex: 0 0 30px;
+    min-height: 30px;
+    padding: 2px 5px;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  #platform-scene > .mine-hud #platform-resources {
+    flex-wrap: nowrap;
+    gap: 3px;
+    overflow: hidden;
+  }
+  #platform-scene > .mine-hud .res-chip {
+    min-height: 20px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+  #platform-scene > .mine-hud #platform-progress {
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+  #platform-scene > .mine-stage {
+    flex: 1 1 90px !important;
+    min-height: 90px !important;
+    max-height: none;
+  }
+  #platform-scene > .mine-controls {
+    flex: 0 0 70px !important;
+    height: 70px;
+    min-height: 70px;
+    max-height: 70px;
+    padding: 3px;
+    gap: 5px;
+    overflow: hidden;
+  }
+  #platform-scene > .mine-controls .virtual-joystick {
+    flex: 0 0 60px;
+    width: 60px !important;
+    height: 60px !important;
+  }
+  #platform-scene > .mine-controls .mine-controls-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(2, 29px);
+    gap: 3px;
+    align-content: center;
+  }
+  #platform-scene > .mine-controls .action-btn,
+  #platform-scene > .mine-controls .mine-controls-actions .action-btn {
+    min-width: 0 !important;
+    width: 100%;
+    min-height: 29px !important;
+    height: 29px;
+    max-height: 29px;
+    padding: 1px 2px;
+    gap: 1px;
+    border-radius: 7px;
+    border-bottom-width: 2px;
+  }
+  #platform-scene > .mine-controls .action-btn .ui-icon {
+    width: 13px;
+    height: 13px;
+  }
+  #platform-scene > .mine-controls .action-btn span {
+    display: block;
+    font-size: 7px;
+    line-height: 1;
+  }
+  #platform-scene #open-guide {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 5px;
+  }
+  #platform-scene #open-guide .guide-new {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
+    padding-top: 40px;
+  }
+}
