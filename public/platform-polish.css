@@ -854,7 +854,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     display: none !important;
   }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
-    width: calc(100% - 54px);
+    width: calc(100% - 88px);
     max-width: none;
     margin: 0;
     font-size: 15px;
