@@ -143,12 +143,25 @@ test('worlds UI: decorations never sit on a rock, a hazard, a flag, a sign, the 
       assert.ok(ground.some(g => prop.x >= g.x + 10 && prop.x + 34 <= g.x + g.w - 10), `${level.id}: prop at ${prop.x} stands on ground`);
       for (const [a, b] of keepOut) assert.ok(prop.x + 34 <= a || prop.x >= b, `${level.id}: prop at ${prop.x} overlaps [${a},${b}]`);
       assert.ok(prop.x < arena, `${level.id}: the boss arena stays empty`);
-      assert.ok(['cart', 'barrel', 'chest', 'cluster', 'skull', 'rig', 'robot'].includes(prop.type));
+      assert.ok(['cart', 'barrel', 'chest', 'cluster', 'skull', 'rig', 'robot', 'support', 'chain'].includes(prop.type));
     }
     assert.equal(Scenery.propsFor(level), props, 'cached per level');
   }
   assert.deepEqual(Object.keys(Scenery.SKINS), R.LEVELS.map(l => l.id), 'a skin per world, same ids and order');
   assert.equal(new Set(Object.values(Scenery.SKINS).map(s => s.liquid.join())).size >= 5, true, 'worlds do not all share one liquid');
+});
+
+test('worlds UI: tunnel supports and hanging inspection lamps render safely and animate deterministically', () => {
+  const support = fakeCtx(), chainA = fakeCtx(), chainB = fakeCtx();
+  Scenery.drawProp(support, { x: 300, type: 'support' }, 0, false);
+  Scenery.drawProp(chainA, { x: 420, type: 'chain' }, 0, false);
+  Scenery.drawProp(chainB, { x: 420, type: 'chain' }, 17, false);
+  assert.ok(support.calls.length > 20, 'support has structural detail');
+  assert.ok(chainA.calls.length > 15, 'hanging lamp and chain are drawn');
+  assert.notDeepEqual(chainA.args, chainB.args, 'lamp sway and light pulse animate over time');
+  const reduced = fakeCtx();
+  Scenery.drawProp(reduced, { x: 420, type: 'chain' }, 17, true);
+  assert.ok(reduced.calls.length > 15, 'reduced-motion mode keeps the lamp visible');
 });
 
 test('worlds UI: signs, flags, the exit text and the world skin all come from the level of the run', () => {
