@@ -1316,3 +1316,22 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     gap: 2px;
   }
 }
+
+
+/* Keep the first visible title anchored inside the overlay after returning
+   from the mines map; the compact landscape grid must not inherit heading margins. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
+    margin: 0 !important;
+    padding: 0;
+    align-self: center;
+    justify-self: center;
+    transform: none;
+    position: relative;
+    inset: auto;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-kicker {
+    margin: 0;
+    padding: 0;
+  }
+}
