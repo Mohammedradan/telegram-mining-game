@@ -227,3 +227,38 @@ test('the quality level really caps the particles (the cap table is not decorati
   assert.equal(P.list.length, UI.CFG.PARTICLES[0], 'the lowest level keeps the fewest particles');
   assert.ok(UI.CFG.PARTICLES[0] < UI.CFG.PARTICLES[1] && UI.CFG.PARTICLES[1] < UI.CFG.PARTICLES[2]);
 });
+
+
+// ───────────────────────────── آلات المنجم الحيّة ─────────────────────────────
+test('deep-mine machinery: the drill upgrade adds a spinning tool and the robot relocates to the active dig tile', () => {
+  const trace = (equipment, droneOn) => {
+    const calls = [];
+    const ctx = new Proxy({}, {
+      get(_target, key) {
+        if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => ({ addColorStop() {} });
+        if (key === 'createImageData') return (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) });
+        return (...args) => { calls.push(String(key)); };
+      },
+      set(_target, key, value) { calls.push(`set:${String(key)}`); return true; },
+    });
+    const doc = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
+    const canvas = { width: 0, height: 0, clientWidth: 320, clientHeight: 568, getContext: () => ctx };
+    const renderer = Render.create({ canvas, doc, DD });
+    renderer.resize(320, 568, 1, 2);
+    const game = DD.create({ seed: 17, equipment });
+    game.miner.state = 'dig';
+    game.miner.dig = { col: 4, row: 1, t: 0.31, need: 1 };
+    renderer.draw({ game, cam: -6, t: 2.4, particles: [], droneOn, shakeX: 0, shakeY: 0, digShake: 0, flash: 0, gold: 0 });
+    return calls;
+  };
+  const base = trace({ drill: 0, robot: 0 }, false);
+  const drill = trace({ drill: 1, robot: 0 }, false);
+  const robot = trace({ drill: 1, robot: 1 }, true);
+  assert.ok(drill.filter(x => x === 'rotate').length > base.filter(x => x === 'rotate').length,
+    'the purchased drill adds a rotating mechanical head while the miner digs');
+  assert.ok(robot.filter(x => x === 'rotate').length > drill.filter(x => x === 'rotate').length,
+    'the robot rotors animate when the companion is active');
+  assert.ok(robot.filter(x => x === 'lineTo').length > drill.filter(x => x === 'lineTo').length,
+    'the working robot draws a beam to the tile being mined');
+  assert.doesNotThrow(() => trace({ drill: 5, robot: 5 }, true), 'maximum equipment remains render-safe');
+});
