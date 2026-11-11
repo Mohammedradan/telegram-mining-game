@@ -104,6 +104,25 @@ test('phase 3: six mines — rising rock hardness, own palette, own layout, ore 
   assert.equal(new Set(R.ZONES.map(z => z.sky[0] + z.glow)).size, 6, 'each mine looks different');
 });
 
+test('V20: each deep mine has a physically traversable upper branch over its main-route pit', () => {
+  assert.equal(R.VERSION, 13);
+  for (const [zone, level] of R.LEVELS.entries()) {
+    if (zone === 0) continue; // keep the original stone-mine simulation byte-for-byte stable
+    const route = level.platforms.filter(p => p.route === 'upper').sort((a, b) => a.x - b.x);
+    assert.equal(route.length, 2, `${level.id}: exactly two upper-branch platforms`);
+    assert.equal(route[0].y, 230);
+    assert.equal(route[1].y, route[0].y, 'the two ledges form one walkable branch');
+    assert.ok(route[1].x - (route[0].x + route[0].w) <= 16, 'the jump between ledges is short');
+    assert.ok(300 - route[0].y <= 85, 'the first ledge is within the miner jump height');
+    const pit = level.hazards.find(h => h.kind === 'pit');
+    assert.ok(pit, `${level.id}: the branch has a real pit to bypass`);
+    assert.ok(route[0].x <= pit.x && route[1].x + route[1].w >= pit.x + pit.w,
+      `${level.id}: upper route spans the full pit`);
+    const floor = level.platforms.find(p => p.y === 300 && p.x <= route[0].x && p.x + p.w >= route[0].x + route[0].w);
+    assert.ok(floor, `${level.id}: the route can be reached from the main floor`);
+  }
+});
+
 test('phase 3: ore weights per mine are honoured over a large deterministic sample', () => {
   const share = (zone, luck) => {
     const counts = { common: 0, mid: 0, rare: 0 }, mine = R.MINES[zone];
