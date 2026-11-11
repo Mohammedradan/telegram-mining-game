@@ -81,7 +81,7 @@ function mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare,
       // نُظهرها في إيصال الجولة ولا نحوّلها إلى ذهب أو خامة أخرى.
       const receipt = {
         id: run.id, ok: true, reason: replay.result.reason,
-        depthM: replay.result.depthM, value: replay.result.value,
+        depthM: replay.result.depthM, value: replay.result.value, keptCount: replay.result.keptCount,
         kept, relics: Math.max(0, Math.floor(Number(replay.result.kept?.relic) || 0)),
         lost: replay.result.lost, keptCount: replay.result.keptCount,
         profile: null,
