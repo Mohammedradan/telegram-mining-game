@@ -78,11 +78,15 @@ test('Deep Dig API: rejects unfinished, malformed, and foreign sessions without 
   const ticket = await post('reject', 'start');
   assert.equal(ticket.status, 200);
   assert.equal((await post('reject', 'finish', { id: ticket.body.id, frames: [] })).status, 400);
-  assert.equal((await post('reject', 'finish', { id: ticket.body.id, frames: [{ dx: 9, dy: 0 }] })).status, 400);
-  assert.equal((await post('intruder', 'finish', { id: ticket.body.id, frames: [{ dx: 0, dy: 0 }] })).status, 404);
+  assert.equal((await store.getDeepDigRun(ticket.body.id)).status, 'rejected');
+
+  const malformed = await post('malformed', 'start');
+  assert.equal((await post('malformed', 'finish', { id: malformed.body.id, frames: [{ dx: 9, dy: 0 }] })).status, 400);
+  assert.equal((await store.getDeepDigRun(malformed.body.id)).status, 'rejected');
+  assert.equal((await post('intruder', 'finish', { id: malformed.body.id, frames: [{ dx: 0, dy: 0 }] })).status, 404);
+
   const saved = await store.getUser(`guest_${guest('reject')}`);
   assert.deepEqual(saved.state.ores, { copper: 0, iron: 0, gold: 0, crystal: 0, lava: 0 });
-  assert.equal((await store.getDeepDigRun(ticket.body.id)).status, 'rejected');
 });
 
 test('Deep Dig API: settles replayed kept ores once and returns the saved receipt on retries', async () => {
