@@ -141,7 +141,7 @@ button:focus-visible,
   button { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 /* In-world dig controls must own the touch gesture: never scroll or zoom while dragging/pressing. */
-#tab-play #ck-pad,
-#tab-play #ck-dig {
+#tab-mining #ck-pad,
+#tab-mining #ck-dig {
   touch-action: none !important;
 }
