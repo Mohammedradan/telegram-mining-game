@@ -6,13 +6,15 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const net = require('node:net');
 const { createStore } = require('../db');
 const DeepDig = require('../public/deep-dig');
 const { replayDeepDig } = require('../lib/deep-dig-replay');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mining-deep-dig-'));
 const file = path.join(dir, 'game.db');
-const port = 3247;
+let port = 0;
+const freePort = () => new Promise((resolve, reject) => { const p = net.createServer(); p.on('error', reject); p.listen(0, '127.0.0.1', () => { const { port: value } = p.address(); p.close(() => resolve(value)); }); });
 const url = process.env.TEST_DATABASE_URL || '';
 const tag = `${process.pid}_${Date.now()}`;
 const guest = (name) => `deep_dig_${tag}_${name}`;
@@ -45,6 +47,7 @@ async function post(name, route, body = {}) {
 }
 
 before(async () => {
+  port = await freePort();
   await launch();
   const oldFile = process.env.DATABASE_FILE, oldUrl = process.env.DATABASE_URL;
   process.env.DATABASE_FILE = file; process.env.DATABASE_URL = url;
