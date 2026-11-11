@@ -581,12 +581,12 @@ test('robot assistant never mines while the player is actively steering', () => 
 test('robot assistant preserves low-value ore when the bag is full and reports the blockage', () => {
   const g = blank({ equipment: { robot: 3, bag: 0 } });
   place(g, 3, 10);
-  g.bag.copper = 8;
+  g.bag.gold = 8;
   g.bagCount = 8;
   put(g, 4, 10, T.ORE, DD.ORE_N.iron);
   run(g, NONE, 2);
   assert.equal(DD.kindAt(g, 4, 10), T.ORE, 'the robot leaves ore that cannot improve a full bag');
-  assert.equal(g.bag.copper, 8);
+  assert.equal(g.bag.gold, 8);
   assert.equal(g.bag.iron, 0);
   assert.equal(DD.summary(g).robotBlocked, true, 'the HUD can explain why the robot is waiting');
 });
