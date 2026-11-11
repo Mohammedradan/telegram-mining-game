@@ -1,7 +1,6 @@
 // Real-Chromium E2E for the deep dive ("الحفر العميق"). Run against a LOCAL development server:
 //   CHROMIUM_PATH=/path/to/chromium TEST_APP_URL=http://127.0.0.1:3000 npm run test:deepdive
-// It drives real touch (CDP), mouse and keyboard input and checks that the full-screen dive opens from the fifth hub medal, never
-// changes the economy (no gold, no energy, no queued ops, no server request while it runs), keeps its controls clear of the HUD on every
+// It drives real touch (CDP), mouse and keyboard input and checks that the full-screen dive opens from the fifth hub medal, adds only server-verified ores (no gold or energy), keeps its controls clear of the HUD on every
 // screen size, plays its three hazards (loose boulder, gas pocket, lava heat), ends by rope / faint / treasure, saves the best depth
 // on the device only, pauses when the page loses focus, and shares one mute switch with the hub.
 const { chromium } = require('playwright-core');
@@ -134,8 +133,20 @@ async function main() {
     assert.equal((await I(page)).stick.x, 0);
     report.controls.touch = { dig: true, release: true, sideways: true };
 
-    // 5) keyboard: arrows steer, R pulls the rope, Escape pauses and resumes; nothing leaks to the hub miner behind
-    await page.evaluate(() => DeepDigUI.debug.freeze(true));
+    // 5) finish one untouched-by-debug round end-to-end: the server replay must credit the kept ores.
+    const oresBeforeDeepDig = await page.evaluate(() => ({ ...state.ores }));
+    await page.evaluate(() => DeepDigUI.debug.setStick(0, 1));
+    await page.waitForFunction(() => DeepDigUI.inspect().game.bagCount > 0, null, { timeout: 45000 });
+    await page.evaluate(() => DeepDigUI.debug.setStick(0, 0));
+    await page.locator('#dd-rope').tap();
+    await page.waitForFunction(() => DeepDigUI.inspect().phase === 'summary', null, { timeout: 15000 });
+    await page.waitForFunction(() => document.getElementById('dd-banner').textContent.includes('تم حفظ خامات الجولة'), null, { timeout: 15000 });
+    const settledOres = await page.evaluate(() => ({ ...state.ores }));
+    assert.ok(Object.keys(settledOres).some((k) => (settledOres[k] || 0) > (oresBeforeDeepDig[k] || 0)), 'a real server-verified dive credits at least one kept ore');
+    report.economy.serverSettlement = { ores: true };
+
+    // 6) keyboard: arrows steer, R pulls the rope, Escape pauses and resumes; nothing leaks to the hub miner behind
+    await newRun(page);
     await page.evaluate(BLANK); await page.evaluate(() => DeepDigUI.debug.teleport(3, 6)); await page.evaluate(air(3, 6, 8));
     await page.keyboard.down('ArrowDown');
     assert.equal((await I(page)).keys.d, true);
@@ -157,14 +168,14 @@ async function main() {
     assert.equal(await page.evaluate(() => DigSite.inspect().paused), true, 'the hub miner never reacted to the keys');
     report.controls.keyboard = { arrows: true, wasd: true, rope: true, escape: true };
 
-    // 6) "new dive" from the summary: a fresh seed, the surface, an empty bag
+    // 7) "new dive" from the summary: a fresh seed, the surface, an empty bag
     const seed1 = (await I(page)).seed;
     await newRun(page);
     const fresh = await I(page);
     assert.deepEqual([fresh.game.depthM, fresh.game.bagCount], [0, 0], 'a new dive starts at the surface with an empty bag');
     assert.notEqual(fresh.seed, seed1, 'with a new world');
 
-    // 7) ore: digging an ore tile fills the bag, the HUD chip + value update; a full bag swaps its cheapest piece for a better ore
+    // 8) ore: digging an ore tile fills the bag, the HUD chip + value update; a full bag swaps its cheapest piece for a better ore
     await page.evaluate(BLANK);
     await page.evaluate(() => { const D = DeepDig, g = DeepDigUI.debug.game(); DeepDigUI.debug.teleport(3, 0); g.tiles[D.idx(3, 1)] = D.TILE.ORE; g.ore[D.idx(3, 1)] = D.ORE_N.gold; DeepDigUI.debug.setStick(0, 1); });
     await step(page, 40);
@@ -179,7 +190,7 @@ async function main() {
     assert.deepEqual([swap.count, swap.crystal, swap.copper, swap.full], ['8/8', '1', '7', '1'], 'a full bag swaps its cheapest piece for the better ore');
     report.ore = { chip: true, swap: true };
 
-    // 8) hazards through the real UI. (a) a loose boulder: it stays put until the tile under it is dug, warns, then falls where the miner is not
+    // 9) hazards through the real UI. (a) a loose boulder: it stays put until the tile under it is dug, warns, then falls where the miner is not
     await page.evaluate(BLANK);
     await page.evaluate(() => { const D = DeepDig, g = DeepDigUI.debug.game(); DeepDigUI.debug.teleport(2, 10); for (let r = 6; r <= 10; r++) g.tiles[D.idx(2, r)] = D.TILE.AIR; g.tiles[D.idx(3, 9)] = D.TILE.BOULDER; });
     await step(page, 30);
@@ -213,7 +224,7 @@ async function main() {
     assert.ok(lava.px[0] > lava.px[2] + 40, `the lava tile glows orange on the canvas (${lava.px})`);
     report.hazards = { boulder: true, gas: true, lava: true, hearts: true };
 
-    // 9) endings: the rope banks everything, fainting loses the cheaper half, the chest wins; each saves on the device only
+    // 10) endings: the rope banks everything, fainting loses the cheaper half, the chest wins; each saves on the device only
     await page.evaluate(BLANK);
     await page.evaluate(() => { DeepDigUI.debug.teleport(3, 26); DeepDigUI.debug.fillBag('gold', 3); DeepDigUI.debug.fillBag('crystal', 2); });
     await page.locator('#dd-rope').tap();
@@ -240,15 +251,18 @@ async function main() {
     assert.match(win.title, /قلب الأسطورة/);
     report.endings = { rope: true, faint: true, win: true, savedLocally: true };
 
-    // 10) the economy was never touched, and nothing was sent to the server, during the whole dive
+    // 11) only the expected authenticated Deep Dig endpoints are used; the other economy remains unchanged
     const eco1 = await page.evaluate(() => ({ gold: state.gold, energy: Math.round(state.energy), pending: SYNC.pending.length, inflight: !!SYNC.inflight, miner: DigSite.inspect().miner }));
     assert.equal(eco1.gold, eco0.gold, 'no gold was added or spent'); assert.ok(eco1.energy >= eco0.energy - 1, 'no energy was spent');
     assert.deepEqual([eco1.pending, eco1.inflight], [0, false], 'no operation was queued');
-    assert.deepEqual(page.posts.slice(posts0), [], `no request was sent while diving: ${page.posts.slice(posts0)}`);
+    const deepPosts = page.posts.slice(posts0);
+    assert.ok(deepPosts.includes('POST /api/deep-dig/start'), `a server ticket was issued: ${deepPosts}`);
+    assert.ok(deepPosts.includes('POST /api/deep-dig/finish'), `the finished dive was verified: ${deepPosts}`);
+    assert.ok(deepPosts.every((p) => p === 'POST /api/deep-dig/start' || p === 'POST /api/deep-dig/finish'), `no unrelated economy API was called: ${deepPosts}`);
     assert.deepEqual([eco1.miner.x, eco1.miner.y], [eco0.miner.x, eco0.miner.y], 'the hub miner did not move');
-    report.economy = { gold: true, energy: true, ops: true, requests: true };
+    report.economy = { gold: true, energy: true, ops: true, verifiedDeepDigRequests: true };
 
-    // 11) pause with the LIVE loop: losing focus / hiding the page pauses the run and shows the card; no time passes; resume works
+    // 12) pause with the LIVE loop: losing focus / hiding the page pauses the run and shows the card; no time passes; resume works
     await page.locator('#dd-again').tap();
     await page.waitForFunction(() => DeepDigUI.inspect().phase === 'run');
     await page.evaluate(() => DeepDigUI.debug.freeze(false));
@@ -273,7 +287,7 @@ async function main() {
     assert.ok(ring.p > 0.9, `the medal ring shows the best depth (${ring.p})`); assert.match(ring.label, /أعمق نزول لك 120 م/);
     report.pause = { blur: true, hidden: true, quitAsks: true, focusBack: true, ring: true };
 
-    // 12) sound: the ambience starts with the dive, follows the layer, and one mute switch is shared with the hub
+    // 13) sound: the ambience starts with the dive, follows the layer, and one mute switch is shared with the hub
     await openDive(page); await startRun(page);
     const snd0 = (await I(page)).sound;
     assert.equal(snd0.mood, 'surface');
@@ -296,7 +310,7 @@ async function main() {
     await page.waitForFunction(() => DeepDigUI.inspect().phase === 'closed');
     report.sound = { ctx: snd0.ctx, shared: true };
 
-    // 13) the hub still works after all of that: a tap on the rock pays exactly as before
+    // 14) the hub still works after all of that: a tap on the rock pays exactly as before
     const g0 = await page.evaluate(() => state.gold);
     const rock = await page.locator('#ck-ore').boundingBox();
     await page.touchscreen.tap(rock.x + rock.width / 2, rock.y + rock.height / 2);
