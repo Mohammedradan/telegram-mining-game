@@ -260,7 +260,7 @@ async function main() {
     assert.ok(deepPosts.includes('POST /api/deep-dig/finish'), `the finished dive was verified: ${deepPosts}`);
     assert.ok(deepPosts.every((p) => p === 'POST /api/deep-dig/start' || p === 'POST /api/deep-dig/finish'), `no unrelated economy API was called: ${deepPosts}`);
     assert.deepEqual([eco1.miner.x, eco1.miner.y], [eco0.miner.x, eco0.miner.y], 'the hub miner did not move');
-    report.economy = { gold: true, energy: true, ops: true, verifiedDeepDigRequests: true };
+    report.economy = { gold: true, energy: true, ops: true, verifiedDeepDigRequests: true, serverSettlement: true };
 
     // 12) pause with the LIVE loop: losing focus / hiding the page pauses the run and shows the card; no time passes; resume works
     await page.locator('#dd-again').tap();
