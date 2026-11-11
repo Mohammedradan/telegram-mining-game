@@ -1086,3 +1086,107 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     line-height: 1;
   }
 }
+
+
+/* Landscape phones: the stage is shallow, so use a compact horizontal
+   opening panel rather than a vertically scrolling overlay. */
+@media (min-width: 600px) and (max-height: 420px) {
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 24px 36px 34px 26px;
+    align-content: center;
+    justify-items: center;
+    gap: 2px;
+    padding: 3px 12px;
+    overflow: hidden;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::before,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden])::after {
+    display: none !important;
+    content: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-kicker,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-lead,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-help,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-mission,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .goal-hint,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #open-workshop-overlay,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #ctl-settings {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
+    width: calc(100% - 88px);
+    min-height: 24px;
+    max-width: none;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #platform-scene #open-guide {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 4px;
+  }
+  #platform-scene #open-guide .guide-new {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-options {
+    width: 100%;
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option {
+    min-width: 0;
+    min-height: 34px;
+    padding: 2px 4px;
+    gap: 1px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option .ui-icon {
+    width: 12px;
+    height: 12px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option b {
+    font-size: 9px;
+    line-height: 1;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option i {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-start {
+    min-width: 180px;
+    min-height: 32px;
+    margin: 0;
+    padding: 3px 12px;
+    font-size: 11px;
+    line-height: 1;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) > .overlay-row {
+    display: flex !important;
+    width: min(260px, 100%);
+    min-width: 0;
+    margin: 0;
+    gap: 0;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select {
+    display: flex !important;
+    flex: 1 1 100%;
+    min-width: 0;
+    min-height: 26px;
+    padding: 2px 6px;
+    justify-content: center;
+    gap: 4px;
+    font-size: 9px;
+  }
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #mine-select .mine-select-label {
+    display: none;
+  }
+}
