@@ -295,6 +295,53 @@
       }
     }
 
+    // مثقاب ميكانيكي يُفتح بمستوى معدّة الحفر: ذراع ومبيت معدني ورأس دوّار.
+    // يركب على يد المعدّن ويتحرك مع وضعية الحفر؛ لا يضيف ضربات أو خامات من تلقاء نفسه.
+    function drawDrillRig(g, f, T, wid) {
+      const level = clamp(Math.floor(num(g.eq && g.eq.drill)), 0, 5);
+      if (!level) return;
+      const active = g.miner.state === 'dig' && !!g.miner.dig;
+      const spin = f.t * (active ? 18 + level * 2.2 : 1.4);
+      const recoil = active ? Math.abs(Math.sin(f.t * 13)) * T * 0.025 : 0;
+      ctx.save();
+      ctx.translate(wid * 0.19, -T * 0.57 + recoil);
+      // حزام تثبيت على الساعد
+      roundRect(ctx, -T * 0.08, -T * 0.12, T * 0.29, T * 0.22, T * 0.055);
+      ctx.fillStyle = '#273746'; ctx.fill();
+      ctx.lineWidth = Math.max(1, T * 0.025); ctx.strokeStyle = '#a8b8c5'; ctx.stroke();
+      // جسم المحرك
+      const shell = ctx.createLinearGradient(0, -T * 0.2, 0, T * 0.18);
+      shell.addColorStop(0, '#dce6eb'); shell.addColorStop(0.42, '#718596'); shell.addColorStop(1, '#263746');
+      roundRect(ctx, T * 0.08, -T * 0.2, T * 0.42, T * 0.36, T * 0.075);
+      ctx.fillStyle = shell; ctx.fill(); ctx.strokeStyle = '#17232d'; ctx.stroke();
+      // فتحات تبريد ومسامير
+      ctx.fillStyle = 'rgba(12,24,34,.78)';
+      for (let i = 0; i < 3; i++) ctx.fillRect(T * (0.16 + i * 0.075), -T * 0.11, T * 0.035, T * 0.16);
+      ctx.fillStyle = '#f2c45d';
+      for (const x of [T * 0.12, T * 0.43]) { ctx.beginPath(); ctx.arc(x, -T * 0.14, T * 0.025, 0, TAU); ctx.fill(); }
+      // عمود الحفر ورأسه؛ الدوران حقيقي في الرسم ويتسارع مع مستوى المعدّة
+      ctx.save(); ctx.translate(T * 0.49, -T * 0.02); ctx.rotate(spin);
+      ctx.fillStyle = '#c8d4dc'; ctx.fillRect(0, -T * 0.045, T * 0.23, T * 0.09);
+      ctx.fillStyle = active ? '#ffe08a' : '#91a4b2';
+      ctx.beginPath(); ctx.moveTo(T * 0.23, -T * 0.14); ctx.lineTo(T * 0.39, 0); ctx.lineTo(T * 0.23, T * 0.14); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#263746'; ctx.lineWidth = Math.max(1, T * 0.025);
+      for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.beginPath(); ctx.moveTo(T * 0.18, 0); ctx.lineTo(T * (0.34), Math.sin(a) * T * 0.12); ctx.stroke(); }
+      ctx.restore();
+      if (active) {
+        // حلقة دوران وشرر عند نقطة التماس، من دون إنشاء جسيمات دائمة أو تغيير محاكاة الحفر
+        ctx.globalAlpha = 0.45 + 0.25 * Math.sin(f.t * 24);
+        ctx.strokeStyle = '#ffd36a'; ctx.lineWidth = Math.max(1, T * 0.035);
+        ctx.beginPath(); ctx.arc(T * 0.88, -T * 0.02, T * (0.12 + 0.025 * Math.sin(f.t * 20)), 0, TAU); ctx.stroke();
+        ctx.globalAlpha = 1;
+        for (let i = 0; i < 3; i++) {
+          const a = f.t * 17 + i * TAU / 3, d = T * (0.12 + 0.035 * ((i + Math.floor(f.t * 12)) % 2));
+          ctx.fillStyle = i === 1 ? '#fff0ad' : '#ff9d43';
+          ctx.beginPath(); ctx.arc(T * 0.88 + Math.cos(a) * d, -T * 0.02 + Math.sin(a) * d, T * 0.025, 0, TAU); ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
     function drawMiner(g, f, px, py) {
       const m = g.miner, T = L.tile;
       const hgt = T * 1.42, wid = hgt * (HERO.cw / HERO.ch);
@@ -314,25 +361,44 @@
       if (ready.hero) {
         const cell = poseOf(g, f), sx = (cell % HERO.cols) * HERO.cw, sy = Math.floor(cell / HERO.cols) * HERO.ch;
         ctx.drawImage(img.hero, sx, sy, HERO.cw, HERO.ch, -wid / 2, -hgt, wid, hgt);
-      } else {
-        ctx.fillStyle = '#f2a52a'; ctx.fillRect(-T * 0.22, -T * 1.0, T * 0.44, T * 0.7);
-        ctx.beginPath(); ctx.arc(0, -T * 1.12, T * 0.24, 0, TAU); ctx.fillStyle = '#ffd25a'; ctx.fill();
-        ctx.fillStyle = '#c93a2a'; ctx.fillRect(-T * 0.3, -T * 1.3, T * 0.6, T * 0.14);
       }
+      drawDrillRig(g, f, T, wid);
       ctx.restore();
     }
 
     function drawDrone(g, f, px, py) {
-      const T = L.tile, face = g.miner.face || 1;
-      const x = px - face * T * 0.62, y = py - T * 0.82 + Math.sin(f.t * 3.1) * T * 0.07, s = T * 0.2;
+      const T = L.tile, face = g.miner.face || 1, m = g.miner, s = T * 0.2;
+      const working = m.state === 'dig' && !!m.dig;
+      const targetX = working ? L.ox + (m.dig.col + 0.5) * T : px - face * T * 0.62;
+      const targetY = working ? (m.dig.row - f.cam) * T - T * 0.82 : py - T * 0.82;
+      const x = targetX + (working ? -face * T * 0.58 : 0);
+      const y = targetY + Math.sin(f.t * (working ? 5.2 : 3.1)) * T * 0.045;
       ctx.save(); ctx.translate(x, y);
+      if (working) {
+        // الروبوت ينتقل من كتف المعدّن إلى موضع الحفر ويوجّه شعاع عمل إلى البلاطة المستهدفة
+        ctx.strokeStyle = 'rgba(94,226,255,.72)'; ctx.lineWidth = Math.max(1, T * 0.035);
+        ctx.beginPath(); ctx.moveTo(face * T * 0.08, s * 0.5); ctx.lineTo(face * T * 0.58, T * 0.82); ctx.stroke();
+        ctx.globalAlpha = 0.16; ctx.fillStyle = '#6ee7ff';
+        ctx.beginPath(); ctx.moveTo(face * T * 0.02, s * 0.5); ctx.lineTo(face * T * 0.58 - T * 0.1, T * 0.82); ctx.lineTo(face * T * 0.58 + T * 0.1, T * 0.82); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      // مراوح جانبية تدور، مع جسم مدرّع وعدسة أمامية
+      const rotor = f.t * (working ? 28 : 18);
+      for (const side of [-1, 1]) {
+        ctx.save(); ctx.translate(side * s * 1.45, -s * 0.55); ctx.rotate(rotor * side);
+        ctx.strokeStyle = '#9fb3c4'; ctx.lineWidth = Math.max(1, s * 0.12);
+        ctx.beginPath(); ctx.ellipse(0, 0, s * 0.95, s * 0.18, 0, 0, TAU); ctx.stroke();
+        ctx.restore();
+      }
       ctx.globalAlpha = 0.55; ctx.fillStyle = '#cfe3f2';
       ctx.beginPath(); ctx.ellipse(0, -s * 1.05, s * 1.5 * (0.7 + 0.3 * Math.abs(Math.sin(f.t * 40))), s * 0.12, 0, 0, TAU); ctx.fill();
       ctx.globalAlpha = 1;
-      const gr = ctx.createLinearGradient(0, -s, 0, s); gr.addColorStop(0, '#b9c8d6'); gr.addColorStop(1, '#52667a');
+      const gr = ctx.createLinearGradient(0, -s, 0, s); gr.addColorStop(0, '#dce7ef'); gr.addColorStop(0.48, '#8498a9'); gr.addColorStop(1, '#354b5d');
       roundRect(ctx, -s, -s * 0.8, s * 2, s * 1.5, s * 0.5); ctx.fillStyle = gr; ctx.fill();
       ctx.lineWidth = Math.max(1, s * 0.16); ctx.strokeStyle = '#1c2630'; ctx.stroke();
-      ctx.beginPath(); ctx.arc(face * s * 0.45, -s * 0.05, s * 0.34, 0, TAU); ctx.fillStyle = '#ffe27a'; ctx.fill();
+      ctx.fillStyle = working ? '#5ee7ff' : '#ffe27a';
+      ctx.beginPath(); ctx.arc(face * s * 0.45, -s * 0.05, s * 0.34, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.arc(face * s * 0.52, -s * 0.12, s * 0.09, 0, TAU); ctx.fill();
       ctx.restore();
     }
 
