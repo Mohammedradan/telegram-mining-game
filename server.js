@@ -13,6 +13,7 @@ const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, de
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
 const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
+const { mountDeepDig } = require('./deep-dig-api');
 const Quests = require('./quests');
 const Prestige = require('./public/prestige-rules');
 // قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
@@ -1306,6 +1307,7 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
 // وتحديد المعدل ومعالجة الأخطاء المعتمدة أعلاه (platform-api.js).
 // ---------------------------------------------------------------------------
 mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, trackQuests: (user, facts) => Quests.addRun(user.sync.quests, facts), now: Date.now });
+mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, now: Date.now });
 
 // ---------------------------------------------------------------------------
 // ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص
