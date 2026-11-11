@@ -97,6 +97,30 @@ body.dd-open { overflow: hidden; }
 .dd-bag[data-full="1"] .dd-meter i { background: linear-gradient(90deg, #ff8a66, #ff3d2e); }
 .dd-chips { display: flex; flex-wrap: wrap; gap: 4px; min-height: 19px; }
 .dd-chips[hidden] { display: none; }
+
+/* حالة الروبوت المرافق: تظهر فقط عند امتلاك الترقية */
+.dd-robot {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: min(236px, 64vw);
+  min-height: 27px;
+  padding: 4px 9px;
+  border-radius: 11px;
+  color: #d9f7ff;
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+  background: rgba(7, 19, 34, .84);
+  border-color: rgba(92, 208, 244, .32);
+}
+.dd-robot[hidden] { display: none; }
+.dd-robot-icon { font-size: 14px; line-height: 1; }
+.dd-robot-meter { flex: 1; min-width: 28px; height: 5px; overflow: hidden; border-radius: 5px; background: rgba(0, 0, 0, .55); }
+.dd-robot-meter i { display: block; width: var(--fill, 0%); height: 100%; background: linear-gradient(90deg, #53d8ef, #b4f4ff); transition: width .12s linear; }
+.dd-robot[data-working="1"] .dd-robot-icon { animation: dd-robot-pulse .8s ease-in-out infinite alternate; }
+.dd-robot b { min-width: 27px; text-align: end; font-variant-numeric: tabular-nums; }
+@keyframes dd-robot-pulse { to { transform: translateY(-2px) scale(1.12); filter: drop-shadow(0 0 4px #65e8ff); } }
 .dd-chip {
   display: inline-flex;
   align-items: center;
@@ -275,6 +299,7 @@ body.dd-open { overflow: hidden; }
   .dd-depth { min-width: 72px; padding: 3px 9px 4px; }
   .dd-depth b { font-size: 19px; }
   .dd-heart .ui-icon { width: 17px; height: 17px; }
+  .dd-robot { gap: 5px; font-size: 10px; padding-inline: 7px; }
   .dd-iconbtn.ws-icon-btn { width: 34px; height: 34px; }
 }
 @media (max-height: 560px) {
@@ -286,5 +311,5 @@ body.dd-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dd-banner.is-on { animation: none; opacity: 1; }
-  .dd-rope[data-loot="1"]:not(:disabled), .dd-overlay[data-danger="1"] .dd-heart:not(.is-empty) .ui-icon { animation: none; }
+  .dd-rope[data-loot="1"]:not(:disabled), .dd-overlay[data-danger="1"] .dd-heart:not(.is-empty) .ui-icon, .dd-robot[data-working="1"] .dd-robot-icon { animation: none; }
 }
