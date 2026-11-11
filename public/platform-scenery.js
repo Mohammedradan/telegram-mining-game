@@ -24,9 +24,9 @@
     { x: 1440, type: 'chest' }, { x: 1760, type: 'barrel' }, { x: 2040, type: 'cart' }, { x: 2320, type: 'chest' },
   ];
   const THEME = {
-    iron: ['cart', 'rig', 'barrel', 'robot', 'chest'], gold: ['chest', 'rig', 'robot', 'barrel'],
-    crystal: ['cluster', 'robot', 'cart', 'cluster', 'rig', 'chest'],
-    lava: ['barrel', 'rig', 'skull', 'robot', 'cart'], legend: ['cluster', 'robot', 'rig', 'chest', 'cluster'],
+    iron: ['cart', 'rig', 'support', 'chain', 'robot', 'chest'], gold: ['chest', 'rig', 'chain', 'support', 'robot'],
+    crystal: ['cluster', 'robot', 'chain', 'cluster', 'rig', 'support'],
+    lava: ['barrel', 'rig', 'skull', 'robot', 'support'], legend: ['cluster', 'robot', 'rig', 'chain', 'support'],
   };
   const propCache = new Map();
   function propsFor(level) {
@@ -81,6 +81,29 @@
       if (!reduced && Math.floor(tick / 5) % 2 === 0) {
         c.fillStyle = '#ffc45c'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(17 + Math.sin(tick * 0.7 + i * 2) * (5 + i), 288 + Math.cos(tick * 0.6 + i) * 3, 1.3, 0, TAU); c.fill(); }
       }
+      c.restore();
+    } else if (p.type === 'support') {
+      // دعامة نفق صناعية: عارضتان خشبيتان، عارضة علوية، تدعيم قطري ومسامير معدنية.
+      // تبقى خارج مسار اللاعب وتُرسم كديكور ثابت لا يغيّر التصادم.
+      c.save(); c.translate(p.x, 0);
+      c.fillStyle = 'rgba(0,0,0,.24)'; c.beginPath(); c.ellipse(17, 299, 22, 3, 0, 0, TAU); c.fill();
+      round(c, 1, 218, 7, 82, 2, '#493528'); round(c, 3, 220, 2, 77, 1, '#8a6744');
+      round(c, 26, 218, 7, 82, 2, '#493528'); round(c, 28, 220, 2, 77, 1, '#8a6744');
+      round(c, 0, 214, 34, 9, 3, '#60452e'); round(c, 2, 216, 30, 2, 1, '#b08a5c');
+      c.strokeStyle = '#342a24'; c.lineWidth = 4; c.beginPath(); c.moveTo(6, 242); c.lineTo(28, 278); c.moveTo(28, 242); c.lineTo(6, 278); c.stroke();
+      c.strokeStyle = '#b6a17e'; c.lineWidth = 1; c.beginPath(); c.moveTo(6, 242); c.lineTo(28, 278); c.moveTo(28, 242); c.lineTo(6, 278); c.stroke();
+      c.fillStyle = '#d5b56a'; for (const [bx, by] of [[5, 224], [29, 224], [5, 292], [29, 292]]) { c.beginPath(); c.arc(bx, by, 1.8, 0, TAU); c.fill(); }
+      c.restore();
+    } else if (p.type === 'chain') {
+      // سلسلة سقفية وفانوس فحص؛ وميض الضوء يتغير مع الزمن مع احترام تقليل الحركة.
+      const sway = reduced ? 0 : Math.sin(tick * 0.055 + p.x * 0.01) * 2;
+      const pulse = reduced ? 0.65 : 0.45 + (Math.sin(tick * 0.12 + p.x) + 1) * 0.16;
+      c.save(); c.translate(p.x + 16, 0);
+      c.strokeStyle = '#68727a'; c.lineWidth = 2; c.beginPath(); c.moveTo(0, 0); c.lineTo(sway, 34); c.stroke();
+      for (let y = 4; y < 34; y += 7) { c.beginPath(); c.ellipse(sway * y / 34, y, 2, 3, 0, 0, TAU); c.stroke(); }
+      round(c, sway - 7, 31, 14, 12, 3, '#263640'); round(c, sway - 5, 33, 10, 4, 2, '#71828c');
+      c.fillStyle = '#f3c969'; c.beginPath(); c.arc(sway, 44, 3, 0, TAU); c.fill();
+      c.fillStyle = `rgba(255,190,80,${pulse})`; c.beginPath(); c.ellipse(sway, 53, 9, 12, 0, 0, TAU); c.fill();
       c.restore();
     } else if (p.type === 'robot') {
       // عامل آلي متحرك على جنزير: يتمايل، يرفع ذراع المطرقة، ويومض مصباح الفحص.
