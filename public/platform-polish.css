@@ -606,7 +606,10 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
    and reserve a real lane for the guide badge instead of letting it cover goals. */
 @media (max-width: 380px) and (max-height: 680px) {
   #platform-scene .mine-overlay {
-    padding: 50px 8px 7px;
+    /* Keep the 320x568 opening CTA inside its 146px stage. The guide icon
+       remains in the corner; this very short layout cannot spend 50px above
+       the content, so its title/goal row is compacted horizontally instead. */
+    padding: 6px 8px 7px;
     --ov-gap: 3px;
   }
   #platform-scene .mine-overlay #open-workshop-overlay,
@@ -675,11 +678,12 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 }
 
 
-/* The guide badge sits in the overlay's top corner. Reserve its 44px lane in
-   every compressed phone state so neither the title nor goal choices can slide
-   underneath it when the round summary changes. */
+/* Reserve the complete guide button + "new" badge footprint (54px) plus a
+   small gap in normal compressed phone overlays. The ultra-short 320x568
+   opening has its own compact override above, preserving the start action. */
 @media (max-width: 600px) {
   #platform-scene .mine-overlay:is(.overlay-scrolls, .fit-1, .fit-2, .fit-3, .fit-4) {
-    padding-top: 50px;
+    padding-top: 58px;
   }
 }
+
