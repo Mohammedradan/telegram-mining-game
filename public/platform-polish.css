@@ -598,8 +598,78 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   }
 }
 
+/* The mine picker is a core entry point (the classic-mode flow depends on it).
+   Keep it visible; only the duplicate workshop shortcut is removed on short phones. */
+
+
+/* Final compact-phone layout: keep essential choices, preserve secondary tools,
+   and reserve a real lane for the guide badge instead of letting it cover goals. */
 @media (max-width: 380px) and (max-height: 680px) {
-  /* The short-phone entry uses the default mine; mine selection and workshop
-     remain reachable from the game's main sections after entering. */
-  #platform-scene .mine-overlay .overlay-row { display: none !important; }
+  #platform-scene .mine-overlay {
+    padding: 50px 8px 7px;
+    --ov-gap: 3px;
+  }
+  #platform-scene .mine-overlay #open-workshop-overlay,
+  #platform-scene .mine-overlay .overlay-kicker,
+  #platform-scene .mine-overlay > .overlay-lead,
+  #platform-scene .mine-overlay .overlay-help,
+  #platform-scene .mine-overlay .overlay-mission,
+  #platform-scene .mine-overlay .goal-hint {
+    display: none !important;
+  }
+  #platform-scene .mine-overlay .overlay-row {
+    display: flex !important;
+    width: min(250px, 94%);
+    margin-top: 1px;
+  }
+  #platform-scene .mine-overlay .mine-select {
+    display: flex !important;
+    flex: 1 1 100%;
+    min-height: 38px;
+  }
+  #platform-scene .mine-overlay #ctl-settings {
+    display: block !important;
+    width: min(250px, 94%);
+    margin-top: 1px;
+  }
+  #platform-scene .mine-overlay h3 {
+    margin: 1px 0;
+    font-size: 16px;
+    line-height: 1.1;
+  }
+  #platform-scene .mine-overlay .goal-options { gap: 4px; }
+  #platform-scene .mine-overlay .goal-option {
+    min-height: 44px;
+    padding: 4px 2px;
+  }
+  #platform-scene .mine-overlay #platform-start {
+    min-height: 42px;
+    margin-block: 1px;
+  }
+
+  /* Nine actions fit in two rows, not three. This returns vertical room to
+     the scene while retaining comfortable touch targets and the joystick. */
+  #platform-scene .mine-controls {
+    flex-shrink: 0;
+    gap: 5px;
+    padding: 5px;
+  }
+  #platform-scene .virtual-joystick {
+    width: 68px;
+    height: 68px;
+  }
+  #platform-scene .mine-controls-actions {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+  #platform-scene .action-btn {
+    min-height: 40px;
+    padding: 3px 1px;
+    gap: 2px;
+  }
+  #platform-scene .action-btn .ui-icon {
+    width: 16px;
+    height: 16px;
+  }
+  #platform-scene .action-btn span { font-size: 7px; }
 }
