@@ -134,7 +134,7 @@
 
   // ======================= الوحدة التفاعلية =======================
   let opts = null, els = null, game = null, rend = null, sound = null, rec = emptyRecord();
-  let phase = 'closed', paused = false, raf = 0, lastTs = 0, clock = 0, cam = 0, holdUntil = 0;
+  let phase = 'closed', paused = false, raf = 0, lastTs = 0, clock = 0, cam = 0, holdUntil = 0;\n  let deepSession = null, replayFrames = [], pendingAscend = false, replayOverflow = false, starting = false, settling = false;
   let stick = { x: 0, y: 0, mag: 0 }, keys = { l: false, r: false, u: false, d: false }, axis = 'v', padPointer = null;
   const particles = createParticles(CFG.PARTICLES[2]);
   const meter = createQuality();
@@ -505,23 +505,45 @@
     raf = 0; lastTs = 0;
   }
 
-  function startRun() {
-    if (!game || (phase !== 'intro' && phase !== 'summary')) return false;
-    if (phase === 'summary') newGame();
-    paused = false;
-    setPhase('run');
-    stats.runs++;
-    if (sound) { sound.unlock(); sound.start(-1); }
-    renderHud(true);
-    if (!rec.hinted) { banner('اسحب العصا نحو الأسفل لتحفر — الحبل يرفعك بكل غنيمتك', 'hint', CFG.HINT_MS); rec.hinted = true; saveRecords(opts.storage, rec); }
-    lastTs = 0;
-    wake();
-    return true;
+  async function startRun() {
+    if (!game || starting || (phase !== 'intro' && phase !== 'summary')) return false;
+    starting = true;
+    try {
+      let session = null;
+      if (typeof opts.onStart === 'function') session = await opts.onStart();
+      deepSession = session && typeof session.id === 'string' ? session : null;
+      if (deepSession) newGame(deepSession.seed, deepSession.equipment);
+      else if (phase === 'summary') newGame();
+      paused = false;
+      setPhase('run');
+      stats.runs++;
+      if (sound) { sound.unlock(); sound.start(-1); }
+      renderHud(true);
+      if (!rec.hinted) { banner('اسحب العصا نحو الأسفل لتحفر — الحبل يرفعك بكل غنيمتك', 'hint', CFG.HINT_MS); rec.hinted = true; saveRecords(opts.storage, rec); }
+      lastTs = 0;
+      wake();
+      return true;
+    } catch (error) {
+      banner(error?.message || 'تعذر بدء جولة موثوقة؛ تحقق من الاتصال', 'warning', 4200);
+      return false;
+    } finally { starting = false; }
+  }
+
+  function compactReplay(frames) {
+    const out = [];
+    for (const frame of frames) {
+      const last = out[out.length - 1];
+      if (!frame.ascend && last && !last.ascend && last.dx === frame.dx && last.dy === frame.dy) last.ticks++;
+      else out.push({ dx: frame.dx, dy: frame.dy, ...(frame.ascend ? { ascend: true } : {}), ticks: 1 });
+      if (out.length > 12000) return null;
+    }
+    return out;
   }
 
   function finishRun() {
     const res = game.result;
-    if (!res) return;
+    if (!res || settling) return;
+    settling = true;
     const applied = applyResult(rec, res);
     rec = applied.rec;
     saveRecords(opts.storage, rec);
@@ -533,6 +555,20 @@
     renderHud(true);
     draw();
     stopLoop();
+    if (deepSession && typeof opts.onFinish === 'function') {
+      const frames = replayOverflow ? null : compactReplay(replayFrames);
+      if (!frames) {
+        banner('تعذر إرسال سجل الجولة كاملاً؛ لم تُمنح خامات هذه الجولة', 'warning', 5000);
+        deepSession = null; settling = false; return;
+      }
+      Promise.resolve(opts.onFinish(deepSession, frames)).then((receipt) => {
+        if (!receipt || receipt.ok !== true) throw new Error('لم يؤكد الخادم حفظ غنيمة الحفر');
+        banner(`تم حفظ خامات الجولة في مخزونك — ${receipt.keptCount || 0} خامة`, 'success', 4200);
+        deepSession = null; replayFrames = [];
+      }).catch((error) => {
+        banner(error?.message || 'تعذر حفظ خامات الجولة؛ لم تُضف إلى المخزون', 'warning', 5000);
+      }).finally(() => { settling = false; });
+    } else settling = false;
   }
 
   function ropeNow() {
