@@ -143,7 +143,7 @@ test('worlds UI: decorations never sit on a rock, a hazard, a flag, a sign, the 
       assert.ok(ground.some(g => prop.x >= g.x + 10 && prop.x + 34 <= g.x + g.w - 10), `${level.id}: prop at ${prop.x} stands on ground`);
       for (const [a, b] of keepOut) assert.ok(prop.x + 34 <= a || prop.x >= b, `${level.id}: prop at ${prop.x} overlaps [${a},${b}]`);
       assert.ok(prop.x < arena, `${level.id}: the boss arena stays empty`);
-      assert.ok(['cart', 'barrel', 'chest', 'cluster', 'skull'].includes(prop.type));
+      assert.ok(['cart', 'barrel', 'chest', 'cluster', 'skull', 'rig', 'robot'].includes(prop.type));
     }
     assert.equal(Scenery.propsFor(level), props, 'cached per level');
   }
@@ -247,4 +247,25 @@ test('arena preview: a duel scene draws hero, rival and terrain — and the demo
     assert.ok(s.tick > startTick && s.player.x > startX, `${hero}: the demo input moves the hero`);
     assert.ok(draw(s).length > 300, 'and it still draws after moving');
   }
+});
+
+
+test('mine machinery props are animated, and reduced motion freezes their moving parts', () => {
+  const level = R.LEVELS.find(item => item.id === 'iron');
+  assert.ok(level, 'iron mine fixture exists');
+  const props = Scenery.propsFor(level);
+  const rig = props.find(item => item.type === 'rig');
+  const robot = props.find(item => item.type === 'robot');
+  assert.ok(rig, 'mine has a mechanical drill rig');
+  assert.ok(robot, 'mine has an autonomous robot worker');
+
+  const trace = (prop, tick, reduced) => {
+    const c = fakeCtx();
+    Scenery.drawProp(c, prop, tick, reduced);
+    return c.args;
+  };
+  assert.notDeepEqual(trace(rig, 0, false), trace(rig, 9, false), 'the rig piston and drill head move with time');
+  assert.notDeepEqual(trace(robot, 0, false), trace(robot, 9, false), 'the robot worker moves its body and arms');
+  assert.deepEqual(trace(rig, 0, true), trace(rig, 9, true), 'reduced motion freezes the rig');
+  assert.deepEqual(trace(robot, 0, true), trace(robot, 9, true), 'reduced motion freezes the worker');
 });
