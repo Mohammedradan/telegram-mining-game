@@ -361,6 +361,11 @@
       if (ready.hero) {
         const cell = poseOf(g, f), sx = (cell % HERO.cols) * HERO.cw, sy = Math.floor(cell / HERO.cols) * HERO.ch;
         ctx.drawImage(img.hero, sx, sy, HERO.cw, HERO.ch, -wid / 2, -hgt, wid, hgt);
+      } else {
+        // احتياط مرئي إذا تعذّر تحميل ورقة المعدّن؛ لا تختفي الشخصية أو معداتها.
+        ctx.fillStyle = '#f2a52a'; ctx.fillRect(-T * 0.22, -T * 1.0, T * 0.44, T * 0.7);
+        ctx.beginPath(); ctx.arc(0, -T * 1.12, T * 0.24, 0, TAU); ctx.fillStyle = '#ffd25a'; ctx.fill();
+        ctx.fillStyle = '#c93a2a'; ctx.fillRect(-T * 0.3, -T * 1.3, T * 0.6, T * 0.14);
       }
       drawDrillRig(g, f, T, wid);
       ctx.restore();
