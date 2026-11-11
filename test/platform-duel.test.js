@@ -38,7 +38,7 @@ function duelRun(seed, zone = 0, hero = 'miner', opts = {}) {
 
 test('V7 duel: a duel round has one rival, no mining targets and its own status', () => {
   const s = R.create('miner', 7, { zone: 0, mode: 'duel' });
-  assert.equal(R.VERSION, 12, 'V19.2 (المرحلة A): bat AI + run economy; the arena balance itself is untouched');
+  assert.equal(R.VERSION, 13, 'V20 versions the deep-mine geometry; duel rules remain unchanged');
   assert.deepEqual(R.MODES, ['mine', 'duel']);
   assert.equal(s.mode, 'duel');
   assert.equal(s.enemies.length, 1, 'a single rival, not a mine full of guards');
