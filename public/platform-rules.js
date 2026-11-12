@@ -1682,6 +1682,9 @@
         climbing = false;
       }
       for (const box of solids) if (overlap(p, box)) {
+        // At a ladder's top, a neighboring lower ledge may share the same y-coordinate
+        // and slightly overlap the miner's width. Do not let that side edge block climbing.
+        if (climbing && box.y === ladder.y) continue;
         if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
         else if (p.vy < 0) p.y = box.y + box.h;
         p.vy = 0;
