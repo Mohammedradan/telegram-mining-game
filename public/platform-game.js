@@ -87,6 +87,19 @@
     resetImpact();
   }
 
+  // V21: show the upper-route control only when the miner reaches its entrance.
+  // This is UI-only and never changes the recorded input mask or simulation state.
+  function updateRouteHint() {
+    const hint = el('platform-route-hint');
+    if (!hint) return;
+    const p = sim.player, level = R.levelFor(sim.zone);
+    const near = running && !paused && sim.status === 'playing' && sim.zone > 0 &&
+      (level.platforms || []).some(box => box.route === 'upper' &&
+        p.x + p.w > box.x - 48 && p.x < box.x + box.w + 48 &&
+        p.y > box.y && p.y + p.h > box.y + box.h);
+    hint.hidden = !near;
+  }
+
   function resetImpact() {
     floaters = []; floatersSpawned = 0; beams = [];
     combo = 0; comboUntil = 0; comboPeak = 0;
@@ -533,6 +546,7 @@
     clearInput();
     if (!running || paused) return;
     paused = true; cancelAnimationFrame(raf); raf = 0; hitStopUntil = 0;
+    const routeHint = el('platform-route-hint'); if (routeHint) routeHint.hidden = true;
     save(); audio?.suspend?.()?.catch(() => {});
     overlay('استراحة عند المصباح', 'الجولة متوقفة. لن تتقدم الفيزياء أو الوقت أثناء مغادرتك. تابع عندما تكون جاهزًا.', true);
     draw();
@@ -789,6 +803,7 @@
   function advance(mask) {
     const hpBefore = sim.rocks.map(r => r.hp);
     record(mask); R.step(sim, mask);
+    updateRouteHint();
     const broken = sim.rocks.filter((r, i) => hpBefore[i] > 0 && r.hp === 0);
     consumeEvents(broken);
     watchBatLandings();
@@ -990,6 +1005,7 @@
   function finish() {
     if (!running) return;
     running = false; paused = false; clearInput(); cancelAnimationFrame(raf); raf = 0;
+    const routeHint = el('platform-route-hint'); if (routeHint) routeHint.hidden = true;
     const won = sim.status === 'won';
     const duel = sim.mode === 'duel';
     const rival = duel ? (sim.enemies.find(e => e.type === 'rival') || sim.enemies[0]) : null;
