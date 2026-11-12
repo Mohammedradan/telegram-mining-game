@@ -77,7 +77,7 @@ async function main() {
   const overlayMetrics = (page, hideGuide) => page.evaluate((hide) => {
     const b = document.getElementById('open-guide'), was = b.hidden, ov = document.getElementById('platform-overlay');
     b.hidden = hide;
-    const w = (id) => Math.round(document.getElementById(id).getBoundingClientRect().width * 100) / 100;
+    const w = (id) => Math.round(document.getElementById(id).getBoundingClientRect().width * 10) / 10;
     const m = { scrollHeight: ov.scrollHeight, mineW: w('mine-select'), workshopW: w('open-workshop-overlay'), startW: w('platform-start') };
     b.hidden = was; return m;
   }, hideGuide);

@@ -1126,6 +1126,26 @@
       for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
         c.beginPath(); c.ellipse(mx, box.y + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
       }
+      // V21: upper branch ledges use a distinct industrial safety trim and a readable
+      // upward chevron. This is visual guidance only; collision and route input stay in rules.
+      if (box.route === 'upper') {
+        const pulse = reduced ? 0.68 : 0.68 + Math.sin((s.tick || 0) * 0.08) * 0.18;
+        c.fillStyle = '#e5b85c';
+        c.fillRect(box.x + 5, box.y + 7, box.w - 10, 3);
+        c.fillStyle = '#72dfcf';
+        c.globalAlpha = pulse;
+        c.fillRect(box.x + 8, box.y + 2, box.w - 16, 2);
+        c.globalAlpha = 1;
+        const markerX = box.x + box.w / 2;
+        c.save();
+        c.translate(markerX, box.y - 13);
+        c.fillStyle = '#182c34';
+        c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#72dfcf'; c.lineWidth = 2.4; c.lineCap = 'round'; c.lineJoin = 'round';
+        c.beginPath(); c.moveTo(-4, 2); c.lineTo(0, -3); c.lineTo(4, 2); c.stroke();
+        c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 5); c.stroke();
+        c.restore();
+      }
       // stone cracks & strata
       c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       for (let x = Math.max(box.x + 8, Math.floor(camera / 36) * 36); x < Math.min(box.x + box.w - 8, camera + w); x += 36) {
