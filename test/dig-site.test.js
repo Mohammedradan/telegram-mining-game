@@ -169,9 +169,9 @@ test('mine depth lane: the worker can move from the upper tunnel to the lower wo
   assert.equal(CFG.ROCK_BAND.y0, 0.38, 'ore can appear on the upper ledge');
   assert.equal(CFG.ROCK_BAND.y1, 0.8, 'ore remains available on the lower floor');
   const miner = { x: 0.5, y: CFG.BAND.y1, face: 1 };
-  DS.stepMiner(miner, { x: 0, y: -1 }, 0.8, 1);
+  DS.stepMiner(miner, { x: 0, y: -1 }, 1, 1);
   assert.ok(miner.y < 0.6, 'holding up moves the worker into the upper cavern');
-  DS.stepMiner(miner, { x: 0, y: 1 }, 0.8, 1);
+  DS.stepMiner(miner, { x: 0, y: 1 }, 1, 1);
   assert.ok(miner.y > 0.7, 'holding down returns to the lower work floor');
 });
 
