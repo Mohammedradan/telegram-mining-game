@@ -1694,11 +1694,14 @@
         const climbedLedge = p.upperRouteY === box.y;
         // A ladder-qualified ledge is persistent support, not a one-frame landing test.
         // This also handles adjacent same-height solids that overlap the miner at the ladder top.
-        const standsOnClimbedLedge = climbedLedge && overlapsLedge &&
-          p.y + p.h >= box.y && p.y + p.h <= box.y + 8;
+        // Treat the climbed ledge as a one-way collision plane on every frame.
+        // Use the previous feet position as well as the current one so a fast fall,
+        // knockback, or gravity step cannot tunnel through the platform after release.
+        const persistentLanding = climbedLedge && overlapsLedge &&
+          previousBottom <= box.y + 8 && p.y + p.h >= box.y;
         const newlyLanded = wasFalling && previousBottom <= box.y &&
           p.y + p.h >= box.y && overlapsLedge && (mask & INPUT.UP);
-        if (standsOnClimbedLedge || newlyLanded) {
+        if (persistentLanding || newlyLanded) {
           p.y = box.y - p.h;
           p.grounded = true;
           p.vy = 0;
