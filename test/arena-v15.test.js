@@ -49,6 +49,7 @@ test('هاتف أفقي قصير: المسرح يملأ الشاشة واللم�
 
 test('المقاسات القديمة محفوظة: الهاتف الطولي لم يتغيّر', () => {
   // قاعدة المسرح الأساسية لا تحمل أي استعلام وسائط جديد
+  const css = shellCss;
   const base = shellCss.slice(shellCss.indexOf('.arena-stage {'), shellCss.indexOf('#arena-preview {'));
   assert.match(base, /aspect-ratio: 16 \/ 9/, 'portrait stage keeps 16:9');
   assert.match(base, /max-height: 46vh/, 'and its vh cap');
