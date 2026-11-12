@@ -8,7 +8,7 @@
   // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
   // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
   // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
-  const VERSION = 13; // V20: deterministic upper branch routes in the five deep mines; older run tickets are rejected
+  const VERSION = 14; // V21: real deterministic ladder climbing joins the upper mine branches; older run tickets are rejected
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -1635,30 +1635,58 @@
     if (p.knock && p.knock.ticks > 0) { p.knock.ticks--; p.vx = p.knock.vx; }
     const routePlatforms = level.platforms.filter(box => box.route === 'upper');
     const solids = level.platforms.filter(box => box.route !== 'upper').concat(s.rocks.filter(r => r.hp > 0));
+    // Each upper branch has a deterministic ladder at x + 14, running from the floor (y=300)
+    // to the branch platform. UP now climbs when the miner is aligned with those rails.
+    const ladder = routePlatforms.find(box => {
+      const ladderCenter = box.x + 14;
+      return Math.abs((p.x + p.w / 2) - ladderCenter) <= 28 &&
+        p.y < 300 && p.y + p.h >= box.y - 4;
+    });
+    let climbing = Boolean((mask & INPUT.UP) && ladder && !dodging && !p.guard.active && p.hearts > 0);
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
-    // Upper branches are one-way ledges: they can be landed on from above, but never
-    // block the main route from the side or ceiling. This keeps both routes usable.
-    p.x += p.vx * DT;
-    for (const box of solids) if (overlap(p, box)) {
-      if (p.vx > 0) p.x = box.x - p.w;
-      else if (p.vx < 0) p.x = box.x + box.w;
+    // Upper branches remain one-way ledges; their ladders are the only way to climb from below.
+    if (climbing) {
+      p.x = ladder.x + 14 - p.w / 2;
+      p.vx = 0;
+    } else {
+      p.x += p.vx * DT;
+      for (const box of solids) if (overlap(p, box)) {
+        if (p.vx > 0) p.x = box.x - p.w;
+        else if (p.vx < 0) p.x = box.x + box.w;
+      }
     }
     p.x = Math.max(0, Math.min(level.width - p.w, p.x));
     // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
     if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
-    p.vy = Math.min(680, p.vy + 1200 * DT);
-    const wasFalling = p.vy >= 0;
+    const wasGrounded = p.grounded;
     const previousBottom = p.y + p.h;
-    p.y += p.vy * DT;
-    const wasGrounded = p.grounded; p.grounded = false;
-    for (const box of solids) if (overlap(p, box)) {
-      if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
-      else if (p.vy < 0) p.y = box.y + box.h;
+    const wasFalling = !climbing && p.vy >= 0;
+    if (climbing && p.y + p.h <= ladder.y + 0.5) {
+      // Stop exactly on the upper platform instead of passing through it.
+      p.y = ladder.y - p.h;
       p.vy = 0;
-    }
-    if (wasFalling && (mask & INPUT.UP)) for (const box of routePlatforms) {
-      if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
-        p.y = box.y - p.h; p.grounded = true; p.vy = 0;
+      p.grounded = true;
+      climbing = false;
+    } else {
+      if (climbing) p.vy = -145;
+      else p.vy = Math.min(680, p.vy + 1200 * DT);
+      p.y += p.vy * DT;
+      p.grounded = false;
+      if (climbing && p.y + p.h <= ladder.y) {
+        p.y = ladder.y - p.h;
+        p.vy = 0;
+        p.grounded = true;
+        climbing = false;
+      }
+      for (const box of solids) if (overlap(p, box)) {
+        if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
+        else if (p.vy < 0) p.y = box.y + box.h;
+        p.vy = 0;
+      }
+      if (wasFalling && (mask & INPUT.UP)) for (const box of routePlatforms) {
+        if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
+          p.y = box.y - p.h; p.grounded = true; p.vy = 0;
+        }
       }
     }
     if (!wasGrounded && p.grounded) {
