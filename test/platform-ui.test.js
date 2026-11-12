@@ -183,7 +183,7 @@ test('platform UI: the page wires the scene — assets and every element the con
 test('UI chrome uses inline SVG icons instead of emoji glyphs', () => {
   assert.ok(html.includes('class="icon-sprite"'), 'the SVG sprite must be inlined in the page');
   const buttons = [...html.matchAll(/<button\b[^>]*class="action-btn[^"]*"[^>]*>[\s\S]*?<\/button>/g)].map(m => m[0]);
-  assert.equal(buttons.length, 10, 'the V8 pad ships ten controls: move ×2, jump, mine, light, heavy, guard, dodge, skill, pause');
+  assert.equal(buttons.length, 11, 'the V20 pad adds an upper-route jump beside the normal jump');
   for (const button of buttons) {
     assert.match(button, /<use href="#i-[a-z]+"\/>/, 'every control uses a sprite icon');
     assert.doesNotMatch(button, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'no emoji glyph in a control button');
