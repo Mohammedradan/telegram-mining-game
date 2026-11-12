@@ -22,6 +22,7 @@ test('the elevator shaft also connects the lower and upper work lanes', () => {
 });
 test('a new cave opens only after three completed rock breaks and is traversed at the upper tunnel', () => {
   const world=MineWorld.create(), miner={x:.89,y:.4,face:1}, band={x0:.08,x1:.92,y0:.34,y1:.88};
+  world.floor='upper';
   assert.equal(MineWorld.recordBreak(world),false);
   assert.equal(MineWorld.recordBreak(world),false);
   assert.equal(MineWorld.recordBreak(world),true);
@@ -33,6 +34,7 @@ test('a new cave opens only after three completed rock breaks and is traversed a
 });
 test('upper tunnel returns to the previous cave and the final cave has no forward overflow', () => {
   const world=MineWorld.create(2), miner={x:.09,y:.4,face:-1}, band={x0:.08,x1:.92,y0:.34,y1:.88};
+  world.floor='upper';
   const r=MineWorld.step(world,miner,{x:-1,y:0},.2,1,band);
   assert.equal(r.transition,'previous');
   assert.equal(world.index,1);
