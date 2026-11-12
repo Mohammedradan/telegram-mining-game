@@ -13,6 +13,7 @@
   else root.DigSite = factory(root);
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
   'use strict';
+  const MineWorld = root.MineWorld || (typeof require === 'function' ? require('./mine-world.js') : null);
 
   const CFG = Object.freeze({
     SPEED: 0.6,            // عرض الساحة في الثانية عند دفع العصا كاملاً
@@ -170,6 +171,7 @@
   const MAX_DT = 0.1;                              // أبطأ من 10 إطارات/ث لا يُعوَّض بقفزات أكبر (يبقى إيقاع الضربات ≤ ما يسمح به الزمن الحقيقي)
   let clock = 0;                                   // ملّي ثانية متراكمة (حقيقية في الحلقة، افتراضية في step للاختبار)
   const miner = { x: 0.26, y: 0.8, face: 1, step: 0, moving: false };
+  let mineWorld = MineWorld ? MineWorld.create() : null;
   let rock = null;
   const swing = createSwing();
   let swingMode = 'none';                          // 'econ' ضربة تعدّن، 'show' ضربة استعراضية بعد لمس الصخرة (اقتصادها حُسم باللمس)
@@ -307,8 +309,28 @@
     try { els.bob.animate([{ scale: '.4', opacity: 0 }, { scale: '1.1', opacity: 1, offset: 0.6 }, { scale: '1', opacity: 1 }], { duration: 340, easing: 'cubic-bezier(.2,.9,.3,1.2)' }); } catch (e) { /* زينة */ }
   }
 
+  function updateMineScene() {
+    if (!els || !mineWorld || !MineWorld) return;
+    const mine = MineWorld.MINES[mineWorld.index];
+    if (els.world.dataset) els.world.dataset.mine = mine.id;
+    const sign = els.world.querySelector ? els.world.querySelector('.ck-depth-sign') : null;
+    if (sign) {
+      const title = sign.querySelector('b'), meta = sign.querySelector('small');
+      if (title) title.textContent = mine.name;
+      if (meta) meta.textContent = mine.depth + ' · ' + mine.ore + ' · ' + mineWorld.breaks + '/3';
+    }
+    const gate = els.world.querySelector ? els.world.querySelector('.ck-exit-gate') : null;
+    if (gate) {
+      gate.dataset.open = mineWorld.breaks >= 3 ? 'true' : 'false';
+      gate.textContent = mineWorld.breaks >= 3 ? 'ممر المنجم التالي ←' : 'اكسر ' + (3 - mineWorld.breaks) + ' صخور لفتح الممر';
+    }
+    const elevator = els.world.querySelector ? els.world.querySelector('.ck-lift-shaft') : null;
+    if (elevator) elevator.dataset.floor = mineWorld.floor;
+  }
+
   function breakRock() {
     stats.breaks++;
+    if (mineWorld && MineWorld) { MineWorld.recordBreak(mineWorld); updateMineScene(); }
     const p = rockPoint();
     if (!reduced) spawnGhost();           // بلا حركة مخفّضة: لا شبح ثابت يبقى أمام الصخرة الجديدة
     if (fx) {
@@ -381,9 +403,21 @@
     let moved = 0;
     if (swing.phase === 'idle') {
       const ox = miner.x, oy = miner.y;
-      stepMiner(miner, steer, dt, aspect, band);
-      if (rk) separate(miner, rk, aspect, R.sep);
-      moved = Math.hypot(miner.x - ox, (miner.y - oy) / aspect);   // المسافة الفعلية: الضغط على الصخرة لا يُحسب مشياً
+      const traversal = mineWorld && MineWorld
+        ? MineWorld.step(mineWorld, miner, steer, dt, aspect, band, CFG.SPEED, CFG.DEPTH_SPEED)
+        : (stepMiner(miner, steer, dt, aspect, band), { moved: Math.hypot(miner.x - ox, (miner.y - oy) / aspect), transition: null, climbing: false });
+      if (rk && !traversal.transition) separate(miner, rk, aspect, R.sep);
+      if (traversal.transition) {
+        rock = createRock({ x: traversal.transition === 'next' ? 0.72 : 0.28, y: 0.8 });
+        last.stage = -1; last.hp = -1; paintRock(); updateMineScene();
+        if (fx) fx.cue('milestone');
+        haptic('success');
+      }
+      if (els && els.miner && els.miner.dataset) els.miner.dataset.climbing = traversal.climbing ? 'true' : 'false';
+      // احسب الحركة بعد فصل التصادم؛ MineWorld.step يحسب الإزاحة قبل أن يمنع
+      // الصخرة المعدّن من التقدم، وإلا تظهر دورة مشي وهو عالق مكانه.
+      // الانتقال بين المناجم نقل فوري وليس خطوة مشي أيضاً.
+      moved = traversal.transition ? 0 : Math.hypot(miner.x - ox, (miner.y - oy) / Math.max(0.2, aspect));
     }
     miner.moving = moved > 1e-5;
     miner.step += moved / CFG.STEP_LEN;
@@ -553,7 +587,8 @@
       <div class="ck-lift-shaft"><i class="ck-lift-cable"></i><span class="ck-lift-cage"><i></i><i></i><b>مصعد</b></span></div>
       <div class="ck-rover"><i></i><b>روبوت نقل</b></div>
       <div class="ck-work-lamp"></div>
-      <div class="ck-depth-sign"><b>المستوى 01</b><small>قطاع التعدين</small></div>
+      <div class="ck-depth-sign"><b>المنجم الحجري</b><small>120 م · حجر ونحاس · 0/3</small></div>
+      <div class="ck-exit-gate" data-open="false">اكسر 3 صخور لفتح الممر</div>
     `;
     els.world.insertBefore(set, els.world.firstChild);
   }
@@ -571,6 +606,8 @@
     };
     if (!els.tab || !els.root || !els.world || !els.miner || !els.rockBtn || !els.ore || !els.pad || !els.dig) { els = null; return false; }
     buildMineSet();
+    mineWorld = MineWorld ? MineWorld.create() : null;
+    updateMineScene();
     try { const mq = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)'); reduced = !!(mq && mq.matches); if (mq && mq.addEventListener) mq.addEventListener('change', (e) => { reduced = !!e.matches; }); } catch (e) { reduced = false; }
     fx = root.ClickerFX && root.ClickerFX.active ? root.ClickerFX : null;
     rock = createRock({ x: 0.6, y: 0.8 });
@@ -600,6 +637,7 @@
   function inspect() {
     return {
       active: api.active, paused: api.active ? paused() : true, clock,
+      mine: mineWorld && MineWorld ? { ...mineWorld, definition: MineWorld.MINES[mineWorld.index] } : null,
       miner: { x: +miner.x.toFixed(4), y: +miner.y.toFixed(4), face: miner.face, moving: miner.moving, pose: last.pose || 'idle' },
       rock: rock ? { x: +rock.x.toFixed(4), y: +rock.y.toFixed(4), hp: rock.hp, max: rock.max, stage: rockStage(rock.hp, rock.max) } : null,
       swing: swing.phase, mode: swingMode, digHeld: wantsDig(), stick: { x: +stick.x.toFixed(3), y: +stick.y.toFixed(3) }, keys: { ...keys }, approaching: clock < approachUntil, cheering: clock < cheerUntil,
@@ -619,7 +657,7 @@
   };
 
   Object.assign(api, {
-    VERSION: 1, CFG, stickVector, dist, stepMiner, separate, inReach, dirTo, alignment, createSwing, rockStage, createRock, hitRock, pickRockSpot, depthScale, poseFor,
+    VERSION: 2, CFG, stickVector, MineWorld, dist, stepMiner, separate, inReach, dirTo, alignment, createSwing, rockStage, createRock, hitRock, pickRockSpot, depthScale, poseFor,
     init: safe(init), onTab: safe(onTab), onTap: safe(onTap), inspect, debug,
   });
   return api;
