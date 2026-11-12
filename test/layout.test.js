@@ -186,9 +186,9 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(renderer, /drawDrone\(c, s\.player/);
   // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
   assert.match(html, /platform-rules\.js\?v=18/);
-  assert.match(html, /platform-game\.js\?v=43/);
+  assert.match(html, /platform-game\.js\?v=44/);
   assert.match(html, /platform-renderer\.js\?v=18/);
   assert.match(html, /platform-scenery\.js\?v=3/);
   assert.match(html, /platform-bosses\.js\?v=6/);
-  assert.match(html, /platform\.css\?v=23/);
+  assert.match(html, /platform\.css\?v=24/);
 });
