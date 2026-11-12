@@ -7,8 +7,10 @@ test('world contains the six planned mine biomes in progression order', () => {
 });
 test('vertical movement requires reaching a ladder or elevator shaft', () => {
   const world=MineWorld.create(), miner={x:.5,y:.8,face:1}, band={x0:.08,x1:.92,y0:.34,y1:.88};
-  MineWorld.step(world,miner,{x:0,y:-1},1,1,band);
-  assert.equal(miner.y,.8,'cannot magically rise through solid rock');
+  MineWorld.step(world,miner,{x:0,y:-1},.2,1,band);
+  assert.ok(miner.y<.8,'the miner can walk in depth to approach a rock');
+  assert.equal(world.floor,'lower','depth movement alone does not change floors');
+  miner.y=.8;
   miner.x=.14;
   const r=MineWorld.step(world,miner,{x:0,y:-1},1,1,band);
   assert.ok(miner.y<.8 && r.climbing);
