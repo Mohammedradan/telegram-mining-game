@@ -12,6 +12,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
+const css = fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
 const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
 const rules = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
 
