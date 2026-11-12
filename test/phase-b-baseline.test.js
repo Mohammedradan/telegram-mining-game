@@ -94,7 +94,7 @@ test('B0: presentation budgets stay capped (particles, voices, DPR, hit-stop)', 
 });
 
 test('B0: the stone-mine simulation is still bit-identical to the recorded baseline (VERSION 13)', () => {
-  assert.equal(R.VERSION, 13, 'V20 versions the geometry change; the stone-mine baseline remains unchanged');
+  assert.equal(R.VERSION, 14, 'V21 versions ladder physics; the stone-mine baseline remains unchanged');
   // الأشرطة نفسها محفوظة في الخط الأساسي (لا تُعاد بالبوت): لو تغيّرت الفيزياء لَتغيّرت الحالة الناتجة،
   // فيسقط هذا الاختبار حتى يُعلَن التغيير عمداً ويُرفع VERSION. هذا هو صمّام أمان «الإحساس بلا تغيير سلوكي».
   for (const tape of doc.simTapes) {
