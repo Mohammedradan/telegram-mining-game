@@ -8,6 +8,8 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+const shellCss = fs.readFileSync(path.join(ROOT, 'public/app-shell.css'), 'utf8');
+const css = shellCss;
 
 test('وضع الشاشة الكاملة يغطّي الشاشة ويخصّ المبارزة فقط', () => {
   const css = shellCss.slice(shellCss.indexOf('/* ===== V14'), shellCss.indexOf('.arena-fs-bar {'));
