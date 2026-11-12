@@ -48,12 +48,12 @@ test('هاتف أفقي قصير: المسرح يملأ الشاشة واللم�
 
 test('المقاسات القديمة محفوظة: الهاتف الطولي لم يتغيّر', () => {
   // قاعدة المسرح الأساسية لا تحمل أي استعلام وسائط جديد
-  const base = html.slice(html.indexOf('.arena-stage {'), html.indexOf('#arena-preview {'));
+  const base = css.slice(html.indexOf('.arena-stage {'), html.indexOf('#arena-preview {'));
   assert.match(base, /aspect-ratio: 16 \/ 9/, 'portrait stage keeps 16:9');
   assert.match(base, /max-height: 46vh/, 'and its vh cap');
   // استعلام العريض يبدأ عند 780px فقط، فلا يمسّ الهواتف
   assert.ok(780 >= 640, 'the breakpoint sits above every phone width');
-  assert.match(html, /@media \(max-width: 340px\)/, 'the narrow-phone rule from V13 is still there');
+  assert.match(css, /@media \(max-width: 340px\)/, 'the narrow-phone rule from V13 is still there');
 });
 
 test('الوضع الأفقي يعكس لوحة اللمس: العصا يساراً والأفعال يميناً', () => {
