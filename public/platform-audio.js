@@ -1,9 +1,10 @@
+'use strict';
+
 /* Platform game audio synthesis. Kept separate from deterministic simulation and rendering. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory;
   else root.PlatformAudio = { create: factory };
 })(typeof globalThis !== 'undefined' ? globalThis : this, function createPlatformAudio({ isMuted = () => false, getVolume = () => 1 } = {}) {
-  'use strict';
   let audio = null;
   function audioUnlock() {
     if (isMuted()) return;
