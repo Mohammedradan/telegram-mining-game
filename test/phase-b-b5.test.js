@@ -256,7 +256,7 @@ test('B5: the dive is audible, the landing throws dust, and nothing in the simul
   const spawn = game.slice(game.indexOf('function watchBatLandings'), game.indexOf('function advance('));
   assert.ok((spawn.match(/particles\.push/g) || []).length === 1 && /i < 6/.test(spawn), 'six dust motes per landing at most');
   // 3) الحتمية: لا لمس للمحرك ولا لتوقيته
-  assert.equal(R.VERSION, 13, 'V20 intentionally versions the deep-mine route geometry');
+  assert.equal(R.VERSION, 14, 'V21 versions deterministic ladder climbing');
   assert.equal(R.BAT.windup, 26, "the warning length is the engine's, not ours");
   assert.match(html, /platform-telegraphs\.js\?v=1/, 'the module ships with the page');
   assert.ok(html.indexOf('platform-telegraphs.js') < html.indexOf('platform-renderer.js'), 'loaded before the renderer that uses it');
