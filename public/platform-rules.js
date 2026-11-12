@@ -1633,8 +1633,11 @@
 
     // الارتداد يغلب الإدخال أثناء إطارات تطبيقه (9 إطارات) ثم يعود التحكم كاملاً
     if (p.knock && p.knock.ticks > 0) { p.knock.ticks--; p.vx = p.knock.vx; }
-    const solids = level.platforms.concat(s.rocks.filter(r => r.hp > 0));
+    const routePlatforms = level.platforms.filter(box => box.route === 'upper');
+    const solids = level.platforms.filter(box => box.route !== 'upper').concat(s.rocks.filter(r => r.hp > 0));
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
+    // Upper branches are one-way ledges: they can be landed on from above, but never
+    // block the main route from the side or ceiling. This keeps both routes usable.
     p.x += p.vx * DT;
     for (const box of solids) if (overlap(p, box)) {
       if (p.vx > 0) p.x = box.x - p.w;
@@ -1644,12 +1647,18 @@
     // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
     if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
     p.vy = Math.min(680, p.vy + 1200 * DT);
+    const previousBottom = p.y + p.h;
     p.y += p.vy * DT;
     const wasGrounded = p.grounded; p.grounded = false;
     for (const box of solids) if (overlap(p, box)) {
       if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
       else if (p.vy < 0) p.y = box.y + box.h;
       p.vy = 0;
+    }
+    if (p.vy >= 0) for (const box of routePlatforms) {
+      if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
+        p.y = box.y - p.h; p.grounded = true; p.vy = 0;
+      }
     }
     if (!wasGrounded && p.grounded) {
       p.landTimer = 6;
