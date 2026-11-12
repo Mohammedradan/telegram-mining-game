@@ -14,7 +14,8 @@ test('V21: upper mine ladders are climbable and landings remain solid after rele
     p.x = ladder.x + 14 - p.w / 2;
     p.y = 300 - p.h;
     p.vx = 0; p.vy = 0; p.grounded = true;
-    for (let tick = 0; tick < 60; tick++) R.step(state, R.INPUT.UP);
+    const climbTicks = Math.ceil((300 - ladder.y) / (145 / 60)) + 6;
+    for (let tick = 0; tick < climbTicks; tick++) R.step(state, R.INPUT.UP);
     assert.ok(Math.abs(p.y - (ladder.y - p.h)) < 0.001,
       `mine ${zone}: miner reaches the top of the ladder`);
     assert.ok(Math.abs((p.x + p.w / 2) - (ladder.x + 14)) < 0.001,
