@@ -62,10 +62,10 @@ test('مبدّل الطريقة: زرّان، وحفظ الاختيار، وال
 });
 
 test('CSS: السحب لا يمرّر الصفحة، والأهداف كبيرة، والوضعان يتبادلان بلا ازدواج', () => {
-  const stickCss = css.slice(html.indexOf('.arena-stick {'), html.indexOf('.arena-stick::before'));
+  const stickCss = css.slice(css.indexOf('.arena-stick {'), html.indexOf('.arena-stick::before'));
   assert.match(stickCss, /touch-action: none/, 'a drag never scrolls the page');
   assert.match(stickCss, /width: 60px; height: 60px; border-radius: 50%/, 'a round base, like the play-tab joystick');
-  const knobCss = css.slice(html.indexOf('.arena-stick .as-knob {'), html.indexOf('.arena-stick[data-active'));
+  const knobCss = css.slice(css.indexOf('.arena-stick .as-knob {'), html.indexOf('.arena-stick[data-active'));
   assert.match(knobCss, /width: 30px; height: 30px; border-radius: 50%/, 'the knob is the same visual language');
   assert.match(knobCss, /translate\(-50%, -50%\)/, 'it rests centred');
   assert.match(css, /body\.pad-stick \.ap-move button\[data-duel-input="1"\],[\s\S]{0,160}body\.pad-stick \.ap-heavy \{ display: none; \}/, 'stick mode drops the two arrows and the heavy button');
