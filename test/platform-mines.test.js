@@ -121,6 +121,7 @@ test('V20: each deep mine has a physically traversable upper branch over its mai
     const floor = level.platforms.find(p => p.y === 300 && p.x <= route[0].x && p.x + p.w >= route[0].x + route[0].w);
     assert.ok(floor, `${level.id}: the route can be reached from the main floor`);
   }
+  assert.equal(R.INPUT.UP, 1024, 'upper routes use a dedicated directional input');
 });
 
 test('phase 3: ore weights per mine are honoured over a large deterministic sample', () => {
