@@ -347,12 +347,12 @@ body.ck-cave .ck-sound { display: grid; }
 @keyframes ck-companion { 0%, 100% { transform: translate(0, 0) rotate(-3deg); } 50% { transform: translate(5%, -10%) rotate(3deg); } }
 
 /* ===== طاقم المنجم (عرض فقط): ما اشتريتَه يعمل فوق الساحة على سقالة؛ pointer-events: none فلا يعترض لمس الصخرة ===== */
-.ck-crew { position: absolute; z-index: 0; left: 5%; right: 5%; top: 5%; height: 24%; display: flex; align-items: flex-end; justify-content: center; gap: 3.5%; pointer-events: none; }
+.ck-crew { position: absolute; z-index: 0; left: 3%; right: 48%; top: 3%; height: 18%; display: flex; align-items: flex-end; justify-content: flex-start; gap: 2%; overflow: visible; pointer-events: none; }
 .ck-crew[hidden] { display: none; }
 .ck-crew::after { content: ""; position: absolute; left: -3%; right: -3%; bottom: -4px; height: 7px; border-radius: 4px; background: linear-gradient(#9a6a35, #4a2c12); box-shadow: 0 3px 6px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 226, 170, .4); }
-.ck-crew-bot { position: relative; flex: none; width: clamp(28px, 10.5cqw, 44px); aspect-ratio: 1; transform-origin: 50% 100%; animation: ck-crew-work 1.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.27s); }
+.ck-crew-bot { position: relative; flex: none; width: clamp(24px, 8cqw, 34px); aspect-ratio: 1; transform-origin: 50% 100%; animation: ck-crew-work 1.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.27s); }
 .ck-crew-bot svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.ck-crew-rig { position: relative; flex: none; height: 100%; max-height: clamp(40px, 15cqw, 60px); aspect-ratio: 303 / 256; background: url("/assets/cave/crew/rig.webp?v=1") 50% 100% / contain no-repeat; transform-origin: 50% 100%; animation: ck-rig-rumble .56s linear infinite; animation-delay: calc(var(--j, 0) * -.2s); }
+.ck-crew-rig { position: relative; flex: none; height: 100%; max-height: clamp(34px, 12cqw, 48px); aspect-ratio: 303 / 256; background: url("/assets/cave/crew/rig.webp?v=1") 50% 100% / contain no-repeat; transform-origin: 50% 100%; animation: ck-rig-rumble .56s linear infinite; animation-delay: calc(var(--j, 0) * -.2s); }
 .ck-stage.no-crew-art .ck-crew-rig { background: linear-gradient(#5a6578, #2c3444); border-radius: 8px; }
 .ck-crew-more { align-self: center; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 900; line-height: 16px; color: #ffe9a6; background: rgba(8, 6, 20, .84); border: 1px solid rgba(240, 185, 60, .6); }
 @keyframes ck-crew-work { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-7%) rotate(5deg); } }
@@ -968,3 +968,47 @@ body.ck-cave .ck-sound { display: grid; }
   .ck-ore { transition-duration: .01ms !important; }
   .ck-streak, .ck-status, .ck-banner { transition-duration: .01ms !important; }
 }
+
+
+/* ===== Living mine set v1: حركة معدات وعمق رأسي داخل نافذة التعدين نفسها ===== */
+.ck-mine-set { position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+.ck-tunnel { position:absolute; border:clamp(5px,1.2cqw,10px) solid rgba(88,104,127,.7); border-bottom:0; border-radius:48% 48% 0 0; background:linear-gradient(180deg,rgba(10,19,34,.12),rgba(4,9,19,.62)); box-shadow:inset 0 0 18px #020611,0 0 0 2px rgba(8,13,24,.75),0 0 18px rgba(35,115,161,.13); }
+.ck-tunnel i,.ck-tunnel b { position:absolute; display:block; background:linear-gradient(90deg,#202b3d,#66778d 45%,#1c293d); border-radius:8px; box-shadow:0 3px 5px #02040a; }
+.ck-tunnel i { width:9px;height:42%;left:13%;top:58%; transform:rotate(8deg); }
+.ck-tunnel b { width:8px;height:38%;right:16%;top:62%;transform:rotate(-7deg); }
+.ck-tunnel-back { width:58%;height:56%;left:21%;top:2%;opacity:.6; }
+.ck-tunnel-side { width:36%;height:38%;right:-5%;top:24%;opacity:.42;transform:scale(.82); }
+.ck-ladder { position:absolute;left:12%;top:8%;height:58%;width:12%;border-left:4px solid #9a8054;border-right:4px solid #9a8054;filter:drop-shadow(0 2px 3px #02040a);opacity:.88; }
+.ck-ladder i { position:relative;display:block;height:12.5%;margin:0 -3px;border-top:3px solid #c4a36a;box-shadow:0 -1px 1px #f5dca0; }
+.ck-ladder span { position:absolute;top:-17px;left:-12px;white-space:nowrap;font-size:9px;font-weight:900;color:#d5c49e;text-shadow:0 2px 4px #000; }
+.ck-rail { position:absolute;left:5%;right:5%;bottom:14%;height:12px;border-top:3px solid #9da9b9;border-bottom:3px solid #465367;opacity:.68;transform:skewY(-2deg); }
+.ck-rail i { position:absolute;top:4px;width:8px;height:9px;background:#7b8797;transform:rotate(18deg); }
+.ck-rail i:first-child{left:24%}.ck-rail i:last-child{right:22%}
+.ck-drill-cart { position:absolute;left:8%;bottom:15%;width:70px;height:48px;z-index:1;animation:ck-cart-travel 9s ease-in-out infinite alternate;filter:drop-shadow(0 4px 4px #0009); }
+.ck-cart-body {position:absolute;left:10px;bottom:8px;width:45px;height:24px;border:2px solid #e2b85e;border-radius:7px 9px 4px 4px;background:linear-gradient(145deg,#f4b84b,#8b4d18 58%,#382718);box-shadow:inset 0 3px 3px #ffe5a2;}
+.ck-cart-body:before {content:"";position:absolute;left:8px;top:4px;width:17px;height:8px;border-radius:3px;background:#24485c;box-shadow:0 0 7px #58d8ff;}
+.ck-cart-wheel {position:absolute;z-index:2;bottom:2px;left:13px;width:13px;height:13px;border:3px solid #b9c5d1;border-radius:50%;background:#192333;box-shadow:29px 0 0 -3px #192333,29px 0 0 0 #b9c5d1;animation:ck-wheel-roll .9s linear infinite;}
+.ck-cart-arm {position:absolute;left:46px;top:3px;width:23px;height:8px;border-radius:6px;background:linear-gradient(#f9d37b,#9b5a20);transform:rotate(-24deg);transform-origin:left center;animation:ck-drill-arm .55s ease-in-out infinite alternate;}
+.ck-cart-bit {position:absolute;left:64px;top:-5px;width:11px;height:11px;border:3px solid #d5e5ec;border-left-color:#55bce0;border-radius:50%;animation:ck-bit-spin .35s linear infinite;box-shadow:0 0 8px #5bdcff;}
+.ck-drill-cart b,.ck-rover b {position:absolute;left:0;bottom:-13px;white-space:nowrap;font-size:8px;font-weight:900;color:#e8d5a7;text-shadow:0 2px 3px #000;}
+.ck-lift-shaft {position:absolute;right:12%;top:4%;height:72%;width:28px;border-left:3px solid #8e9ba8;border-right:3px solid #8e9ba8;background:linear-gradient(90deg,#080d17aa,#1b2c3d66,#080d17aa);}
+.ck-lift-cable {position:absolute;left:50%;top:0;height:100%;border-left:2px dashed #d4b56e;opacity:.7;}
+.ck-lift-cage {position:absolute;left:-8px;top:0;width:38px;height:34px;border:3px solid #d2a34b;border-radius:5px;background:linear-gradient(135deg,#53697a,#182737);box-shadow:0 0 10px #ffc75b55;animation:ck-lift-travel 6s ease-in-out infinite;}
+.ck-lift-cage i {position:absolute;top:4px;bottom:4px;width:3px;background:#d7b66e;left:8px;box-shadow:9px 0 #d7b66e,18px 0 #d7b66e;}
+.ck-lift-cage b {position:absolute;top:35px;left:-5px;font-size:8px;color:#f1d18a;text-shadow:0 2px 3px #000;white-space:nowrap;}
+.ck-rover {position:absolute;right:28%;bottom:19%;width:30px;height:23px;border:2px solid #9ce9fa;border-radius:8px 8px 5px 5px;background:linear-gradient(145deg,#b7f1ff,#257a9c 60%,#12314b);box-shadow:0 0 12px #49c8ed88;animation:ck-rover-patrol 5.5s ease-in-out infinite alternate;}
+.ck-rover:before {content:"";position:absolute;left:9px;top:-8px;width:9px;height:8px;border-radius:5px 5px 0 0;background:#7de5fa;}
+.ck-rover:after {content:"";position:absolute;left:13px;top:-17px;height:11px;border-left:2px solid #8ff3ff;box-shadow:0 0 7px #8ff3ff;}
+.ck-rover i {position:absolute;left:3px;bottom:-5px;width:8px;height:8px;border:2px solid #a8bdc9;border-radius:50%;background:#101b28;box-shadow:14px 0 0 -2px #101b28,14px 0 0 0 #a8bdc9;}
+.ck-work-lamp {position:absolute;left:48%;top:7%;width:9px;height:9px;border-radius:50%;background:#ffe8a2;box-shadow:0 0 8px 4px #ffcf6b88,0 0 32px 10px #ffc45b33;animation:ck-lamp-flicker 3s ease-in-out infinite;}
+.ck-depth-sign {position:absolute;left:4%;top:4%;display:flex;flex-direction:column;padding:4px 7px;border:1px solid #d1a45377;border-radius:7px;background:#07101dcc;color:#ffe3a0;text-shadow:0 1px 3px #000;}
+.ck-depth-sign b{font-size:9px}.ck-depth-sign small{font-size:7px;color:#a8bdcf}
+@keyframes ck-cart-travel{from{transform:translateX(0)}to{transform:translateX(150px)}}
+@keyframes ck-wheel-roll{to{transform:rotate(360deg)}}
+@keyframes ck-drill-arm{to{transform:rotate(8deg)}}
+@keyframes ck-bit-spin{to{transform:rotate(360deg)}}
+@keyframes ck-lift-travel{0%,100%{transform:translateY(0)}50%{transform:translateY(190px)}}
+@keyframes ck-rover-patrol{from{transform:translateX(0)}to{transform:translateX(-75px)}}
+@keyframes ck-lamp-flicker{0%,100%{opacity:.9}47%{opacity:.55}53%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.ck-drill-cart,.ck-cart-wheel,.ck-cart-arm,.ck-cart-bit,.ck-lift-cage,.ck-rover,.ck-work-lamp{animation:none!important}}
+@media(max-width:520px){.ck-drill-cart{transform:scale(.78);transform-origin:left bottom}.ck-lift-shaft{right:8%;}.ck-depth-sign{left:2%;}.ck-ladder{left:8%;}}

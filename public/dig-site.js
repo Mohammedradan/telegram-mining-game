@@ -22,8 +22,8 @@
     REACH_GAP: 0.05,       // مسافة إضافية يبقى معها المعدّن «قادراً على الوصول»
     DEAD: 0.16,            // منطقة ميتة في مركز العصا
     TOWARD: 0.4,           // اتجاه العصا مع اتجاه الصخرة (جيب التمام) الذي يبدأ الحفر التلقائي
-    BAND: Object.freeze({ x0: 0.08, x1: 0.92, y0: 0.58, y1: 0.88 }),       // أين تقف قدما المعدّن (نسبة من الساحة)
-    ROCK_BAND: Object.freeze({ x0: 0.2, x1: 0.8, y0: 0.62, y1: 0.8 }),     // أين تظهر الصخرة الجديدة
+    BAND: Object.freeze({ x0: 0.08, x1: 0.92, y0: 0.34, y1: 0.88 }),       // أين تقف قدما المعدّن (نسبة من الساحة)
+    ROCK_BAND: Object.freeze({ x0: 0.2, x1: 0.8, y0: 0.38, y1: 0.8 }),     // أين تظهر الصخرة الجديدة
     RESPAWN_MIN: 0.3,      // أدنى مسافة بين المعدّن والصخرة الجديدة (عرض الساحة)
     SWING: Object.freeze({ windup: 0.09, strike: 0.1, recover: 0.07 }),     // ثوانٍ: رفع ثم ضربة (تقع عند نهاية الرفع) ثم عودة
     ROCK_HP: 12,
@@ -211,8 +211,14 @@
     R = { sep: rm + rr, reach: rm + rr + CFG.REACH_GAP };
     const mx = clamp(minerHalf * 0.8, CFG.BAND.x0, 0.2);                    // يبقى معظم الجسم داخل الإطار عند الحواف
     band = { x0: mx, x1: 1 - mx, y0: CFG.BAND.y0, y1: CFG.BAND.y1 };
-    const rx = clamp(rockHalf + 0.02, CFG.ROCK_BAND.x0, 0.4);
-    rockBand = { x0: rx, x1: 1 - rx, y0: CFG.ROCK_BAND.y0, y1: CFG.ROCK_BAND.y1 };
+    // موضع الصخرة مرساة لمركزها، لكن transform يضخّم صندوقها حتى 1.10× عند أقصى عمق؛ احسب هذا التضخيم مع هامش بكسلات نسبي كي يبقى كامل الزر داخل الساحة.
+    const rx = clamp(rockHalf * 1.1 + 0.025, CFG.ROCK_BAND.x0, 0.45);
+    // الصخرة تُرسم من مرساة أسفلها؛ لذلك يجب ألا يكون مركزها قريباً من أعلى الساحة
+    // بأقل من ارتفاعها المرئي بعد تحجيم العمق. احسب الحد الأدنى من المقاس الفعلي
+    // بدلاً من نسبة ثابتة كانت تسمح للصخرة بالخروج من أعلى الحقل على الهاتف.
+    let ry0 = CFG.ROCK_BAND.y0;
+    for (let i = 0; i < 4; i++) ry0 = Math.max(ry0, (rockH * depthScale(ry0) + 2) / H);
+    rockBand = { x0: rx, x1: 1 - rx, y0: Math.min(ry0, CFG.ROCK_BAND.y1), y1: CFG.ROCK_BAND.y1 };
   }
 
   function avoidZones() {
@@ -531,6 +537,27 @@
     if (tabId === 'mining') { measure(); render('idle'); }
   }
 
+  // المشهد الصناعي الحي: عناصر بيئية مستقلة عن اقتصاد النقر، لكنها تتحرك فعلياً داخل موقع التعدين.
+  // تُبنى مرة واحدة داخل العالم حتى لا تتكرر عند إعادة تفعيل التبويب.
+  function buildMineSet() {
+    if (!els || typeof els.world.insertBefore !== 'function' || (els.world.querySelector && els.world.querySelector('.ck-mine-set'))) return;
+    const set = root.document.createElement('div');
+    set.className = 'ck-mine-set';
+    set.setAttribute('aria-hidden', 'true');
+    set.innerHTML = `
+      <div class="ck-tunnel ck-tunnel-back"><i></i><b></b></div>
+      <div class="ck-tunnel ck-tunnel-side"><i></i><b></b></div>
+      <div class="ck-ladder"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>ممر علوي</span></div>
+      <div class="ck-rail"><i></i><i></i></div>
+      <div class="ck-drill-cart"><span class="ck-cart-wheel"></span><span class="ck-cart-body"></span><span class="ck-cart-arm"></span><span class="ck-cart-bit"></span><b>حفّار آلي</b></div>
+      <div class="ck-lift-shaft"><i class="ck-lift-cable"></i><span class="ck-lift-cage"><i></i><i></i><b>مصعد</b></span></div>
+      <div class="ck-rover"><i></i><b>روبوت نقل</b></div>
+      <div class="ck-work-lamp"></div>
+      <div class="ck-depth-sign"><b>المستوى 01</b><small>قطاع التعدين</small></div>
+    `;
+    els.world.insertBefore(set, els.world.firstChild);
+  }
+
   function init(options) {
     if (api.active) return true;
     const doc = root.document;
@@ -543,6 +570,7 @@
       pad: $('ck-pad'), stick: $('ck-stick'), dig: $('ck-dig'), sheet: $('ck-sheet'),
     };
     if (!els.tab || !els.root || !els.world || !els.miner || !els.rockBtn || !els.ore || !els.pad || !els.dig) { els = null; return false; }
+    buildMineSet();
     try { const mq = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)'); reduced = !!(mq && mq.matches); if (mq && mq.addEventListener) mq.addEventListener('change', (e) => { reduced = !!e.matches; }); } catch (e) { reduced = false; }
     fx = root.ClickerFX && root.ClickerFX.active ? root.ClickerFX : null;
     rock = createRock({ x: 0.6, y: 0.8 });
