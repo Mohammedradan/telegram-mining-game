@@ -295,7 +295,26 @@ function createPgStore(url) {
     idleTimeoutMillis: Math.max(1000, Number(process.env.PG_IDLE_TIMEOUT_MS) || 30000),
     ssl: !isLocal && process.env.PGSSL !== 'disable' ? { rejectUnauthorized: false } : undefined,
   });
-  const ready = pool.query(SCHEMA_PG);
+  // أكثر من خادم/اختبار قد يبدأ على قاعدة PostgreSQL نفسها بالتزامن.
+  // IF NOT EXISTS وحدها لا تمنع سباق إنشاء نوع الجدول الداخلي في PostgreSQL؛ قفل advisory
+  // على مستوى قاعدة البيانات يجعل تهيئة المخطط تسلسلية بين كل العمليات.
+  const ready = (async () => {
+    const client = await pool.connect();
+    let begun = false;
+    try {
+      await client.query('BEGIN');
+      begun = true;
+      await client.query('SELECT pg_advisory_xact_lock(734921, 1)');
+      await client.query(SCHEMA_PG);
+      await client.query('COMMIT');
+      begun = false;
+    } catch (error) {
+      if (begun) await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  })();
   const transactionContext = new AsyncLocalStorage();
   const q = async (sql, params) => { await ready; return (transactionContext.getStore() || pool).query(sql, params); };
   const placeholders = USER_COLUMNS.split(',').map((_, i) => `$${i + 1}`).join(',');
