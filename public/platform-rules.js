@@ -1640,7 +1640,7 @@
     const ladder = routePlatforms.find(box => {
       const ladderCenter = box.x + 14;
       return Math.abs((p.x + p.w / 2) - ladderCenter) <= 28 &&
-        p.y < 300 && p.y > box.y - p.h + 8;
+        p.y < 300 && p.y > box.y - p.h - 16;
     });
     let climbing = Boolean((mask & INPUT.UP) && ladder && !dodging && !p.guard.active && p.hearts > 0);
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
@@ -1660,7 +1660,6 @@
     if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
     const wasGrounded = p.grounded;
     const previousBottom = p.y + p.h;
-    const wasFalling = !climbing && p.vy >= 0;
     if (climbing && p.y + p.h <= ladder.y + 0.5) {
       // Stop exactly on the upper platform instead of passing through it.
       p.y = ladder.y - p.h;
@@ -1670,6 +1669,7 @@
     } else {
       if (climbing) p.vy = -145;
       else p.vy = Math.min(680, p.vy + 1200 * DT);
+      const wasFalling = !climbing && p.vy >= 0;
       p.y += p.vy * DT;
       p.grounded = false;
       if (climbing && p.y + p.h <= ladder.y) {
