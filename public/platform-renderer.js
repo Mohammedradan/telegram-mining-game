@@ -1126,6 +1126,22 @@
       for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
         c.beginPath(); c.ellipse(mx, box.y + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
       }
+      // V22: bolted service ladder visually links the main floor to the playable upper branch.
+      // The ladder is guidance artwork only; jump and one-way landing remain deterministic in rules.
+      if (!arenaMode && box.route === 'upper') {
+        const ladderX = box.x + 14;
+        c.strokeStyle = '#26343a'; c.lineWidth = 4;
+        c.beginPath(); c.moveTo(ladderX - 6, box.y + 8); c.lineTo(ladderX - 6, 300); c.moveTo(ladderX + 6, box.y + 8); c.lineTo(ladderX + 6, 300); c.stroke();
+        c.strokeStyle = '#b68b52'; c.lineWidth = 2.5;
+        for (let ry = box.y + 16; ry < 298; ry += 10) {
+          c.beginPath(); c.moveTo(ladderX - 6, ry); c.lineTo(ladderX + 6, ry); c.stroke();
+        }
+        c.fillStyle = '#d5c08a';
+        for (const ry of [box.y + 12, 294]) {
+          c.beginPath(); c.arc(ladderX - 6, ry, 2, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(ladderX + 6, ry, 2, 0, Math.PI * 2); c.fill();
+        }
+      }
       // stone cracks & strata
       c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       for (let x = Math.max(box.x + 8, Math.floor(camera / 36) * 36); x < Math.min(box.x + box.w - 8, camera + w); x += 36) {
