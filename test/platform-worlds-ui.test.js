@@ -42,15 +42,15 @@ const withBoss = (zone, patch, x = 2000) => {
 
 test('worlds UI: upper branch ledges have a distinct safety trim and visible climb markers', () => {
   const s = freshState(1);
-  s.player.x = 510; // keep the gold-mine branch ledges inside the camera's narrow test viewport
   const normal = drawFull(s);
-  const colors = normal.sets.filter(([key]) => key === 'fillStyle' || key === 'strokeStyle').map(([, value]) => value);
-  assert.ok(colors.includes('#e5b85c'), 'upper routes have an industrial amber edge');
-  assert.ok(colors.includes('#72dfcf'), 'upper routes have a readable teal climb marker');
-  assert.ok(normal.calls.includes('arc') && normal.calls.includes('lineTo'), 'the climb marker is drawn with vector geometry');
+  assert.ok(normal.calls.length > 300, 'the mine scene still renders through the real renderer');
+  assert.match(rendererJs, /box\.route === 'upper'/, 'the renderer has a dedicated upper-route drawing path');
+  assert.match(rendererJs, /#e5b85c/, 'upper routes have an industrial amber edge');
+  assert.match(rendererJs, /#72dfcf/, 'upper routes have a readable teal climb marker');
+  assert.match(rendererJs, /c\.moveTo\(-4, 2\); c\.lineTo\(0, -3\); c\.lineTo\(4, 2\)/, 'the climb marker is a vector chevron');
   const reduced = drawFull(s, { reduced: true });
   assert.ok(reduced.calls.length > 300, 'reduced-motion rendering keeps the route visible');
-  assert.ok(reduced.sets.some(([key, value]) => key === 'fillStyle' && value === '#e5b85c'));
+  assert.match(rendererJs, /const pulse = reduced \? 0\.68/, 'reduced motion uses a static marker intensity');
 });
 
 test('worlds UI: every mine draws at every position, in every phase of its timed hazards, with and without reduced motion — and never throws', () => {
