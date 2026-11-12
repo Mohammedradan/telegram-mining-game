@@ -211,7 +211,8 @@
     R = { sep: rm + rr, reach: rm + rr + CFG.REACH_GAP };
     const mx = clamp(minerHalf * 0.8, CFG.BAND.x0, 0.2);                    // يبقى معظم الجسم داخل الإطار عند الحواف
     band = { x0: mx, x1: 1 - mx, y0: CFG.BAND.y0, y1: CFG.BAND.y1 };
-    const rx = clamp(rockHalf + 0.02, CFG.ROCK_BAND.x0, 0.4);
+    // موضع الصخرة مرساة لمركزها، لكن transform يضخّم صندوقها حتى 1.10× عند أقصى عمق؛ احسب هذا التضخيم مع هامش بكسلات نسبي كي يبقى كامل الزر داخل الساحة.
+    const rx = clamp(rockHalf * 1.1 + 0.025, CFG.ROCK_BAND.x0, 0.45);
     rockBand = { x0: rx, x1: 1 - rx, y0: CFG.ROCK_BAND.y0, y1: CFG.ROCK_BAND.y1 };
   }
 
