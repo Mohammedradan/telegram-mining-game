@@ -1639,8 +1639,9 @@
     // to the branch platform. UP now climbs when the miner is aligned with those rails.
     const ladder = routePlatforms.find(box => {
       const ladderCenter = box.x + 14;
+      // Keep the ladder target active until the miner's feet reach the ledge.
       return Math.abs((p.x + p.w / 2) - ladderCenter) <= 28 &&
-        p.y < 300 && p.y > box.y - p.h - 16;
+        p.y < 300 && p.y + p.h > box.y - 16;
     });
     let climbing = Boolean((mask & INPUT.UP) && ladder && !dodging && !p.guard.active && p.hearts > 0);
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
@@ -1665,6 +1666,7 @@
       p.y = ladder.y - p.h;
       p.vy = 0;
       p.grounded = true;
+      p.upperRouteY = ladder.y;
       climbing = false;
     } else {
       if (climbing) p.vy = -145;
@@ -1676,6 +1678,7 @@
         p.y = ladder.y - p.h;
         p.vy = 0;
         p.grounded = true;
+        p.upperRouteY = ladder.y;
         climbing = false;
       }
       for (const box of solids) if (overlap(p, box)) {
@@ -1684,8 +1687,14 @@
         p.vy = 0;
       }
       if (wasFalling) for (const box of routePlatforms) {
-        if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
+        const overlapsLedge = p.x < box.x + box.w && p.x + p.w > box.x;
+        const climbedLedge = p.upperRouteY === box.y;
+        // Preserve the historic optional-UP landing behavior for ordinary runs. A miner
+        // who reached this ledge through its ladder keeps the platform solid after release.
+        if (previousBottom <= box.y && p.y + p.h >= box.y && overlapsLedge &&
+            ((mask & INPUT.UP) || climbedLedge)) {
           p.y = box.y - p.h; p.grounded = true; p.vy = 0;
+          if (climbedLedge) p.upperRouteY = box.y;
         }
       }
     }
