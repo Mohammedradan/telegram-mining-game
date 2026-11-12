@@ -28,7 +28,7 @@ test('قبل المبارزة: شريط الحالة ينزل تحت صف الأ
     'as-hud is pushed below the floating chips before the duel only'
   );
   // الصيغة الافتراضية تبقى كما هي (تُستخدم في المبارزة وفي وضع المزيد)
-  assert.match(html, /\.as-hud \{\s*position: absolute; inset: 6px 8px auto 8px;/, 'the default as-hud placement is untouched');
+  assert.match(css, /\.as-hud \{\s*position: absolute; inset: 6px 8px auto 8px;/, 'the default as-hud placement is untouched');
 });
 
 test('الهندسة: ارتفاع زر البدء + هامشه لا يصل إلى موضع شريط الحالة', () => {
@@ -45,24 +45,24 @@ test('الهندسة: ارتفاع زر البدء + هامشه لا يصل إل
 });
 
 test('أثناء المبارزة: الشرائح تُخفى فيبقى شريط الحالة وأشرطة الصحة مكشوفة', () => {
-  assert.match(html, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the chip row leaves the stage during a duel');
+  assert.match(css, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the chip row leaves the stage during a duel');
   // وأثناء المبارزة لا يُطبَّق إزاحة شريط الحالة (المسرح أقصر) — الشريحة مستثناة صراحةً أعلاه
-  assert.doesNotMatch(html, /body\.duel-live #arena-stage \.as-hud \{ top:/, 'as-hud keeps its default spot in duels');
+  assert.doesNotMatch(css, /body\.duel-live #arena-stage \.as-hud \{ top:/, 'as-hud keeps its default spot in duels');
 });
 
 test('عناصر التحكم الضرورية أثناء المبارزة باقية ومرئية', () => {
   // شريط المبارزة (إيقاف/انسحاب) يظهر في الوضع الحيّ
-  assert.match(html, /body\.duel-live \.arena-fs-bar \{ display: flex; \}/, 'the pause/abandon bar still shows during a duel');
+  assert.match(css, /body\.duel-live \.arena-fs-bar \{ display: flex; \}/, 'the pause/abandon bar still shows during a duel');
   assert.match(html, /id="arena-fs-pause"/, 'pause button markup exists');
   assert.match(html, /id="arena-fs-exit"/, 'abandon button markup exists');
   // وزر البدء/الإحصاء يختفي في المبارزة (قاعدة قديمة) فلا يتقاطع مع شريط صحة الخصم
-  assert.match(html, /body\.duel-live \.as-bar,/, 'the start pill/record row is hidden during a duel');
+  assert.match(css, /body\.duel-live \.as-bar,/, 'the start pill/record row is hidden during a duel');
   // لوحة اللمس تبقى كما هي
-  assert.match(html, /body\.duel-live #arena-pad \{/, 'the touch pad keeps its duel rules');
+  assert.match(css, /body\.duel-live #arena-pad \{/, 'the touch pad keeps its duel rules');
 });
 
 test('المسرح يبقى مِلء الشاشة، وتكوينه وحده تغيّر في المرحلة A', () => {
-  assert.match(html, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{\s*position: absolute; inset: 0;/, 'the full-bleed stage rule is unchanged');
+  assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{\s*position: absolute; inset: 0;/, 'the full-bleed stage rule is unchanged');
   // المرحلة A: التكوين صار من المقاتلين (كان مثبّتاً على نسبة الشاشة) — الحلبة فقط، المنجم كما هو.
   assert.match(renderer, /function arenaLayout\(state, cssW, cssH\)/, 'arena framing is a function of the fighters');
   assert.match(renderer, /const camera = arena \? arenaCamera\(s, arena\) : R\.cameraFor\(s, w\);/, 'the arena pans, the mine keeps its camera');
