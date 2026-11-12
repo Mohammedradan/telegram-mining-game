@@ -42,6 +42,7 @@ const withBoss = (zone, patch, x = 2000) => {
 
 test('worlds UI: upper branch ledges have a distinct safety trim and visible climb markers', () => {
   const s = freshState(1);
+  s.player.x = 510; // keep the gold-mine branch ledges inside the camera's narrow test viewport
   const normal = drawFull(s);
   const colors = normal.sets.filter(([key]) => key === 'fillStyle' || key === 'strokeStyle').map(([, value]) => value);
   assert.ok(colors.includes('#e5b85c'), 'upper routes have an industrial amber edge');
