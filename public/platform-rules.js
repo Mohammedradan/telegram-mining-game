@@ -1237,18 +1237,21 @@
     // V11: تُطلق من مسافة «lead» أمام الخصم حتى لا تظهر داخل جسد اللاعب الملتصق به
     // (كانت الضربة القريبة تُصيب حتماً بلا هامش ردّ فعل، وهو أسوأ من كونها صعبة).
     const wv = ai.wave, lead = wv.lead || 0;
+    // اللاعب قد يعبر خلف الخصم أثناء إنذار الضربة؛ حدّث اتجاه الموجة لحظة إطلاقها
+    // بدلاً من استعمال اتجاه الإنذار القديم الذي قد يرسلها بعيداً عنه أو خلفه.
+    const waveDir = p.x + p.w / 2 >= b.x + b.w / 2 ? 1 : -1;
     // الإزاحة لا تتجاوز جسد اللاعب: لو كان ملتصقاً تُطلق من الحافة كالسابق (خطأ تمركز يُعاقب)
     const spawnX = (dir) => {
       const gapToBody = dir > 0 ? p.x - (b.x + b.w) : b.x - (p.x + p.w);
       const off = Math.max(0, Math.min(lead, gapToBody - 6));
       return dir > 0 ? b.x + b.w + off : b.x - wv.w - off;
     };
-    s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
-      vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave' });
+    s.waves.push({ x: spawnX(waveDir), y: 300 - wv.h, w: wv.w, h: wv.h,
+      vx: waveDir * wv.speed, ttl: wv.ttl, kind: 'wave' });
     // سيّاف الريح: موجة ثانية بعد فجوة قصيرة تُلزم اللاعب بالبقاء في الهواء أو المراوغة
     if (ai.doubleWave) {
-      s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
-        vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave', delay: wv.gap || 10 });
+      s.waves.push({ x: spawnX(waveDir), y: 300 - wv.h, w: wv.w, h: wv.h,
+        vx: waveDir * wv.speed, ttl: wv.ttl, kind: 'wave', delay: wv.gap || 10 });
     }
     s.events.push({ type: 'boss_slam', x: cx, y: 300, id: b.id });
     b.state = 'recover'; b.timer = ai.recover;
