@@ -534,7 +534,7 @@
   // المشهد الصناعي الحي: عناصر بيئية مستقلة عن اقتصاد النقر، لكنها تتحرك فعلياً داخل موقع التعدين.
   // تُبنى مرة واحدة داخل العالم حتى لا تتكرر عند إعادة تفعيل التبويب.
   function buildMineSet() {
-    if (!els || els.world.querySelector('.ck-mine-set')) return;
+    if (!els || typeof els.world.insertBefore !== 'function' || (els.world.querySelector && els.world.querySelector('.ck-mine-set'))) return;
     const set = root.document.createElement('div');
     set.className = 'ck-mine-set';
     set.setAttribute('aria-hidden', 'true');
