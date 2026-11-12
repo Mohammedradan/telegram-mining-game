@@ -56,6 +56,6 @@ test('المنجم لم يتغيّر: حدّه 280 ونافذته وكاميرت
 });
 
 test('بصمات الأصول حُدِّثت حتى يصل الكود الجديد للهاتف', () => {
-  assert.match(html, /platform-renderer\.js\?v=18/);
+  assert.match(html, /platform-renderer\.js\?v=19/);
   assert.match(html, /platform-arena-scene\.js\?v=10/);
 });

@@ -1145,6 +1145,19 @@
         c.beginPath(); c.moveTo(-4, 2); c.lineTo(0, -3); c.lineTo(4, 2); c.stroke();
         c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 5); c.stroke();
         c.restore();
+        // V22: bolted access ladder visually connects the lower tunnel to this upper branch.
+        const ladderX = box.x + 14;
+        c.strokeStyle = '#26343a'; c.lineWidth = 4;
+        c.beginPath(); c.moveTo(ladderX - 6, box.y + 8); c.lineTo(ladderX - 6, 300); c.moveTo(ladderX + 6, box.y + 8); c.lineTo(ladderX + 6, 300); c.stroke();
+        c.strokeStyle = '#b68b52'; c.lineWidth = 2.5;
+        for (let ry = box.y + 16; ry < 298; ry += 10) {
+          c.beginPath(); c.moveTo(ladderX - 6, ry); c.lineTo(ladderX + 6, ry); c.stroke();
+        }
+        c.fillStyle = '#d5c08a';
+        for (const ry of [box.y + 12, 294]) {
+          c.beginPath(); c.arc(ladderX - 6, ry, 2, 0, Math.PI * 2); c.fill();
+          c.beginPath(); c.arc(ladderX + 6, ry, 2, 0, Math.PI * 2); c.fill();
+        }
       }
       // stone cracks & strata
       c.strokeStyle = sk.crack; c.lineWidth = 1.2;
