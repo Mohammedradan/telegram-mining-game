@@ -22,7 +22,7 @@ test('ارتفاع التطبيق يتبع الحجم الفعلي (لا مسا�
 });
 
 test('شاشة عريضة: عمود للمسرح وعمود للوحة بدل عمود هاتف طويل', () => {
-  const css = shellCss.slice(shellCss.indexOf('/* ===== V15: تخطيط تكيّفي'), html.indexOf('/* هاتف أفقي قصير'));
+  const css = shellCss.slice(shellCss.indexOf('/* ===== V15: تخطيط تكيّفي'), shellCss.indexOf('/* هاتف أفقي قصير'));
   assert.match(css, /#tab-arena\.active \{\s*\n\s*display: grid/, 'the arena tab becomes a grid — only while it is the open tab, so .tab-content{display:none} still wins elsewhere');
   assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(230px, 330px\)/, 'stage column + info column');
   assert.match(css, /#tab-arena > #arena-stage \{[^}]*grid-column: 1;/, 'the stage owns the first column');
@@ -48,7 +48,7 @@ test('هاتف أفقي قصير: المسرح يملأ الشاشة واللم�
 
 test('المقاسات القديمة محفوظة: الهاتف الطولي لم يتغيّر', () => {
   // قاعدة المسرح الأساسية لا تحمل أي استعلام وسائط جديد
-  const base = shellCss.slice(shellCss.indexOf('.arena-stage {'), html.indexOf('#arena-preview {'));
+  const base = shellCss.slice(shellCss.indexOf('.arena-stage {'), shellCss.indexOf('#arena-preview {'));
   assert.match(base, /aspect-ratio: 16 \/ 9/, 'portrait stage keeps 16:9');
   assert.match(base, /max-height: 46vh/, 'and its vh cap');
   // استعلام العريض يبدأ عند 780px فقط، فلا يمسّ الهواتف
@@ -57,7 +57,7 @@ test('المقاسات القديمة محفوظة: الهاتف الطولي ل
 });
 
 test('الوضع الأفقي يعكس لوحة اللمس: العصا يساراً والأفعال يميناً', () => {
-  const css = shellCss.slice(shellCss.indexOf('@media (orientation: landscape) {'), html.indexOf('/* ===== V14:'));
+  const css = shellCss.slice(shellCss.indexOf('@media (orientation: landscape) {'), shellCss.indexOf('/* ===== V14:'));
   assert.match(css, /direction: ltr/, 'the pad row is mirrored in landscape');
   // ترتيب DOM هو ما يُعكس: العصا أولاً ثم أزرار الفعل
   const pad = html.slice(html.indexOf('<div id="arena-pad"'), html.indexOf('</div>', html.indexOf('<div class="ap-group ap-acts"')));
@@ -68,7 +68,7 @@ test('الوضع الأفقي يعكس لوحة اللمس: العصا يسار�
 });
 
 test('بقية التبويبات على الشاشة العريضة: المتجر عمودان والتعدين يتّسع', () => {
-  const css = shellCss.slice(shellCss.indexOf('/* V15.2:'), html.indexOf('/* ===== V14:'));
+  const css = shellCss.slice(shellCss.indexOf('/* V15.2:'), shellCss.indexOf('/* ===== V14:'));
   assert.match(css, /#tab-shop\.active \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, 'shop upgrade rows sit in two columns');
   assert.match(css, /#tab-shop > #prestige-card[^}]*grid-column: 1 \/ -1/, 'full-width cards keep spanning both columns');
   assert.match(css, /#tab-shop > div \{ min-width: 0; \}/, 'rows can shrink inside their column instead of overflowing');
