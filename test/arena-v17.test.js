@@ -54,15 +54,15 @@ test('كل ما تحت المسرح يختفي، ويعود بـ«المزيد»
 });
 
 test('التبديل مربوط فعلاً: يفتح مع الساحة ويُغلق بزرّ «التبويبات»', () => {
-  assert.match(html, /document\.body\.classList\.toggle\('arena-live', tabId === 'arena'\)/, 'the tab switcher owns the mode');
-  assert.match(html, /arena-tabs-btn'\)\?\.addEventListener\('click', \(\) => \{\s*\n\s*document\.body\.classList\.remove\('arena-live', 'arena-more'\)/, 'the tabs chip drops both classes');
+  assert.match(css, /document\.body\.classList\.toggle\('arena-live', tabId === 'arena'\)/, 'the tab switcher owns the mode');
+  assert.match(css, /arena-tabs-btn'\)\?\.addEventListener\('click', \(\) => \{\s*\n\s*document\.body\.classList\.remove\('arena-live', 'arena-more'\)/, 'the tabs chip drops both classes');
   assert.match(html, /arena-more-btn'\)\?\.addEventListener\('click',[\s\S]{0,200}setAttribute\('aria-pressed'/, 'the more chip keeps its pressed state honest');
-  assert.match(html, /if \(tabId !== 'arena'\) \{\s*\n\s*document\.body\.classList\.remove\('arena-more'\)/, 'leaving the arena clears the more-view too');
+  assert.match(css, /if \(tabId !== 'arena'\) \{\s*\n\s*document\.body\.classList\.remove\('arena-more'\)/, 'leaving the arena clears the more-view too');
 });
 
 test('أثناء المبارزة يبقى شريط المبارزة الكاملة فقط — الشاشتان لا تتزاحمان', () => {
-  assert.match(html, /body\.duel-live #tab-arena > \*:not\(#arena-stage\):not\(#arena-pad\):not\(#arena-duel-status\):not\(#arena-fs-bar\) \{ display: none !important; \}/, 'the duel still hides every child except its four');
+  assert.match(css, /body\.duel-live #tab-arena > \*:not\(#arena-stage\):not\(#arena-pad\):not\(#arena-duel-status\):not\(#arena-fs-bar\) \{ display: none !important; \}/, 'the duel still hides every child except its four');
   // V19.1 (D1): الشرائح تُخفى صراحةً في المبارزة (كانت تُخفى ضمناً بالقاعدة العامة) —
   // أي قاعدة جديدة تخصّ الشريحتين في المبارزة يجب أن تكون «إخفاءً» لا «إظهاراً».
-  assert.match(html, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the arena chips are explicitly hidden during a duel');
+  assert.match(css, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the arena chips are explicitly hidden during a duel');
 });
