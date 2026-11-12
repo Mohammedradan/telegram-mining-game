@@ -40,6 +40,17 @@ const withBoss = (zone, patch, x = 2000) => {
   return { s, boss };
 };
 
+test('worlds UI: upper branch platforms draw a bolted access ladder without changing simulation rules', () => {
+  const s = freshState(1), level = R.levelFor(1), branch = level.platforms.find(p => p.route === 'upper');
+  assert.ok(branch, 'the iron mine includes a playable upper branch');
+  const ctx = fakeCtx();
+  Renderer.draw(canvasWith(ctx), s, { reduced: true });
+  assert.ok(ctx.calls.filter(name => name === 'moveTo').length > 10, 'ladder rails and rungs are drawn as vector geometry');
+  assert.match(rendererJs, /if \(!arenaMode && box\.route === 'upper'\)/, 'ladder artwork is limited to playable mine branches');
+  assert.match(rendererJs, /ry \+= 10/, 'ladder rungs are evenly spaced and static');
+  assert.equal(R.VERSION, 13, 'the renderer does not change the deterministic simulation version');
+});
+
 test('worlds UI: every mine draws at every position, in every phase of its timed hazards, with and without reduced motion — and never throws', () => {
   let frames = 0;
   for (const reduced of [false, true]) for (let zone = 0; zone < 6; zone++) {
