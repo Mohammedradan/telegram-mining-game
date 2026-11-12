@@ -40,6 +40,18 @@ const withBoss = (zone, patch, x = 2000) => {
   return { s, boss };
 };
 
+test('worlds UI: upper branch ledges have a distinct safety trim and visible climb markers', () => {
+  const s = freshState(1);
+  const normal = drawFull(s);
+  const colors = normal.sets.filter(([key]) => key === 'fillStyle' || key === 'strokeStyle').map(([, value]) => value);
+  assert.ok(colors.includes('#e5b85c'), 'upper routes have an industrial amber edge');
+  assert.ok(colors.includes('#72dfcf'), 'upper routes have a readable teal climb marker');
+  assert.ok(normal.calls.includes('arc') && normal.calls.includes('lineTo'), 'the climb marker is drawn with vector geometry');
+  const reduced = drawFull(s, { reduced: true });
+  assert.ok(reduced.calls.length > 300, 'reduced-motion rendering keeps the route visible');
+  assert.ok(reduced.sets.some(([key, value]) => key === 'fillStyle' && value === '#e5b85c'));
+});
+
 test('worlds UI: every mine draws at every position, in every phase of its timed hazards, with and without reduced motion — and never throws', () => {
   let frames = 0;
   for (const reduced of [false, true]) for (let zone = 0; zone < 6; zone++) {
