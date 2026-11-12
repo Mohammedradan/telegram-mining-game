@@ -62,10 +62,10 @@ test('مبدّل الطريقة: زرّان، وحفظ الاختيار، وال
 });
 
 test('CSS: السحب لا يمرّر الصفحة، والأهداف كبيرة، والوضعان يتبادلان بلا ازدواج', () => {
-  const stickCss = css.slice(css.indexOf('.arena-stick {'), html.indexOf('.arena-stick::before'));
+  const stickCss = css.slice(css.indexOf('.arena-stick {'), css.indexOf('.arena-stick::before'));
   assert.match(stickCss, /touch-action: none/, 'a drag never scrolls the page');
   assert.match(stickCss, /width: 60px; height: 60px; border-radius: 50%/, 'a round base, like the play-tab joystick');
-  const knobCss = css.slice(css.indexOf('.arena-stick .as-knob {'), html.indexOf('.arena-stick[data-active'));
+  const knobCss = css.slice(css.indexOf('.arena-stick .as-knob {'), css.indexOf('.arena-stick[data-active'));
   assert.match(knobCss, /width: 30px; height: 30px; border-radius: 50%/, 'the knob is the same visual language');
   assert.match(knobCss, /translate\(-50%, -50%\)/, 'it rests centred');
   assert.match(css, /body\.pad-stick \.ap-move button\[data-duel-input="1"\],[\s\S]{0,160}body\.pad-stick \.ap-heavy \{ display: none; \}/, 'stick mode drops the two arrows and the heavy button');
@@ -74,7 +74,7 @@ test('CSS: السحب لا يمرّر الصفحة، والأهداف كبيرة
   assert.match(css, /body\.pad-stick \.ap-acts button \{ flex: 1 1 0; min-width: 40px; min-height: 48px/, 'action targets shrink honestly on narrow phones but keep a 48px height');
   assert.match(css, /body\.pad-stick \.ap-acts \.ap-hit \{ flex: 0 0 56px; min-width: 56px; min-height: 54px/, 'the attack button is the biggest target');
   assert.match(css, /body\.pad-stick \.ap-acts \{ flex: 1 1 auto; display: flex; flex-wrap: nowrap/, 'all actions stay on one row');
-  assert.match(html, /data-active="true"\]/, 'the zone shows it is held');
+  assert.match(css, /\.arena-stick\[data-active="true"\]/, 'the zone shows it is held');
 });
 
 test('الربط: السحب يُصفَّر عند رفع الإصبع أو فقدانه، ولا مشي معلّق', () => {
