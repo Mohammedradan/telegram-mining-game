@@ -142,6 +142,7 @@ test('الواجهة: التذكير يُرسَل بنوعه، يُصرف مرة
   const resets = game.match(/hintReminderShown = false/g) || [];
   assert.ok(resets.length >= 2, 'reset on stage rebuild and on every new duel');
   const html = read('public/index.html');
+  const css = read('public/app-shell.css');
   assert.match(css, /\.arena-hint\.remind \{[^}]*font-size: 9\.5px/, 'the reminder is smaller than the 10.5px main hint');
   assert.match(css, /\.arena-hint\.remind \{[^}]*max-width: 72%/, 'and narrower, so it hides less of the fight');
   assert.match(css, /\.arena-hint\.remind \{[^}]*padding: 4px 9px/, 'and more compact');
