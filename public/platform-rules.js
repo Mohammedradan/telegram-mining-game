@@ -1244,7 +1244,10 @@
     const spawnX = (dir) => {
       const gapToBody = dir > 0 ? p.x - (b.x + b.w) : b.x - (p.x + p.w);
       const off = Math.max(0, Math.min(lead, gapToBody - 6));
-      return dir > 0 ? b.x + b.w + off : b.x - wv.w - off;
+      const edge = dir > 0 ? b.x + b.w + off : b.x - wv.w - off;
+      // إذا تداخل اللاعب والخصم أفقياً لحظة الإطلاق، لا تسمح للموجة بالظهور
+      // على الجانب البعيد من اللاعب؛ أبقها بينهما/عند حافة اللاعب المواجهة للخصم.
+      return dir > 0 ? Math.min(edge, p.x - wv.w) : Math.max(edge, p.x + p.w);
     };
     s.waves.push({ x: spawnX(waveDir), y: 300 - wv.h, w: wv.w, h: wv.h,
       vx: waveDir * wv.speed, ttl: wv.ttl, kind: 'wave' });
