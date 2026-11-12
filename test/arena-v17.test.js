@@ -55,10 +55,10 @@ test('كل ما تحت المسرح يختفي، ويعود بـ«المزيد»
 });
 
 test('التبديل مربوط فعلاً: يفتح مع الساحة ويُغلق بزرّ «التبويبات»', () => {
-  assert.match(css, /document\.body\.classList\.toggle\('arena-live', tabId === 'arena'\)/, 'the tab switcher owns the mode');
-  assert.match(css, /arena-tabs-btn'\)\?\.addEventListener\('click', \(\) => \{\s*\n\s*document\.body\.classList\.remove\('arena-live', 'arena-more'\)/, 'the tabs chip drops both classes');
+  assert.match(html, /document\.body\.classList\.toggle\('arena-live', tabId === 'arena'\)/, 'the tab switcher owns the mode');
+  assert.match(html, /arena-tabs-btn'\)\?\.addEventListener\('click', \(\) => \{\s*\n\s*document\.body\.classList\.remove\('arena-live', 'arena-more'\)/, 'the tabs chip drops both classes');
   assert.match(html, /arena-more-btn'\)\?\.addEventListener\('click',[\s\S]{0,200}setAttribute\('aria-pressed'/, 'the more chip keeps its pressed state honest');
-  assert.match(css, /if \(tabId !== 'arena'\) \{\s*\n\s*document\.body\.classList\.remove\('arena-more'\)/, 'leaving the arena clears the more-view too');
+  assert.match(html, /if \(tabId !== 'arena'\) \{\s*\n\s*document\.body\.classList\.remove\('arena-more'\)/, 'leaving the arena clears the more-view too');
 });
 
 test('أثناء المبارزة يبقى شريط المبارزة الكاملة فقط — الشاشتان لا تتزاحمان', () => {
