@@ -6,7 +6,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-const style = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+const inlineStyle = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+const shellLink = /<link[^>]+href="(\\/app-shell\\.css(?:\\?[^"]*)?)"/.exec(html);
+const style = shellLink
+  ? fs.readFileSync(path.join(__dirname, '..', 'public', shellLink[1].replace(/^\\//, '').replace(/[?#].*$/, '')), 'utf8')
+  : inlineStyle;
+
+test('the extracted app shell stylesheet is linked and loaded from the local public asset', () => {
+  assert.ok(shellLink, 'index.html must link the extracted app-shell.css');
+  assert.ok(style.length > 10000, 'the extracted stylesheet must contain the application styles');
+});
 
 test('large screens: the app is a centered phone-width column, background covers the root', () => {
   assert.match(style, /body\s*\{[^}]*max-width:\s*520px;[^}]*margin:\s*0 auto;/s);
