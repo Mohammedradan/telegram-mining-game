@@ -34,14 +34,14 @@ test('قبل المبارزة: شريط الحالة ينزل تحت صف الأ
 
 test('الهندسة: ارتفاع زر البدء + هامشه لا يصل إلى موضع شريط الحالة', () => {
   const btnMin = px(/body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \.arena-duel-btn \{[^}]*min-height: (\d+)px/, css);
-  const top = px(/body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \{\s*position: absolute; top: (\d+)px/);
-  const hudTop = px(/body\.arena-live:not\(\.arena-more\):not\(\.duel-live\) #arena-stage \.as-hud \{ top: (\d+)px; \}/);
+  const top = px(/body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \{\s*position: absolute; top: (\d+)px/, css);
+  const hudTop = px(/body\.arena-live:not\(\.arena-more\):not\(\.duel-live\) #arena-stage \.as-hud \{ top: (\d+)px; \}/, css);
   const bottom = top + btnMin; // أسفل الزر/الإحصاء يمين الشاشة
   assert.ok(hudTop > bottom, `شريط الحالة (${hudTop}px) يجب أن يبدأ تحت أسفل الأدوات (${bottom}px) بفاصل مرئي`);
   assert.ok(hudTop - bottom >= 2, 'فاصل لا يقلّ عن 2px حتى لا يبدو ملتصقاً');
   // وصفّ الشرائح يسار المسرح بالحساب نفسه
-  const chipMin = px(/\.arena-x-bar button \{[^}]*min-height: (\d+)px/);
-  const chipTop = px(/body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-x-bar \{\s*position: absolute; top: (\d+)px/);
+  const chipMin = px(/\.arena-x-bar button \{[^}]*min-height: (\d+)px/, css);
+  const chipTop = px(/body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-x-bar \{\s*position: absolute; top: (\d+)px/, css);
   assert.ok(hudTop > chipTop + chipMin, `شريط الحالة (${hudTop}px) يجب أن يبدأ تحت صف الشرائح (${chipTop + chipMin}px)`);
 });
 
