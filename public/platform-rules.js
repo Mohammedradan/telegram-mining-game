@@ -8,7 +8,7 @@
   // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
   // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
   // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
-  const VERSION = 13; // V20: deterministic upper branch routes in the five deep mines; older run tickets are rejected
+  const VERSION = 14; // V21: real deterministic ladder climbing joins the upper mine branches; older run tickets are rejected
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -300,7 +300,9 @@
       // ممر مرتفع يتجاوز حفرة المدخل؛ يمكن للاعب اختيار القفز فوقها أو المخاطرة بالعبور أرضاً.
       branchLedges: [[420, 230, 100], [530, 230, 100]],
       ground: [[0, 720], [820, 1470], [1570, 2680]],
-      ledges: [[330, 230, 100], [1210, 224, 90]],
+      // Keep the ordinary ledge clear of the upper-route ladder platform; overlapping
+      // same-height solids created an ambiguous collision edge at the ladder exit.
+      ledges: [[320, 230, 90], [1210, 224, 90]],
       rocks: [[[110, 190]], [[900, 960]], [[1650, 1700]]],
       gems: [[150, 180, 276], [350, 400, 207], [1230, 1280, 201], [1010, 1030, 276], [640, 660, 276], [1330, 1350, 276], [1780, 1820, 276], [2100, 2200, 276], [2300, 2400, 276], [840, 880, 276]],
       hazards: [
@@ -1235,18 +1237,24 @@
     // V11: تُطلق من مسافة «lead» أمام الخصم حتى لا تظهر داخل جسد اللاعب الملتصق به
     // (كانت الضربة القريبة تُصيب حتماً بلا هامش ردّ فعل، وهو أسوأ من كونها صعبة).
     const wv = ai.wave, lead = wv.lead || 0;
+    // اللاعب قد يعبر خلف الخصم أثناء إنذار الضربة؛ حدّث اتجاه الموجة لحظة إطلاقها
+    // بدلاً من استعمال اتجاه الإنذار القديم الذي قد يرسلها بعيداً عنه أو خلفه.
+    const waveDir = p.x + p.w / 2 >= b.x + b.w / 2 ? 1 : -1;
     // الإزاحة لا تتجاوز جسد اللاعب: لو كان ملتصقاً تُطلق من الحافة كالسابق (خطأ تمركز يُعاقب)
     const spawnX = (dir) => {
       const gapToBody = dir > 0 ? p.x - (b.x + b.w) : b.x - (p.x + p.w);
       const off = Math.max(0, Math.min(lead, gapToBody - 6));
-      return dir > 0 ? b.x + b.w + off : b.x - wv.w - off;
+      const edge = dir > 0 ? b.x + b.w + off : b.x - wv.w - off;
+      // إذا تداخل اللاعب والخصم أفقياً لحظة الإطلاق، لا تسمح للموجة بالظهور
+      // على الجانب البعيد من اللاعب؛ أبقها بينهما/عند حافة اللاعب المواجهة للخصم.
+      return dir > 0 ? Math.min(edge, p.x - wv.w) : Math.max(edge, p.x + p.w);
     };
-    s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
-      vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave' });
+    s.waves.push({ x: spawnX(waveDir), y: 300 - wv.h, w: wv.w, h: wv.h,
+      vx: waveDir * wv.speed, ttl: wv.ttl, kind: 'wave' });
     // سيّاف الريح: موجة ثانية بعد فجوة قصيرة تُلزم اللاعب بالبقاء في الهواء أو المراوغة
     if (ai.doubleWave) {
-      s.waves.push({ x: spawnX(b.aim), y: 300 - wv.h, w: wv.w, h: wv.h,
-        vx: b.aim * wv.speed, ttl: wv.ttl, kind: 'wave', delay: wv.gap || 10 });
+      s.waves.push({ x: spawnX(waveDir), y: 300 - wv.h, w: wv.w, h: wv.h,
+        vx: waveDir * wv.speed, ttl: wv.ttl, kind: 'wave', delay: wv.gap || 10 });
     }
     s.events.push({ type: 'boss_slam', x: cx, y: 300, id: b.id });
     b.state = 'recover'; b.timer = ai.recover;
@@ -1635,30 +1643,78 @@
     if (p.knock && p.knock.ticks > 0) { p.knock.ticks--; p.vx = p.knock.vx; }
     const routePlatforms = level.platforms.filter(box => box.route === 'upper');
     const solids = level.platforms.filter(box => box.route !== 'upper').concat(s.rocks.filter(r => r.hp > 0));
+    // Each upper branch has a deterministic ladder at x + 14, running from the floor (y=300)
+    // to the branch platform. UP now climbs when the miner is aligned with those rails.
+    const ladder = routePlatforms.find(box => {
+      const ladderCenter = box.x + 14;
+      // Keep the ladder target active until the miner's feet reach the ledge.
+      return Math.abs((p.x + p.w / 2) - ladderCenter) <= 28 &&
+        p.y < 300 && p.y + p.h > box.y - 3;
+    });
+    let climbing = Boolean((mask & INPUT.UP) && ladder && !dodging && !p.guard.active && p.hearts > 0);
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
-    // Upper branches are one-way ledges: they can be landed on from above, but never
-    // block the main route from the side or ceiling. This keeps both routes usable.
-    p.x += p.vx * DT;
-    for (const box of solids) if (overlap(p, box)) {
-      if (p.vx > 0) p.x = box.x - p.w;
-      else if (p.vx < 0) p.x = box.x + box.w;
+    // Upper branches remain one-way ledges; their ladders are the only way to climb from below.
+    if (climbing) {
+      p.x = ladder.x + 14 - p.w / 2;
+      p.vx = 0;
+    } else {
+      p.x += p.vx * DT;
+      for (const box of solids) if (overlap(p, box)) {
+        if (p.vx > 0) p.x = box.x - p.w;
+        else if (p.vx < 0) p.x = box.x + box.w;
+      }
     }
     p.x = Math.max(0, Math.min(level.width - p.w, p.x));
     // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
     if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
-    p.vy = Math.min(680, p.vy + 1200 * DT);
-    const wasFalling = p.vy >= 0;
+    const wasGrounded = p.grounded;
     const previousBottom = p.y + p.h;
-    p.y += p.vy * DT;
-    const wasGrounded = p.grounded; p.grounded = false;
-    for (const box of solids) if (overlap(p, box)) {
-      if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
-      else if (p.vy < 0) p.y = box.y + box.h;
+    if (climbing && p.y + p.h <= ladder.y + 0.5) {
+      // Stop exactly on the upper platform instead of passing through it.
+      p.y = ladder.y - p.h;
       p.vy = 0;
-    }
-    if (wasFalling && (mask & INPUT.UP)) for (const box of routePlatforms) {
-      if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
-        p.y = box.y - p.h; p.grounded = true; p.vy = 0;
+      p.grounded = true;
+      p.upperRouteY = ladder.y;
+      climbing = false;
+    } else {
+      if (climbing) p.vy = -145;
+      else p.vy = Math.min(680, p.vy + 1200 * DT);
+      const wasFalling = !climbing && p.vy >= 0;
+      p.y += p.vy * DT;
+      p.grounded = false;
+      if (climbing && p.y + p.h <= ladder.y) {
+        p.y = ladder.y - p.h;
+        p.vy = 0;
+        p.grounded = true;
+        p.upperRouteY = ladder.y;
+        climbing = false;
+      }
+      for (const box of solids) if (overlap(p, box)) {
+        // At a ladder's top, a neighboring lower ledge may share the same y-coordinate
+        // and slightly overlap the miner's width. Do not let that side edge block climbing.
+        if (climbing && box.y === ladder.y) continue;
+        if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
+        else if (p.vy < 0) p.y = box.y + box.h;
+        p.vy = 0;
+      }
+      for (const box of routePlatforms) {
+        const overlapsLedge = p.x < box.x + box.w && p.x + p.w > box.x;
+        const climbedLedge = p.upperRouteY === box.y;
+        // A ladder-qualified ledge is persistent support, not a one-frame landing test.
+        // This also handles adjacent same-height solids that overlap the miner at the ladder top.
+        // Treat the climbed ledge as a one-way collision plane on every frame.
+        // Use the previous feet position as well as the current one so a fast fall,
+        // knockback, or gravity step cannot tunnel through the platform after release.
+        const persistentLanding = climbedLedge && overlapsLedge &&
+          previousBottom <= box.y + 8 && p.y + p.h >= box.y;
+        const newlyLanded = wasFalling && previousBottom <= box.y &&
+          p.y + p.h >= box.y && overlapsLedge && (mask & INPUT.UP);
+        if (persistentLanding || newlyLanded) {
+          p.y = box.y - p.h;
+          p.grounded = true;
+          p.vy = 0;
+          if (climbedLedge) p.upperRouteY = box.y;
+        }
       }
     }
     if (!wasGrounded && p.grounded) {

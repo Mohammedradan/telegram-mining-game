@@ -151,8 +151,8 @@
   const keyMap = {
     ArrowLeft: 1, KeyA: 1,
     ArrowRight: 2, KeyD: 2,
-    Space: 4, ArrowUp: 4 | 1024, KeyW: 4 | 1024,
-    KeyE: 8, KeyX: 8,
+    Space: 4, ArrowUp: 4, KeyW: 4,
+    KeyE: 8, KeyX: 8, KeyR: 1024,
     KeyF: 16, KeyJ: 16, KeyZ: 16,
     KeyQ: 32, KeyK: 32, KeyC: 32,
     KeyS: 64, ArrowDown: 64, ShiftLeft: 64, ShiftRight: 64,
@@ -161,7 +161,7 @@
     KeyL: 256, KeyU: 256,
   };
   // أسماء المفاتيح للعرض في الإرشاد (تُبنى من keyMap نفسه فلا تتناقض معه)
-  const KEY_HINTS = 'الأسهم/WASD حركة · Space قفز · ↑ قفز للمسار العلوي · J ضرب خفيف (سلسلة) · L ضربة قوية · V مراوغة · S صدّ · Q مهارة · E حفر';
+  const KEY_HINTS = 'الأسهم/WASD حركة · Space قفز · ↑ للقفز، وR أو زر «تسلّق» لصعود السلالم · J ضرب خفيف (سلسلة) · L ضربة قوية · V مراوغة · S صدّ · Q مهارة · E حفر';
 
   // إعدادات التحكم (حجم العصا وشفافيتها وحساسيتها والاهتزاز) — تُحفظ محليًا فقط ولا تمسّ حساب اللاعب.
   // touchPad: أزرار اللمس (العصا + أزرار القتال).

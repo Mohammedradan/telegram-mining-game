@@ -23,7 +23,7 @@ function hitsUntilBroken(s, limit = 1200) {
 }
 
 test('phase 3+V6+V7+V8: the engine version is 8 and the config is normalised to safe values', () => {
-  assert.equal(R.VERSION, 13);
+  assert.equal(R.VERSION, 14);
   assert.deepEqual(R.normalizeConfig(undefined), { zone: 0, goal: 0, mode: 'mine', loadout: Object.fromEntries(R.EQUIPMENT_ORDER.map(id => [id, 0])) });
   assert.equal(R.normalizeConfig({ goal: 9 }).goal, 0, 'an unknown goal falls back to the first one');
   assert.equal(R.normalizeConfig({ goal: 2 }).goal, 2);
@@ -104,8 +104,8 @@ test('phase 3: six mines — rising rock hardness, own palette, own layout, ore 
   assert.equal(new Set(R.ZONES.map(z => z.sky[0] + z.glow)).size, 6, 'each mine looks different');
 });
 
-test('V20: each deep mine has a physically traversable upper branch over its main-route pit', () => {
-  assert.equal(R.VERSION, 13);
+test('V21: each deep mine has a physically traversable upper branch over its main-route pit', () => {
+  assert.equal(R.VERSION, 14);
   for (const [zone, level] of R.LEVELS.entries()) {
     if (zone === 0) continue; // keep the original stone-mine simulation byte-for-byte stable
     const route = level.platforms.filter(p => p.route === 'upper').sort((a, b) => a.x - b.x);

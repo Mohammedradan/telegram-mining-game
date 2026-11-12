@@ -107,7 +107,7 @@ test('C4: الإيقاف والخروج — يمرّان عبر المسار ا�
 
 test('C5: طبقة عرض فقط — القواعد والنسخة والضرر والمكافآت لم تُلمس', () => {
   assert.doesNotMatch(rules, /cx-hud|cx-pause|cx-delta|as-seg|as-pip/, 'no HUD code leaked into the rules');
-  assert.match(rules, /const VERSION = 13/, 'the deep-mine route geometry is versioned');
+  assert.match(rules, /const VERSION = 14/, 'the deep-mine route geometry is versioned');
   assert.doesNotMatch(game, /\.hearts = |\.maxHp = |\.hp = /, 'the display layer never writes combat state back');
   assert.match(game, /startDuel\(zone = 0\) \{/, 'the duel entry point is unchanged in name and place');
 });
