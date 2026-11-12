@@ -781,17 +781,17 @@ async function main() {
         const R = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
         const inter = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
         const area = R('#click-area'), pad = R('#ck-pad'), dig = R('#ck-dig'), miner = R('#ck-hero');
-        let worst = 0, outside = 0, covered = 0;
+        let worst = 0, outside = 0, covered = 0; const outsideSamples = [];
         for (let i = 0; i < 30; i++) {
           DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 1); DigSite.debug.place({ x: 0.26, y: 0.8 }); DigSite.onTap({}); DigSite.debug.step(0.001); // a fresh respawn each time
           const o = R('#mine-btn');
           worst = Math.max(worst, (inter(o, pad) + inter(o, dig)) / (o.w * o.h));
-          if (o.l < area.l - 1 || o.r > area.r + 1 || o.t < area.t - 1 || o.b > area.b + 1) outside++;
+          if (o.l < area.l - 1 || o.r > area.r + 1 || o.t < area.t - 1 || o.b > area.b + 1) { outside++; if (outsideSamples.length < 5) outsideSamples.push({ rock: DigSite.inspect().rock, rect: o, area }); }
           const top = document.elementFromPoint((o.l + o.r) / 2, (o.t + o.b) / 2);
           if (!top || !document.getElementById('mine-btn').contains(top)) covered++;
         }
         DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.26, y: 0.8 });
-        return { area, pad, dig, miner, worst, outside, covered, spec: DigSite.inspect().size };
+        return { area, pad, dig, miner, worst, outside, outsideSamples, covered, spec: DigSite.inspect().size };
       });
       assert.ok(dg.pad.w >= 56 && dg.dig.w >= 50, `${tag}: finger-sized controls (stick ${Math.round(dg.pad.w)}px, button ${Math.round(dg.dig.w)}px)`);
       for (const k of ['pad', 'dig']) assert.ok(dg[k].l >= dg.area.l - 1 && dg[k].r <= dg.area.r + 1 && dg[k].t >= dg.area.t - 1 && dg[k].b <= dg.area.b + 1, `${tag}: the ${k} control is inside the field`);
