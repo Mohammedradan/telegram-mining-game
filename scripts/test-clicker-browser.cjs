@@ -780,24 +780,24 @@ async function main() {
       const dg = await v.page.evaluate(() => {
         const R = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
         const inter = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
-        const area = R('#click-area'), pad = R('#ck-pad'), dig = R('#ck-dig'), miner = R('#ck-hero');
+        const area = R('#click-area'), world = R('.ck-world'), pad = R('#ck-pad'), dig = R('#ck-dig'), miner = R('#ck-hero');
         let worst = 0, outside = 0, covered = 0; const outsideSamples = [];
         for (let i = 0; i < 30; i++) {
           DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 1); DigSite.debug.place({ x: 0.26, y: 0.8 }); DigSite.onTap({}); DigSite.debug.step(0.001); // a fresh respawn each time
           const o = R('#mine-btn');
           worst = Math.max(worst, (inter(o, pad) + inter(o, dig)) / (o.w * o.h));
-          if (o.l < area.l - 1 || o.r > area.r + 1 || o.t < area.t - 1 || o.b > area.b + 1) { outside++; if (outsideSamples.length < 5) outsideSamples.push({ rock: DigSite.inspect().rock, rect: o, area }); }
+          if (o.l < area.l - 1 || o.r > area.r + 1 || o.t < area.t - 1 || o.b > area.b + 1) { outside++; if (outsideSamples.length < 5) outsideSamples.push({ rock: DigSite.inspect().rock, rect: o, area, world, rockCss: { width: getComputedStyle(document.getElementById('mine-btn')).width, height: getComputedStyle(document.getElementById('mine-btn')).height, transform: getComputedStyle(document.getElementById('mine-btn')).transform, origin: getComputedStyle(document.getElementById('mine-btn')).transformOrigin } }); }
           const top = document.elementFromPoint((o.l + o.r) / 2, (o.t + o.b) / 2);
           if (!top || !document.getElementById('mine-btn').contains(top)) covered++;
         }
         DigSite.debug.setRock({ x: 0.6, y: 0.8 }, 12); DigSite.debug.place({ x: 0.26, y: 0.8 });
-        return { area, pad, dig, miner, worst, outside, outsideSamples, covered, spec: DigSite.inspect().size };
+        return { area, world, pad, dig, miner, worst, outside, outsideSamples, covered, spec: DigSite.inspect().size };
       });
       assert.ok(dg.pad.w >= 56 && dg.dig.w >= 50, `${tag}: finger-sized controls (stick ${Math.round(dg.pad.w)}px, button ${Math.round(dg.dig.w)}px)`);
       for (const k of ['pad', 'dig']) assert.ok(dg[k].l >= dg.area.l - 1 && dg[k].r <= dg.area.r + 1 && dg[k].t >= dg.area.t - 1 && dg[k].b <= dg.area.b + 1, `${tag}: the ${k} control is inside the field`);
       assert.equal(overlaps(dg.pad, dg.dig), false, `${tag}: the stick and the dig button do not overlap`);
       assert.ok(dg.miner.h >= 70, `${tag}: the miner is big enough to read (${Math.round(dg.miner.h)}px)`);
-      assert.deepEqual([dg.outside, dg.covered], [0, 0], `${tag}: a respawned rock stays inside the field and its centre is never under a control`);
+      assert.deepEqual([dg.outside, dg.covered], [0, 0], `${tag}: a respawned rock stays inside the field and its centre is never under a control; diagnostics=${JSON.stringify(dg.outsideSamples)}`);
       assert.ok(dg.worst <= 0.1, `${tag}: a respawned rock overlaps the controls by at most a sliver (${(dg.worst * 100).toFixed(1)}%)`);
       // the crew (3 workers + 1 rig) stands inside the field, clear of the stick, the dig button and the rock
       const cw = await v.page.evaluate(() => { state.owned.bot = 3; state.owned.rig = 1; updateUI(); const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
