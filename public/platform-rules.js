@@ -1683,7 +1683,7 @@
         else if (p.vy < 0) p.y = box.y + box.h;
         p.vy = 0;
       }
-      if (wasFalling) for (const box of routePlatforms) {
+      if (wasFalling && (mask & INPUT.UP)) for (const box of routePlatforms) {
         if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
           p.y = box.y - p.h; p.grounded = true; p.vy = 0;
         }
