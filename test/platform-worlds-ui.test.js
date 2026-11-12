@@ -12,6 +12,7 @@ require('../public/platform-renderer.js');
 const { PlatformScenery: Scenery, PlatformBosses: Bosses, PlatformRenderer: Renderer } = globalThis;
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
 const rules = read('platform-rules.js'), game = read('platform-game.js'), html = read('index.html');
+const css = read('platform.css');
 const sceneryJs = read('platform-scenery.js'), bossesJs = read('platform-bosses.js'), rendererJs = read('platform-renderer.js');
 
 // سياق Canvas وهمي: أي دالة مقبولة وتُسجَّل، والتدرجات تدعم addColorStop
@@ -39,6 +40,17 @@ const withBoss = (zone, patch, x = 2000) => {
   Object.assign(boss, patch); s.player.x = x; s.tick = 321;
   return { s, boss };
 };
+
+test('worlds UI: the climb hint appears only near an upper route and stays accessible', () => {
+  assert.match(html, /id="platform-route-hint"/, 'the contextual hint exists inside the mine stage');
+  assert.match(html, /role="status" aria-live="polite"/, 'screen readers receive the hint without focus stealing');
+  assert.match(game, /function updateRouteHint\(\)/, 'the game computes proximity to the branch');
+  assert.match(game, /updateRouteHint\(\);/, 'the hint updates after a simulation step');
+  assert.match(game, /p\.x \+ p\.w > box\.x - 48/, 'the hint is proximity-based, not permanently visible');
+  assert.match(game, /routeHint\.hidden = true/, 'the hint is hidden when pausing or finishing');
+  assert.match(css, /\.platform-route-hint\[hidden\]\{display:none\}/, 'hidden state is respected');
+  assert.match(css, /prefers-reduced-motion:reduce/, 'the hint respects reduced-motion preferences');
+});
 
 test('worlds UI: upper branch ledges have a distinct safety trim and visible climb markers', () => {
   const s = freshState(1);

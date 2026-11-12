@@ -1205,7 +1205,7 @@
     }
   </style>
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=23">
+  <link rel="stylesheet" href="/platform.css?v=24">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/clicker.css?v=9">
@@ -1467,6 +1467,7 @@
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، واستخدم السهم الأعلى للقفز إلى المسارات العلوية"></canvas>
+        <div id="platform-route-hint" class="platform-route-hint" hidden role="status" aria-live="polite">↑ مسار علوي — استخدم السهم الأعلى أو زر «مسار علوي»</div>
         <div id="stage-foe" class="stage-foe" hidden aria-live="off">
           <b id="stage-foe-name">الخصم</b>
           <i class="sf-track"><b id="stage-foe-fill"></b></i>
@@ -5669,6 +5670,6 @@
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
-  <script src="/platform-game.js?v=43"></script>
+  <script src="/platform-game.js?v=44"></script>
 </body>
 </html>
