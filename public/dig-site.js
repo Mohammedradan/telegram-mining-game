@@ -213,7 +213,12 @@
     band = { x0: mx, x1: 1 - mx, y0: CFG.BAND.y0, y1: CFG.BAND.y1 };
     // موضع الصخرة مرساة لمركزها، لكن transform يضخّم صندوقها حتى 1.10× عند أقصى عمق؛ احسب هذا التضخيم مع هامش بكسلات نسبي كي يبقى كامل الزر داخل الساحة.
     const rx = clamp(rockHalf * 1.1 + 0.025, CFG.ROCK_BAND.x0, 0.45);
-    rockBand = { x0: rx, x1: 1 - rx, y0: CFG.ROCK_BAND.y0, y1: CFG.ROCK_BAND.y1 };
+    // الصخرة تُرسم من مرساة أسفلها؛ لذلك يجب ألا يكون مركزها قريباً من أعلى الساحة
+    // بأقل من ارتفاعها المرئي بعد تحجيم العمق. احسب الحد الأدنى من المقاس الفعلي
+    // بدلاً من نسبة ثابتة كانت تسمح للصخرة بالخروج من أعلى الحقل على الهاتف.
+    let ry0 = CFG.ROCK_BAND.y0;
+    for (let i = 0; i < 4; i++) ry0 = Math.max(ry0, (rockH * depthScale(ry0) + 2) / H);
+    rockBand = { x0: rx, x1: 1 - rx, y0: Math.min(ry0, CFG.ROCK_BAND.y1), y1: CFG.ROCK_BAND.y1 };
   }
 
   function avoidZones() {
