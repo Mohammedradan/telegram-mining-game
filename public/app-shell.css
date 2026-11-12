@@ -1,4 +1,5 @@
 
+
     * {
       user-select: none;
       -webkit-user-select: none;
@@ -1192,3 +1193,4 @@
       body.arena-entering #arena-ready, body.arena-entering #arena-stage { animation: none; }
       .ar-balance u { transition: none; }
     }
+  
