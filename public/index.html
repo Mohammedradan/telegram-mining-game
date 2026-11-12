@@ -1466,7 +1466,7 @@
         <span class="mine-energy"><span id="platform-energy">1000</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-bolt"/></svg></span>
       </div>
       <div class="mine-stage">
-        <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، واستخدم السهم الأعلى للقفز إلى المسارات العلوية"></canvas>
+        <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، واستخدم السهم الأعلى لتسلّق السلالم إلى المسارات العلوية"></canvas>
         <div id="platform-route-hint" class="platform-route-hint" hidden role="status" aria-live="polite">↑ مسار علوي — استخدم السهم الأعلى أو زر «مسار علوي»</div>
         <div id="stage-foe" class="stage-foe" hidden aria-live="off">
           <b id="stage-foe-name">الخصم</b>
@@ -1578,7 +1578,7 @@
           <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-left"/></svg><span>يسار</span></button>
           <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>يمين</span></button>
           <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
-          <button type="button" data-platform-input="1028" aria-label="القفز إلى المسار العلوي" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>مسار علوي</span></button>
+          <button type="button" data-platform-input="1024" aria-label="تسلّق السلم إلى المسار العلوي" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>تسلّق</span></button>
           <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
           <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
           <button type="button" data-platform-input="64" aria-label="صدّ" class="action-btn guard-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>صدّ</span></button>
@@ -2339,7 +2339,7 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=18"></script>
+  <script src="/platform-rules.js?v=19"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=3"></script>
   <script src="/platform-bosses.js?v=6"></script>
