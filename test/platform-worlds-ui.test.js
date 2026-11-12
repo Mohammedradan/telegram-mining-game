@@ -72,7 +72,7 @@ test('worlds UI: upper branch platforms draw a bolted access ladder without chan
   Renderer.draw(canvasWith(ctx), s, { reduced: true });
   assert.match(rendererJs, /const ladderX = box\.x \+ 14/, 'upper routes include bolted ladder rails');
   assert.match(rendererJs, /ry \+= 10/, 'ladder rungs are evenly spaced');
-  assert.equal(R.VERSION, 13, 'ladder artwork does not change deterministic simulation version');
+  assert.equal(R.VERSION, 14, 'climbable ladders are part of deterministic simulation version');
 });
 
 test('worlds UI: every mine draws at every position, in every phase of its timed hazards, with and without reduced motion — and never throws', () => {
