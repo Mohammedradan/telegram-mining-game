@@ -33,7 +33,8 @@ test('V8 inputs: dodge, heavy and the analog walk bit are part of the recorded m
   assert.equal(R.INPUT.DODGE, 128);
   assert.equal(R.INPUT.HEAVY, 256);
   assert.equal(R.INPUT.SOFT, 512);
-  assert.equal(R.MAX_MASK, 1023, 'the server must accept exactly the bits the client can send');
+  assert.equal(R.MAX_MASK, 2047, 'the server must accept exactly the bits the client can send, including upper-route input');
+  assert.equal(R.INPUT.UP, 1024);
   // كل بتات V8 مسجّلة في الإيصال، فإعادة التشغيل على الخادم تراها كما هي
   assert.equal(R.replay([{ mask: R.MAX_MASK, frames: 1 }]).ok, true);
   assert.equal(R.replay([{ mask: R.MAX_MASK + 1, frames: 1 }]).ok, false);
