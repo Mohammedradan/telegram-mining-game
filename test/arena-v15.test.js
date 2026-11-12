@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+const shellCss = fs.readFileSync(path.join(ROOT, 'public/app-shell.css'), 'utf8');
 
 test('ارتفاع التطبيق يتبع الحجم الفعلي (لا مساحة ميتة بعد التدوير أو تغيير النافذة)', () => {
   const block = html.slice(html.indexOf('// V16: قِس الارتفاع المرئي الحالي'), html.indexOf('// --- DOM Elements ---'));
