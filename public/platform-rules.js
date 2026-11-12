@@ -1641,7 +1641,7 @@
       const ladderCenter = box.x + 14;
       // Keep the ladder target active until the miner's feet reach the ledge.
       return Math.abs((p.x + p.w / 2) - ladderCenter) <= 28 &&
-        p.y < 300 && p.y + p.h > box.y - 1;
+        p.y < 300 && p.y + p.h > box.y - 3;
     });
     let climbing = Boolean((mask & INPUT.UP) && ladder && !dodging && !p.guard.active && p.hearts > 0);
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
