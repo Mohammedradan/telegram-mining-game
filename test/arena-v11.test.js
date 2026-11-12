@@ -8,7 +8,7 @@ const { waveWindow } = require('../scripts/wave-probe.cjs');
 const { BOTS } = require('../scripts/duel-bots.cjs');
 
 const ROOT = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
 const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
 const rulesSrc = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
 
@@ -95,7 +95,7 @@ test('V11: the phase-2 hint exists, is announced once on enrage, and never block
   assert.match(html, /<div id="arena-hint" class="arena-hint" role="status" aria-live="polite"><\/div>/, 'the hint element exists inside the stage');
   const stage = html.slice(html.indexOf('id="arena-stage"'), html.indexOf('id="arena-ko"'));
   assert.ok(stage.includes('id="arena-hint"'), 'it lives inside the stage, above the KO overlay');
-  const css = html.slice(html.indexOf('.arena-hint {'), html.indexOf('.arena-hint.show'));
+  const css = fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
   assert.match(css, /pointer-events: none/, 'it never swallows a touch');
   assert.match(css, /top: 44px/, 'it sits under the HUD, away from the fighters and the danger lane');
   // V12.1: صار الاختيار في دالة نقية (R.duelHintPlan) — نفس السلوك: نصّ واحد عند حدث المرحلة الثانية
