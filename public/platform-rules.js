@@ -1689,14 +1689,19 @@
         else if (p.vy < 0) p.y = box.y + box.h;
         p.vy = 0;
       }
-      if (wasFalling) for (const box of routePlatforms) {
+      for (const box of routePlatforms) {
         const overlapsLedge = p.x < box.x + box.w && p.x + p.w > box.x;
         const climbedLedge = p.upperRouteY === box.y;
-        // Preserve the historic optional-UP landing behavior for ordinary runs. A miner
-        // who reached this ledge through its ladder keeps the platform solid after release.
-        if (previousBottom <= box.y && p.y + p.h >= box.y && overlapsLedge &&
-            ((mask & INPUT.UP) || climbedLedge)) {
-          p.y = box.y - p.h; p.grounded = true; p.vy = 0;
+        // A ladder-qualified ledge is persistent support, not a one-frame landing test.
+        // This also handles adjacent same-height solids that overlap the miner at the ladder top.
+        const standsOnClimbedLedge = climbedLedge && overlapsLedge &&
+          p.y + p.h >= box.y && p.y + p.h <= box.y + 8;
+        const newlyLanded = wasFalling && previousBottom <= box.y &&
+          p.y + p.h >= box.y && overlapsLedge && (mask & INPUT.UP);
+        if (standsOnClimbedLedge || newlyLanded) {
+          p.y = box.y - p.h;
+          p.grounded = true;
+          p.vy = 0;
           if (climbedLedge) p.upperRouteY = box.y;
         }
       }
