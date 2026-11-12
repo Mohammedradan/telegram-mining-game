@@ -8,7 +8,7 @@
   // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
   // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
   // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
-  const VERSION = 12; // V19.2 (المرحلة A): سلوك الخفاش + اقتصاد الجولة. تذاكر النسخة 11 تُرفض (يُعاد فتحها)
+  const VERSION = 13; // V20: deterministic upper branch routes in the five deep mines; older run tickets are rejected
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -53,8 +53,8 @@
   // DEFEND (64): صدّ الهجمات القادمة — يشغل الحركة والهجوم معاً، فأمام اللاعب قرار دائم: أهجم أم أصد؟
   // V8: DODGE (128) مراوغة بحرية، HEAVY (256) ضربة ثقيلة، SOFT (512) مشي تناظري بطيء من عصا التحكم.
   // كل هذه البتات تدخل في قناع الإدخال المسجّل، فيُعاد تشغيل المباراة على الخادم بنفس النتيجة تماماً.
-  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32, DEFEND: 64, DODGE: 128, HEAVY: 256, SOFT: 512 });
-  const MAX_MASK = 1023;
+  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32, DEFEND: 64, DODGE: 128, HEAVY: 256, SOFT: 512, UP: 1024 });
+  const MAX_MASK = 2047;
   // أوضاع الجولة: mine = منجم التعدين (الافتراضي)، duel = مبارزة قتال حيّة على نفس محرك الحركة.
   const MODES = Object.freeze(['mine', 'duel']);
   // مبارزة: خصم واحد بذكاء الزعيم نفسه (مشي ← إنذار ← موجة أرضية أو اندفاع)، والفوز بإسقاطه.
@@ -249,7 +249,7 @@
   };
   function makeLevel(o) {
     const mid = (a, b) => Math.round((a + b) / 2);
-    const platforms = [...o.ground.map(([a, b]) => ({ x: a, y: 300, w: b - a, h: 80 })), ...o.ledges.map(([x, y, w]) => ({ x, y, w, h: 20 }))];
+    const platforms = [...o.ground.map(([a, b]) => ({ x: a, y: 300, w: b - a, h: 80 })), ...o.ledges.map(([x, y, w]) => ({ x, y, w, h: 20 })), ...(o.branchLedges || []).map(([x, y, w]) => ({ x, y, w, h: 20, route: 'upper' }))];
     const enemies = o.guards.map((g, i) => {
       const base = GUARDS[g[0]], id = i + 1;
       if (g[0] === 'bat') {
@@ -280,6 +280,8 @@
     // المنجم 1 — الحديد: ثلاث فجوات، مكبس سحق عالٍ موقوت (انتظر نافذته) وحفرة أشواك.
     {
       id: 'iron', exit: { x: 2540 },
+      // مسار علوي اختياري يعبر حفرة الأشواك، ثم يعود إلى الأرض الآمنة.
+      branchLedges: [[1545, 230, 100], [1655, 230, 100]],
       ground: [[0, 560], [655, 1235], [1340, 1960], [2055, 2680]],
       ledges: [[390, 232, 100], [1090, 226, 70], [2150, 230, 110], [2310, 224, 120]],
       rocks: [[[170, 310]], [[740, 860]], [[1440, 1500]]],
@@ -295,6 +297,8 @@
     // المنجم 2 — الذهب: فجوتان، فتحة غبار ذهبي، حفرة، وعملاق الذهب في الساحة الأخيرة.
     {
       id: 'gold', exit: { x: 2540 },
+      // ممر مرتفع يتجاوز حفرة المدخل؛ يمكن للاعب اختيار القفز فوقها أو المخاطرة بالعبور أرضاً.
+      branchLedges: [[420, 230, 100], [530, 230, 100]],
       ground: [[0, 720], [820, 1470], [1570, 2680]],
       ledges: [[330, 230, 100], [1210, 224, 90]],
       rocks: [[[110, 190]], [[900, 960]], [[1650, 1700]]],
@@ -314,6 +318,8 @@
     // المنجم 3 — البلّور: ثلاث فجوات وثلاثة أخطار قصيرة (فتحة بلّور، أشواك موقوتة بطور مختلف، حفرة).
     {
       id: 'crystal', exit: { x: 2540 },
+      // شرفة بلورية علوية تتيح تجاوز حفرة المسار الرئيسي.
+      branchLedges: [[2090, 230, 100], [2200, 230, 100]],
       ground: [[0, 560], [650, 1250], [1340, 1960], [2050, 2680]],
       ledges: [[380, 230, 90], [1590, 226, 80], [2330, 222, 100], [2440, 230, 80]],
       rocks: [[[160, 300]], [[720, 820]], [[1420, 1500]]],
@@ -330,6 +336,8 @@
     // المنجم 4 — الحمم: نوافير حمم تنطلق من الفجوات (اعبر في لحظة هدوئها) مع حفرة وشعلة موقوتة.
     {
       id: 'lava', exit: { x: 2540 },
+      // ممر علوي فوق حفرة الحمم، بعيد عن فوهات النوافير.
+      branchLedges: [[1590, 230, 100], [1700, 230, 100]],
       ground: [[0, 560], [665, 1240], [1350, 1960], [2065, 2680]],
       ledges: [[360, 230, 100], [2340, 228, 100], [2450, 224, 70]],
       rocks: [[[170, 300]], [[780, 900]], [[1420, 1500]]],
@@ -347,6 +355,8 @@
     // المنجم 5 — الأسطورة: مكبس وحفرة ثم حارس القلب (اندفاع وموجة صدم) في ساحة طويلة.
     {
       id: 'legend', exit: { x: 2540 },
+      // طريق علوي اختياري يتجاوز حفرة قلب الأسطورة.
+      branchLedges: [[1470, 230, 100], [1580, 230, 100]],
       ground: [[0, 540], [640, 1180], [1280, 2680]],
       ledges: [[340, 230, 100], [1020, 226, 80]],
       rocks: [[[130, 230]], [[720, 790]], [[1350, 1400]]],
@@ -1623,8 +1633,11 @@
 
     // الارتداد يغلب الإدخال أثناء إطارات تطبيقه (9 إطارات) ثم يعود التحكم كاملاً
     if (p.knock && p.knock.ticks > 0) { p.knock.ticks--; p.vx = p.knock.vx; }
-    const solids = level.platforms.concat(s.rocks.filter(r => r.hp > 0));
+    const routePlatforms = level.platforms.filter(box => box.route === 'upper');
+    const solids = level.platforms.filter(box => box.route !== 'upper').concat(s.rocks.filter(r => r.hp > 0));
     // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
+    // Upper branches are one-way ledges: they can be landed on from above, but never
+    // block the main route from the side or ceiling. This keeps both routes usable.
     p.x += p.vx * DT;
     for (const box of solids) if (overlap(p, box)) {
       if (p.vx > 0) p.x = box.x - p.w;
@@ -1634,12 +1647,19 @@
     // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
     if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
     p.vy = Math.min(680, p.vy + 1200 * DT);
+    const wasFalling = p.vy >= 0;
+    const previousBottom = p.y + p.h;
     p.y += p.vy * DT;
     const wasGrounded = p.grounded; p.grounded = false;
     for (const box of solids) if (overlap(p, box)) {
       if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
       else if (p.vy < 0) p.y = box.y + box.h;
       p.vy = 0;
+    }
+    if (wasFalling && (mask & INPUT.UP)) for (const box of routePlatforms) {
+      if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
+        p.y = box.y - p.h; p.grounded = true; p.vy = 0;
+      }
     }
     if (!wasGrounded && p.grounded) {
       p.landTimer = 6;

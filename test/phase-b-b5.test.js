@@ -5,7 +5,7 @@
 // أي أن أخطر هجوم متكرر في اللعب (433ms إنذار ثم سقوط عمودي) لم يكن يُعلَن للاعب بأي إشارة.
 //
 // كل ما هنا عرض فقط: لا نلمس `platform-rules.js`، ولا نطيل إنذاراً ولا نقصّره، ولا نغيّر ضرراً أو توقيتاً.
-// الدليل على ذلك حارس بصمة المحاكاة في `test/phase-b-baseline.test.js` (VERSION 12 كما هو).
+// بصمة المحاكاة الأساسية للمنجم الحجري محفوظة؛ V20 يضيف مسارات في المناجم الأعمق فقط.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -256,7 +256,7 @@ test('B5: the dive is audible, the landing throws dust, and nothing in the simul
   const spawn = game.slice(game.indexOf('function watchBatLandings'), game.indexOf('function advance('));
   assert.ok((spawn.match(/particles\.push/g) || []).length === 1 && /i < 6/.test(spawn), 'six dust motes per landing at most');
   // 3) الحتمية: لا لمس للمحرك ولا لتوقيته
-  assert.equal(R.VERSION, 12, 'the rules version is untouched');
+  assert.equal(R.VERSION, 13, 'V20 intentionally versions the deep-mine route geometry');
   assert.equal(R.BAT.windup, 26, "the warning length is the engine's, not ours");
   assert.match(html, /platform-telegraphs\.js\?v=1/, 'the module ships with the page');
   assert.ok(html.indexOf('platform-telegraphs.js') < html.indexOf('platform-renderer.js'), 'loaded before the renderer that uses it');

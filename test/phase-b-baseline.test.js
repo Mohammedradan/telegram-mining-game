@@ -93,8 +93,8 @@ test('B0: presentation budgets stay capped (particles, voices, DPR, hit-stop)', 
   assert.match(read('public/platform-rules.js'), /jumpBuffer = \(mask & INPUT\.JUMP\)[\s\S]{0,80}?6 :/, 'jump buffer of 6 frames');
 });
 
-test('B0: the simulation is still bit-identical to the recorded baseline (VERSION 12)', () => {
-  assert.equal(R.VERSION, 12, 'Phase B so far must not touch the rules version');
+test('B0: the stone-mine simulation is still bit-identical to the recorded baseline (VERSION 13)', () => {
+  assert.equal(R.VERSION, 13, 'V20 versions the geometry change; the stone-mine baseline remains unchanged');
   // الأشرطة نفسها محفوظة في الخط الأساسي (لا تُعاد بالبوت): لو تغيّرت الفيزياء لَتغيّرت الحالة الناتجة،
   // فيسقط هذا الاختبار حتى يُعلَن التغيير عمداً ويُرفع VERSION. هذا هو صمّام أمان «الإحساس بلا تغيير سلوكي».
   for (const tape of doc.simTapes) {
