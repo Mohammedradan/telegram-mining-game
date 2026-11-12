@@ -6,11 +6,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-const inlineStyle = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
-const shellLink = /<link[^>]+href="(\\/app-shell\\.css(?:\\?[^"]*)?)"/.exec(html);
+const shellLink = /<link[^>]+href="(\/app-shell\.css(?:\?[^"]*)?)"/.exec(html);
 const style = shellLink
-  ? fs.readFileSync(path.join(__dirname, '..', 'public', shellLink[1].replace(/^\\//, '').replace(/[?#].*$/, '')), 'utf8')
-  : inlineStyle;
+  ? fs.readFileSync(path.join(__dirname, '..', 'public', shellLink[1].replace(/^\//, '').replace(/[?#].*$/, '')), 'utf8')
+  : html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 
 test('the extracted app shell stylesheet is linked and loaded from the local public asset', () => {
   assert.ok(shellLink, 'index.html must link the extracted app-shell.css');
