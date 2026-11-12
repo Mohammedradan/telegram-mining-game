@@ -24,7 +24,7 @@ const px = (re, src = html) => {
 
 test('قبل المبارزة: شريط الحالة ينزل تحت صف الأدوات (ولا يخرج من وضع المزيد)', () => {
   assert.match(
-    html,
+    css,
     /body\.arena-live:not\(\.arena-more\):not\(\.duel-live\) #arena-stage \.as-hud \{ top: 52px; \}/,
     'as-hud is pushed below the floating chips before the duel only'
   );
@@ -33,7 +33,7 @@ test('قبل المبارزة: شريط الحالة ينزل تحت صف الأ
 });
 
 test('الهندسة: ارتفاع زر البدء + هامشه لا يصل إلى موضع شريط الحالة', () => {
-  const btnMin = px(/\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \.arena-duel-btn \{[^}]*min-height: (\d+)px/);
+  const btnMin = px(/body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \.arena-duel-btn \{[^}]*min-height: (\d+)px/);
   const top = px(/body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \{\s*position: absolute; top: (\d+)px/);
   const hudTop = px(/body\.arena-live:not\(\.arena-more\):not\(\.duel-live\) #arena-stage \.as-hud \{ top: (\d+)px; \}/);
   const bottom = top + btnMin; // أسفل الزر/الإحصاء يمين الشاشة
