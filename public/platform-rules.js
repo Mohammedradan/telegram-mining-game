@@ -281,7 +281,7 @@
     {
       id: 'iron', exit: { x: 2540 },
       // مسار علوي اختياري يعبر حفرة الأشواك، ثم يعود إلى الأرض الآمنة.
-      branchLedges: [[1530, 230, 100], [1640, 230, 100]],
+      branchLedges: [[1545, 230, 100], [1655, 230, 100]],
       ground: [[0, 560], [655, 1235], [1340, 1960], [2055, 2680]],
       ledges: [[390, 232, 100], [1090, 226, 70], [2150, 230, 110], [2310, 224, 120]],
       rocks: [[[170, 310]], [[740, 860]], [[1440, 1500]]],
@@ -1647,6 +1647,7 @@
     // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
     if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
     p.vy = Math.min(680, p.vy + 1200 * DT);
+    const wasFalling = p.vy >= 0;
     const previousBottom = p.y + p.h;
     p.y += p.vy * DT;
     const wasGrounded = p.grounded; p.grounded = false;
@@ -1655,7 +1656,7 @@
       else if (p.vy < 0) p.y = box.y + box.h;
       p.vy = 0;
     }
-    if (p.vy >= 0) for (const box of routePlatforms) {
+    if (wasFalling) for (const box of routePlatforms) {
       if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
         p.y = box.y - p.h; p.grounded = true; p.vy = 0;
       }
