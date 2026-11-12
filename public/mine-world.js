@@ -31,10 +31,11 @@
     const vertical=!!(ladder||lift) && Math.abs(y)>.05;
     const ox=miner.x, oy=miner.y;
     miner.x=clamp(miner.x+x*k*speed*dt,band.x0,band.x1);
-    if (vertical) {
-      miner.y=clamp(miner.y+y*k*speed*depthSpeed*dt*a,band.y0,band.y1);
-      state.floor=miner.y<.56?'upper':'lower';
-    }
+    // The y axis is ordinary 2.5D depth movement on either work lane.
+    // A shaft is required only to change floors; otherwise the miner can still
+    // walk toward/away from the camera to approach rocks at different depths.
+    miner.y=clamp(miner.y+y*k*speed*depthSpeed*dt*a,band.y0,band.y1);
+    if (vertical) state.floor=miner.y<.56?'upper':'lower';
     state.climbing=vertical;
     if (Math.abs(x)>.2) miner.face=x>0?1:-1;
     let transition=null;
