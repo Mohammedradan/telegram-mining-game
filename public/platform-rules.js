@@ -53,7 +53,7 @@
   // DEFEND (64): صدّ الهجمات القادمة — يشغل الحركة والهجوم معاً، فأمام اللاعب قرار دائم: أهجم أم أصد؟
   // V8: DODGE (128) مراوغة بحرية، HEAVY (256) ضربة ثقيلة، SOFT (512) مشي تناظري بطيء من عصا التحكم.
   // كل هذه البتات تدخل في قناع الإدخال المسجّل، فيُعاد تشغيل المباراة على الخادم بنفس النتيجة تماماً.
-  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32, DEFEND: 64, DODGE: 128, HEAVY: 256, SOFT: 512 });
+  const INPUT = Object.freeze({ LEFT: 1, RIGHT: 2, JUMP: 4, MINE: 8, ATTACK: 16, SKILL: 32, DEFEND: 64, DODGE: 128, HEAVY: 256, SOFT: 512, UP: 1024 });
   const MAX_MASK = 1023;
   // أوضاع الجولة: mine = منجم التعدين (الافتراضي)، duel = مبارزة قتال حيّة على نفس محرك الحركة.
   const MODES = Object.freeze(['mine', 'duel']);
@@ -1656,7 +1656,7 @@
       else if (p.vy < 0) p.y = box.y + box.h;
       p.vy = 0;
     }
-    if (wasFalling) for (const box of routePlatforms) {
+    if (wasFalling && (mask & INPUT.UP)) for (const box of routePlatforms) {
       if (previousBottom <= box.y && p.y + p.h >= box.y && p.x < box.x + box.w && p.x + p.w > box.x) {
         p.y = box.y - p.h; p.grounded = true; p.vy = 0;
       }
