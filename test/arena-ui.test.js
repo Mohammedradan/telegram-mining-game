@@ -7,7 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const R = require('../public/arena-rules');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
 const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
 const script = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map((m) => {
   const src = /\bsrc="([^"]+)"/.exec(m[1]);
@@ -391,7 +391,7 @@ test('finishing a duel speaks about the duel — its own title, lead and button 
 });
 
 test('arena fight HUD: hearts, a trailing damage bar and a live combo popup', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
   assert.match(html, /<i class="as-hp"><s id="arena-ghost-hero"><\/s><b id="arena-hp-hero">/, 'the hero bar has a trailing ghost layer');
   assert.match(html, /<i class="as-hp rival"><s id="arena-ghost-rival"><\/s><b id="arena-hp-rival">/, 'and so does the rival bar');
@@ -411,7 +411,7 @@ test('a landing hit freezes the frame briefly and the verdict banner marks the f
   assert.match(game, /function duelVerdict\(won, rival\)/, 'a verdict banner is drawn on the stage');
   assert.match(game, /title\.textContent = won \? 'انتصار' : 'سقوط'/, 'it says win or loss');
   assert.match(game, /duelVerdictHide\(\);[\s\S]{0,120}duelStatusLine/, 'and it is cleared when the fight ends');
-  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
   assert.match(html, /id="arena-ko"[^>]*aria-live="assertive"/, 'the banner is announced to screen readers');
   assert.match(html, /\.arena-ko\.loss b/, 'and turns red on a loss');
 });
@@ -428,7 +428,7 @@ test('the arena stage shows real combat feedback: hit sparks, damage numbers and
 });
 
 test('arena stage HUD: both fighters get equal-width health bars and untruncated names', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
   const css = html.match(/\.as-fighter \{[^}]*\}/);
   assert.ok(css, 'the fighter wrapper has a CSS rule');
   assert.match(css[0], /flex: 1 1 0/, 'both fighters share one flex basis so the two bars match in width');

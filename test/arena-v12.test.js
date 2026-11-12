@@ -70,10 +70,11 @@ test('سياسة الالتقاط تحترم قناع الإدخال: لا بت�
 
 test('الواجهة: زرّا اللقطة موجودان ويظهران خارج المبارزة فقط', () => {
   const html = read('public/index.html');
+const css = read('public/app-shell.css');
   assert.match(html, /onclick="arenaShot\('boss'\)"/, 'a boss-shot button');
   assert.match(html, /onclick="arenaShot\('wave'\)"/, 'a wave-shot button');
   assert.match(html, /class="arena-shots"/, 'grouped and labelled');
-  assert.match(html, /body\.duel-live \.arena-shots \{ display: none; \}/, 'hidden during a real duel');
+  assert.match(css, /body\.duel-live \.arena-shots \{ display: none; \}/, 'hidden during a real duel');
   const shot = html.slice(html.indexOf('function arenaShot'), html.indexOf('function startArenaDuel'));
   assert.match(shot, /game\.arenaSnapshot\(kind\)/, 'it goes through the arena controller');
   assert.doesNotMatch(shot, /fetch\(|jpost\(|api\//, 'no server call: a capture never starts a run');
@@ -141,9 +142,10 @@ test('الواجهة: التذكير يُرسَل بنوعه، يُصرف مرة
   const resets = game.match(/hintReminderShown = false/g) || [];
   assert.ok(resets.length >= 2, 'reset on stage rebuild and on every new duel');
   const html = read('public/index.html');
-  assert.match(html, /\.arena-hint\.remind \{[^}]*font-size: 9\.5px/, 'the reminder is smaller than the 10.5px main hint');
-  assert.match(html, /\.arena-hint\.remind \{[^}]*max-width: 72%/, 'and narrower, so it hides less of the fight');
-  assert.match(html, /\.arena-hint\.remind \{[^}]*padding: 4px 9px/, 'and more compact');
+  const css = read('public/app-shell.css');
+  assert.match(css, /\.arena-hint\.remind \{[^}]*font-size: 9\.5px/, 'the reminder is smaller than the 10.5px main hint');
+  assert.match(css, /\.arena-hint\.remind \{[^}]*max-width: 72%/, 'and narrower, so it hides less of the fight');
+  assert.match(css, /\.arena-hint\.remind \{[^}]*padding: 4px 9px/, 'and more compact');
 });
 
 test('موجة الساحة تركوازية بحدّ داكن، وموجة المنجم تبقى كهرمانية كما هي', () => {

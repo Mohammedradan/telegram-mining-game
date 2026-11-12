@@ -7,7 +7,8 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
-const css = html.slice(html.indexOf('/* ===== V17'), html.indexOf('</style>'));
+const shellCss = fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
+const css = shellCss.slice(shellCss.indexOf('/* ===== V17'));
 
 test('زرّان داخل تبويب الساحة: التبويبات والمزيد', () => {
   const start = html.indexOf('<div id="arena-x-bar"');
@@ -33,8 +34,8 @@ test('المسرح ملء الشاشة داخل التبويب، والأدوا�
   assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-x-bar \{[^}]*position: absolute; top: 8px; left: 8px/, 'the chips float in the sky (left)');
   assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \{[^}]*position: absolute; top: 8px; right: 8px/, 'the start button floats in the sky (right) — never over the fighters');
   assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > \.as-bar \.arena-duel-btn \{[^}]*min-height: 40px/, 'and shrinks to a compact pill so it does not eat the frame');
-  const wideRule = html.indexOf('body:not(.duel-live) #tab-arena.active {');
-  const v17Rule = html.indexOf('body.arena-live:not(.arena-more) #tab-arena.active {');
+  const wideRule = shellCss.indexOf('body:not(.duel-live) #tab-arena.active {');
+  const v17Rule = shellCss.indexOf('body.arena-live:not(.arena-more) #tab-arena.active {');
   assert.ok(wideRule > 0 && v17Rule > wideRule, 'the two-column grid (V15) is overridden later in the file, so it loses the tie');
 });
 
@@ -61,8 +62,8 @@ test('التبديل مربوط فعلاً: يفتح مع الساحة ويُغ�
 });
 
 test('أثناء المبارزة يبقى شريط المبارزة الكاملة فقط — الشاشتان لا تتزاحمان', () => {
-  assert.match(html, /body\.duel-live #tab-arena > \*:not\(#arena-stage\):not\(#arena-pad\):not\(#arena-duel-status\):not\(#arena-fs-bar\) \{ display: none !important; \}/, 'the duel still hides every child except its four');
+  assert.match(shellCss, /body\.duel-live #tab-arena > \*:not\(#arena-stage\):not\(#arena-pad\):not\(#arena-duel-status\):not\(#arena-fs-bar\) \{ display: none !important; \}/, 'the duel still hides every child except its four');
   // V19.1 (D1): الشرائح تُخفى صراحةً في المبارزة (كانت تُخفى ضمناً بالقاعدة العامة) —
   // أي قاعدة جديدة تخصّ الشريحتين في المبارزة يجب أن تكون «إخفاءً» لا «إظهاراً».
-  assert.match(html, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the arena chips are explicitly hidden during a duel');
+  assert.match(css, /body\.duel-live #arena-x-bar \{ display: none; \}/, 'the arena chips are explicitly hidden during a duel');
 });

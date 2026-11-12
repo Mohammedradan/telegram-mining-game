@@ -101,7 +101,7 @@ test('difficulty guard: a reference strategy still wins about half of its matche
 
 test('the arena screen is interactive: announced intent, verdict card, keyboard shortcuts and a clean idle state', () => {
   const html = read('public/index.html');
-  const css = html.slice(html.indexOf('<style'), html.indexOf('</style>'));
+  const css = read('public/app-shell.css');
   const arena = html.slice(html.indexOf('// ================= ⚔️ ساحة القتال'), html.indexOf('// --- التعزيز والمكافأة اليومية ---'));
   // ١) النيّة تُعرض من المحرك المشترك، وتُخفى أثناء دور الخصم
   assert.match(arena, /const intent = battle\?\.active && !battle\.busy \? ArenaRules\.enemyIntent\(battle\) : null;/);

@@ -8,9 +8,11 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+const shellCss = fs.readFileSync(path.join(ROOT, 'public/app-shell.css'), 'utf8');
+const css = shellCss;
 
 test('وضع الشاشة الكاملة يغطّي الشاشة ويخصّ المبارزة فقط', () => {
-  const css = html.slice(html.indexOf('/* ===== V14'), html.indexOf('.arena-fs-bar {'));
+  const css = shellCss.slice(shellCss.indexOf('/* ===== V14'), shellCss.indexOf('.arena-fs-bar {'));
   assert.match(css, /body\.duel-live #tab-arena \{\s*position: fixed; inset: 0; z-index: 80/, 'the arena tab takes the whole viewport during a fight');
   assert.match(css, /body\.duel-live \{ overflow: hidden;/, 'the page behind it cannot scroll');
   // القاعدة السالبة: كل ما ليس المسرح/اللوحة/الحالة/الشريط يختفي
@@ -22,7 +24,7 @@ test('وضع الشاشة الكاملة يغطّي الشاشة ويخصّ ال
 });
 
 test('المسرح يكبر بلا تشويه: ارتفاعه مقيّد بعرض الشاشة لا بالطول', () => {
-  const css = html.slice(html.indexOf('body.duel-live #arena-stage'), html.indexOf('body.duel-live #arena-preview'));
+  const css = shellCss.slice(shellCss.indexOf('body.duel-live #arena-stage'), shellCss.indexOf('body.duel-live #arena-preview'));
   assert.match(css, /width: 100%/, 'full width');
   assert.match(css, /height: min\(58vh, 88vw\)/, 'height capped by viewport width so the world stays square-pixeled');
   assert.match(css, /aspect-ratio: auto/, 'no fixed 16:9 letterbox inside the fullscreen layout');
@@ -33,7 +35,7 @@ test('المسرح يكبر بلا تشويه: ارتفاعه مقيّد بعر�
 });
 
 test('لوحة اللمس تبقى في منطقة الإبهام وتكبر مع الشاشة', () => {
-  const css = html.slice(html.indexOf('body.duel-live #arena-pad'), html.indexOf('.arena-fs-bar {'));
+  const css = shellCss.slice(shellCss.indexOf('body.duel-live #arena-pad'), shellCss.indexOf('.arena-fs-bar {'));
   assert.match(css, /padding: 8px 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/, 'respects the phone safe area');
   assert.match(css, /\.ap-hit \{ min-height: 64px/, 'the attack button grows to 64px');
   assert.match(css, /\.arena-stick \{ width: 76px; height: 76px; \}/, 'and so does the stick');
@@ -43,8 +45,8 @@ test('شريط المبارزة: إيقاف/متابعة وانسحاب، ولا
   const bar = html.slice(html.indexOf('<div id="arena-fs-bar"'), html.indexOf('<!-- مسرح حيّ'));
   assert.match(bar, /id="arena-fs-pause"/);
   assert.match(bar, /id="arena-fs-exit"/);
-  assert.match(html, /\.arena-fs-bar \{\s*display: none;/, 'hidden by default');
-  assert.match(html, /body\.duel-live \.arena-fs-bar \{ display: flex; \}/, 'shown only in a duel');
+  assert.match(css, /\.arena-fs-bar \{\s*display: none;/, 'hidden by default');
+  assert.match(css, /body\.duel-live \.arena-fs-bar \{ display: flex; \}/, 'shown only in a duel');
   assert.match(html, /id="arena-fs-bar" class="arena-fs-bar" aria-label="تحكم المبارزة"/, 'labelled for screen readers');
 });
 
@@ -73,7 +75,7 @@ test('الشاشة الكاملة الحقيقية اختيارية: فشلها 
 });
 
 test('تلميحات الموجة والزعيم تبقى داخل المسرح المكبَّر (لا تُثبَّت على الشاشة)', () => {
-  const hint = html.slice(html.indexOf('.arena-hint {'), html.indexOf('.arena-hint.show'));
+  const hint = css.slice(css.indexOf('.arena-hint {'), css.indexOf('.arena-hint.show'));
   assert.match(hint, /position: absolute/, 'the hint is positioned against the stage, so a bigger stage moves it with the art');
   assert.match(hint, /top: 44px/, 'and keeps its distance from the HUD');
   const stage = html.slice(html.indexOf('<div id="arena-stage"'), html.indexOf('<div class="as-bar">'));

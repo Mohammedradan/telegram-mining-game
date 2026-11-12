@@ -6,6 +6,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
+const shellCss = fs.readFileSync(path.join(ROOT, 'public/app-shell.css'), 'utf8');
 
 test('ارتفاع التطبيق يتبع الحجم الفعلي (لا مساحة ميتة بعد التدوير أو تغيير النافذة)', () => {
   const block = html.slice(html.indexOf('// V16: قِس الارتفاع المرئي الحالي'), html.indexOf('// --- DOM Elements ---'));
@@ -22,7 +23,7 @@ test('ارتفاع التطبيق يتبع الحجم الفعلي (لا مسا�
 });
 
 test('شاشة عريضة: عمود للمسرح وعمود للوحة بدل عمود هاتف طويل', () => {
-  const css = html.slice(html.indexOf('/* ===== V15: تخطيط تكيّفي'), html.indexOf('/* هاتف أفقي قصير'));
+  const css = shellCss.slice(shellCss.indexOf('/* ===== V15: تخطيط تكيّفي'), shellCss.indexOf('/* هاتف أفقي قصير'));
   assert.match(css, /#tab-arena\.active \{\s*\n\s*display: grid/, 'the arena tab becomes a grid — only while it is the open tab, so .tab-content{display:none} still wins elsewhere');
   assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(230px, 330px\)/, 'stage column + info column');
   assert.match(css, /#tab-arena > #arena-stage \{[^}]*grid-column: 1;/, 'the stage owns the first column');
@@ -35,7 +36,7 @@ test('شاشة عريضة: عمود للمسرح وعمود للوحة بدل ع
 });
 
 test('هاتف أفقي قصير: المسرح يملأ الشاشة واللمس يطفو فوقه', () => {
-  const css = html.slice(html.indexOf('@media (orientation: landscape) {'));
+  const css = shellCss.slice(shellCss.indexOf('@media (orientation: landscape) {'));
   assert.match(css, /body\.duel-live #tab-arena > #arena-stage \{[^}]*position: absolute; inset: 0/, 'the stage covers the landscape screen');
   assert.match(css, /body\.duel-live #tab-arena > #arena-pad \{[^}]*position: absolute;[^}]*bottom: 0/, 'the pad is docked to the bottom edge');
   assert.match(css, /body\.duel-live #tab-arena > #arena-pad \{[^}]*direction: ltr/, 'and mirrored: stick on the left thumb, actions on the right');
@@ -48,27 +49,28 @@ test('هاتف أفقي قصير: المسرح يملأ الشاشة واللم�
 
 test('المقاسات القديمة محفوظة: الهاتف الطولي لم يتغيّر', () => {
   // قاعدة المسرح الأساسية لا تحمل أي استعلام وسائط جديد
-  const base = html.slice(html.indexOf('.arena-stage {'), html.indexOf('#arena-preview {'));
+  const css = shellCss;
+  const base = shellCss.slice(shellCss.indexOf('.arena-stage {'), shellCss.indexOf('#arena-preview {'));
   assert.match(base, /aspect-ratio: 16 \/ 9/, 'portrait stage keeps 16:9');
   assert.match(base, /max-height: 46vh/, 'and its vh cap');
   // استعلام العريض يبدأ عند 780px فقط، فلا يمسّ الهواتف
   assert.ok(780 >= 640, 'the breakpoint sits above every phone width');
-  assert.match(html, /@media \(max-width: 340px\)/, 'the narrow-phone rule from V13 is still there');
+  assert.match(css, /@media \(max-width: 340px\)/, 'the narrow-phone rule from V13 is still there');
 });
 
 test('الوضع الأفقي يعكس لوحة اللمس: العصا يساراً والأفعال يميناً', () => {
-  const css = html.slice(html.indexOf('@media (orientation: landscape) {'), html.indexOf('/* ===== V14:'));
+  const css = shellCss.slice(shellCss.indexOf('@media (orientation: landscape) {'), shellCss.indexOf('/* ===== V14:'));
   assert.match(css, /direction: ltr/, 'the pad row is mirrored in landscape');
   // ترتيب DOM هو ما يُعكس: العصا أولاً ثم أزرار الفعل
   const pad = html.slice(html.indexOf('<div id="arena-pad"'), html.indexOf('</div>', html.indexOf('<div class="ap-group ap-acts"')));
   assert.ok(pad.indexOf('id="arena-stick"') < pad.indexOf('ap-acts'), 'the stick is the first child, so mirroring puts it on the left');
   // الوضع الطولي لا يُعكس
-  const portraitOnly = html.slice(0, html.indexOf('@media (orientation: landscape) {'));
+  const portraitOnly = shellCss.slice(0, shellCss.indexOf('@media (orientation: landscape) {'));
   assert.doesNotMatch(portraitOnly.slice(portraitOnly.indexOf('.arena-pad {')), /direction: ltr[^]*arena-pad/, 'no mirror outside landscape');
 });
 
 test('بقية التبويبات على الشاشة العريضة: المتجر عمودان والتعدين يتّسع', () => {
-  const css = html.slice(html.indexOf('/* V15.2:'), html.indexOf('/* ===== V14:'));
+  const css = shellCss.slice(shellCss.indexOf('/* V15.2:'), shellCss.indexOf('/* ===== V14:'));
   assert.match(css, /#tab-shop\.active \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, 'shop upgrade rows sit in two columns');
   assert.match(css, /#tab-shop > #prestige-card[^}]*grid-column: 1 \/ -1/, 'full-width cards keep spanning both columns');
   assert.match(css, /#tab-shop > div \{ min-width: 0; \}/, 'rows can shrink inside their column instead of overflowing');
@@ -77,9 +79,9 @@ test('بقية التبويبات على الشاشة العريضة: المتج
 });
 
 test('V15.3: أزرار المبارزة في الأفقي بحجم إبهام لا تتمدد، والعصا تكبر', () => {
-  const start = html.indexOf('/* ===== V15.3');
+  const start = shellCss.indexOf('/* ===== V15.3');
   assert.ok(start > 0, 'the landscape polish block exists');
-  const css = html.slice(start, html.indexOf('</style>'));
+  const css = shellCss.slice(start);
   assert.match(css, /@media \(orientation: landscape\)/, 'only in landscape');
   // الأزرار: عرض مُقيَّد بدل التمدد، ولا تنزل عن حد لمس آمن
   assert.match(css, /#arena-pad > \.ap-acts \{[^}]*flex: 0 0 auto/, 'the action group no longer stretches');

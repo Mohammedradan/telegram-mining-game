@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
 const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
 const rules = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
 
