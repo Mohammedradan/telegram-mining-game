@@ -11,6 +11,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Bind publicly so Render can detect the service port (PORT remains Render-managed).
+      - key: HOST
+        value: "0.0.0.0"
       # وضع الإنتاج: الخادم يرفض البدء إن نقص BOT_TOKEN أو DATABASE_URL أو APP_URL (راجع DEPLOYMENT.md)
       - key: NODE_ENV
         value: production
