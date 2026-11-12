@@ -138,7 +138,7 @@
   const keyMap = {
     ArrowLeft: 1, KeyA: 1,
     ArrowRight: 2, KeyD: 2,
-    Space: 4, ArrowUp: 4, KeyW: 4,
+    Space: 4, ArrowUp: 4 | 1024, KeyW: 4 | 1024,
     KeyE: 8, KeyX: 8,
     KeyF: 16, KeyJ: 16, KeyZ: 16,
     KeyQ: 32, KeyK: 32, KeyC: 32,
