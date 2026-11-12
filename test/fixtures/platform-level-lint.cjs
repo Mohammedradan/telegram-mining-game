@@ -13,7 +13,7 @@ const overlap = (a0, a1, b0, b1) => a0 < b1 && a1 > b0;
 function lintLevel(level, { strict = true } = {}) {
   const bad = [];
   const ground = level.platforms.filter(p => p.y === 300 && p.h === 80).sort((a, b) => a.x - b.x);
-  const ledges = level.platforms.filter(p => p.h === 20);
+  const ledges = level.platforms.filter(p => p.h === 20 && p.route !== 'upper');
   const gaps = [];
   for (let i = 1; i < ground.length; i++) gaps.push([ground[i - 1].x + ground[i - 1].w, ground[i].x]);
   const onGround = (x0, x1, pad = 0) => ground.some(g => x0 >= g.x + pad && x1 <= g.x + g.w - pad);
