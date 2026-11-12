@@ -414,7 +414,10 @@
         haptic('success');
       }
       if (els && els.miner && els.miner.dataset) els.miner.dataset.climbing = traversal.climbing ? 'true' : 'false';
-      moved = traversal.moved;   // المسافة الفعلية: الضغط على الصخرة لا يُحسب مشياً
+      // احسب الحركة بعد فصل التصادم؛ MineWorld.step يحسب الإزاحة قبل أن يمنع
+      // الصخرة المعدّن من التقدم، وإلا تظهر دورة مشي وهو عالق مكانه.
+      // الانتقال بين المناجم نقل فوري وليس خطوة مشي أيضاً.
+      moved = traversal.transition ? 0 : Math.hypot(miner.x - ox, (miner.y - oy) / Math.max(0.2, aspect));
     }
     miner.moving = moved > 1e-5;
     miner.step += moved / CFG.STEP_LEN;
