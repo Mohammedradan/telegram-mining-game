@@ -43,8 +43,8 @@ test('شريط المبارزة: إيقاف/متابعة وانسحاب، ولا
   const bar = html.slice(html.indexOf('<div id="arena-fs-bar"'), html.indexOf('<!-- مسرح حيّ'));
   assert.match(bar, /id="arena-fs-pause"/);
   assert.match(bar, /id="arena-fs-exit"/);
-  assert.match(html, /\.arena-fs-bar \{\s*display: none;/, 'hidden by default');
-  assert.match(html, /body\.duel-live \.arena-fs-bar \{ display: flex; \}/, 'shown only in a duel');
+  assert.match(css, /\.arena-fs-bar \{\s*display: none;/, 'hidden by default');
+  assert.match(css, /body\.duel-live \.arena-fs-bar \{ display: flex; \}/, 'shown only in a duel');
   assert.match(html, /id="arena-fs-bar" class="arena-fs-bar" aria-label="تحكم المبارزة"/, 'labelled for screen readers');
 });
 
@@ -73,7 +73,7 @@ test('الشاشة الكاملة الحقيقية اختيارية: فشلها 
 });
 
 test('تلميحات الموجة والزعيم تبقى داخل المسرح المكبَّر (لا تُثبَّت على الشاشة)', () => {
-  const hint = html.slice(html.indexOf('.arena-hint {'), html.indexOf('.arena-hint.show'));
+  const hint = css.slice(html.indexOf('.arena-hint {'), html.indexOf('.arena-hint.show'));
   assert.match(hint, /position: absolute/, 'the hint is positioned against the stage, so a bigger stage moves it with the art');
   assert.match(hint, /top: 44px/, 'and keeps its distance from the HUD');
   const stage = html.slice(html.indexOf('<div id="arena-stage"'), html.indexOf('<div class="as-bar">'));
