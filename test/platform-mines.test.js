@@ -105,7 +105,7 @@ test('phase 3: six mines — rising rock hardness, own palette, own layout, ore 
 });
 
 test('V21: each deep mine has a physically traversable upper branch over its main-route pit', () => {
-  assert.equal(R.VERSION, 13);
+  assert.equal(R.VERSION, 14);
   for (const [zone, level] of R.LEVELS.entries()) {
     if (zone === 0) continue; // keep the original stone-mine simulation byte-for-byte stable
     const route = level.platforms.filter(p => p.route === 'upper').sort((a, b) => a.x - b.x);
