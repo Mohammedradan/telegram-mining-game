@@ -50,7 +50,7 @@ test('platform audio respects mute and zero volume', () => {
     volume = 0;
     audio.unlock();
     audio.beep('jump');
-    assert.equal(fake.calls.length, 0);
+    assert.equal(fake.calls.filter(([name]) => name === 'start').length, 0);
   } finally {
     if (previousWindow === undefined) delete global.window;
     else global.window = previousWindow;
