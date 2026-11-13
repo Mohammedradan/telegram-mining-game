@@ -19,6 +19,7 @@ const doc = require('./fixtures/phase-b-baseline.json');
 const repo = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(repo, p), 'utf8');
 const game = read('public/platform-game.js');
+const audio = read('public/platform-audio.js');
 const renderer = read('public/platform-renderer.js');
 const caveSound = read('public/cave-sound.js');
 
@@ -45,8 +46,8 @@ const project = (s) => JSON.stringify({
 });
 const hashOf = (s) => crypto.createHash('sha256').update(project(s)).digest('hex').slice(0, 16);
 const beepVoices = () => {
-  const at = game.indexOf('function beep');
-  const block = game.slice(at, at + 3000);
+  const at = audio.indexOf('function beep');
+  const block = audio.slice(at, at + 5200);
   return new Set([...block.matchAll(/^\s{8}([a-z_]+):\s*\{/gm)].map((m) => m[1]));
 };
 const clientHandled = () => new Set([...game.matchAll(/event\.type\s*===\s*'([a-z_]+)'/g)].map((m) => m[1]));
@@ -83,7 +84,7 @@ test('B0: no feedback path recorded in the baseline has been deleted', () => {
 });
 
 test('B0: presentation budgets stay capped (particles, voices, DPR, hit-stop)', () => {
-  const n = (re) => { const m = game.match(re) || renderer.match(re) || caveSound.match(re); return m ? Number(m[1]) : null; };
+  const n = (re) => { const m = game.match(re) || audio.match(re) || renderer.match(re) || caveSound.match(re); return m ? Number(m[1]) : null; };
   assert.equal(n(/particles\.length > (\d+)/), doc.budgets.particles, 'the particle budget is the recorded one');
   assert.equal(n(/MAX_VOICES = (\d+)/), doc.budgets.voices, 'the simultaneous-voice budget');
   assert.equal(n(/devicePixelRatio \|\| 1, (\d+(?:\.\d+)?)\)/), doc.budgets.dprCap, 'the device-pixel-ratio cap');
