@@ -37,5 +37,16 @@ test('real authenticated station save survives server restart, isolates accounts
     assert.equal(resumed.progress.anchor,'face');assert.deepEqual(resumed.progress.visited,['arrival','face']);
     assert.equal(resumed.state.player.y+resumed.state.player.h,640);
     const other=(await post('start',{},guest+'_other')).body;assert.deepEqual(other.progress.visited,['arrival']);
+    const liftOwner=guest+'_lift',ticket=(await post('start',{},liftOwner)).body;
+    await wait(8000);
+    const liftSave=await post('checkpoint',{id:ticket.id,seq:1,inputs:[[2,40],[R.DOWN,140],[2|R.RUN,333],[0,1],[R.Lift.ACTION,1],[0,40]]},liftOwner);
+    assert.equal(liftSave.status,200,JSON.stringify(liftSave.body));
+    const lift=liftSave.body.state.lift;
+    assert.ok(lift.y>320&&lift.y<640);assert.equal(lift.target,320);
+    await stop();await start();
+    const resumedLift=(await post('start',{},liftOwner)).body;
+    assert.deepEqual(resumedLift.state.lift,lift,'mid-journey cabin survives process restart');
+    assert.equal(resumedLift.progress.anchor,'transfer');
+    assert.equal(resumedLift.state.player.y+resumedLift.state.player.h,640,'passenger returns at safe landing');
   }finally{await stop();fs.rmSync(dir,{recursive:true,force:true});}
 });

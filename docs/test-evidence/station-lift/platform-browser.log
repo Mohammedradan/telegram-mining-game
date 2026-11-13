@@ -1,0 +1,103 @@
+
+> telegram-mining-clicker@1.0.0 test:browser
+> node scripts/test-platform-browser.cjs
+
+{
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844,
+      "multiTouch": false,
+      "pause": true,
+      "reloadResume": true,
+      "touchPad": true
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "multiTouch": false,
+      "pause": true,
+      "reloadResume": true,
+      "touchPad": true
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "multiTouch": true,
+      "pause": true,
+      "reloadResume": true,
+      "touchPad": true
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "multiTouch": false,
+      "pause": true,
+      "reloadResume": true,
+      "touchPad": false
+    }
+  ],
+  "networkRecovery": true,
+  "keyboardWin": true,
+  "cosmeticZones": {
+    "zone": 0,
+    "name": "المنجم الحجري"
+  },
+  "regressionSmoke": true,
+  "errors": [],
+  "throttledRound": {
+    "cpuRate": 3,
+    "wallSeconds": 33.391,
+    "simulationSeconds": 11.783333333333333
+  },
+  "feel": {
+    "floatersSpawned": 32,
+    "comboPeak": 10,
+    "missionComplete": true,
+    "milestones": 3,
+    "ores": {
+      "copper": 15,
+      "iron": 5,
+      "gold": 1,
+      "crystal": 0,
+      "lava": 0
+    },
+    "goldSplit": {
+      "milestone": 36,
+      "final": 82
+    }
+  },
+  "mines": {
+    "cards": 6,
+    "picked": "مناجم الحديد",
+    "pickaxeBought": true,
+    "snapshot": {
+      "zone": 1,
+      "loadout": {
+        "pickaxe": 1,
+        "boots": 0,
+        "bag": 0,
+        "magnet": 0,
+        "drill": 0,
+        "robot": 0,
+        "luck": 0,
+        "armor": 0
+      }
+    },
+    "miningPower": 4,
+    "rockMaxHp": 6
+  },
+  "lockedMine": {
+    "status": 403,
+    "fallbackZone": 0
+  },
+  "workshop": {
+    "nodes": 8,
+    "minerDrawn": true,
+    "gatedByBalance": true,
+    "serverBacked": true,
+    "ctaStartsRun": true,
+    "landscape": true,
+    "minesMapLandscape": true
+  }
+}
