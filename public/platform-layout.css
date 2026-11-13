@@ -120,13 +120,15 @@
 /* ===== أزرار اللمس داخل المشهد: عصا يساراً وأزرار يميناً بقوس دائري شفاف ===== */
 .mine-stage .mine-controls {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
-  display: none; justify-content: space-between; align-items: flex-end; gap: 8px;
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 8px;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
   background: transparent; border: none; box-shadow: none;
   pointer-events: none;
 }
-#platform-scene.scene-live .mine-stage .mine-controls { display: flex !important; }
-.mine-stage .mine-controls.ctl-editing { display: flex; z-index: 6; }
+/* إخفاء حاوية اللمس في حالة الاستعداد (Lobby)، وإظهارها أثناء الجولة النشطة */
+#platform-scene:not(.scene-live) .mine-stage .mine-controls { display: none; }
+/* وضع تحريك المواضع يجبر الإظهار حتى في الاستعداد */
+.mine-stage .mine-controls.ctl-editing { display: flex !important; z-index: 6; }
 .mine-stage .mine-controls .virtual-joystick,
 .mine-stage .mine-controls .action-btn { pointer-events: auto; }
 .mine-stage .mine-controls-actions {
@@ -154,9 +156,11 @@
   background: radial-gradient(circle, rgba(30, 50, 70, .35), rgba(15, 25, 35, .5));
   backdrop-filter: blur(2px);
 }
-/* على الكمبيوتر تُخفى العصا والأزرار (لوحة المفاتيح) ويبقى الإيقاف في HUD ظاهراً دائماً */
-.mine-stage .mine-controls.touch-hidden { display: none !important; }
-#platform-scene.scene-live .mine-stage .mine-controls.touch-hidden { display: none !important; }
+/* على الكمبيوتر تُخفى عناصر التحكم الفردية (لوحة المفاتيح)، لكن الحاوية تبقى مرئية لتحديد المواضع */
+/* إخفاء العصا وأزرار الإجراء عند وضع touch-hidden، مع إبقاء الإيقاف في HUD ظاهراً */
+.mine-stage .mine-controls.touch-hidden .virtual-joystick { display: none }
+.mine-stage .mine-controls.touch-hidden .action-btn:not(.pause-btn) { display: none }
+.mine-stage .mine-controls.touch-hidden { justify-content: flex-end; background: none; border-color: transparent; padding: 0; }
 
 /* ===== شريط الحالة الديناميكي: بطاقة عائمة مدمجة فوق أزرار اللمس ===== */
 .mine-status--toast {
