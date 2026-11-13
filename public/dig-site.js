@@ -312,7 +312,16 @@
   function updateMineScene() {
     if (!els || !mineWorld || !MineWorld) return;
     const mine = MineWorld.MINES[mineWorld.index];
-    if (els.world.dataset) els.world.dataset.mine = mine.id;
+    if (els.world.dataset) {
+      els.world.dataset.mine = mine.id;
+      els.world.dataset.floor = mineWorld.floor;
+    }
+    const mineSet = els.world.querySelector ? els.world.querySelector('.ck-mine-set') : null;
+    if (mineSet && mineSet.dataset) {
+      mineSet.dataset.mine = mine.id;
+      mineSet.dataset.floor = mineWorld.floor;
+      mineSet.dataset.progress = String(Math.min(3, mineWorld.breaks));
+    }
     const sign = els.world.querySelector ? els.world.querySelector('.ck-depth-sign') : null;
     if (sign) {
       const title = sign.querySelector('b'), meta = sign.querySelector('small');
