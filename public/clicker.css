@@ -1099,3 +1099,27 @@ body.ck-cave .ck-sound { display: grid; }
 @keyframes ck-steam-rise{0%{opacity:0;transform:translateY(0) scale(.7)}30%{opacity:.55}100%{opacity:0;transform:translateY(-24px) scale(1.8)}}
 @media(max-width:520px){.ck-support-beam{width:6px}.ck-support-beam-a{left:23%}.ck-support-beam-b{right:28%}.ck-steam-vent-a{left:53%}}
 @media(prefers-reduced-motion:reduce){.ck-cave-atmosphere>i,.ck-cave-atmosphere>b,.ck-steam-vent i{animation:none!important;opacity:.25}}
+
+
+/* Distinct mine biomes: each connected cave has its own mineral formations, hazard glow and floor atmosphere. */
+.ck-mine-set[data-mine="stone"] .ck-crystal-seam{filter:grayscale(.72) sepia(.42) brightness(.8);opacity:.52}
+.ck-mine-set[data-mine="iron"] .ck-crystal-seam{filter:grayscale(.8) brightness(1.25);opacity:.72}
+.ck-mine-set[data-mine="iron"] .ck-crystal-seam i{background:linear-gradient(110deg,#e3edf5,#8799ad 42%,#34475c);clip-path:polygon(50% 0,100% 30%,75% 100%,18% 85%,0 25%)}
+.ck-mine-set[data-mine="gold"] .ck-crystal-seam{filter:sepia(1) saturate(2.8) hue-rotate(350deg);opacity:.95}
+.ck-mine-set[data-mine="gold"] .ck-crystal-seam i{background:linear-gradient(110deg,#fff4b5,#e4ad37 42%,#805016);box-shadow:0 0 10px #ffc94f}
+.ck-mine-set[data-mine="crystal"] .ck-crystal-seam{filter:saturate(1.5) brightness(1.25);opacity:1}
+.ck-mine-set[data-mine="crystal"] .ck-crystal-seam i{background:linear-gradient(110deg,#efffff,#54e0ff 42%,#4c43b8);box-shadow:0 0 13px #59eaff}
+.ck-mine-set[data-mine="lava"] .ck-cave-atmosphere{background:radial-gradient(ellipse at 54% 78%,#ff4b1b55 0,transparent 48%),linear-gradient(180deg,#220b0b88 0%,transparent 40%,#5a170c55 100%)}
+.ck-mine-set[data-mine="lava"] .ck-steam-vent{border-color:#e16b42;filter:drop-shadow(0 0 6px #ff4a1d)}
+.ck-mine-set[data-mine="lava"] .ck-steam-vent:before{background:#ff8b45}
+.ck-mine-set[data-mine="lava"] .ck-crystal-seam{filter:sepia(1) saturate(3) hue-rotate(320deg);opacity:.9}
+.ck-mine-set[data-mine="lava"] .ck-crystal-seam i{background:linear-gradient(110deg,#ffe0a1,#ff6a32 45%,#8d1e12);box-shadow:0 0 12px #ff5b2b}
+.ck-mine-set[data-mine="legendary"] .ck-cave-atmosphere{background:radial-gradient(ellipse at 48% 42%,#8b4dff35 0,transparent 58%),linear-gradient(180deg,#160d2c99 0%,transparent 55%,#100b2477 100%)}
+.ck-mine-set[data-mine="legendary"] .ck-crystal-seam{filter:saturate(1.7) hue-rotate(35deg) brightness(1.25);opacity:1}
+.ck-mine-set[data-mine="legendary"] .ck-crystal-seam i{background:linear-gradient(110deg,#fff1ff,#c18cff 42%,#4b258f);box-shadow:0 0 15px #bd83ff}
+.ck-mine-set[data-floor="upper"] .ck-gallery-upper{opacity:1;filter:brightness(1.2)}
+.ck-mine-set[data-floor="upper"] .ck-gallery-lower{opacity:.32}
+.ck-mine-set[data-floor="lower"] .ck-gallery-upper{opacity:.48}
+.ck-mine-set[data-floor="lower"] .ck-gallery-lower{opacity:.92}
+.ck-mine-set[data-progress="3"] .ck-exit-gate{border-color:#65e6a5;color:#b9ffd8;box-shadow:0 0 18px #38d98977,inset 0 0 12px #38d98922}
+@media(prefers-reduced-motion:reduce){.ck-mine-set *{scroll-behavior:auto}}
