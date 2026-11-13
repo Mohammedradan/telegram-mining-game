@@ -587,6 +587,7 @@
     if (!els || typeof els.world.insertBefore !== 'function' || (els.world.querySelector && els.world.querySelector('.ck-mine-set'))) return;
     const set = root.document.createElement('div');
     set.className = 'ck-mine-set';
+    set.setAttribute('data-drill', 'off'); set.setAttribute('data-conveyor', 'off'); set.setAttribute('data-worker', 'idle');
     set.dataset.drill = 'off'; set.dataset.conveyor = 'off'; set.dataset.worker = 'idle';
     set.setAttribute('aria-label', 'منشآت المنجم وأدوات التحكم بها');
     set.innerHTML = `
