@@ -773,3 +773,14 @@ test('living mine adventure scene: the mining world builds layered galleries, a 
     assert.ok(styles.includes(token), `scene styles include ${token}`);
   }
 });
+
+test('mine atmosphere: depth layers, timber supports, steam and dust are present and motion-safe', () => {
+  const source = read('public', 'dig-site.js');
+  const styles = read('public', 'clicker.css');
+  for (const token of ['ck-cave-atmosphere','ck-support-beam-a','ck-support-beam-b','ck-steam-vent-a','ck-steam-vent-b']) {
+    assert.ok(source.includes(token), `scene includes ${token}`);
+  }
+  for (const token of ['@keyframes ck-dust-drift','@keyframes ck-light-shaft','@keyframes ck-steam-rise','prefers-reduced-motion']) {
+    assert.ok(styles.includes(token), `atmosphere styles include ${token}`);
+  }
+});
