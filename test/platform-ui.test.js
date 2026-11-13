@@ -66,7 +66,7 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
   const byId = (id) => {
     if (!ids.has(id)) return null;
     if (!elements.has(id)) {
-      const seeds = { 'platform-scene': { hidden: false }, 'legacy-adventure': { hidden: true }, 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] } };
+      const seeds = { 'platform-scene': { hidden: false, classes: ['scene-lobby'] }, 'legacy-adventure': { hidden: true }, 'tab-play': { classes: ['active'] }, 'play-panel-adventure': { classes: ['active'] }, 'ctl-modal': { hidden: true }, 'platform-pause': { classes: ['action-btn', 'pause-btn', 'hud-pause'] } };
       elements.set(id, makeElement(id, seeds[id] || {}));
     }
     return elements.get(id);
@@ -430,5 +430,71 @@ test('V6 UI: the run summary is filled from the verified server receipt, not fro
   assert.equal(page.byId('platform-summary').hidden, false);
   assert.match(page.byId('summary-goal').textContent, new RegExp(R.GOALS[0].name));
   assert.ok(/لماذا جولة أخرى/.test(page.byId('summary-next').textContent), 'the summary always explains the next run');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('platform UI: zero-scroll layout — scene locked, HUD overlay inside stage, single pause', () => {
+  const page = bootPage();
+  const scene = page.byId('platform-scene');
+  assert.ok(scene, 'platform-scene exists');
+  assert.equal(scene.hidden, false);
+  assert.ok(scene.classList.contains('scene-lobby'), 'scene starts in Lobby');
+  assert.equal(page.byId('platform-pause').classList.contains('hud-pause'), true,
+    'pause is the floating circular HUD button');
+});
+
+test('platform UI: Lobby default state, Live class while round runs', async () => {
+  const page = bootPage();
+  await page.settle();
+  const scene = page.byId('platform-scene');
+  assert.ok(scene.classList.contains('scene-lobby'), 'Lobby: scene-lobby at start');
+  assert.equal(scene.classList.contains('scene-live'), false, 'Lobby: not scene-live at start');
+  page.fire(page.byId('platform-start'), 'click');
+  await page.settle();
+  const game = page.PlatformGame().inspect();
+  assert.equal(game.running, true);
+  assert.ok(scene.classList.contains('scene-live'), 'Live: scene-live while running');
+  assert.equal(scene.classList.contains('scene-lobby'), false, 'Live: not scene-lobby while running');
+  page.fireWindow('blur');
+  assert.equal(page.PlatformGame().inspect().paused, true);
+  assert.equal(scene.classList.contains('scene-live'), false, 'paused: not scene-live');
+  assert.ok(scene.classList.contains('scene-lobby'), 'paused: scene-lobby again');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('platform UI: control-settings modal open/close and edit toggle', async () => {
+  const page = bootPage();
+  await page.settle();
+  const modal = page.byId('ctl-modal');
+  assert.ok(modal, 'ctl-modal exists');
+  assert.equal(modal.hidden, true, 'modal hidden at start');
+  page.fire(page.byId('open-ctl-settings'), 'click');
+  assert.equal(modal.hidden, false, 'modal opens on opener click');
+  page.fire(page.byId('ctl-modal-close'), 'click');
+  assert.equal(modal.hidden, true, 'modal closes on close button');
+  page.fire(page.byId('open-ctl-settings'), 'click');
+  assert.equal(modal.hidden, false, 'modal reopens');
+  page.fire(page.byId('ctl-edit'), 'click');
+  assert.equal(page.PlatformGame().layoutEditing(), true, 'layout editing on');
+  assert.equal(page.byId('ctl-layout-hint').hidden, false, 'layout hint visible while editing');
+  page.fire(page.byId('ctl-edit'), 'click');
+  assert.equal(page.PlatformGame().layoutEditing(), false, 'layout editing off');
+  assert.equal(page.byId('ctl-layout-hint').hidden, true, 'layout hint hidden when not editing');
+  // الإغلاق عبر زر الإغلاق في الرأس
+  page.fire(page.byId('ctl-modal-close'), 'click');
+  assert.equal(modal.hidden, true, 'modal closes on close button');
+  assert.equal(page.PlatformGame().inspect().ctlOpen, false, 'ctlOpen false after close');
+  assert.deepEqual(page.log.errors, []);
+});
+
+test('platform UI: pause button stays visible on all device classes', async () => {
+  const page = bootPage();
+  await page.settle();
+  const pause = page.byId('platform-pause');
+  assert.equal(pause.hidden, false, 'pause button present (not hidden)');
+  assert.ok(pause.classList.contains('hud-pause'), 'pause is the floating HUD button');
+  const controls = page.byId('virtual-joystick').parentElement;
+  assert.equal(controls.querySelector('#platform-pause'), null,
+    'no duplicate pause inside touch controls');
   assert.deepEqual(page.log.errors, []);
 });

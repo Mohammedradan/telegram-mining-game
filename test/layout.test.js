@@ -148,6 +148,70 @@ test('phase 1+2: impact feedback and ore economy are wired into the real UI', ()
   assert.equal(typeof rules.rewardBreakdown, 'function');
 });
 
+// المنجم المنصّة: هيكلة بلا تمرير — شريط علوي مدمج واحد، HUD عائم داخل الكانفاس، نافذة إعدادات التحكم، حالة Lobby/Live.
+test('platform: single compact top bar replaces stacked header bars (zero-scroll)', () => {
+  const gameCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-layout.css'), 'utf8');
+  assert.ok(html.match(/<link[^>]+href="\/platform-layout\.css/), 'index.html links platform-layout.css');
+  assert.ok(gameCss.length > 0, 'platform-layout.css exists and is non-empty');
+  assert.match(gameCss, /#platform-scene\s*\{\s*[^}]*overflow:\s*hidden;/s);
+  assert.match(gameCss, /height:\s*100dvh;/s);
+  assert.match(gameCss, /flex-direction:\s*column;/s);
+  assert.match(gameCss, /justify-content:\s*space-between;/s);
+  assert.match(html, /<div class="mine-heading mine-topbar"/);
+  assert.match(html, /mine-topbar/);
+  assert.match(html, /<div class="mine-title"/);
+  assert.match(html, /<span class="mine-gold"/);
+  assert.match(html, /<span class="mine-energy"/);
+  assert.match(html, /id="platform-mute"/);
+  assert.match(html, /id="open-workshop-heading"/);
+  assert.match(html, /id="open-guide-top"/);
+  assert.match(html, /id="open-ctl-settings"/);
+  // زر العتاد يحمل أيقونة الترس (i-gear)
+  assert.match(html, /id="i-gear"/);
+});
+
+test('platform: floating in-canvas HUD overlay, single pause button', () => {
+  assert.match(html, /<div class="mine-hud mine-hud--overlay"/);
+  assert.match(html, /id="platform-hearts"/);
+  assert.match(html, /id="platform-progress"/);
+  assert.match(html, /id="goal-chip"/);
+  assert.match(html, /id="platform-resources"/);
+  assert.match(html, /id="milestone-count"/);
+  // الإيقاف العائم مرة واحدة فقط داخل المشهد (لا تكرار في أزرار اللمس)
+  const pauseOccurrences = (html.match(/id="platform-pause"/g) || []).length;
+  assert.equal(pauseOccurrences, 1, `expected exactly one #platform-pause, found ${pauseOccurrences}`);
+  assert.match(html, /class="action-btn pause-btn hud-pause"/);
+  // لا شريط إيقاف عريض أسفل الكانفاس
+  assert.doesNotMatch(html, /mine-controls-actions[^>]*platform-pause/s);
+});
+
+test('platform: control-settings modal relocated (ctl-settings inside ctl-modal)', () => {
+  assert.match(html, /<div id="ctl-modal" class="ctl-modal"/);
+  assert.match(html, /<div class="ctl-modal-backdrop" data-ctl-close>/);
+  assert.match(html, /<details class="ctl-settings" id="ctl-settings"/);
+  assert.match(html, /id="ctl-haptics"/);
+  assert.match(html, /id="ctl-stick"/);
+  assert.match(html, /id="ctl-edit"/);
+  assert.match(html, /id="ctl-reset"/);
+  assert.match(html, /id="ctl-layout-hint"/);
+  assert.match(html, /id="platform-keyhint"/);
+  assert.match(html, /id="ctl-modal-close"/);
+  assert.match(html, /data-ctl-close/);
+  // زر الإعدادات في الشريط العلوي يفتح النافذة
+  assert.match(html, /id="open-ctl-settings"/);
+});
+
+test('platform: Lobby vs Live state classes', () => {
+  assert.match(html, /id="platform-scene" class="scene-lobby"/);
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  assert.match(game, /function syncSceneState/);
+  assert.match(game, /scene-live/);
+  assert.match(game, /scene-lobby/);
+  assert.match(game, /openCtlSettings/);
+  assert.match(game, /closeCtlSettings/);
+  assert.match(game, /layoutEditing/);
+});
+
 // المرحلة 3: الورشة صارت مدعومة بالخادم (بدل المعاينة) + خريطة المناجم + عرض الصلابة في المشهد.
 test('phase 3 UI: the workshop is server-backed, the mines map is wired in and the scene shows rock hardness', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');

@@ -244,7 +244,28 @@
     catch (_) { say('التخزين المحلي غير متاح؛ لا تغلق الصفحة قبل تأكيد الخادم للنتيجة.'); }
   }
 
+  // ===== تخطيط بلا تمرير: حالة الاستعداد (Lobby) مقابل الجولة النشطة (Live) =====
+  // عرض فقط: يبدّل صنف scene-live على المشهد وbody فتنطوي أشرطة الاستعداد ويتوسّع الكانفاس.
+  // لا يمسّ running/paused ولا أي منطق لعب؛ يُستدعى من hud() وpause/resume/overlay دائمًا.
+  function syncSceneState() {
+    const live = Boolean(running && !paused);
+    const scene = el('platform-scene');
+    if (scene?.classList) {
+      const has = scene.classList.contains('scene-live');
+      if (live && !has) { scene.classList.add('scene-live'); scene.classList.remove('scene-lobby'); }
+      else if (!live && has) { scene.classList.remove('scene-live'); scene.classList.add('scene-lobby'); }
+    }
+    const body = document.body;
+    if (body?.classList) {
+      const has = body.classList.contains('scene-live');
+      if (live && !has) body.classList.add('scene-live');
+      else if (!live && has) body.classList.remove('scene-live');
+    }
+    return live;
+  }
+
   function hud() {
+    syncSceneState();
     const fullHearts = Math.max(0, sim.player.hearts);
     const emptyHearts = Math.max(0, (sim.player.maxHearts || 3) - fullHearts);
     const heartsEl = el('platform-hearts');
@@ -419,6 +440,7 @@
     el('platform-message').textContent = text;
     el('platform-resume').hidden = !resume;
     el('platform-start').textContent = running ? 'إعادة من البداية' : 'جولة جديدة';
+    syncSceneState();
     scheduleOverlayFit();
     refitOverlayLater();
   }
@@ -474,6 +496,7 @@
     const routeHint = el('platform-route-hint'); if (routeHint) routeHint.hidden = true;
     save(); audio?.suspend?.()?.catch(() => {});
     overlay('استراحة عند المصباح', 'الجولة متوقفة. لن تتقدم الفيزياء أو الوقت أثناء مغادرتك. تابع عندما تكون جاهزًا.', true);
+    syncSceneState();
     draw();
   }
 
@@ -485,6 +508,7 @@
     // الغلاف يُخفى دائمًا عند الاستئناف: بدء المبارزة من الساحة قد يسبق ظهور المشهد بجزء من الثانية،
     // وكان هذا يترك اللاعب على «شاشة البداية» رغم أن الجولة بدأت على الخادم.
     el('platform-overlay').hidden = true; audioUnlock();
+    syncSceneState();
     if (!visible()) return; // الإطارات لا تُشغَّل إلا في مشهد مرئي؛ onShow يعيدها عند الدخول
     schedule(); canvas.focus({ preventScroll: true });
   }
@@ -1205,10 +1229,45 @@
     const btn = el('ctl-edit');
     if (btn) { btn.classList.toggle('active', layoutEditing); btn.setAttribute('aria-pressed', String(layoutEditing)); }
     const hint = el('ctl-layout-hint'); if (hint) hint.hidden = !layoutEditing;
+    // النافذة تنكمش للأعلى أثناء التحريك حتى تبقى اللوحة قابلة للسحب (لا تحجبها).
+    const modal = el('ctl-modal');
+    if (modal?.classList) {
+      const has = modal.classList.contains('ctl-modal--editing');
+      if (layoutEditing && !has) modal.classList.add('ctl-modal--editing');
+      else if (!layoutEditing && has) modal.classList.remove('ctl-modal--editing');
+    }
     if (layoutEditing) { clearInput(); pause(); say('وضع التحريك: اسحب العصا والأزرار إلى موضعها المريح.'); }
     else say('توقف التحريك؛ المواضع محفوظة على هذا الجهاز.');
   }
   el('ctl-edit')?.addEventListener('click', () => setLayoutEditing(!layoutEditing));
+
+  // ===== نافذة إعدادات التحكم (Modal): فتح/إغلاق فقط، كل الأزرار داخلها كما هي =====
+  // الفتح يوقف الجولة (كورشة/المرشد) حتى يضبط اللاعب بلا مخاطرة؛ الإغلاق يوقف التحريك.
+  function openCtlSettings() {
+    const modal = el('ctl-modal');
+    if (!modal) return false;
+    if (running && !paused) pause();
+    modal.hidden = false;
+    const details = el('ctl-settings');
+    if (details) details.open = true;
+    const close = el('ctl-modal-close');
+    try { close?.focus?.({ preventScroll: true }); } catch (_) {}
+    haptic('light');
+    return true;
+  }
+  function closeCtlSettings() {
+    const modal = el('ctl-modal');
+    if (!modal || modal.hidden) return false;
+    if (layoutEditing) setLayoutEditing(false);
+    modal.hidden = true;
+    const opener = el('open-ctl-settings');
+    try { opener?.focus?.({ preventScroll: true }); } catch (_) {}
+    return true;
+  }
+  el('open-ctl-settings')?.addEventListener('click', openCtlSettings);
+  el('ctl-modal-close')?.addEventListener('click', closeCtlSettings);
+  document.querySelector('.ctl-modal-backdrop')?.addEventListener('click', closeCtlSettings);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCtlSettings(); });
   el('ctl-reset')?.addEventListener('click', () => {
     controlLayout = {}; try { localStorage.removeItem(LAYOUT_KEY); } catch (_) {}
     controlSettings = { ...CONTROL_DEFAULTS }; saveControlSettings(); applyControlLayout();
@@ -2188,6 +2247,8 @@
       frozen: arenaFrozen, snapshot: arenaSnapshotKind, rivalState: arenaSim?.enemies?.[0]?.state || null,
       waves: (arenaSim?.waves || []).length }),
     arenaSnapshot, arenaSnapshotOff, setHero, setZone, setGoal, refresh: refreshPreview, getZone: () => selectedZone, getGoal: () => selectedGoal, getHero: () => currentHero, unlockedMines, coach: maybeCoach,
+    // تخطيط بلا تمرير: حالة المشهد ونافذة الإعدادات (عرض فقط، للاختبارات والتنسيق)
+    syncSceneState, openCtlSettings, closeCtlSettings, layoutEditing: () => layoutEditing,
     // Races reuse the original cart scene; restore the side-scroller afterwards.
     showLegacy: () => {
       pause();
@@ -2215,6 +2276,9 @@
       rockMaxHp: sim.rocks[0]?.maxHp, robot: Boolean(sim.player.robot), beams: beams.length,
       boss: sim.bossId ? (() => { const b = sim.enemies.find(e => e.id === sim.bossId); return { name: b.name, state: b.state, hp: b.hp, maxHp: b.maxHp, enraged: b.enraged, defeated: sim.bossDefeated, waves: sim.waves.length, x: b.x }; })() : null,
       statusText: el('platform-status')?.textContent || '',
+      sceneLive: Boolean(running && !paused),
+      ctlOpen: el('ctl-modal') ? !el('ctl-modal').hidden : false,
+      layoutEditing: Boolean(layoutEditing),
     }),
     feed, resetFeed() { feedIndex = 0; feedFrame = 0; },
     // يبدأ مبارزة حيّة من شاشة الساحة: نفس محرك الحركة، وضع duel فقط.

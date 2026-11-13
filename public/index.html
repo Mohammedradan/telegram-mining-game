@@ -27,6 +27,8 @@
   <link rel="stylesheet" href="/minequest-interface-v2.css?v=1">
   <!-- عالم التعدين الموسّع: ملء الشاشة، خرائط وأهداف قابلة للطي وطبقات كهف أعمق -->
   <link rel="stylesheet" href="/mine-expedition.css?v=1">
+  <!-- تخطيط منجم المنصّة بلا تمرير: شريط علوي مدمج + HUD داخل الكانفاس + حالات Lobby/Live (عرض فقط) -->
+  <link rel="stylesheet" href="/platform-layout.css?v=1">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -83,6 +85,7 @@
     <symbol id="i-dive" viewBox="0 0 24 24"><path d="M12 3v13M6.5 11 12 16.5 17.5 11M5 21h14"/></symbol>
     <symbol id="i-boss" viewBox="0 0 24 24"><path d="M4 4c0 4 1.5 6 3.5 7M20 4c0 4-1.5 6-3.5 7M7 10h10l1 6.5-3 3.5h-6l-3-3.5zM9.5 14.5h.01M14.5 14.5h.01M10.5 18h3"/></symbol>
     <symbol id="i-book" viewBox="0 0 24 24"><path d="M3 5.5c3-1 6-.8 9 1.2 3-2 6-2.2 9-1.2v13c-3-1-6-.8-9 1.2-3-2-6-2.2-9-1.2zM12 6.7v13M6 9.5c1.1-.2 2.2-.1 3.2.3M6 12.5c1.1-.2 2.2-.1 3.2.3M15 9.8c1-.4 2.1-.5 3.2-.3M15 12.8c1-.4 2.1-.5 3.2-.3"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></symbol>
     <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="M3 3l6.5 6.5M21 3l-6.5 6.5M3 21l6.5-6.5M21 21l-6.5-6.5"/></symbol>
   </svg>
 
@@ -239,43 +242,53 @@
 
     </div><!-- /#legacy-adventure: اللعبة الأصلية كما هي بلا أي تغيير في وظائفها -->
 
-    <!-- 🧭 منجم المنصّة: جولة حتمية 60Hz يسجّل الخادم حركاتها ويعيد تشغيلها ويختم مكافأتها -->
-    <div id="platform-scene">
-      <div class="mine-heading">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f4bf62,#e09a2d);display:grid;place-items:center;font-size:18px;box-shadow:0 2px 8px rgba(244,191,98,.35);flex-shrink:0"><svg class="ui-icon badge-icon" style="color:#4a3212" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
-          <div>
+    <!-- 🧭 منجم المنصّة: جولة حتمية 60Hz يسجّل الخادم حركاتها ويعيد تشغيلها ويختم مكافأتها
+         تخطيط بلا تمرير: شريط علوي مدمج واحد (عنوان + اقتصاد + إجراءات) ثم المشهد المرن.
+         كل المعرفات والأصناف والمستمعات الأصلية محفوظة؛ النقل هنا إعادة توزيع بصرية فقط. -->
+    <div id="platform-scene" class="scene-lobby">
+      <div class="mine-heading mine-topbar">
+        <div class="mine-title">
+          <div class="mine-badge"><svg class="ui-icon badge-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
+          <div class="mine-title-text">
             <div class="mine-kicker">عالم الكهوف · منصات · بلورات · أعداء</div>
             <h2>منجم الأعماق المتقدمة</h2>
           </div>
         </div>
+        <div class="mine-economy" aria-live="polite">
+          <span class="mine-gold"><span id="platform-gold">0</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-coin"/></svg></span>
+          <span class="mine-energy"><span id="platform-energy">1000</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-bolt"/></svg></span>
+        </div>
         <div class="mine-heading-actions">
           <button id="platform-mute" type="button" aria-pressed="false" aria-label="كتم أو تشغيل الصوت"><svg class="ui-icon mute-icon mute-icon-on" aria-hidden="true"><use href="#i-sound"/></svg><svg class="ui-icon mute-icon mute-icon-off" aria-hidden="true"><use href="#i-muted"/></svg><span class="mute-label">صوت ✓</span></button>
-          <button id="open-workshop-heading" type="button" class="ws-mini-entry" aria-label="ورشة المعدّن"><svg class="ui-icon" aria-hidden="true"><use href="#i-drill"/></svg> ورشة</button>
+          <button id="open-workshop-heading" type="button" class="ws-mini-entry" aria-label="ورشة المعدّن"><svg class="ui-icon" aria-hidden="true"><use href="#i-drill"/></svg><span class="topbar-btn-label">ورشة</span></button>
+          <button id="open-guide-top" type="button" class="guide-entry guide-entry-top" data-guide-open data-news="0" hidden aria-haspopup="dialog" aria-label="المرشد العم سراج: الهدف والموسوعة والحكاية"><svg class="ui-icon" aria-hidden="true"><use href="#i-book"/></svg><span class="gd-sr" data-guide-label>المرشد</span><span class="guide-new" aria-hidden="true">جديد</span><i class="guide-dot" hidden aria-hidden="true"></i></button>
+          <button id="open-ctl-settings" type="button" class="topbar-gear" aria-haspopup="dialog" aria-label="إعدادات التحكم"><svg class="ui-icon" aria-hidden="true"><use href="#i-gear"/></svg><span class="topbar-btn-label">إعدادات</span></button>
         </div>
       </div>
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
-        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg> عامل المنجم</button>
-        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg> المحارب</button>
-        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg> رامي السهام</button>
-      </div>
-      <div class="mine-hud" aria-label="حالة الجولة">
-        <span id="platform-hearts">♥ ♥ ♥</span>
-        <span id="platform-resources" class="mine-resources">
-          <span class="res-chip" title="بلورات"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="res-gems">0</span>/3</span>
-          <span class="res-chip" title="صخور مُعدّنة"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span id="res-rocks">0</span>/1</span>
-          <span class="res-chip" title="أعداء مهزومون"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span id="res-foes">0</span></span>
-          <span class="res-chip" title="معالم الجولة"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg><span id="milestone-count">0/5</span></span>
-        </span>
-        <span id="platform-progress">0% · 150ث</span>
-        <span id="goal-chip" class="res-chip goal-chip" title="هدف الجولة"><svg class="ui-icon" aria-hidden="true"><use href="#i-bag" id="goal-chip-use"/></svg><span id="goal-chip-text">الهدف</span></span>
-      </div>
-      <div class="mine-economy" aria-live="polite">
-        <span class="mine-gold"><span id="platform-gold">0</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-coin"/></svg></span>
-        <span class="mine-energy"><span id="platform-energy">1000</span><svg class="ui-icon econ-icon" aria-hidden="true"><use href="#i-bolt"/></svg></span>
+        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span class="hero-name">عامل المنجم</span><span class="hero-desc" title="يحطم الصخور بضربة واحدة ومدى تعدين أطول">تعدين قوي ومدى أطول</span></button>
+        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg><span class="hero-name">المحارب</span><span class="hero-desc" title="صحة أعلى وضربة مزدوجة وحماية أطول بعد الإصابة، لكنه أبطأ">صحة أعلى وضربة مزدوجة</span></button>
+        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg><span class="hero-name">رامي السهام</span><span class="hero-desc" title="سهام بعيدة المدى وأسرع حركة، لكن صحته أقل">سهام بعيدة وسرعة عالية</span></button>
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، واستخدم السهم الأعلى لتسلّق السلالم إلى المسارات العلوية"></canvas>
+        <!-- HUD عائم داخل الكانفاس: قلوب يساراً، شارة الجولة وسطاً، عدّادات + إيقاف يميناً (شفاف، لا يحجب الرؤية) -->
+        <div class="mine-hud mine-hud--overlay" aria-label="حالة الجولة">
+          <span id="platform-hearts">♥ ♥ ♥</span>
+          <div class="hud-center">
+            <span id="platform-progress">0% · 150ث</span>
+            <span id="goal-chip" class="res-chip goal-chip" title="هدف الجولة"><svg class="ui-icon" aria-hidden="true"><use href="#i-bag" id="goal-chip-use"/></svg><span id="goal-chip-text">الهدف</span></span>
+          </div>
+          <div class="hud-right">
+            <span id="platform-resources" class="mine-resources">
+              <span class="res-chip" title="بلورات"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><span id="res-gems">0</span>/3</span>
+              <span class="res-chip" title="صخور مُعدّنة"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span id="res-rocks">0</span>/1</span>
+              <span class="res-chip" title="أعداء مهزومون"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span id="res-foes">0</span></span>
+              <span class="res-chip" title="معالم الجولة"><svg class="ui-icon" aria-hidden="true"><use href="#i-check"/></svg><span id="milestone-count">0/5</span></span>
+            </span>
+            <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn hud-pause"><svg class="ui-icon" aria-hidden="true"><use href="#i-pause"/></svg></button>
+          </div>
+        </div>
         <div id="platform-route-hint" class="platform-route-hint" hidden role="status" aria-live="polite">اقترب من السلم واضغط R أو زر «تسلّق» للصعود</div>
         <div id="stage-foe" class="stage-foe" hidden aria-live="off">
           <b id="stage-foe-name">الخصم</b>
@@ -323,43 +336,6 @@
             <button id="mine-select" type="button" class="mine-select" aria-haspopup="dialog" aria-label="اختيار المنجم"><span class="mine-select-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="mine-select-hits" data-mine-hits></span></button>
             <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
           </div>
-          <details class="ctl-settings" id="ctl-settings">
-            <summary>إعدادات التحكم</summary>
-            <div class="ctl-rows">
-              <div class="ctl-row" role="group" aria-label="حجم عناصر التحكم">
-                <span>الحجم</span>
-                <button type="button" data-ctl-size="sm">صغير</button>
-                <button type="button" data-ctl-size="md" class="active">متوسط</button>
-                <button type="button" data-ctl-size="lg">كبير</button>
-              </div>
-              <div class="ctl-row" role="group" aria-label="شفافية عناصر التحكم">
-                <span>الشفافية</span>
-                <button type="button" data-ctl-opacity="sm">خافت</button>
-                <button type="button" data-ctl-opacity="md" class="active">متوسط</button>
-                <button type="button" data-ctl-opacity="lg">واضح</button>
-              </div>
-              <div class="ctl-row" role="group" aria-label="حساسية عصا التحكم">
-                <span>الحساسية</span>
-                <button type="button" data-ctl-sensitivity="lg">عالية</button>
-                <button type="button" data-ctl-sensitivity="md" class="active">متوسطة</button>
-                <button type="button" data-ctl-sensitivity="sm">هادئة</button>
-              </div>
-              <div class="ctl-row">
-                <span>اهتزاز الهاتف</span>
-                <button type="button" id="ctl-haptics" class="active" aria-pressed="true">مفعّل</button>
-              </div>
-              <div class="ctl-row" role="group" aria-label="أزرار اللمس">
-                <span>أزرار اللمس</span>
-                <button type="button" id="ctl-stick" class="active" aria-pressed="true">تلقائي</button>
-              </div>
-              <div class="ctl-row">
-                <span>مواضع الأزرار</span>
-                <button type="button" id="ctl-edit" aria-pressed="false">تحريك</button>
-                <button type="button" id="ctl-reset">استعادة الوضع الافتراضي</button>
-              </div>
-              <p class="ctl-hint" id="ctl-layout-hint" hidden>اسحب العصا والأزرار إلى الموضع المريح لإبهامك، ثم أوقف التحريك. المواضع تُحفظ على هذا الجهاز فقط ولا تؤثر في حسابك ولا في نتيجة المعركة.</p>
-            </div>
-          </details>
           <button id="platform-resume" type="button" hidden>متابعة الجولة</button>
         </div>
         <div id="platform-coach" class="platform-coach" hidden role="dialog" aria-modal="false" aria-label="إرشاد أول مرة">
@@ -373,34 +349,84 @@
             </div>
           </div>
         </div>
-      </div>
-      <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
-        <!-- Virtual Joystick (Mobile Only) -->
-        <div id="virtual-joystick" class="virtual-joystick" aria-label="عصا تحكم للحركة">
-          <div class="joystick-base"></div>
-          <div class="joystick-handle"></div>
-        </div>
+        <!-- أزرار اللمس داخل الكانفاس (عصا يساراً، أزرار يميناً بقوس) — تظهر أثناء الجولة فقط أو في وضع التحريك -->
+        <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
+          <!-- Virtual Joystick (Mobile Only) -->
+          <div id="virtual-joystick" class="virtual-joystick" aria-label="عصا تحكم للحركة">
+            <div class="joystick-base"></div>
+            <div class="joystick-handle"></div>
+          </div>
 
-        <!-- Action Buttons (Bottom Right) -->
-        <div class="mine-controls-actions">
-          <button id="platform-pause" type="button" aria-label="إيقاف مؤقت" class="action-btn pause-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pause"/></svg></button>
-          <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-left"/></svg><span>يسار</span></button>
-          <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>يمين</span></button>
-          <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
-          <button type="button" data-platform-input="1024" aria-label="تسلّق السلم إلى المسار العلوي" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>تسلّق</span></button>
-          <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
-          <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
-          <button type="button" data-platform-input="64" aria-label="صدّ" class="action-btn guard-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>صدّ</span></button>
-          <button type="button" data-platform-input="256" aria-label="ضربة قوية" class="action-btn heavy-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-heavy"/></svg><span>قوي</span></button>
-          <button type="button" data-platform-input="128" aria-label="مراوغة" class="action-btn dodge-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-dash"/></svg><span>مراوغة</span></button>
-          <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
+          <!-- Action Buttons (Bottom Right) -->
+          <div class="mine-controls-actions">
+            <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-left"/></svg><span>يسار</span></button>
+            <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>يمين</span></button>
+            <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
+            <button type="button" data-platform-input="1024" aria-label="تسلّق السلم إلى المسار العلوي" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>تسلّق</span></button>
+            <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
+            <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
+            <button type="button" data-platform-input="64" aria-label="صدّ" class="action-btn guard-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>صدّ</span></button>
+            <button type="button" data-platform-input="256" aria-label="ضربة قوية" class="action-btn heavy-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-heavy"/></svg><span>قوي</span></button>
+            <button type="button" data-platform-input="128" aria-label="مراوغة" class="action-btn dodge-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-dash"/></svg><span>مراوغة</span></button>
+            <button type="button" data-platform-input="32" aria-label="مهارة" class="action-btn skill-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><span>قوة</span></button>
+          </div>
         </div>
+        <!-- شريط الحالة الديناميكي (إيصالات الخادم والأخطاء) كبطاقة عائمة مدمجة فوق أزرار اللمس -->
+        <div id="platform-status" class="mine-status mine-status--toast">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. العصا على الشاشة للحركة (اسحبها بإبهامك أو بالماوس) · الأسهم/WASD أيضًا · Space قفز · ↑ قفز للمسار العلوي · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
       </div>
-      <div id="platform-keyhint" class="mine-keyhint" hidden>التحكم بلوحة المفاتيح: الأسهم/WASD حركة · Space قفز · ↑ قفز للمسار العلوي · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر. لإظهار أزرار اللمس: «إعدادات التحكم».</div>
-      <div id="platform-status" class="mine-status">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. العصا على الشاشة للحركة (اسحبها بإبهامك أو بالماوس) · الأسهم/WASD أيضًا · Space قفز · ↑ قفز للمسار العلوي · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
         <button id="platform-discard" type="button" hidden>تجاهل الحفظ المحلي المعلّق</button>
+      </div>
+      <!-- نافذة إعدادات التحكم: الحجم/الشفافية/الحساسية/الاهتزاز/أزرار اللمس/تحريك المواضع + تلميح لوحة المفاتيح -->
+      <div id="ctl-modal" class="ctl-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ctl-modal-title">
+        <div class="ctl-modal-backdrop" data-ctl-close></div>
+        <div class="ctl-modal-card">
+          <div class="ctl-modal-head">
+            <h3 id="ctl-modal-title">إعدادات التحكم</h3>
+            <button id="ctl-modal-close" type="button" class="ctl-modal-close" aria-label="إغلاق إعدادات التحكم"><svg class="ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+          </div>
+          <div class="ctl-modal-body">
+            <details class="ctl-settings" id="ctl-settings" open>
+              <summary>إعدادات التحكم</summary>
+              <div class="ctl-rows">
+                <div class="ctl-row" role="group" aria-label="حجم عناصر التحكم">
+                  <span>الحجم</span>
+                  <button type="button" data-ctl-size="sm">صغير</button>
+                  <button type="button" data-ctl-size="md" class="active">متوسط</button>
+                  <button type="button" data-ctl-size="lg">كبير</button>
+                </div>
+                <div class="ctl-row" role="group" aria-label="شفافية عناصر التحكم">
+                  <span>الشفافية</span>
+                  <button type="button" data-ctl-opacity="sm">خافت</button>
+                  <button type="button" data-ctl-opacity="md" class="active">متوسط</button>
+                  <button type="button" data-ctl-opacity="lg">واضح</button>
+                </div>
+                <div class="ctl-row" role="group" aria-label="حساسية عصا التحكم">
+                  <span>الحساسية</span>
+                  <button type="button" data-ctl-sensitivity="lg">عالية</button>
+                  <button type="button" data-ctl-sensitivity="md" class="active">متوسطة</button>
+                  <button type="button" data-ctl-sensitivity="sm">هادئة</button>
+                </div>
+                <div class="ctl-row">
+                  <span>اهتزاز الهاتف</span>
+                  <button type="button" id="ctl-haptics" class="active" aria-pressed="true">مفعّل</button>
+                </div>
+                <div class="ctl-row" role="group" aria-label="أزرار اللمس">
+                  <span>أزرار اللمس</span>
+                  <button type="button" id="ctl-stick" class="active" aria-pressed="true">تلقائي</button>
+                </div>
+                <div class="ctl-row">
+                  <span>مواضع الأزرار</span>
+                  <button type="button" id="ctl-edit" aria-pressed="false">تحريك</button>
+                  <button type="button" id="ctl-reset">استعادة الوضع الافتراضي</button>
+                </div>
+                <p class="ctl-hint" id="ctl-layout-hint" hidden>اسحب العصا والأزرار إلى الموضع المريح لإبهامك، ثم أوقف التحريك. المواضع تُحفظ على هذا الجهاز فقط ولا تؤثر في حسابك ولا في نتيجة المعركة.</p>
+              </div>
+            </details>
+            <div id="platform-keyhint" class="mine-keyhint" hidden>التحكم بلوحة المفاتيح: الأسهم/WASD حركة · Space قفز · ↑ قفز للمسار العلوي · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر. لإظهار أزرار اللمس: «إعدادات التحكم».</div>
+          </div>
+        </div>
       </div>
     </div>
 
