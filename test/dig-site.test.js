@@ -761,3 +761,15 @@ test('build and CI know the module: syntax check in the build script and the E2E
   const e2e = read('scripts', 'test-clicker-browser.cjs');
   for (const needle of ['ck-pad', 'ck-dig', 'DigSite']) assert.ok(e2e.includes(needle), `the browser test drives ${needle}`);
 });
+
+
+test('living mine adventure scene: the mining world builds layered galleries, a moving ore line and two visible crew roles', () => {
+  const source = read('public', 'dig-site.js');
+  const styles = read('public', 'clicker.css');
+  for (const token of ['ck-gallery-upper','ck-gallery-lower','ck-conveyor','ck-ore-loader','ck-crew-hauler','ck-crew-technician','ck-crystal-seam-a']) {
+    assert.ok(source.includes(token), `scene markup includes ${token}`);
+  }
+  for (const token of ['@keyframes ck-belt-flow','@keyframes ck-ore-flow','@keyframes ck-worker-walk','prefers-reduced-motion']) {
+    assert.ok(styles.includes(token), `scene styles include ${token}`);
+  }
+});
