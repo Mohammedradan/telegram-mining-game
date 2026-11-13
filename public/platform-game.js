@@ -823,15 +823,9 @@
   }
 
   // ===== V6: ملخص الجولة وسطر «لماذا جولة أخرى؟» =====
-  const oreLineOf = ores => Object.entries(ores || {}).filter(([, v]) => v > 0)
-    .map(([k, v]) => `${R.ORES[k]?.name || k} ${v}`).join('، ') || 'لا خامات';
-  function summaryRow(label, value) {
-    const r = document.createElement('div'); r.className = 'run-row';
-    const l = document.createElement('span'); l.textContent = label;
-    const v = document.createElement('b'); v.textContent = value;
-    r.appendChild(l); r.appendChild(v);
-    return r;
-  }
+  const summaryUi = window.PlatformSummary.create({ document, ores: R.ORES });
+  const oreLineOf = summaryUi.oreLineOf;
+  const summaryRow = summaryUi.row;
   function nextStepHint(receipt, duelRun = false) {
     let st = null;
     try { st = typeof state !== 'undefined' && state ? state : null; } catch (_) { st = null; }
