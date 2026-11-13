@@ -199,6 +199,8 @@ function createSqliteStore(file) {
         throw error;
       } finally { release(); }
     },
+    // Serialize one-time legacy migration with other store/schema initialization work.
+    async withSchemaLock(work) { return this.withUsers(['__legacy_json_migration__'], work); },
     async getUser(id) { return rowToUser(conn.prepare('SELECT * FROM users WHERE id = ?').get(String(id))); },
     async putUser(u) { upsert.run(...userParams(u)); },
     // سجل دائم للعمليات المنفصلة (شراء/تعزيز/مكافأة) — يُكتب داخل معاملة اللاعب نفسها
@@ -332,6 +334,25 @@ function createPgStore(url) {
         for (const id of [...new Set(ids.map(String))].sort()) {
           await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`mining:user:${id}`]);
         }
+        const result = await transactionContext.run(client, work);
+        await client.query('COMMIT');
+        begun = false;
+        return result;
+      } catch (error) {
+        if (begun) await client.query('ROLLBACK');
+        throw error;
+      } finally { client.release(); }
+    },
+    // Share the schema advisory lock so legacy migration cannot race another process's DDL.
+    async withSchemaLock(work) {
+      if (transactionContext.getStore()) throw new Error('Nested user transactions are not supported');
+      await ready;
+      const client = await pool.connect();
+      let begun = false;
+      try {
+        await client.query('BEGIN');
+        begun = true;
+        await client.query('SELECT pg_advisory_xact_lock(734921, 1)');
         const result = await transactionContext.run(client, work);
         await client.query('COMMIT');
         begun = false;
