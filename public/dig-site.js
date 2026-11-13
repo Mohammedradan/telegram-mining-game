@@ -586,6 +586,11 @@
       <div class="ck-drill-cart"><span class="ck-cart-wheel"></span><span class="ck-cart-body"></span><span class="ck-cart-arm"></span><span class="ck-cart-bit"></span><b>حفّار آلي</b></div>
       <div class="ck-lift-shaft"><i class="ck-lift-cable"></i><span class="ck-lift-cage"><i></i><i></i><b>مصعد</b></span></div>
       <div class="ck-rover"><i></i><b>روبوت نقل</b></div>
+      <div class="ck-cave-atmosphere" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="ck-support-beam ck-support-beam-a" aria-hidden="true"></div>
+      <div class="ck-support-beam ck-support-beam-b" aria-hidden="true"></div>
+      <div class="ck-steam-vent ck-steam-vent-a" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="ck-steam-vent ck-steam-vent-b" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="ck-gallery ck-gallery-upper"><i></i><b></b><span>الممر العلوي</span></div>
       <div class="ck-gallery ck-gallery-lower"><i></i><b></b><span>منطقة الاستخراج</span></div>
       <div class="ck-crystal-seam ck-crystal-seam-a"><i></i><i></i><i></i></div>
