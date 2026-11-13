@@ -1022,24 +1022,30 @@ async function prepare(player) {
 async function migrateLegacyJson() {
   const legacyFile = path.join(__dirname, 'data', 'db.json');
   try {
-    if ((await store.countUsers()) > 0 || !fs.existsSync(legacyFile)) return;
-    const legacy = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
-    const users = Object.values(legacy.users || {});
-    for (const u of users) {
-      await store.putUser({
-        id: String(u.id), name: u.name || 'معدّن أسطوري',
-        state: sanitizeState(u.state), referralCount: u.referralCount || 0,
-        referralEarnings: u.referralEarnings || 0, referredBy: u.referredBy || null,
-        dailyLastClaim: u.dailyLastClaim || null, dailyStreak: u.dailyStreak || 0,
-        unackedCredits: 0, violations: 0,
-        lastSaveAt: u.updatedAt || Date.now(), createdAt: u.createdAt || Date.now(), updatedAt: u.updatedAt || Date.now(),
-        revision: 0, sync: freshSync(u.updatedAt || Date.now()),
-      });
-    }
-    for (const [id, count] of Object.entries(legacy.pendingReferrals || {})) await store.setPending(id, count);
-    if (users.length) {
-      fs.renameSync(legacyFile, `${legacyFile}.migrated`);
-      console.log(`🗄️  رُحّل ${users.length} لاعباً من db.json القديم إلى قاعدة البيانات (النسخة القديمة: db.json.migrated)`);
+    // Serialize the count/read/write sequence with PostgreSQL schema setup and every other
+    // server process. Otherwise one process can SELECT users while another takes DDL locks.
+    const migrated = await store.withSchemaLock(async () => {
+      if ((await store.countUsers()) > 0 || !fs.existsSync(legacyFile)) return null;
+      const legacy = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
+      const users = Object.values(legacy.users || {});
+      for (const u of users) {
+        await store.putUser({
+          id: String(u.id), name: u.name || 'معدّن أسطوري',
+          state: sanitizeState(u.state), referralCount: u.referralCount || 0,
+          referralEarnings: u.referralEarnings || 0, referredBy: u.referredBy || null,
+          dailyLastClaim: u.dailyLastClaim || null, dailyStreak: u.dailyStreak || 0,
+          unackedCredits: 0, violations: 0,
+          lastSaveAt: u.updatedAt || Date.now(), createdAt: u.createdAt || Date.now(), updatedAt: u.updatedAt || Date.now(),
+          revision: 0, sync: freshSync(u.updatedAt || Date.now()),
+        });
+      }
+      for (const [id, count] of Object.entries(legacy.pendingReferrals || {})) await store.setPending(id, count);
+      return users.length ? { count: users.length, target: `${legacyFile}.migrated` } : null;
+    });
+    // Rename only after the database transaction commits successfully.
+    if (migrated) {
+      fs.renameSync(legacyFile, migrated.target);
+      console.log(`🗄️  رُحّل ${migrated.count} لاعباً من db.json القديم إلى قاعدة البيانات (النسخة القديمة: db.json.migrated)`);
     }
   } catch (e) { console.error('تعذّر ترحيل db.json القديم:', e.message); }
 }
