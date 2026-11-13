@@ -769,7 +769,7 @@
 
   Object.assign(api, {
     VERSION: 2, CFG, stickVector, MineWorld, dist, stepMiner, separate, inReach, dirTo, alignment, createSwing, rockStage, createRock, hitRock, pickRockSpot, depthScale, poseFor,
-    init: safe(init), onTab: safe(onTab), onTap: safe(onTap), inspect, debug,
+    init: safe(init), onTab: safe(onTab), onTap: safe(onTap), syncMachinery: safe(syncMachinery), setRefresh(fn) { if (opts && typeof fn === 'function') opts.refresh = fn; }, inspect, debug,
   });
   return api;
 });
