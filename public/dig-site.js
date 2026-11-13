@@ -581,6 +581,50 @@
     if (tabId === 'mining') { measure(); render('idle'); }
   }
 
+  let machineryClient = null;
+  let machineStateSynced = false;
+  const machineLabels = { drill: ['تشغيل الحفّار', 'إيقاف الحفّار'], conveyor: ['تشغيل سير الخام', 'إيقاف سير الخام'], worker: ['تعيين عامل النقل', 'إرجاع العامل'] };
+  function renderMachineryControls(set, consoleEl, message) {
+    if (!set || !consoleEl) return;
+    set.dataset.drill = machinery.drill ? 'on' : 'off';
+    set.dataset.conveyor = machinery.conveyor ? 'on' : 'off';
+    set.dataset.worker = machinery.worker ? 'assigned' : 'idle';
+    Object.keys(machineLabels).forEach((key) => {
+      const button = consoleEl.querySelector('[data-machine-action="' + key + '"]');
+      if (!button) return;
+      button.setAttribute('aria-pressed', machinery[key] ? 'true' : 'false');
+      button.textContent = machineLabels[key][machinery[key] ? 1 : 0];
+    });
+    const status = consoleEl.querySelector('.ck-machine-status');
+    if (status && message) status.textContent = message;
+    else if (status) status.textContent = [
+      machinery.drill ? 'الحفّار يعمل' : 'الحفّار متوقف',
+      machinery.conveyor ? 'السير يعمل' : 'السير متوقف',
+      machinery.worker ? 'العامل مكلّف بالنقل' : 'العامل غير مكلّف',
+    ].join(' · ');
+  }
+  function getMachineryClient(set, consoleEl) {
+    if (machineryClient || !root.MineMachineryClient || typeof root.MineMachineryClient.create !== 'function') return machineryClient;
+    machineryClient = root.MineMachineryClient.create({
+      getZone: () => mineWorld ? mineWorld.index : 0,
+      onStatus: (message) => { const status = consoleEl && consoleEl.querySelector('.ck-machine-status'); if (status) status.textContent = message; },
+      onState: (active) => {
+        machinery.drill = active; machinery.conveyor = active; machinery.worker = active;
+        renderMachineryControls(set, consoleEl);
+      },
+      onProduction: async () => { if (opts && typeof opts.refresh === 'function') await opts.refresh(); },
+    });
+    return machineryClient;
+  }
+  function syncMachinery() {
+    const set = els && els.world && els.world.querySelector ? els.world.querySelector('.ck-mine-set') : null;
+    const consoleEl = set && set.querySelector ? set.querySelector('.ck-machine-console') : null;
+    const client = getMachineryClient(set, consoleEl);
+    if (!client) return Promise.resolve(null);
+    machineStateSynced = true;
+    return client.sync();
+  }
+
   // المشهد الصناعي الحي: عناصر بيئية مستقلة عن اقتصاد النقر، لكنها تتحرك فعلياً داخل موقع التعدين.
   // تُبنى مرة واحدة داخل العالم حتى لا تتكرر عند إعادة تفعيل التبويب.
   function buildMineSet() {
@@ -624,34 +668,37 @@
     `;
     els.world.insertBefore(set, els.world.firstChild);
     const consoleEl = set.querySelector && set.querySelector('.ck-machine-console');
-    if (consoleEl) consoleEl.addEventListener('click', safe((event) => {
+    if (consoleEl) consoleEl.addEventListener('click', safe(async (event) => {
       const button = event.target && event.target.closest ? event.target.closest('[data-machine-action]') : null;
       if (!button || !consoleEl.contains(button)) return;
       const action = button.dataset.machineAction;
       if (!Object.prototype.hasOwnProperty.call(machinery, action)) return;
+      const client = getMachineryClient(set, consoleEl);
+      if (client && !machineStateSynced) {
+        machineStateSynced = true;
+        await client.sync();
+      }
       if (action === 'worker' && !machinery.conveyor) {
         const status = consoleEl.querySelector('.ck-machine-status');
         if (status) status.textContent = 'شغّل سير الخام أولاً لتعيين عامل النقل';
         return;
       }
+      const before = { ...machinery };
+      const wasRunning = machinery.drill && machinery.conveyor && machinery.worker;
       machinery[action] = !machinery[action];
       if (action === 'conveyor' && !machinery.conveyor) machinery.worker = false;
-      set.dataset.drill = machinery.drill ? 'on' : 'off';
-      set.dataset.conveyor = machinery.conveyor ? 'on' : 'off';
-      set.dataset.worker = machinery.worker ? 'assigned' : 'idle';
-      button.setAttribute('aria-pressed', machinery[action] ? 'true' : 'false');
-      const labels = { drill: ['تشغيل الحفّار', 'إيقاف الحفّار'], conveyor: ['تشغيل سير الخام', 'إيقاف سير الخام'], worker: ['تعيين عامل النقل', 'إرجاع العامل'] };
-      button.textContent = labels[action][machinery[action] ? 1 : 0];
-      if (action === 'conveyor' && !machinery.conveyor) {
-        const workerButton = consoleEl.querySelector('[data-machine-action="worker"]');
-        if (workerButton) { workerButton.setAttribute('aria-pressed', 'false'); workerButton.textContent = labels.worker[0]; }
+      renderMachineryControls(set, consoleEl);
+      const shouldRun = machinery.drill && machinery.conveyor && machinery.worker;
+      if (client && shouldRun && !wasRunning) {
+        const result = await client.start(mineWorld ? mineWorld.index : 0);
+        if (!result.ok) { Object.assign(machinery, before); renderMachineryControls(set, consoleEl); }
+      } else if (client && wasRunning && !shouldRun) {
+        const result = await client.stop();
+        if (!result.ok) { Object.assign(machinery, before); renderMachineryControls(set, consoleEl); }
+      } else if (!shouldRun) {
+        const status = consoleEl.querySelector('.ck-machine-status');
+        if (status) status.textContent = 'شغّل الحفّار والسير وعيّن العامل لبدء وردية الإنتاج';
       }
-      const status = consoleEl.querySelector('.ck-machine-status');
-      if (status) status.textContent = [
-        machinery.drill ? 'الحفّار يعمل' : 'الحفّار متوقف',
-        machinery.conveyor ? 'السير يعمل' : 'السير متوقف',
-        machinery.worker ? 'العامل مكلّف بالنقل' : 'العامل غير مكلّف',
-      ].join(' · ');
       haptic('light');
     }));
   }
@@ -722,7 +769,7 @@
 
   Object.assign(api, {
     VERSION: 2, CFG, stickVector, MineWorld, dist, stepMiner, separate, inReach, dirTo, alignment, createSwing, rockStage, createRock, hitRock, pickRockSpot, depthScale, poseFor,
-    init: safe(init), onTab: safe(onTab), onTap: safe(onTap), inspect, debug,
+    init: safe(init), onTab: safe(onTab), onTap: safe(onTap), syncMachinery: safe(syncMachinery), setRefresh(fn) { if (opts && typeof fn === 'function') opts.refresh = fn; }, inspect, debug,
   });
   return api;
 });
