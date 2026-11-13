@@ -13,6 +13,7 @@ const html = read('public/index.html');
 const css = read('public/app-shell.css');
 const game = read('public/platform-game.js');
 const stick = read('public/platform-stick.js');
+const rulesSource = read('public/platform-rules.js');
 
 test('منطقة ميتة صريحة: لا حركة قبل 8 بكسل، ثم اتجاه واحد فقط', () => {
   assert.equal(R.PAD.deadzone, 8);
@@ -83,7 +84,8 @@ test('الربط: السحب يُصفَّر عند رفع الإصبع أو فق
   assert.match(game, /for \(const type of \['pointerup', 'pointercancel', 'lostpointercapture'\]\)[\s\S]{0,120}stickReset\(\)/,
     'every way a finger can leave clears the movement');
   assert.match(game, /addEventListener\('blur'[\s\S]{0,120}clearHolds\(\); stickReset\(\)/, 'losing focus also stops the stick');
-  assert.match(game, /if \(R\.padMask\) mask = R\.padMask\(\{ stick: duelStickDir, bits: \[mask\] \}\)/, 'the duel mask is assembled by the shared helper');
+  assert.match(rulesSource, /const padMask = \(\{ stick = 0, bits = \[\] \} = \{\}\) =>/, 'the duel mask is assembled by the shared helper');
+  assert.match(game, /if \(R\.padMask\) mask = R\.padMask\(\{ stick: duelStickDir, bits: \[mask\] \}\)/, 'the game delegates mask assembly to the shared helper');
 });
 
 test('الضغط المطوّل: ضربة قوية واحدة بعد 260ms، وفي وضع العصا فقط', () => {
