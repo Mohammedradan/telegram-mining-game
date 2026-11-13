@@ -4455,7 +4455,8 @@
     });
     window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null, deepDive: deepDiveReady ? () => window.DeepDigUI.open() : null });
     // موقع الحفر: كل ضربة للمعدّن تمرّ من handleMine نفسه (طاقة + ذهب + عملية mine)؛ يعيد false حين ترفضها قلة الطاقة
-    window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic, refresh: () => bootstrap() });
+    window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic });
+    window.DigSite?.setRefresh?.(() => bootstrap());
     // المرشد (عرض فقط): يقرأ state ولا يكتب ذهباً ولا عمليات؛ يبدأ بعد اعتماد حالة الخادم كي لا يبدو اللاعب القديم جديداً
     window.Guide?.init({
       getState: () => state, getZone: () => window.PlatformGame?.getZone?.() ?? 0,
