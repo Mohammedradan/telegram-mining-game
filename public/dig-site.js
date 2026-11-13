@@ -699,7 +699,8 @@
   function inspect() {
     return {
       active: api.active, paused: api.active ? paused() : true, clock,
-      mine: mineWorld && MineWorld ? { ...mineWorld, definition: MineWorld.MINES[mineWorld.index] } : null,\n      machinery: { ...machinery },
+      mine: mineWorld && MineWorld ? { ...mineWorld, definition: MineWorld.MINES[mineWorld.index] } : null,
+      machinery: { ...machinery },
       miner: { x: +miner.x.toFixed(4), y: +miner.y.toFixed(4), face: miner.face, moving: miner.moving, pose: last.pose || 'idle' },
       rock: rock ? { x: +rock.x.toFixed(4), y: +rock.y.toFixed(4), hp: rock.hp, max: rock.max, stage: rockStage(rock.hp, rock.max) } : null,
       swing: swing.phase, mode: swingMode, digHeld: wantsDig(), stick: { x: +stick.x.toFixed(3), y: +stick.y.toFixed(3) }, keys: { ...keys }, approaching: clock < approachUntil, cheering: clock < cheerUntil,
