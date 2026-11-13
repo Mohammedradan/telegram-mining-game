@@ -42,7 +42,8 @@
         state(!!(record && record.active), record);
         if (active) {
           status('وردية التعدين مستمرة على الخادم');
-          schedule(Math.max(1000, Number(record.nextOreInSeconds) * 1000 || 60000));
+          const wait = Number(record.nextOreInSeconds);
+          schedule(Number.isFinite(wait) ? Math.max(1000, wait * 1000) : 60000);
         } else {
           status('لا توجد وردية إنتاج نشطة');
           cancel();
@@ -95,7 +96,8 @@
           try { if (options.onProduction) await options.onProduction(result); } catch (_) {}
         } else status('الوردية تعمل؛ لم يكتمل إنتاج خام جديد بعد');
         state(true, result && result.job || job);
-        schedule(Math.max(1000, Number(result && result.job && result.job.nextOreInSeconds) * 1000 || 60000));
+        const wait = Number(result && result.job && result.job.nextOreInSeconds);
+        schedule(Number.isFinite(wait) ? Math.max(1000, wait * 1000) : 60000);
         return result;
       } catch (error) {
         status(error && error.message || 'تعذر استلام إنتاج الوردية');
