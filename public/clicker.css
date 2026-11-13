@@ -1123,3 +1123,23 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-mine-set[data-floor="lower"] .ck-gallery-lower{opacity:.92}
 .ck-mine-set[data-progress="3"] .ck-exit-gate{border-color:#65e6a5;color:#b9ffd8;box-shadow:0 0 18px #38d98977,inset 0 0 12px #38d98922}
 @media(prefers-reduced-motion:reduce){.ck-mine-set *{scroll-behavior:auto}}
+
+
+/* Interactive machine console: real player-controlled operating states, not decorative autoplay. */
+.ck-machine-console{position:absolute;z-index:8;right:10px;top:10px;display:grid;grid-template-columns:1fr 1fr;gap:5px;width:min(210px,48%);padding:8px;border:1px solid #c59b58;border-radius:10px;background:linear-gradient(145deg,#172333ed,#090f1beF);box-shadow:0 5px 16px #0009;color:#fff0c4;pointer-events:auto}
+.ck-machine-console-title{grid-column:1/-1;font-size:11px;text-align:center;letter-spacing:.2px}
+.ck-machine-console button{min-width:0;min-height:29px;padding:4px 5px;border:1px solid #927044;border-radius:6px;background:linear-gradient(#394b5c,#1b2835);color:#f6e4bd;font-family:inherit;font-size:10px;font-weight:700;line-height:1.25;cursor:pointer;touch-action:manipulation}
+.ck-machine-console button[aria-pressed="true"]{border-color:#74e2a6;background:linear-gradient(#26764f,#12442f);color:#e4ffef;box-shadow:0 0 10px #42d98a55}
+.ck-machine-console button:focus-visible{outline:2px solid #ffe08a;outline-offset:2px}
+.ck-machine-status{grid-column:1/-1;min-height:13px;color:#d6c49e;font-size:9px;line-height:1.35;text-align:center}
+.ck-mine-set[data-drill="on"] .ck-drill-cart{animation:ck-machine-drill 1.15s ease-in-out infinite}
+.ck-mine-set[data-drill="on"] .ck-cart-bit{animation:ck-machine-bit .22s linear infinite alternate}
+.ck-mine-set[data-conveyor="off"] .ck-conveyor .ck-belt,.ck-mine-set[data-conveyor="off"] .ck-conveyor span{animation-play-state:paused}
+.ck-mine-set[data-conveyor="on"] .ck-conveyor .ck-belt,.ck-mine-set[data-conveyor="on"] .ck-conveyor span{animation-play-state:running}
+.ck-mine-set[data-worker="assigned"] .ck-crew-hauler{animation:ck-worker-haul 2s ease-in-out infinite alternate}
+.ck-mine-set[data-worker="idle"] .ck-crew-hauler{animation-play-state:paused}
+@keyframes ck-machine-drill{0%,100%{translate:0 0}50%{translate:0 -3px}}
+@keyframes ck-machine-bit{to{rotate:18deg;filter:brightness(1.6)}}
+@keyframes ck-worker-haul{from{translate:-8px 0}to{translate:18px -2px}}
+@media(max-width:520px){.ck-machine-console{right:5px;top:5px;width:min(184px,54%);padding:6px;gap:4px}.ck-machine-console button{min-height:27px;font-size:9px}}
+@media(prefers-reduced-motion:reduce){.ck-mine-set[data-drill="on"] .ck-drill-cart,.ck-mine-set[data-drill="on"] .ck-cart-bit,.ck-mine-set[data-worker="assigned"] .ck-crew-hauler{animation:none!important}}

@@ -172,6 +172,7 @@
   let clock = 0;                                   // ملّي ثانية متراكمة (حقيقية في الحلقة، افتراضية في step للاختبار)
   const miner = { x: 0.26, y: 0.8, face: 1, step: 0, moving: false };
   let mineWorld = MineWorld ? MineWorld.create() : null;
+  const machinery = { drill: false, conveyor: false, worker: false };
   let rock = null;
   const swing = createSwing();
   let swingMode = 'none';                          // 'econ' ضربة تعدّن، 'show' ضربة استعراضية بعد لمس الصخرة (اقتصادها حُسم باللمس)
@@ -586,7 +587,9 @@
     if (!els || typeof els.world.insertBefore !== 'function' || (els.world.querySelector && els.world.querySelector('.ck-mine-set'))) return;
     const set = root.document.createElement('div');
     set.className = 'ck-mine-set';
-    set.setAttribute('aria-hidden', 'true');
+    set.setAttribute('data-drill', 'off'); set.setAttribute('data-conveyor', 'off'); set.setAttribute('data-worker', 'idle');
+    set.dataset.drill = 'off'; set.dataset.conveyor = 'off'; set.dataset.worker = 'idle';
+    set.setAttribute('aria-label', 'منشآت المنجم وأدوات التحكم بها');
     set.innerHTML = `
       <div class="ck-tunnel ck-tunnel-back"><i></i><b></b></div>
       <div class="ck-tunnel ck-tunnel-side"><i></i><b></b></div>
@@ -611,8 +614,46 @@
       <div class="ck-work-lamp"></div>
       <div class="ck-depth-sign"><b>المنجم الحجري</b><small>120 م · حجر ونحاس · 0/3</small></div>
       <div class="ck-exit-gate" data-open="false">اكسر 3 صخور لفتح الممر</div>
+      <section class="ck-machine-console" aria-label="لوحة تشغيل المنشآت">
+        <b class="ck-machine-console-title">تحكم المنشآت</b>
+        <button type="button" data-machine-action="drill" aria-pressed="false">تشغيل الحفّار</button>
+        <button type="button" data-machine-action="conveyor" aria-pressed="false">تشغيل سير الخام</button>
+        <button type="button" data-machine-action="worker" aria-pressed="false">تعيين عامل النقل</button>
+        <small class="ck-machine-status" aria-live="polite">المنشآت متوقفة</small>
+      </section>
     `;
     els.world.insertBefore(set, els.world.firstChild);
+    const consoleEl = set.querySelector && set.querySelector('.ck-machine-console');
+    if (consoleEl) consoleEl.addEventListener('click', safe((event) => {
+      const button = event.target && event.target.closest ? event.target.closest('[data-machine-action]') : null;
+      if (!button || !consoleEl.contains(button)) return;
+      const action = button.dataset.machineAction;
+      if (!Object.prototype.hasOwnProperty.call(machinery, action)) return;
+      if (action === 'worker' && !machinery.conveyor) {
+        const status = consoleEl.querySelector('.ck-machine-status');
+        if (status) status.textContent = 'شغّل سير الخام أولاً لتعيين عامل النقل';
+        return;
+      }
+      machinery[action] = !machinery[action];
+      if (action === 'conveyor' && !machinery.conveyor) machinery.worker = false;
+      set.dataset.drill = machinery.drill ? 'on' : 'off';
+      set.dataset.conveyor = machinery.conveyor ? 'on' : 'off';
+      set.dataset.worker = machinery.worker ? 'assigned' : 'idle';
+      button.setAttribute('aria-pressed', machinery[action] ? 'true' : 'false');
+      const labels = { drill: ['تشغيل الحفّار', 'إيقاف الحفّار'], conveyor: ['تشغيل سير الخام', 'إيقاف سير الخام'], worker: ['تعيين عامل النقل', 'إرجاع العامل'] };
+      button.textContent = labels[action][machinery[action] ? 1 : 0];
+      if (action === 'conveyor' && !machinery.conveyor) {
+        const workerButton = consoleEl.querySelector('[data-machine-action="worker"]');
+        if (workerButton) { workerButton.setAttribute('aria-pressed', 'false'); workerButton.textContent = labels.worker[0]; }
+      }
+      const status = consoleEl.querySelector('.ck-machine-status');
+      if (status) status.textContent = [
+        machinery.drill ? 'الحفّار يعمل' : 'الحفّار متوقف',
+        machinery.conveyor ? 'السير يعمل' : 'السير متوقف',
+        machinery.worker ? 'العامل مكلّف بالنقل' : 'العامل غير مكلّف',
+      ].join(' · ');
+      haptic('light');
+    }));
   }
 
   function init(options) {
@@ -660,6 +701,7 @@
     return {
       active: api.active, paused: api.active ? paused() : true, clock,
       mine: mineWorld && MineWorld ? { ...mineWorld, definition: MineWorld.MINES[mineWorld.index] } : null,
+      machinery: { ...machinery },
       miner: { x: +miner.x.toFixed(4), y: +miner.y.toFixed(4), face: miner.face, moving: miner.moving, pose: last.pose || 'idle' },
       rock: rock ? { x: +rock.x.toFixed(4), y: +rock.y.toFixed(4), hp: rock.hp, max: rock.max, stage: rockStage(rock.hp, rock.max) } : null,
       swing: swing.phase, mode: swingMode, digHeld: wantsDig(), stick: { x: +stick.x.toFixed(3), y: +stick.y.toFixed(3) }, keys: { ...keys }, approaching: clock < approachUntil, cheering: clock < cheerUntil,
