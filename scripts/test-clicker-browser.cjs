@@ -818,6 +818,7 @@ async function main() {
         return { ringBottom: ring.bottom, ctaTop: cta.top, ctaBottom: cta.bottom, vh: innerHeight, nodesOn: nodes.every((n) => n.left >= 0 && n.right <= innerWidth && n.top >= 0 && n.bottom <= innerHeight), count: nodes.length, hero: document.getElementById('ws-hero').naturalWidth > 0 }; });
       assert.ok(ws.count === 8 && ws.nodesOn && ws.hero && ws.ringBottom <= ws.ctaTop + 1 && ws.ctaBottom <= ws.vh + 0.5, `${tag}: the workshop fits (${JSON.stringify(ws)})`);
       await v.page.evaluate(() => window.closeWorkshop());
+      await require('./mine-traversal-browser.cjs')(v.page, tag);
       report.viewports.push(tag);
       await v.ctx.close();
     }

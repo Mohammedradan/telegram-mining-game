@@ -350,8 +350,9 @@
     }
     const gate = els.world.querySelector ? els.world.querySelector('.ck-exit-gate') : null;
     if (gate) {
-      gate.dataset.open = mineWorld.breaks >= 3 ? 'true' : 'false';
-      gate.textContent = mineWorld.breaks >= 3 ? 'ممر المنجم التالي ←' : 'اكسر ' + (3 - mineWorld.breaks) + ' صخور لفتح الممر';
+      const open = MineWorld.canAdvance(mineWorld);
+      gate.dataset.open = open ? 'true' : 'false';
+      gate.textContent = mineWorld.index === MineWorld.MINES.length - 1 ? 'نهاية مسار المناجم' : open ? 'ممر المنجم التالي ←' : 'اكسر ' + (3 - mineWorld.breaks) + ' صخور لفتح الممر';
     }
     const elevator = els.world.querySelector ? els.world.querySelector('.ck-lift-shaft') : null;
     if (elevator) elevator.dataset.floor = mineWorld.floor;
@@ -403,6 +404,7 @@
     keys.l = keys.r = keys.u = keys.d = false;
     digHeld = false; digKey = false; padPointer = null; digPointer = null;
     pendingShow = 0;
+    approachUntil = 0;
     if (els) {
       setVar(els.stick, '--sx', '0px'); setVar(els.stick, '--sy', '0px');
       if (els.dig && els.dig.classList) els.dig.classList.remove('is-down');
@@ -429,7 +431,7 @@
     // اقتراب تلقائي: زر الحفر مضغوط (أو لُمست الصخرة من بعيد) والعصا في المنتصف
     if (!manual && rk && !inReach(miner, rk, aspect, R.reach) && (dig || clock < approachUntil)) steer = dirTo(miner, rk, aspect);
 
-    let moved = 0;
+    let moved = 0, transitioned = false;
     if (swing.phase === 'idle') {
       const ox = miner.x, oy = miner.y;
       const traversal = mineWorld && MineWorld
@@ -438,6 +440,9 @@
       if (mineWorld && traversal.floor && traversal.floor !== lastLiftFloor) updateMineScene();
       if (rk && !traversal.transition) separate(miner, rk, aspect, R.sep);
       if (traversal.transition) {
+        // A cave landing is a safe stop, not a carried-over approach or strike.
+        transitioned = true;
+        halt();
         rock = createRock({ x: traversal.transition === 'next' ? 0.72 : 0.28, y: 0.8 });
         last.stage = -1; last.hp = -1; paintRock(); updateMineScene();
         if (fx) fx.cue('milestone');
@@ -455,7 +460,7 @@
     const reach = !!rk && inReach(miner, rk, aspect, R.reach);
     if (!reach && clock >= approachUntil) pendingShow = 0;          // لمسة قديمة لا تُنتج ضربة استعراضية متأخرة
     const toward = manual && !!rk && alignment({ x: ix, y: iy }, miner, rk, aspect) > CFG.TOWARD;
-    const econ = reach && (dig || toward) && clock >= dryUntil;
+    const econ = !transitioned && reach && (dig || toward) && clock >= dryUntil;
     if (swing.phase === 'idle') {
       if (econ) { miner.face = rk.x >= miner.x ? 1 : -1; swingMode = 'econ'; pendingShow = 0; swing.start(); }
       else if (reach && pendingShow > 0) { miner.face = rk.x >= miner.x ? 1 : -1; swingMode = 'show'; pendingShow = 0; swing.start(); }
@@ -564,9 +569,14 @@
   }
 
   const KEYMAP = { ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd' };
-  const interactive = (t) => !!(t && t.tagName && /^(BUTTON|A|INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  const interactive = (t) => !!(t && t.tagName && /^(BUTTON|A|INPUT|TEXTAREA|SELECT|SUMMARY)$/.test(t.tagName));
   function onKey(e, down) {
-    if (!e || e.ctrlKey || e.metaKey || e.altKey || paused() || (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || ''))) return;
+    if (e && !down) {
+      const released = KEYMAP[e.code];
+      if (released) keys[released] = false;
+      if (e.code === 'KeyE' || e.code === 'Space') digKey = false;
+    }
+    if (!e || e.ctrlKey || e.metaKey || e.altKey || paused() || (down && (interactive(e.target) || (e.target && e.target.isContentEditable)))) return;
     const k = KEYMAP[e.code];
     if (k) {
       if (down && !keys[k]) touched();

@@ -23,8 +23,13 @@
     state.breaks=Math.min(999,state.breaks+1);
     return state.breaks>=3;
   }
+  // A visited cave stays open; this is exploration state, never an economy entitlement.
+  function canAdvance(state) {
+    return !!state && state.index < MINES.length - 1 &&
+      (state.breaks >= 3 || state.index < state.unlocked);
+  }
   function step(state, miner, input, dt, aspect, band, speed=0.6, depthSpeed=0.55) {
-    if (!state || !miner || !input || !(dt>0)) return { moved:0, transition:null, climbing:false };
+    if (!state || !miner || !input || !Number.isFinite(dt) || !(dt>0)) return { moved:0, transition:null, climbing:false };
     const x=clamp(Number(input.x)||0,-1,1), y=clamp(Number(input.y)||0,-1,1);
     const len=Math.hypot(x,y), k=len>1?1/len:1, a=Math.max(.2,Number(aspect)||1);
     const ladder=Math.abs(miner.x-.14)<=.105, lift=Math.abs(miner.x-.84)<=.09;
@@ -39,16 +44,19 @@
     state.climbing=vertical;
     if (Math.abs(x)>.2) miner.face=x>0?1:-1;
     let transition=null;
-    if (state.floor==='upper' && miner.x>=.91 && state.breaks>=3 && state.index<MINES.length-1) {
+    // Use measured body-safe bounds, not .91: mobile sprites can cap x at .80.
+    // The upper-floor flag alone is insufficient after walking away from a shaft.
+    const atUpperTunnel = state.floor==='upper' && miner.y<.56;
+    if (atUpperTunnel && x>.05 && miner.x>=band.x1-.005 && canAdvance(state)) {
       state.index++; state.unlocked=Math.max(state.unlocked,state.index); state.breaks=0;
       miner.x=band.x0+.04; miner.y=Math.min(band.y1,.8); state.floor='lower';
       state.transitions++; state.lastExit='forward'; transition='next';
-    } else if (state.floor==='upper' && miner.x<=band.x0+.005 && state.index>0) {
+    } else if (atUpperTunnel && x<-.05 && miner.x<=band.x0+.005 && state.index>0) {
       state.index--; state.breaks=0; miner.x=band.x1-.04; miner.y=Math.min(band.y1,.8);
       state.transitions++; state.lastExit='back'; transition='previous';
     }
     const moved=Math.hypot(miner.x-ox,(miner.y-oy)/a);
     return { moved, transition, climbing:vertical, ladder, lift, floor:state.floor };
   }
-  return Object.freeze({ MINES, create, recordBreak, step });
+  return Object.freeze({ MINES, create, recordBreak, canAdvance, step });
 });
