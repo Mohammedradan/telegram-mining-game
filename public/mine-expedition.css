@@ -147,7 +147,6 @@ body.ck-cave .ck-node {
   margin: 0 !important;
 }
 body.ck-cave .ck-node-tag { min-width: 31px; padding: 0 4px; font-size: 9px; line-height: 13px; }
-body.ck-cave .ck-pointer { display: none !important; }
 
 /* أزرار التفاعل أسفل المشهد مباشرة بلا فراغ: صغيرة لكن بحجم إصبع */
 body.ck-cave .ck-actions {
