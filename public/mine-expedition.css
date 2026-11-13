@@ -13,7 +13,8 @@ body.ck-cave {
 }
 body.ck-cave #tab-mining {
   width: 100%;
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
   min-height: 0;
   padding: 0 !important;
   overflow: hidden !important;
@@ -38,17 +39,21 @@ body.ck-cave #ck-stage .ck-area {
 body.ck-cave .app-header,
 body.ck-cave #tap-hint { display: none !important; }
 
-/* ---------- HUD عائم فائق الصغر بدل شريط علوي يسحب ارتفاع الساحة ---------- */
+/* ---------- HUD مدمج في التدفق: يشغل أقل ارتفاع ممكن ويبقي الساحة العنصر المرن الأكبر ---------- */
 body.ck-cave .ck-hud {
+  position: relative;
+  z-index: 4;
+  flex: 0 1 auto;
+  align-self: center;
   display: flex;
-  position: absolute;
-  z-index: 24;
-  top: calc(6px + env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: max-content;
-  max-width: calc(100vw - 96px);
+  max-width: calc(100vw - 16px);
+  min-height: 0;
   margin: 0;
+  padding: max(2px, env(safe-area-inset-top, 0px)) 4px 0;
   pointer-events: none;
 }
 body.ck-cave .ck-hud .balance-strip {
@@ -75,14 +80,13 @@ body.ck-cave .ck-sound {
 body.ck-cave .ck-sound .ui-icon { width: 18px; height: 18px; }
 
 body.ck-cave #energy-container {
-  position: absolute;
-  z-index: 20;
-  left: 50%;
-  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 4;
+  align-self: center;
   width: min(430px, 74vw);
   min-height: 13px;
-  margin: 0 !important;
+  margin: 0 auto !important;
   padding: 2px 7px 3px !important;
   border-radius: 999px !important;
   border: 1px solid rgba(255, 213, 97, .35) !important;
@@ -96,15 +100,13 @@ body.ck-cave #energy-container .bg-slate-800 { height: 5px !important; border-ra
 
 /* شريط التنقل أيقونات فقط — لا يستهلك 68px من ارتفاع الكهف */
 body.ck-cave .bottom-nav {
-  position: absolute;
-  z-index: 22;
-  left: 50%;
-  bottom: calc(5px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
+  position: relative;
+  z-index: 4;
+  align-self: center;
   width: min(560px, calc(100vw - 12px));
   height: 45px;
   min-height: 0 !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
   padding: 3px !important;
   gap: 2px !important;
   border-radius: 17px !important;
@@ -123,22 +125,23 @@ body.ck-cave .bottom-nav button.text-amber-400 { background: rgba(125, 78, 16, .
 body.ck-cave .bottom-nav button span { display: none !important; }
 body.ck-cave .bottom-nav .nav-icon { width: 22px !important; height: 22px !important; margin: 0 !important; }
 
-/* الميداليات صف عائم صغير؛ لا تدفع الكهف إلى الأسفل */
+/* الميداليات صف مضغوط داخل التدفق: يحقق متطلبات الوصول بلا رفع الكهف عن التراص العمودي */
 body.ck-cave .ck-nodes {
-  position: absolute;
-  z-index: 18;
-  top: calc(48px + env(safe-area-inset-top, 0px));
-  left: 0;
-  right: 0;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 3;
+  top: auto;
+  left: auto;
+  right: auto;
   width: 100%;
-  padding: 0 max(54px, 12vw) !important;
+  padding: 0 2px !important;
   justify-content: center;
-  gap: clamp(2px, 2.2vw, 20px);
+  gap: clamp(0px, 2.2vw, 14px);
   pointer-events: none;
 }
 body.ck-cave .ck-node {
   pointer-events: auto;
-  --ck-node: clamp(34px, 8.6vh, 52px) !important;
+  --ck-node: clamp(44px, 8.2vh, 52px) !important;
   gap: 1px;
   padding: 0 !important;
   margin: 0 !important;
@@ -146,31 +149,33 @@ body.ck-cave .ck-node {
 body.ck-cave .ck-node-tag { min-width: 31px; padding: 0 4px; font-size: 9px; line-height: 13px; }
 body.ck-cave .ck-pointer { display: none !important; }
 
-/* أزرار منبثقة فوق المشهد، صغيرة وبلا تغطية موقع الصخرة */
+/* أزرار التفاعل أسفل المشهد مباشرة بلا فراغ: صغيرة لكن بحجم إصبع */
 body.ck-cave .ck-actions {
-  position: absolute;
-  z-index: 19;
-  left: 50%;
-  bottom: calc(89px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  width: min(240px, 54vw);
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 3;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  width: min(340px, calc(100% - 8px));
+  margin: 0 auto;
   display: flex;
   gap: 6px !important;
   align-items: center;
-  padding: 0 !important;
+  padding: 1px 4px 3px !important;
   pointer-events: auto;
 }
-body.ck-cave .ck-go { flex: 1 1 0; min-width: 0; min-height: 40px !important; padding: 4px 9px !important; border-radius: 13px !important; }
+body.ck-cave .ck-go { flex: 1 1 0; min-width: 0; min-height: 44px !important; padding: 4px 9px !important; border-radius: 13px !important; }
 body.ck-cave .ck-go-text b { font-size: 13px !important; }
 body.ck-cave .ck-go-text small { display: none !important; }
 body.ck-cave .ck-go-icon { width: 20px !important; height: 20px !important; }
-body.ck-cave .ck-boost { flex: 0 0 clamp(68px, 24vw, 96px); min-height: 40px !important; padding: 4px 7px !important; border-radius: 13px !important; }
+body.ck-cave .ck-boost { flex: 0 0 clamp(68px, 24vw, 96px); min-height: 44px !important; padding: 4px 7px !important; border-radius: 13px !important; }
 body.ck-cave .ck-boost-label { font-size: 11px !important; }
 body.ck-cave .ck-boost-time { font-size: 9px !important; }
 
-/* أدوات اللمس ترتفع قليلاً حتى لا تختبئ خلف شريط الطاقة/التنقل */
-body.ck-cave .ck-pad { bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
-body.ck-cave .ck-dig { bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
+/* أدوات اللمس داخل المشهد نفسه فوق بصريات الكهف */
+body.ck-cave .ck-pad { bottom: 10px !important; }
+body.ck-cave .ck-dig { bottom: 10px !important; }
 
 /* لوحة المنشآت زجاجية يمين المشهد: تشغيل مباشر دون أن تلتهم 25% من الشاشة */
 body.ck-cave .ck-machine-console {
@@ -504,29 +509,30 @@ body.ck-mining-focus .ck-fullscreen-toggle .ck-fs-close { display: inline; }
   .ck-expedition-sheet summary small,
   .ck-goals-count { font-size: 8.5px; max-width: 90px; }
   body.ck-cave .ck-machine-console { top: calc(66px + env(safe-area-inset-top, 0px)) !important; right: calc(14px + env(safe-area-inset-right, 0px)) !important; width: 256px !important; }
-  body.ck-cave .ck-nodes { top: calc(5px + env(safe-area-inset-top, 0px)); padding-inline: max(72px, 15vw) !important; }
-  body.ck-cave .ck-hud { left: auto; right: calc(290px + env(safe-area-inset-right, 0px)); transform: none; }
+  body.ck-cave .ck-nodes { padding-inline: max(72px, 15vw) !important; }
   body.ck-cave #energy-container { width: min(520px, 48vw); }
   body.ck-cave .bottom-nav { width: min(590px, 62vw); }
-  body.ck-cave .ck-actions { bottom: calc(61px + env(safe-area-inset-bottom, 0px)); width: min(280px, 34vw); }
+  body.ck-cave .ck-actions { width: min(340px, 34vw); padding-bottom: 1px !important; }
   body.ck-cave .ck-pad { left: calc(14px + env(safe-area-inset-left, 0px)) !important; bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important; }
   body.ck-cave .ck-dig { right: calc(286px + env(safe-area-inset-right, 0px)) !important; bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 @media (min-width: 1280px) {
-  body.ck-cave .ck-hud { right: 310px; }
   body.ck-cave .ck-dig { right: 320px !important; }
   .ck-expedition-rail { width: 300px; }
 }
 
 /* ---------- الهواتف الصغيرة ---------- */
 @media (max-width: 520px) {
-  body.ck-cave .ck-hud { max-width: calc(100vw - 104px); }
+  body.ck-cave .ck-hud { max-width: calc(100vw - 16px); padding-top: max(1px, env(safe-area-inset-top, 0px)); }
   body.ck-cave .ck-hud .balance-strip { width: clamp(112px, 37vw, 150px); min-height: 32px; padding-inline: 8px !important; }
-  body.ck-cave .ck-sound { width: 34px; height: 34px; }
-  body.ck-cave .bottom-nav { width: 100vw; left: 0; transform: none; bottom: 0; border-left: 0 !important; border-right: 0 !important; border-bottom: 0 !important; border-radius: 15px 15px 0 0 !important; padding-bottom: max(3px, env(safe-area-inset-bottom, 0px)) !important; }
-  body.ck-cave #energy-container { bottom: calc(48px + env(safe-area-inset-bottom, 0px)); width: min(380px, 88vw); }
-  body.ck-cave .ck-nodes { top: calc(43px + env(safe-area-inset-top, 0px)); padding-inline: 42px !important; gap: 0; }
-  body.ck-cave .ck-node { --ck-node: clamp(29px, 7.8vh, 39px) !important; }
+  body.ck-cave .ck-sound { width: 36px; height: 36px; }
+  body.ck-cave .bottom-nav { width: 100vw; margin: 0 0 0 0 !important; border-left: 0 !important; border-right: 0 !important; border-bottom: 0 !important; border-radius: 15px 15px 0 0 !important; padding-bottom: max(3px, env(safe-area-inset-bottom, 0px)) !important; }
+  body.ck-cave #energy-container { width: min(380px, 88vw); }
+  body.ck-cave .ck-nodes { padding-inline: 2px !important; gap: 0; }
+  body.ck-cave .ck-node { --ck-node: clamp(44px, 8vh, 48px) !important; }
+  body.ck-cave .ck-actions { width: min(320px, calc(100% - 4px)); padding-inline: 2px !important; }
+  body.ck-cave .ck-go { min-height: 44px !important; }
+  body.ck-cave .ck-boost { min-height: 44px !important; }
   body.ck-cave .ck-node-tag { display: none; }
   body.ck-cave .ck-machine-console { top: calc(82px + env(safe-area-inset-top, 0px)) !important; width: min(186px, 51vw) !important; }
   body.ck-cave .ck-machine-console-title { font-size: 8px !important; }
@@ -554,27 +560,25 @@ body.ck-mining-focus .ck-fullscreen-toggle .ck-fs-close { display: inline; }
   .ck-cache { width: 40px; height: 40px; border-radius: 11px; }
   .ck-cache-art .ui-icon { width: 18px; height: 18px; }
   .ck-cache-label { font-size: 6.2px; line-height: 11px; }
-  body.ck-cave .ck-actions { width: min(198px, 51vw); bottom: calc(79px + env(safe-area-inset-bottom, 0px)); }
-  body.ck-cave .ck-go { min-height: 40px !important; padding-inline: 6px !important; }
   body.ck-cave .ck-go-icon { display: none !important; }
-  body.ck-cave .ck-boost { min-height: 40px !important; flex-basis: 62px; }
   body.ck-cave .ck-boost-label { font-size: 9px !important; }
   body.ck-cave .ck-pad,
-  body.ck-cave .ck-dig { bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
-  .ck-world-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); font-size: 8px; }
+  body.ck-cave .ck-dig { bottom: 8px !important; }
+  .ck-world-toast { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); font-size: 8px; }
 }
 
 /* ---------- الأفقي القصير: عمود أدوات جانبي ومسرح ممتد ---------- */
 @media (orientation: landscape) and (max-height: 560px) {
-  body.ck-cave .bottom-nav { width: min(340px, 46vw); height: 35px; bottom: calc(3px + env(safe-area-inset-bottom, 0px)); }
-  body.ck-cave .bottom-nav button { min-height: 29px !important; }
-  body.ck-cave .bottom-nav .nav-icon { width: 18px !important; height: 18px !important; }
-  body.ck-cave #energy-container { left: auto; right: calc(10px + env(safe-area-inset-right, 0px)); transform: none; bottom: calc(43px + env(safe-area-inset-bottom, 0px)); width: 150px; }
-  body.ck-cave .ck-hud { left: calc(48px + env(safe-area-inset-left, 0px)); right: auto; top: 3px; transform: none; }
+  body.ck-cave .bottom-nav { width: min(340px, 46vw); height: 40px; margin: 0 auto !important; }
+  body.ck-cave .bottom-nav button { min-height: 33px !important; }
+  body.ck-cave .bottom-nav .nav-icon { width: 19px !important; height: 19px !important; }
+  body.ck-cave #energy-container { align-self: auto; width: 150px; margin-inline-start: auto !important; margin-inline-end: max(10px, env(safe-area-inset-right, 0px)) !important; }
+  body.ck-cave .ck-hud { align-self: auto; margin-inline-start: max(48px, env(safe-area-inset-left, 0px)) !important; margin-inline-end: auto !important; padding-top: 2px; }
   body.ck-cave .ck-hud .balance-strip { width: 112px; min-height: 29px; }
-  body.ck-cave .ck-sound { width: 29px; height: 29px; }
-  body.ck-cave .ck-nodes { top: 3px; left: 50%; right: auto; width: auto; transform: translateX(-50%); padding-inline: 0 !important; gap: 5px; }
-  body.ck-cave .ck-node { --ck-node: clamp(27px, 13vh, 38px) !important; }
+  body.ck-cave .ck-sound { width: 32px; height: 32px; }
+  body.ck-cave .ck-nodes { width: auto; padding-inline: 0 !important; gap: 5px; }
+  body.ck-cave .ck-node { --ck-node: clamp(40px, 13vh, 44px) !important; }
+  body.ck-cave .ck-nodes[data-count="5"] .ck-node { --ck-node: 40px !important; }
   body.ck-cave .ck-node-tag { display: none; }
   .ck-fullscreen-toggle { top: 3px; left: 4px; width: 36px; height: 29px; }
   .ck-fullscreen-toggle .ui-icon { width: 16px; height: 16px; }
@@ -590,7 +594,7 @@ body.ck-mining-focus .ck-fullscreen-toggle .ck-fs-close { display: inline; }
   body.ck-cave .ck-machine-console-title { display: none; }
   body.ck-cave .ck-machine-status { grid-column: 1 / -1; min-height: 8px !important; font-size: 5.8px !important; }
   body.ck-cave .ck-machine-console button { min-height: 25px !important; font-size: 5.8px !important; }
-  body.ck-cave .ck-actions { left: auto; right: 4px; bottom: calc(77px + env(safe-area-inset-bottom, 0px)); transform: none; width: 136px; flex-direction: column; }
+  body.ck-cave .ck-actions { margin-inline-start: auto; margin-inline-end: 4px; width: 148px; padding-inline: 2px !important; flex-direction: column; }
   body.ck-cave .ck-go,
   body.ck-cave .ck-boost { width: 100%; min-height: 40px !important; flex: none; }
   body.ck-cave .ck-pad { --pad: 62px; left: 4px !important; bottom: 4px !important; }
@@ -598,13 +602,13 @@ body.ck-mining-focus .ck-fullscreen-toggle .ck-fs-close { display: inline; }
   .ck-cache { width: 34px; height: 34px; border-radius: 9px; }
   .ck-cache-art .ui-icon { width: 16px; height: 16px; }
   .ck-cache-label { display: none; }
-  .ck-world-toast { bottom: calc(43px + env(safe-area-inset-bottom, 0px)); font-size: 7px; }
+  .ck-world-toast { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); font-size: 7px; }
 }
 
 @media (max-height: 380px) and (orientation: landscape) {
   body.ck-cave .ck-pad { --pad: 52px; }
   body.ck-cave .ck-dig { --dig: 48px; }
-  body.ck-cave .ck-actions { bottom: 43px; width: 112px; }
+  body.ck-cave .ck-actions { width: 112px; }
   body.ck-cave .ck-go,
   body.ck-cave .ck-boost { min-height: 40px !important; }
   .ck-expedition-rail { display: none; }
