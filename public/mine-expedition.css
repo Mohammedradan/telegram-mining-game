@@ -29,10 +29,10 @@ body.ck-cave #ck-stage {
   gap: 0 !important;
 }
 body.ck-cave #ck-stage .ck-area {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   width: 100%;
   max-width: none;
-  height: 100%;
+  height: auto;
   min-height: 0 !important;
   border-radius: 0;
 }
