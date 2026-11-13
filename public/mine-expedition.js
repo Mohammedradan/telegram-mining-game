@@ -142,11 +142,17 @@
 
   function buildLayer(doc, stage, area) {
     if (!stage.querySelector || !area) return null;
-    if (!stage.querySelector('.ck-fullscreen-toggle')) {
-      stage.insertAdjacentHTML('beforeend', `
+    // زر ملء الشاشة يعيش في صف «الأدوات» أعلى الشاشة (بجانب زر الصوت) لا فوق المشهد:
+    // وضعه فوق الصف العلوي كان يحتلّ ركن ميداليات الترقية (منطقة ميتة يلمسها اللاعب مصادفةً)
+    const hud = (doc.querySelector && doc.querySelector('.ck-hud')) || stage;
+    if (!hud.querySelector('.ck-fullscreen-toggle')) {
+      hud.insertAdjacentHTML('beforeend', `
         <button id="ck-fullscreen" class="ck-fullscreen-toggle" type="button" aria-pressed="false" aria-label="ملء الشاشة">
           ${svgUse('i-fullscreen')}<span class="ck-fs-open">ملء الشاشة</span><span class="ck-fs-close">إظهار الواجهة</span>
-        </button>
+        </button>`);
+    }
+    if (!stage.querySelector('.ck-expedition-rail')) {
+      stage.insertAdjacentHTML('beforeend', `
         <div class="ck-expedition-rail" aria-label="أدوات استكشاف المنجم">
           <details id="ck-map-panel" class="ck-expedition-sheet ck-map-sheet">
             <summary>${svgUse('i-book')}<span class="ck-sheet-title">خريطة المنجم</span><small id="ck-map-current">المنجم الحجري</small></summary>
@@ -186,7 +192,7 @@
         </li>`).join('');
     }
     return {
-      fullscreen: stage.querySelector('#ck-fullscreen'),
+      fullscreen: hud.querySelector('#ck-fullscreen'),
       rail: stage.querySelector('.ck-expedition-rail'),
       mapPanel: stage.querySelector('#ck-map-panel'),
       mapCurrent: stage.querySelector('#ck-map-current'),

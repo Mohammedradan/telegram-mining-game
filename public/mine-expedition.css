@@ -201,18 +201,18 @@ body.ck-cave .ck-machine-console button {
 }
 body.ck-cave .ck-machine-status { min-height: 10px !important; font-size: 7.5px !important; line-height: 1.2 !important; }
 
-/* ---------- زر ملء الشاشة / إخفاء الواجهة ---------- */
+/* ---------- زر ملء الشاشة / إخفاء الواجهة: يعيش في صف «الأدوات» مع زر الصوت ---------- */
 .ck-fullscreen-toggle {
-  position: absolute;
-  z-index: 30;
-  top: calc(7px + env(safe-area-inset-top, 0px));
-  left: calc(8px + env(safe-area-inset-left, 0px));
+  position: relative;
+  z-index: 4;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 42px;
+  width: 38px;
   height: 38px;
+  pointer-events: auto;
   border: 1px solid rgba(255, 222, 126, .55);
   border-radius: 12px;
   color: #ffe89a;
@@ -483,10 +483,25 @@ body.ck-fullscreen-toggle-wide .ck-fullscreen-toggle span { display: inline; }
 .ck-lift-shaft[data-moving="true"] .ck-lift-cage { animation: ck-lift-step 1.55s cubic-bezier(.42, 0, .2, 1) 1 !important; }
 @keyframes ck-lift-step { 0% { transform: translateY(0); } 34% { transform: translateY(142px); } 66% { transform: translateY(54px); } 100% { transform: translateY(0); } }
 
-/* ---------- وضع التركيز: لا شيء فوق الكهف إلا زر العودة وأدوات اللعب ---------- */
+/* ---------- وضع التركيز: يخفي واجهة اللعب ما عدا زر الخروج نفسه ---------- */
+/* صف «الأدوات» لا يختفي بالكامل: فيه زر الخروج من وضع التركيز.
+   بدل إخفائه نثبّت الصف أعلى الشاشة ونخفي محتواه ما عدا زر التبديل، فلا يبقى فراغ فارغ في التدفق */
+body.ck-mining-focus .ck-hud {
+  position: absolute !important;
+  z-index: 30 !important;
+  top: calc(7px + env(safe-area-inset-top, 0px)) !important;
+  left: calc(8px + env(safe-area-inset-left, 0px)) !important;
+  align-self: auto !important;
+  width: max-content !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+body.ck-mining-focus .ck-hud .balance-strip,
+body.ck-mining-focus .ck-hud .ck-sound { display: none !important; }
 body.ck-mining-focus .app-header,
 body.ck-mining-focus .bottom-nav,
-body.ck-mining-focus .ck-hud,
 body.ck-mining-focus #energy-container,
 body.ck-mining-focus .ck-nodes,
 body.ck-mining-focus .ck-actions,
@@ -496,8 +511,6 @@ body.ck-mining-focus #tab-mining,
 body.ck-mining-focus #ck-stage,
 body.ck-mining-focus #ck-stage .ck-area { border-radius: 0 !important; }
 body.ck-mining-focus .ck-fullscreen-toggle { background: rgba(4, 7, 16, .58); }
-body.ck-mining-focus .ck-fullscreen-toggle .ck-fs-open { display: none; }
-body.ck-mining-focus .ck-fullscreen-toggle .ck-fs-close { display: inline; }
 
 /* ---------- الشاشات الواسعة والتابلت: استغلال العرض كاملاً ---------- */
 @media (min-width: 760px) {
@@ -573,14 +586,14 @@ body.ck-mining-focus .ck-fullscreen-toggle .ck-fs-close { display: inline; }
   body.ck-cave .bottom-nav button { min-height: 33px !important; }
   body.ck-cave .bottom-nav .nav-icon { width: 19px !important; height: 19px !important; }
   body.ck-cave #energy-container { align-self: auto; width: 150px; margin-inline-start: auto !important; margin-inline-end: max(10px, env(safe-area-inset-right, 0px)) !important; }
-  body.ck-cave .ck-hud { align-self: auto; margin-inline-start: max(48px, env(safe-area-inset-left, 0px)) !important; margin-inline-end: auto !important; padding-top: 2px; }
+  body.ck-cave .ck-hud { align-self: auto; margin-inline-start: max(8px, env(safe-area-inset-left, 0px)) !important; margin-inline-end: auto !important; padding-top: 2px; }
   body.ck-cave .ck-hud .balance-strip { width: 112px; min-height: 29px; }
   body.ck-cave .ck-sound { width: 32px; height: 32px; }
   body.ck-cave .ck-nodes { width: auto; padding-inline: 0 !important; gap: 5px; }
   body.ck-cave .ck-node { --ck-node: clamp(40px, 13vh, 44px) !important; }
   body.ck-cave .ck-nodes[data-count="5"] .ck-node { --ck-node: 40px !important; }
   body.ck-cave .ck-node-tag { display: none; }
-  .ck-fullscreen-toggle { top: 3px; left: 4px; width: 36px; height: 29px; }
+  .ck-fullscreen-toggle { width: 36px; height: 29px; }
   .ck-fullscreen-toggle .ui-icon { width: 16px; height: 16px; }
   .ck-expedition-rail { top: 37px; left: 4px; width: min(188px, 29vw); gap: 3px; }
   .ck-expedition-sheet summary { min-height: 25px; padding: 1px 5px; }
