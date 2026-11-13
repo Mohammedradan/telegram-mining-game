@@ -11,7 +11,7 @@ require('../public/platform-bosses.js');
 require('../public/platform-renderer.js');
 const { PlatformScenery: Scenery, PlatformBosses: Bosses, PlatformRenderer: Renderer } = globalThis;
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
-const rules = read('platform-rules.js'), game = read('platform-game.js'), html = read('index.html');
+const rules = read('platform-rules.js'), game = read('platform-game.js'), audio = read('platform-audio.js'), html = read('index.html');
 const css = read('platform.css');
 const sceneryJs = read('platform-scenery.js'), bossesJs = read('platform-bosses.js'), rendererJs = read('platform-renderer.js');
 
@@ -247,7 +247,7 @@ test('worlds UI: every event the boss engine emits is heard and seen by the game
   // how many separate places react to each event: shake/haptic, status line or floater, particles (a deleted branch lowers the count)
   const roles = { boss_wake: 3, boss_windup: 1, boss_slam: 2, boss_charge: 1, boss_crash: 2, boss_stun: 2, boss_enrage: 3, boss_death: 3 };
   for (const type of emitted) {
-    assert.match(game, new RegExp(`${type}: \\{ freq: \\d+`), `${type} has its own sound`);
+    assert.match(audio, new RegExp(`${type}: \\{ freq: \\d+`), `${type} has its own sound`);
     const handlers = (game.match(new RegExp(`event\\.type === '${type}'`, 'g')) || []).length;
     assert.ok(handlers >= roles[type], `${type} is handled in ${handlers} places, expected ${roles[type]}`);
   }
