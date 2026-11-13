@@ -127,13 +127,12 @@ async function main() {
     }
     await page.waitForFunction(() => {
       const local = window.DigSite?.inspect?.().machinery;
-      const server = window.MineMachineryClient?.create ? null : null;
-      return !!(local && local.drill && local.conveyor && local.worker);
+      const status = document.querySelector('.ck-machine-status')?.textContent || '';
+      return !!(local && local.drill && local.conveyor && local.worker && status.includes('بدأت الوردية'));
     }, null, { timeout: 5000 });
-    await page.waitForFunction(async () => {
-      const status = await window.PlatformBridge.request('/api/mine-machinery/status');
-      return !!(status.job && status.job.active && status.job.zone === 0);
-    }, null, { timeout: 10000, polling: 100 });
+    const activeServerShift = await page.evaluate(() => PlatformBridge.request('/api/mine-machinery/status'));
+    assert.equal(activeServerShift.job.active, true, 'all three controls create an active server shift');
+    assert.equal(activeServerShift.job.zone, 0, 'the server records the selected mine');
     const activeMachinery = await page.evaluate(() => ({
       scene: window.DigSite.inspect().machinery,
       controls: [...document.querySelectorAll('.ck-machine-console button')].map((button) => button.getAttribute('aria-pressed')),
@@ -143,10 +142,9 @@ async function main() {
     assert.deepEqual(activeMachinery.controls, ['true', 'true', 'true']);
     assert.equal(activeMachinery.status, 'connected');
     await page.locator('[data-machine-action="drill"]').tap();
-    await page.waitForFunction(async () => {
-      const status = await window.PlatformBridge.request('/api/mine-machinery/status');
-      return !!(status.job && !status.job.active);
-    }, null, { timeout: 10000, polling: 100 });
+    await page.waitForFunction(() => (document.querySelector('.ck-machine-status')?.textContent || '').includes('تم إيقاف وردية الإنتاج'), null, { timeout: 10000 });
+    const stoppedServerShift = await page.evaluate(() => PlatformBridge.request('/api/mine-machinery/status'));
+    assert.equal(stoppedServerShift.job.active, false, 'disabling a required machine stops the server shift');
     const stoppedMachinery = await page.evaluate(() => ({
       scene: window.DigSite.inspect().machinery,
       controls: [...document.querySelectorAll('.ck-machine-console button')].map((button) => button.getAttribute('aria-pressed')),
