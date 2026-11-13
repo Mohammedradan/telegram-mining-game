@@ -29,6 +29,17 @@ async function main() {
     await page.route('**/*', (r) => (new URL(r.request().url()).origin === new URL(base).origin ? r.continue() : r.abort()));
     // optional stress knob for slow CI runners: CLICKER_CPU_THROTTLE=4 makes the page 4x slower (assertions must not depend on speed)
     if (Number(process.env.CLICKER_CPU_THROTTLE) > 1) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CLICKER_CPU_THROTTLE) });
+    // TEMP DIAGNOSTIC: record who toggles ck-mining-focus/-available (with a stack)
+    await page.addInitScript(() => {
+      window.__focusToggleEvents = [];
+      const origToggle = DOMTokenList.prototype.toggle;
+      const origAdd = DOMTokenList.prototype.add;
+      const record = (op, name, rest) => {
+        if (String(name).includes('ck-mining-focus')) window.__focusToggleEvents.push(`${op}:${name}:${rest.map((x) => String(x)).join(',')}\n${new Error().stack || ''}`);
+      };
+      DOMTokenList.prototype.toggle = function (name, ...rest) { record('toggle', name, rest); return origToggle.call(this, name, ...rest); };
+      DOMTokenList.prototype.add = function (name, ...rest) { record('add', name, rest); return origAdd.call(this, name, ...rest); };
+    });
     await page.goto(base);
     await page.waitForFunction(() => window.ClickerFX && window.ClickerFX.active && typeof serverMode !== 'undefined' && serverMode === true, null, { timeout: 20000 });
     await page.locator('#nav-mining').tap();
@@ -253,6 +264,7 @@ async function main() {
       out.checkVis = { btn: b.checkVisibility ? b.checkVisibility() : 'n/a', actions: document.querySelector('.ck-actions').checkVisibility ? document.querySelector('.ck-actions').checkVisibility() : 'n/a', tab: tab.checkVisibility ? tab.checkVisibility() : 'n/a', body: document.body.checkVisibility ? document.body.checkVisibility() : 'n/a' };
       out.boost = { attrs: b.outerHTML.slice(0, 200), cv: b.checkVisibility ? b.checkVisibility() : null };
       out.focused = document.activeElement && document.activeElement.id;
+      out.focusToggleEvents = window.__focusToggleEvents || [];
       return out;
     });
     console.log('CLICKER_DEBUG', JSON.stringify(dbg, null, 1));
