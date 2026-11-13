@@ -22,6 +22,7 @@ const { PlatformRenderer: Renderer, PlatformBosses: Bosses } = globalThis;
 
 const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 const game = read('public/platform-game.js');
+const audio = read('public/platform-audio.js');
 const rendererJs = read('public/platform-renderer.js');
 const bossesJs = read('public/platform-bosses.js');
 const html = read('public/index.html');
@@ -244,7 +245,7 @@ test('B5: a full frame really paints the lane, and the cache-miss fallback keeps
 
 test('B5: the dive is audible, the landing throws dust, and nothing in the simulation moves', () => {
   // 1) الفجوة الوحيدة في خط الأساس أُغلقت: bat_dive صار له صوت، والهبوط أيضاً
-  const beepBlock = game.slice(game.indexOf('function beep'), game.indexOf('function beep') + 3400);
+  const beepBlock = audio.slice(audio.indexOf('function beep'), audio.indexOf('function beep') + 5200);
   assert.match(beepBlock, /bat_dive:\s*\{/, 'a dedicated dive sound exists');
   assert.match(beepBlock, /bat_land:\s*\{/, 'and a landing thud');
   assert.notEqual((beepBlock.match(/bat_dive: \{ freq: (\d+)/) || [])[1], (beepBlock.match(/boss_slam: \{ freq: (\d+)/) || [])[1], 'it is not the boss tone');
