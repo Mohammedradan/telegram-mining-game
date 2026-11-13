@@ -587,6 +587,7 @@
     if (!els || typeof els.world.insertBefore !== 'function' || (els.world.querySelector && els.world.querySelector('.ck-mine-set'))) return;
     const set = root.document.createElement('div');
     set.className = 'ck-mine-set';
+    set.dataset.drill = 'off'; set.dataset.conveyor = 'off'; set.dataset.worker = 'idle';
     set.setAttribute('aria-label', 'منشآت المنجم وأدوات التحكم بها');
     set.innerHTML = `
       <div class="ck-tunnel ck-tunnel-back"><i></i><b></b></div>
@@ -633,12 +634,17 @@
         return;
       }
       machinery[action] = !machinery[action];
+      if (action === 'conveyor' && !machinery.conveyor) machinery.worker = false;
       set.dataset.drill = machinery.drill ? 'on' : 'off';
       set.dataset.conveyor = machinery.conveyor ? 'on' : 'off';
       set.dataset.worker = machinery.worker ? 'assigned' : 'idle';
       button.setAttribute('aria-pressed', machinery[action] ? 'true' : 'false');
       const labels = { drill: ['تشغيل الحفّار', 'إيقاف الحفّار'], conveyor: ['تشغيل سير الخام', 'إيقاف سير الخام'], worker: ['تعيين عامل النقل', 'إرجاع العامل'] };
       button.textContent = labels[action][machinery[action] ? 1 : 0];
+      if (action === 'conveyor' && !machinery.conveyor) {
+        const workerButton = consoleEl.querySelector('[data-machine-action="worker"]');
+        if (workerButton) { workerButton.setAttribute('aria-pressed', 'false'); workerButton.textContent = labels.worker[0]; }
+      }
       const status = consoleEl.querySelector('.ck-machine-status');
       if (status) status.textContent = [
         machinery.drill ? 'الحفّار يعمل' : 'الحفّار متوقف',
