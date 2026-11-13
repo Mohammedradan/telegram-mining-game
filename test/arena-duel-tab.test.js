@@ -5,7 +5,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
-const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), crypto = require('node:crypto');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const { createStore } = require('../db');
 const R = require('../public/platform-rules');
 
@@ -89,7 +89,7 @@ after(async () => {
   await store?.close();
 });
 
-// بوت مبارزة مرجعي: يصدّ عند الإنذار، ويقترب ويضرب في غير ذلك (نفس منطق اختبارات المبارزة)
+// بوت مبارزة مرجعي حتمي: يصدّ عند الإنذار، ويهاجم بقوة أثناء الاستشفاء، ويقفز الموجات.
 function duelInputs(seed, config, hero = 'miner') {
   const s = R.create(hero, seed, config);
   const inputs = [];
@@ -100,12 +100,14 @@ function duelInputs(seed, config, hero = 'miner') {
     const rival = s.enemies[0], p = s.player;
     const dx = rival.x + rival.w / 2 - (p.x + p.w / 2), dist = Math.abs(dx);
     const incoming = rival.state === 'windup' || rival.state === 'charge' || s.waves.length > 0;
+    const safe = rival.state === 'recover' || rival.state === 'retreat' || rival.state === 'stagger';
     let m = 0;
     if (incoming && p.grounded && p.guard.stamina > 6 && p.guard.broken <= 0) m |= R.INPUT.DEFEND;
-    else {
-      if (dist > 40) m |= dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT; else m |= R.INPUT.ATTACK;
-      if (s.waves.length) m |= R.INPUT.JUMP;
-    }
+    else if (safe) {
+      if (dist > 40) m |= dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT;
+      else m |= p.heavyCooldown <= 0 ? R.INPUT.HEAVY : R.INPUT.ATTACK;
+    } else if (dist > 66) m |= dx > 0 ? R.INPUT.RIGHT : R.INPUT.LEFT;
+    if (s.waves.length) m |= R.INPUT.JUMP;
     R.step(s, m); push(m); ticks += 1;
   }
   if (frames) inputs.push({ mask, frames });
@@ -133,11 +135,13 @@ test('a mining run and an arena duel stay open side by side and settle independe
 
   // إنهاء المبارزة يُحتسب وحده: نُجهّز تذكرة مبارزة «قديمة بما يكفي» (حارس السرعة الخادمي)
   const hero = 'miner';
-  const id = crypto.randomUUID();
+  // معرّف ثابت يجعل بذرة المبارزة قابلة لإعادة الإنتاج ولا يغيّر بين تشغيل وآخر.
+  const id = '00000000-0000-4000-8000-000000000007';
   const seed = R.seedFromId(id);
   const loadout = R.normalizeLoadout();
   const cfg = R.normalizeConfig({ zone: 0, goal: 0, mode: 'duel', loadout });
   const play = duelInputs(seed, cfg, hero);
+  assert.notEqual(play.state.status, 'playing', `the reference duel reaches a terminal state (tick ${play.state.tick})`);
   await store.withUsers([`guest_${name}`], async () => {
     await store.savePlatformRun({
       id, user_id: `guest_${name}`, version: R.VERSION, status: 'playing',
