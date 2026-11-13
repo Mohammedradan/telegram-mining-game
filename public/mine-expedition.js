@@ -217,6 +217,21 @@
     if (!stage || !area) return false;
     const refs = buildLayer(doc, stage, area);
     if (!refs || !refs.fullscreen || !refs.goalsList || !refs.mapList) return false;
+    // Keep the field dimensions stable: sheets overlay it, and only one expands.
+    const panels = [refs.mapPanel, refs.goalsPanel].filter(Boolean);
+    panels.forEach((panel) => {
+      panel.addEventListener('toggle', () => {
+        if (panel.open) panels.forEach((other) => { if (other !== panel) other.open = false; });
+      });
+      panel.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !panel.open) return;
+        panel.open = false;
+        const summary = panel.querySelector('summary');
+        if (summary && summary.focus) summary.focus();
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    });
     const store = options.store || createStore(options.storage || localStorageSafe());
     let discoveries = store.load();
     let toastTimer = 0;
@@ -374,7 +389,10 @@
     if (doc.addEventListener) doc.addEventListener('visibilitychange', () => { if (!doc.hidden) scheduleUpdate(); });
     syncFullscreenButton();
     if (refs.goalsPanel && num(root.innerWidth, 0) >= 980) refs.goalsPanel.open = true;
-    if (refs.mapPanel && num(root.innerWidth, 0) >= 1280) refs.mapPanel.open = true;
+    if (refs.mapPanel && num(root.innerWidth, 0) >= 1280) {
+      if (refs.goalsPanel) refs.goalsPanel.open = false;
+      refs.mapPanel.open = true;
+    }
     update();
     if (root.setInterval) root.setInterval(update, 500);
     api.active = true;

@@ -809,3 +809,43 @@ test('mine machinery controls are interactive, accessible, and keep the worker a
   assert.match(styles, /\.ck-mine-set\[data-conveyor="off"\].*animation-play-state:paused/);
   assert.match(styles, /\.ck-mine-set\[data-worker="assigned"\] \.ck-crew-hauler/);
 });
+
+test('key releases clear held movement and dig after focus or modifier changes', () => {
+  withSite({}, ({ env, ds }) => {
+    env.key('keydown', 'ArrowRight');
+    assert.equal(ds.inspect().keys.r, true);
+    env.key('keyup', 'ArrowRight', { target: { tagName: 'INPUT' }, ctrlKey: true });
+    assert.equal(ds.inspect().keys.r, false);
+    env.key('keydown', 'Space');
+    assert.equal(ds.inspect().digHeld, true);
+    env.key('keyup', 'Space', { target: { tagName: 'TEXTAREA' }, altKey: true });
+    assert.equal(ds.inspect().digHeld, false);
+    for (const target of [{ tagName: 'SUMMARY' }, { tagName: 'BUTTON' }, { tagName: 'DIV', isContentEditable: true }]) {
+      const event = env.key('keydown', 'ArrowLeft', { target });
+      assert.equal(ds.inspect().keys.l, false, 'focused UI owns its navigation');
+      assert.notEqual(event.prevented, true);
+    }
+  });
+});
+
+test('cave transition clears carried inputs and approach without landing strikes', () => {
+  withSite({}, ({ ds, swings }) => {
+    for (let n=0;n<3;n++) { ds.debug.setRock({x:.5,y:.8},1); ds.onTap({}); }
+    ds.onTab('mining');
+    assert.equal(ds.inspect().approaching,false,'stopping clears automatic approach');
+    ds.debug.place({x:.14,y:.4});
+    ds.debug.setStick(0,-1); ds.debug.step(.05); ds.debug.setStick(0,0);
+    assert.equal(ds.inspect().mine.floor,'upper');
+    ds.debug.place({x:ds.inspect().band.x1,y:.4});
+    ds.debug.setKey('r',true);
+    ds.debug.setDig(true);
+    ds.debug.step(.05);
+    assert.equal(ds.inspect().mine.index,1);
+    assert.equal(ds.inspect().keys.r,false);
+    assert.equal(ds.inspect().digHeld,false);
+    assert.equal(ds.inspect().approaching,false);
+    assert.equal(ds.inspect().swing,'idle');
+    ds.debug.step(.05,20);
+    assert.equal(swings.length,0,'no automatic strike in the new cave');
+  });
+});

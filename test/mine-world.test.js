@@ -45,3 +45,48 @@ test('upper tunnel returns to the previous cave and the final cave has no forwar
   assert.equal(end.transition,null);
   assert.equal(world.index,5);
 });
+
+test('all six caves are reachable and revisitable with phone body-safe bounds', () => {
+  for (const margin of [.08, .14, .2]) {
+    const band = {x0:margin,x1:1-margin,y0:.34,y1:.88};
+    const world = MineWorld.create(), miner = {x:.5,y:.8,face:1};
+    for (let cave = 0; cave < 5; cave++) {
+      world.floor='upper'; miner.x=band.x1-.02; miner.y=.4;
+      assert.equal(MineWorld.step(world,miner,{x:1,y:0},.1,1,band).transition,null,'locked cave stays locked');
+      for(let n=0;n<3;n++) MineWorld.recordBreak(world);
+      assert.equal(MineWorld.step(world,miner,{x:1,y:0},.1,1,band).transition,'next');
+      assert.equal(world.index,cave+1);
+      assert.equal(world.floor,'lower');
+      assert.ok(miner.x>=band.x0 && miner.x<=band.x1);
+    }
+    assert.equal(MineWorld.canAdvance(world),false,'no cave past Legendary');
+    for(let cave=5;cave>0;cave--) {
+      world.floor='upper'; miner.x=band.x0; miner.y=.4;
+      assert.equal(MineWorld.step(world,miner,{x:-1,y:0},.1,1,band).transition,'previous');
+      assert.equal(world.index,cave-1);
+      assert.equal(MineWorld.canAdvance(world),true,'visited route remains open');
+    }
+    world.floor='upper'; miner.x=band.x1; miner.y=.4;
+    assert.equal(MineWorld.step(world,miner,{x:1,y:0},.1,1,band).transition,'next','no repeated rock grind on return');
+  }
+});
+
+test('exit requires upper tunnel position and deliberate movement toward it', () => {
+  const band={x0:.2,x1:.8,y0:.34,y1:.88}, world=MineWorld.create(1);
+  world.breaks=3; world.floor='upper';
+  const miner={x:.8,y:.8,face:1};
+  assert.equal(MineWorld.step(world,miner,{x:1,y:0},.1,1,band).transition,null,'stale floor flag cannot teleport from lower lane');
+  miner.y=.4;
+  assert.equal(MineWorld.step(world,miner,{x:0,y:0},.1,1,band).transition,null,'idle at exit cannot teleport');
+  assert.equal(MineWorld.step(world,miner,{x:-1,y:0},.01,1,band).transition,null,'walking away does not enter');
+  assert.equal(world.index,1);
+});
+
+test('non-finite time cannot corrupt world positions or trigger transitions', () => {
+  const band={x0:.08,x1:.92,y0:.34,y1:.88}, world=MineWorld.create(), miner={x:.5,y:.8};
+  for(const dt of [Infinity,NaN,-1,0]) {
+    const before={...miner};
+    assert.equal(MineWorld.step(world,miner,{x:1,y:1},dt,1,band).transition,null);
+    assert.deepEqual(miner,before);
+  }
+});
