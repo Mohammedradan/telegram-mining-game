@@ -75,6 +75,11 @@
       if (!active || disposed) { if (!active) status('تم إيقاف المنشآت'); return { ok: true, inactive: true }; }
       busy = true;
       try {
+        // لا نفقد الدقائق المكتملة إذا أوقف اللاعب الآلات قبل موعد المطالبة التالية.
+        try {
+          const receipt = await request('/api/mine-machinery/claim', 'POST');
+          if (Number(receipt && receipt.produced) > 0 && options.onProduction) await options.onProduction(receipt);
+        } catch (_) { /* لا توجد دقيقة مكتملة بعد، أو أن الخادم رفض المطالبة؛ الإيقاف يظل قراراً مستقلاً */ }
         const result = await request('/api/mine-machinery/stop', 'POST');
         state(false, result && result.job);
         status('تم إيقاف وردية الإنتاج');
