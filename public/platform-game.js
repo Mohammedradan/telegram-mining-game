@@ -1026,6 +1026,7 @@
       if (eventBox) { eventBox.hidden = true; eventBox.classList.remove('show'); }
       eventUntil = 0;
       sim = R.create(currentHero, seedOf(ticket), configFor(ticket)); inputs = []; particles = []; shake = 0; resetImpact(); feedIndex = 0; feedFrame = 0; running = true; paused = false; save();
+      syncSceneState(); // ليزن scene-live فوراً قبل أول إطار، فيظهر controlled اللمس على الفور
       resume();
     } catch (e) {
       // منجم مقفل (حساب آخر/تقدّم أقدم): نرجع للمنجم الأول بدل أن يبقى اللاعب عالقاً عند الخطأ نفسه
