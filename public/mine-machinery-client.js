@@ -26,12 +26,12 @@
       if (!active || disposed || !setTimer) return;
       timer = setTimer(() => { timer = null; claim(); }, Math.max(1000, Number(ms) || 60000));
     };
-    async function request(path, method) {
+    async function request(path, method, body) {
       if (!bridge) throw new Error('جسر الاتصال بالخادم غير جاهز');
       await bridge.ready();
       if (!bridge.user()) throw new Error('سجّل الدخول بحسابك لتشغيل إنتاج المنجم');
       await bridge.flush();
-      return bridge.request(path, method ? { method, body: '{}' } : {});
+      return bridge.request(path, method ? { method, body: JSON.stringify(body || {}) } : {});
     }
     async function sync() {
       if (busy || disposed) return null;
@@ -58,12 +58,7 @@
       busy = true;
       cancel();
       try {
-        const result = await request('/api/mine-machinery/start', 'POST');
-        // يرسل رقم المنجم في جسم الطلب دون الاعتماد على قيمة محلية للإنتاج.
-        // استدعاء request أعلاه يثبت المصادقة؛ نرسل المنطقة الفعلية في الطلب التالي مباشرة.
-        const started = result && result.job ? result : await bridge.request('/api/mine-machinery/start', {
-          method: 'POST', body: JSON.stringify({ zone: Number(zone) || 0 }),
-        });
+        const started = await request('/api/mine-machinery/start', 'POST', { zone: Number(zone) || 0 });
         state(true, started.job);
         status('بدأت الوردية؛ سيضيف الخادم خاماً بعد اكتمال أول دقيقة');
         schedule(60000);
@@ -74,8 +69,9 @@
       } finally { busy = false; }
     }
     async function stop() {
+      if (busy) return { ok: false, error: 'هناك طلب قيد التنفيذ' };
       cancel();
-      if (!active || busy || disposed) { if (!active) status('تم إيقاف المنشآت'); return { ok: true, inactive: true }; }
+      if (!active || disposed) { if (!active) status('تم إيقاف المنشآت'); return { ok: true, inactive: true }; }
       busy = true;
       try {
         const result = await request('/api/mine-machinery/stop', 'POST');
