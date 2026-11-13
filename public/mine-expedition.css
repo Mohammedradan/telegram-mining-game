@@ -1,0 +1,638 @@
+/* Mining expedition world: expanded playfield, full-screen focus mode and expedition HUD.
+   Presentation-only layer. Economy, energy, ore and server machinery state stay in the existing game logic. */
+
+/* ---------- ساحة أوسع: الكهف هو التطبيق نفسه ---------- */
+body.ck-cave {
+  max-width: none !important;
+  margin-inline: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+body.ck-cave #tab-mining {
+  width: 100%;
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  padding: 0 !important;
+  overflow: hidden !important;
+  align-items: stretch !important;
+}
+body.ck-cave #ck-stage {
+  width: 100%;
+  max-width: none !important;
+  height: 100%;
+  min-height: 0;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+body.ck-cave #ck-stage .ck-area {
+  flex: 1 1 0;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 0 !important;
+  border-radius: 0;
+}
+body.ck-cave .app-header,
+body.ck-cave #tap-hint { display: none !important; }
+
+/* ---------- HUD مدمج في التدفق: يشغل أقل ارتفاع ممكن ويبقي الساحة العنصر المرن الأكبر ---------- */
+body.ck-cave .ck-hud {
+  position: relative;
+  z-index: 4;
+  flex: 0 1 auto;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  min-height: 0;
+  margin: 0;
+  padding: max(2px, env(safe-area-inset-top, 0px)) 4px 0;
+  pointer-events: none;
+}
+body.ck-cave .ck-hud .balance-strip {
+  min-width: 0;
+  width: clamp(132px, 38vw, 230px);
+  min-height: 36px;
+  padding: 2px 12px !important;
+  border-width: 2px !important;
+  border-radius: 999px !important;
+  justify-content: center;
+  pointer-events: auto;
+  background: linear-gradient(180deg, rgba(35, 24, 12, .88), rgba(8, 9, 19, .86)) padding-box, linear-gradient(150deg, #fff2a8, #d4941e 48%, #6d3a08 72%, #f4c54c) border-box !important;
+  backdrop-filter: blur(8px);
+}
+body.ck-cave .ck-hud .balance-strip .leading-none > div { display: none; }
+body.ck-cave .ck-coin-art { display: none; }
+body.ck-cave #gold-counter { font-size: clamp(16px, 4.6vw, 21px) !important; line-height: 1 !important; }
+body.ck-cave .ck-sound {
+  pointer-events: auto;
+  width: 38px;
+  height: 38px;
+  border-width: 2px !important;
+}
+body.ck-cave .ck-sound .ui-icon { width: 18px; height: 18px; }
+
+body.ck-cave #energy-container {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 4;
+  align-self: center;
+  width: min(430px, 74vw);
+  min-height: 13px;
+  margin: 0 auto !important;
+  padding: 2px 7px 3px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 213, 97, .35) !important;
+  background: rgba(7, 9, 19, .78) !important;
+  backdrop-filter: blur(7px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45) !important;
+}
+body.ck-cave #energy-container .mb-1 { display: none !important; }
+body.ck-cave #energy-container .ck-energy-track,
+body.ck-cave #energy-container .bg-slate-800 { height: 5px !important; border-radius: 999px; }
+
+/* شريط التنقل أيقونات فقط — لا يستهلك 68px من ارتفاع الكهف */
+body.ck-cave .bottom-nav {
+  position: relative;
+  z-index: 4;
+  align-self: center;
+  width: min(560px, calc(100vw - 12px));
+  height: 45px;
+  min-height: 0 !important;
+  margin: 0 auto !important;
+  padding: 3px !important;
+  gap: 2px !important;
+  border-radius: 17px !important;
+  background: linear-gradient(180deg, rgba(17, 20, 39, .78), rgba(5, 7, 16, .9)) !important;
+  border: 1px solid rgba(241, 187, 69, .3) !important;
+  backdrop-filter: blur(9px);
+}
+body.ck-cave .bottom-nav button {
+  min-height: 37px !important;
+  padding: 2px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+}
+body.ck-cave .bottom-nav button[aria-current="page"],
+body.ck-cave .bottom-nav button.text-amber-400 { background: rgba(125, 78, 16, .42) !important; }
+body.ck-cave .bottom-nav button span { display: none !important; }
+body.ck-cave .bottom-nav .nav-icon { width: 22px !important; height: 22px !important; margin: 0 !important; }
+
+/* الميداليات صف مضغوط داخل التدفق: يحقق متطلبات الوصول بلا رفع الكهف عن التراص العمودي */
+body.ck-cave .ck-nodes {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 3;
+  top: auto;
+  left: auto;
+  right: auto;
+  width: 100%;
+  padding: 0 2px !important;
+  justify-content: center;
+  gap: clamp(0px, 2.2vw, 14px);
+  pointer-events: none;
+}
+body.ck-cave .ck-node {
+  pointer-events: auto;
+  --ck-node: clamp(44px, 8.2vh, 52px) !important;
+  gap: 1px;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+body.ck-cave .ck-node-tag { min-width: 31px; padding: 0 4px; font-size: 9px; line-height: 13px; }
+
+/* أزرار التفاعل أسفل المشهد مباشرة بلا فراغ: صغيرة لكن بحجم إصبع */
+body.ck-cave .ck-actions {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 3;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  width: min(340px, calc(100% - 8px));
+  margin: 0 auto;
+  display: flex;
+  gap: 6px !important;
+  align-items: center;
+  padding: 1px 4px 3px !important;
+  pointer-events: auto;
+}
+body.ck-cave .ck-go { flex: 1 1 0; min-width: 0; min-height: 44px !important; padding: 4px 9px !important; border-radius: 13px !important; }
+body.ck-cave .ck-go-text b { font-size: 13px !important; }
+body.ck-cave .ck-go-text small { display: none !important; }
+body.ck-cave .ck-go-icon { width: 20px !important; height: 20px !important; }
+body.ck-cave .ck-boost { flex: 0 0 clamp(68px, 24vw, 96px); min-height: 44px !important; padding: 4px 7px !important; border-radius: 13px !important; }
+body.ck-cave .ck-boost-label { font-size: 11px !important; }
+body.ck-cave .ck-boost-time { font-size: 9px !important; }
+
+/* أدوات اللمس داخل المشهد نفسه فوق بصريات الكهف */
+body.ck-cave .ck-pad { bottom: 10px !important; }
+body.ck-cave .ck-dig { bottom: 10px !important; }
+
+/* لوحة المنشآت زجاجية يمين المشهد: تشغيل مباشر دون أن تلتهم 25% من الشاشة */
+body.ck-cave .ck-machine-console {
+  top: calc(112px + env(safe-area-inset-top, 0px)) !important;
+  right: max(7px, env(safe-area-inset-right, 0px)) !important;
+  z-index: 18 !important;
+  width: min(238px, 46vw) !important;
+  padding: 5px !important;
+  gap: 4px !important;
+  border-width: 1px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(150deg, rgba(19, 31, 48, .82), rgba(5, 10, 22, .86)) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .56), inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+  backdrop-filter: blur(8px);
+}
+body.ck-cave .ck-machine-console-title { font-size: 10px !important; }
+body.ck-cave .ck-machine-console button {
+  min-height: 31px !important;
+  padding: 2px 3px !important;
+  border-radius: 7px !important;
+  font-size: clamp(7.5px, 2vw, 9px) !important;
+  line-height: 1.15 !important;
+}
+body.ck-cave .ck-machine-status { min-height: 10px !important; font-size: 7.5px !important; line-height: 1.2 !important; }
+
+/* ---------- زر ملء الشاشة / إخفاء الواجهة: يعيش في صف «الأدوات» مع زر الصوت ---------- */
+.ck-fullscreen-toggle {
+  position: relative;
+  z-index: 4;
+  flex: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 38px;
+  height: 38px;
+  pointer-events: auto;
+  border: 1px solid rgba(255, 222, 126, .55);
+  border-radius: 12px;
+  color: #ffe89a;
+  background: rgba(7, 10, 22, .72);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .12);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ck-fullscreen-toggle .ui-icon { width: 19px; height: 19px; pointer-events: none; }
+body.ck-cave .ck-fullscreen-toggle { display: inline-flex; }
+.ck-fullscreen-toggle span { display: none; font-size: 10px; font-weight: 900; white-space: nowrap; }
+.ck-fullscreen-toggle .ck-fs-close { display: none; }
+.ck-fullscreen-toggle[aria-pressed="true"] .ck-fs-open { display: none; }
+.ck-fullscreen-toggle[aria-pressed="true"] .ck-fs-close { display: none; }
+.ck-fullscreen-toggle:active { transform: scale(.94); }
+.ck-fullscreen-toggle:focus-visible { outline: 3px solid rgba(255, 232, 154, .9); outline-offset: 2px; }
+body.ck-fullscreen-toggle-wide .ck-fullscreen-toggle span { display: inline; }
+
+/* ---------- لوحات الاستكشاف: خريطة وأهداف قابلة للطي ---------- */
+.ck-expedition-rail {
+  position: absolute;
+  z-index: 23;
+  left: calc(8px + env(safe-area-inset-left, 0px));
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(228px, 56vw);
+  pointer-events: none;
+}
+.ck-expedition-sheet {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(242, 194, 91, .42);
+  border-radius: 13px;
+  color: #f7e7ba;
+  background: linear-gradient(160deg, rgba(16, 25, 43, .78), rgba(5, 8, 18, .84));
+  box-shadow: 0 7px 18px rgba(0, 0, 0, .48), inset 0 1px 0 rgba(255, 255, 255, .08);
+  backdrop-filter: blur(9px);
+  pointer-events: auto;
+}
+.ck-expedition-sheet summary {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 7px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.ck-expedition-sheet summary::-webkit-details-marker { display: none; }
+.ck-expedition-sheet summary > .ui-icon { width: 18px; height: 18px; color: #ffd36b; }
+.ck-sheet-title { overflow: hidden; font-size: 10px; font-weight: 900; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.ck-expedition-sheet summary small,
+.ck-goals-count { max-width: 74px; overflow: hidden; color: #9fc9dc; font-size: 8px; font-weight: 800; line-height: 1.15; text-align: end; text-overflow: ellipsis; white-space: nowrap; }
+.ck-goals-count { color: #ffd36b; font-variant-numeric: tabular-nums; }
+.ck-expedition-sheet summary::after { content: ""; grid-column: 1 / -1; height: 1px; margin-top: 3px; background: linear-gradient(90deg, transparent, rgba(255, 215, 128, .34), transparent); }
+.ck-map-body,
+.ck-goals-list { max-height: clamp(120px, 31vh, 250px); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 211, 107, .35) transparent; border-top: 1px solid rgba(255, 255, 255, .06); }
+.ck-map-list,
+#ck-map-list,
+#ck-goals-list { margin: 0; padding: 5px; list-style: none; }
+.ck-map-node {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 31px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #cdd9e5;
+}
+.ck-map-node + .ck-map-node { margin-top: 3px; }
+.ck-map-node.is-current { border-color: rgba(255, 215, 113, .62); color: #fff4c7; background: rgba(118, 78, 18, .25); box-shadow: 0 0 12px rgba(255, 198, 80, .13); }
+.ck-map-node.is-open { color: #b9f0cf; background: rgba(20, 79, 49, .14); }
+.ck-map-node.is-locked { opacity: .43; filter: grayscale(.7); }
+.ck-map-index { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 8px; font-weight: 900; opacity: .9; }
+.ck-map-copy { min-width: 0; }
+.ck-map-copy b,
+.ck-map-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck-map-copy b { font-size: 8.5px; line-height: 1.25; }
+.ck-map-copy small { color: #8da8b8; font-size: 7px; line-height: 1.25; }
+.ck-map-state { color: inherit; font-size: 7px; font-weight: 900; }
+
+.ck-goal { display: grid; grid-template-columns: 19px minmax(0, 1fr); gap: 6px; align-items: start; padding: 5px 3px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.ck-goal:last-child { border-bottom: 0; }
+.ck-goal-check { display: grid; place-items: center; width: 17px; height: 17px; margin-top: 1px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 50%; color: transparent; }
+.ck-goal-check .ui-icon { width: 11px; height: 11px; }
+.ck-goal.is-done .ck-goal-check { border-color: #63e99a; color: #092b18; background: linear-gradient(#9dffbd, #39d875); box-shadow: 0 0 10px rgba(74, 222, 128, .35); }
+.ck-goal-copy { min-width: 0; }
+.ck-goal-copy b { display: block; color: #eadcae; font-size: 8.5px; line-height: 1.25; }
+.ck-goal.is-done .ck-goal-copy b { color: #b8ffd2; }
+.ck-goal-detail { display: block; margin-top: 1px; color: #8da9b7; font-size: 7px; line-height: 1.25; }
+.ck-goal-meter { display: block; height: 3px; margin-top: 3px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, .09); }
+.ck-goal-meter i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8e5b18, #ffd76e); transition: width .25s ease; }
+.ck-goal.is-done .ck-goal-meter i { background: linear-gradient(90deg, #14844b, #68ef9c); }
+
+.ck-world-toast {
+  position: absolute;
+  z-index: 34;
+  left: 50%;
+  bottom: calc(101px + env(safe-area-inset-bottom, 0px));
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 219, 126, .7);
+  border-radius: 999px;
+  color: #fff3bc;
+  background: rgba(12, 15, 28, .9);
+  box-shadow: 0 7px 20px rgba(0, 0, 0, .6), 0 0 18px rgba(255, 207, 89, .16);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px) scale(.96);
+  transition: opacity .2s ease, transform .25s ease;
+}
+.ck-world-toast.is-on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+/* ---------- مخابئ قابلة للمس: مغلقة حتى تُستوفى شروط الاستكشاف ---------- */
+.ck-cache {
+  position: absolute;
+  z-index: 8;
+  left: calc(var(--cache-x) * 100%);
+  top: calc(var(--cache-y) * 100%);
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid rgba(192, 149, 76, .58);
+  border-radius: 13px;
+  color: #e8bd6c;
+  background: linear-gradient(145deg, rgba(82, 52, 25, .95), rgba(18, 14, 9, .96));
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .6), inset 0 2px 1px rgba(255, 230, 157, .18);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, filter .2s ease, box-shadow .25s ease;
+}
+.ck-cache:active { transform: translate(-50%, -50%) scale(.9) !important; }
+.ck-cache { transform: translate(-50%, -50%); }
+.ck-cache-art { display: grid; place-items: center; width: 100%; height: 100%; pointer-events: none; }
+.ck-cache-art .ui-icon { width: 22px; height: 22px; filter: drop-shadow(0 2px 1px #000); }
+.ck-cache-label {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 224, 142, .32);
+  border-radius: 999px;
+  color: #f4d994;
+  background: rgba(4, 7, 14, .82);
+  font-size: 7.5px;
+  font-weight: 900;
+  line-height: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+.ck-cache-glint { position: absolute; top: -4px; right: -4px; width: 17px; height: 17px; border-radius: 50%; background: radial-gradient(circle, #fff8c5 0 12%, #ffd257 28%, rgba(255, 190, 54, 0) 70%); pointer-events: none; }
+.ck-cache[data-state="locked"],
+.ck-cache[data-state="needs-power"] { filter: grayscale(.78) brightness(.68); }
+.ck-cache[data-state="locked"] .ck-cache-glint,
+.ck-cache[data-state="needs-power"] .ck-cache-glint { display: none; }
+.ck-cache[data-state="far"] { border-color: rgba(125, 211, 252, .6); color: #a8ddff; box-shadow: 0 6px 14px rgba(0, 0, 0, .6), 0 0 14px rgba(86, 199, 255, .22); }
+.ck-cache[data-state="ready"] { border-color: #ffe28a; color: #ffef9c; box-shadow: 0 6px 16px rgba(0, 0, 0, .62), 0 0 18px rgba(255, 208, 74, .46); animation: ck-cache-ready 1.4s ease-in-out infinite; }
+.ck-cache[data-state="found"] { border-color: #64ef99; color: #a9ffc5; background: linear-gradient(145deg, rgba(32, 94, 55, .96), rgba(7, 32, 20, .96)); box-shadow: 0 6px 16px rgba(0, 0, 0, .55), 0 0 16px rgba(75, 240, 137, .34); }
+.ck-cache[data-state="found"] .ck-cache-glint { display: none; }
+.ck-cache:focus-visible { outline: 3px solid rgba(255, 232, 154, .95); outline-offset: 2px; }
+@keyframes ck-cache-ready { 50% { transform: translate(-50%, -50%) scale(1.09); } }
+
+/* ---------- طبقات عمق إضافية وكيانات صناعية ---------- */
+.ck-cave-layer { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
+.ck-cave-far::before,
+.ck-cave-near::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(0 0, 5% 13%, 11% 3%, 16% 21%, 23% 9%, 29% 28%, 37% 6%, 43% 22%, 51% 2%, 58% 27%, 66% 7%, 73% 23%, 81% 4%, 88% 20%, 94% 8%, 100% 0, 100% 31%, 0 31%);
+}
+.ck-cave-far::before { background: linear-gradient(180deg, rgba(18, 31, 52, .84), rgba(6, 11, 24, .18)); opacity: .86; }
+.ck-cave-near::before { top: 57%; transform: scaleY(-1); background: linear-gradient(180deg, rgba(8, 12, 22, .96), rgba(18, 26, 38, .08)); opacity: .72; }
+.ck-cave-far i,
+.ck-cave-far b,
+.ck-cave-far span { position: absolute; border-radius: 50%; border: 1px solid rgba(117, 174, 205, .12); background: radial-gradient(ellipse, rgba(91, 142, 172, .12), transparent 68%); }
+.ck-cave-far i { left: 17%; top: 17%; width: 32%; height: 23%; }
+.ck-cave-far b { right: 9%; top: 12%; width: 28%; height: 35%; }
+.ck-cave-far span { left: 37%; top: 4%; width: 18%; height: 14%; }
+.ck-cave-near i { position: absolute; left: -5%; bottom: 8%; width: 34%; height: 34%; background: linear-gradient(105deg, #05080f, #111b29 55%, #03050b); clip-path: polygon(0 100%, 18% 22%, 36% 100%, 51% 8%, 69% 100%, 100% 35%, 100% 100%); opacity: .88; }
+.ck-cave-near b { position: absolute; right: -4%; bottom: 15%; width: 30%; height: 29%; background: linear-gradient(250deg, #06080f, #101d2a 55%, #03050a); clip-path: polygon(0 100%, 18% 18%, 40% 100%, 61% 0, 100% 100%); opacity: .86; }
+
+.ck-catwalk { position: absolute; z-index: 2; height: 10px; border: 1px solid #d1ad6a; border-bottom-width: 3px; border-radius: 3px; background: repeating-linear-gradient(90deg, #8f7040 0 10px, #3d3226 10px 14px); box-shadow: 0 4px 5px rgba(0, 0, 0, .6), inset 0 1px rgba(255, 231, 157, .42); transform: skewY(-2deg); pointer-events: none; }
+.ck-catwalk i { position: absolute; top: 8px; width: 5px; height: clamp(20px, 6vh, 52px); background: linear-gradient(90deg, #32261d, #b18a52 48%, #2b221a); }
+.ck-catwalk i:nth-child(1) { left: 15%; }
+.ck-catwalk i:nth-child(2) { left: 48%; }
+.ck-catwalk i:nth-child(3) { right: 14%; }
+.ck-catwalk b { display: none; }
+.ck-catwalk-upper { left: 7%; right: 43%; top: 27%; }
+.ck-catwalk-lower { left: 42%; right: 8%; top: 58%; transform: skewY(2deg); }
+
+.ck-rock-pillar { position: absolute; z-index: 1; bottom: 4%; background: radial-gradient(ellipse at 48% 25%, #334153, #131d29 58%, #05080f); box-shadow: inset -8px 0 13px rgba(0, 0, 0, .55), inset 7px 0 10px rgba(164, 188, 204, .09); clip-path: polygon(9% 100%, 18% 34%, 28% 43%, 37% 5%, 51% 31%, 60% 14%, 76% 39%, 86% 30%, 96% 100%); pointer-events: none; opacity: .92; }
+.ck-rock-pillar-a { left: 12%; width: 14%; height: 39%; }
+.ck-rock-pillar-b { right: 17%; width: 12%; height: 33%; opacity: .8; }
+
+.ck-supply-pipes { position: absolute; z-index: 2; left: 3%; right: 22%; bottom: 32%; height: 30px; transform: skewY(-2deg); opacity: .82; pointer-events: none; }
+.ck-supply-pipes i { position: absolute; left: 0; right: 0; height: 5px; border: 1px solid #8093a2; border-radius: 5px; background: linear-gradient(180deg, #4d6170, #101a24 65%); box-shadow: 0 2px 3px #000; }
+.ck-supply-pipes i:nth-child(1) { top: 1px; }
+.ck-supply-pipes i:nth-child(2) { top: 11px; right: 11%; border-color: #a28355; background: linear-gradient(180deg, #715832, #20180e 65%); }
+.ck-supply-pipes i:nth-child(3) { top: 21px; right: 23%; }
+.ck-supply-pipes b { position: absolute; right: 5%; top: -4px; width: 13px; height: 30px; border: 2px solid #8d9da9; border-radius: 5px; background: repeating-linear-gradient(180deg, #465967 0 5px, #1b2734 5px 8px); }
+
+.ck-ore-chute { position: absolute; z-index: 2; right: 13%; bottom: 31%; width: 26px; height: 66px; border: 3px solid #8d7951; border-top: 0; border-radius: 0 0 7px 7px; background: linear-gradient(90deg, #191c1b, #51452d 48%, #121715); transform: rotate(8deg); pointer-events: none; }
+.ck-ore-chute i { position: absolute; bottom: -9px; left: -5px; width: 30px; height: 10px; border: 2px solid #b69a5d; background: #30271c; }
+.ck-ore-chute b { position: absolute; left: 9px; bottom: 4px; width: 7px; height: 13px; border-radius: 3px; background: linear-gradient(#ffe98c, #9a5720); opacity: .62; }
+.ck-mine-set[data-conveyor="on"] .ck-ore-chute b { animation: ck-chute-drop 1.05s linear infinite; opacity: 1; }
+@keyframes ck-chute-drop { 0% { transform: translateY(-46px); opacity: 0; } 22% { opacity: 1; } 100% { transform: translateY(17px); opacity: 0; } }
+
+.ck-ore-cart { position: absolute; z-index: 3; left: 32%; bottom: 19.2%; width: 39px; height: 25px; opacity: .38; filter: grayscale(.7) brightness(.78); pointer-events: none; }
+.ck-ore-cart-body { position: absolute; z-index: 2; left: 2px; bottom: 5px; width: 35px; height: 13px; border: 2px solid #caa160; border-radius: 5px 5px 3px 3px; background: linear-gradient(150deg, #60401f, #1c130c 62%); clip-path: polygon(0 0, 100% 0, 86% 100%, 12% 100%); }
+.ck-ore-cart-ore { position: absolute; z-index: 1; left: 9px; bottom: 13px; width: 22px; height: 12px; background: radial-gradient(circle at 18% 62%, #ffd86e 0 15%, transparent 17%), radial-gradient(circle at 47% 38%, #c77831 0 18%, transparent 20%), radial-gradient(circle at 75% 64%, #ffeaa4 0 15%, transparent 17%); }
+.ck-ore-cart > i { position: absolute; z-index: 3; left: 8px; bottom: 0; width: 8px; height: 8px; border: 2px solid #a9b6c2; border-radius: 50%; background: #111b26; box-shadow: 18px 0 #111b26, 18px 0 0 2px #a9b6c2; }
+.ck-ore-cart b { position: absolute; top: calc(100% + 2px); right: -5px; color: #dec98f; font-size: 7px; line-height: 1; white-space: nowrap; text-shadow: 0 2px 2px #000; }
+.ck-mine-set[data-conveyor="on"] .ck-ore-cart { opacity: 1; filter: none; animation: ck-ore-cart-run 5.8s cubic-bezier(.25, .7, .25, 1) infinite; }
+@keyframes ck-ore-cart-run {
+  0% { transform: translate3d(-18px, 0, 0); }
+  32% { transform: translate3d(24cqw, -3px, 0); }
+  56% { transform: translate3d(36cqw, 0, 0); }
+  72% { transform: translate3d(35cqw, 0, 0); }
+  100% { transform: translate3d(-18px, 0, 0); }
+}
+
+.ck-secret-alcove { position: absolute; z-index: 1; width: 16%; height: 18%; border: 2px solid rgba(148, 118, 72, .45); border-bottom: 0; border-radius: 50% 50% 8px 8px; background: radial-gradient(ellipse at 50% 73%, rgba(255, 225, 117, .22), transparent 36%), linear-gradient(180deg, #030509, #15120d); box-shadow: inset 0 -8px 12px rgba(255, 203, 80, .09); pointer-events: none; opacity: .78; }
+.ck-secret-alcove i { position: absolute; left: 43%; bottom: 12%; width: 15%; height: 39%; border-radius: 45% 45% 20% 20%; background: linear-gradient(#f9d875, #73501d); clip-path: polygon(50% 0, 100% 42%, 78% 100%, 20% 100%, 0 42%); opacity: .7; }
+.ck-secret-alcove span { position: absolute; top: 5px; left: 0; right: 0; color: rgba(232, 205, 137, .58); font-size: 6px; font-weight: 900; text-align: center; }
+.ck-secret-alcove-a { left: 2.5%; top: 55%; }
+.ck-secret-alcove-b { right: 2.5%; top: 49%; }
+.ck-treasure-vault { position: absolute; z-index: 1; right: 1.5%; top: 39%; width: 18%; height: 23%; border: 2px solid rgba(255, 212, 97, .24); border-radius: 10px; background: radial-gradient(ellipse at center, rgba(255, 224, 102, .28), transparent 48%), repeating-linear-gradient(90deg, rgba(255, 216, 100, .09) 0 3px, transparent 3px 9px); box-shadow: inset 0 0 18px rgba(255, 196, 65, .16); opacity: .16; pointer-events: none; }
+.ck-treasure-vault i { position: absolute; bottom: 10%; width: 24%; height: 45%; border-radius: 3px; background: linear-gradient(#775022, #241505); }
+.ck-treasure-vault i:first-child { left: 15%; }
+.ck-treasure-vault i:last-child { right: 15%; }
+.ck-treasure-vault span { position: absolute; bottom: 3px; left: 0; right: 0; color: #d8bc78; font-size: 6px; font-weight: 900; text-align: center; }
+.ck-mine-set[data-secret-open="true"] .ck-secret-alcove-b { border-color: rgba(255, 226, 133, .9); box-shadow: inset 0 -10px 18px rgba(255, 214, 87, .25), 0 0 18px rgba(255, 208, 74, .38); opacity: 1; }
+.ck-mine-set[data-secret-open="true"] .ck-treasure-vault { border-color: rgba(255, 226, 133, .88); opacity: 1; animation: ck-vault-glow 1.8s ease-in-out infinite; }
+@keyframes ck-vault-glow { 50% { filter: brightness(1.32); box-shadow: inset 0 0 26px rgba(255, 226, 112, .32), 0 0 24px rgba(255, 205, 71, .4); } }
+
+.ck-crystal-seam-c { left: 5%; bottom: 35%; height: 46px; opacity: .64; transform: scale(.72) rotate(-8deg); }
+.ck-support-beam-c { left: 46%; top: 43%; height: 22%; opacity: .48; transform: rotate(-4deg) scale(.78); }
+.ck-steam-vent-c { left: 70%; bottom: 31%; transform: scale(.66); opacity: .58; }
+.ck-work-lamp-b { left: 15%; top: 34%; width: 6px; height: 6px; box-shadow: 0 0 6px 3px #ffcf6b66, 0 0 20px 7px #ffc45b26; }
+.ck-work-lamp-c { right: 20%; top: 43%; width: 6px; height: 6px; box-shadow: 0 0 6px 3px #92e7ff66, 0 0 18px 7px #53d8ff24; }
+
+.ck-floor-beacon { position: absolute; z-index: 3; display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid rgba(255, 255, 255, .18); border-radius: 50%; color: rgba(226, 236, 243, .4); background: rgba(4, 8, 16, .6); font-size: 6px; font-weight: 900; pointer-events: none; }
+.ck-floor-beacon-upper { left: 12.5%; top: 11%; }
+.ck-floor-beacon-lower { right: 11%; bottom: 20%; }
+.ck-mine-set[data-floor="upper"] .ck-floor-beacon-upper { color: #092b43; border-color: #a8edff; background: #64d9ff; box-shadow: 0 0 13px rgba(91, 217, 255, .58); }
+.ck-mine-set[data-floor="lower"] .ck-floor-beacon-lower { color: #3b2504; border-color: #ffe68d; background: #ffc958; box-shadow: 0 0 13px rgba(255, 198, 80, .52); }
+
+/* الآلات لا تتحرك وهي متوقفة: الحركة دليل حالة لا مجرد زخرفة */
+.ck-mine-set[data-drill="off"] .ck-drill-cart,
+.ck-mine-set[data-drill="off"] .ck-cart-wheel,
+.ck-mine-set[data-drill="off"] .ck-cart-arm,
+.ck-mine-set[data-drill="off"] .ck-cart-bit { animation-play-state: paused !important; filter: grayscale(.48) brightness(.74); }
+.ck-mine-set[data-worker="idle"] .ck-rover { animation-play-state: paused !important; opacity: .58; filter: grayscale(.5); }
+.ck-lift-shaft .ck-lift-cage { animation-play-state: paused !important; }
+.ck-lift-shaft[data-moving="true"] .ck-lift-cage { animation: ck-lift-step 1.55s cubic-bezier(.42, 0, .2, 1) 1 !important; }
+@keyframes ck-lift-step { 0% { transform: translateY(0); } 34% { transform: translateY(142px); } 66% { transform: translateY(54px); } 100% { transform: translateY(0); } }
+
+/* ---------- وضع التركيز: يخفي واجهة اللعب ما عدا زر الخروج نفسه ---------- */
+/* صف «الأدوات» لا يختفي بالكامل: فيه زر الخروج من وضع التركيز.
+   بدل إخفائه نثبّت الصف أعلى الشاشة ونخفي محتواه ما عدا زر التبديل، فلا يبقى فراغ فارغ في التدفق */
+body.ck-mining-focus .ck-hud {
+  position: absolute !important;
+  z-index: 30 !important;
+  top: calc(7px + env(safe-area-inset-top, 0px)) !important;
+  left: calc(8px + env(safe-area-inset-left, 0px)) !important;
+  align-self: auto !important;
+  width: max-content !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+body.ck-mining-focus .ck-hud .balance-strip,
+body.ck-mining-focus .ck-hud .ck-sound { display: none !important; }
+body.ck-mining-focus .app-header,
+body.ck-mining-focus .bottom-nav,
+body.ck-mining-focus #energy-container,
+body.ck-mining-focus .ck-nodes,
+body.ck-mining-focus .ck-actions,
+body.ck-mining-focus .ck-hint,
+body.ck-mining-focus .ck-expedition-rail { display: none !important; }
+body.ck-mining-focus #tab-mining,
+body.ck-mining-focus #ck-stage,
+body.ck-mining-focus #ck-stage .ck-area { border-radius: 0 !important; }
+body.ck-mining-focus .ck-fullscreen-toggle { background: rgba(4, 7, 16, .58); }
+
+/* ---------- الشاشات الواسعة والتابلت: استغلال العرض كاملاً ---------- */
+@media (min-width: 760px) {
+  .ck-fullscreen-toggle { width: auto; padding: 0 12px; }
+  .ck-fullscreen-toggle span { display: inline; }
+  .ck-expedition-rail { left: calc(14px + env(safe-area-inset-left, 0px)); top: calc(60px + env(safe-area-inset-top, 0px)); width: 264px; }
+  .ck-expedition-sheet summary { min-height: 39px; padding: 5px 9px; }
+  .ck-sheet-title { font-size: 11px; }
+  .ck-expedition-sheet summary small,
+  .ck-goals-count { font-size: 8.5px; max-width: 90px; }
+  body.ck-cave .ck-machine-console { top: calc(66px + env(safe-area-inset-top, 0px)) !important; right: calc(14px + env(safe-area-inset-right, 0px)) !important; width: 256px !important; }
+  body.ck-cave .ck-nodes { padding-inline: max(72px, 15vw) !important; }
+  body.ck-cave #energy-container { width: min(520px, 48vw); }
+  body.ck-cave .bottom-nav { width: min(590px, 62vw); }
+  body.ck-cave .ck-actions { width: min(340px, 34vw); padding-bottom: 1px !important; }
+  body.ck-cave .ck-pad { left: calc(14px + env(safe-area-inset-left, 0px)) !important; bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important; }
+  body.ck-cave .ck-dig { right: calc(286px + env(safe-area-inset-right, 0px)) !important; bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+@media (min-width: 1280px) {
+  body.ck-cave .ck-dig { right: 320px !important; }
+  .ck-expedition-rail { width: 300px; }
+}
+
+/* ---------- الهواتف الصغيرة ---------- */
+@media (max-width: 520px) {
+  body.ck-cave .ck-hud { max-width: calc(100vw - 16px); padding-top: max(1px, env(safe-area-inset-top, 0px)); }
+  body.ck-cave .ck-hud .balance-strip { width: clamp(112px, 37vw, 150px); min-height: 32px; padding-inline: 8px !important; }
+  body.ck-cave .ck-sound { width: 36px; height: 36px; }
+  body.ck-cave .bottom-nav { width: 100vw; margin: 0 0 0 0 !important; border-left: 0 !important; border-right: 0 !important; border-bottom: 0 !important; border-radius: 15px 15px 0 0 !important; padding-bottom: max(3px, env(safe-area-inset-bottom, 0px)) !important; }
+  body.ck-cave #energy-container { width: min(380px, 88vw); }
+  body.ck-cave .ck-nodes { padding-inline: 2px !important; gap: 0; }
+  body.ck-cave .ck-node { --ck-node: clamp(44px, 8vh, 48px) !important; }
+  body.ck-cave .ck-actions { width: min(320px, calc(100% - 4px)); padding-inline: 2px !important; }
+  body.ck-cave .ck-go { min-height: 44px !important; }
+  body.ck-cave .ck-boost { min-height: 44px !important; }
+  body.ck-cave .ck-node-tag { display: none; }
+  body.ck-cave .ck-machine-console { top: calc(82px + env(safe-area-inset-top, 0px)) !important; width: min(186px, 51vw) !important; }
+  body.ck-cave .ck-machine-console-title { font-size: 8px !important; }
+  body.ck-cave .ck-machine-machine-status,
+  body.ck-cave .ck-machine-status { font-size: 6.5px !important; }
+  body.ck-cave .ck-machine-console button { min-height: 27px !important; font-size: 6.8px !important; }
+  .ck-expedition-rail { top: calc(44px + env(safe-area-inset-top, 0px)); width: min(176px, 50vw); gap: 4px; }
+  .ck-expedition-sheet { border-radius: 11px; }
+  .ck-expedition-sheet summary { min-height: 29px; padding: 2px 5px; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 4px; }
+  .ck-expedition-sheet summary > .ui-icon { width: 15px; height: 15px; }
+  .ck-sheet-title { font-size: 8px; }
+  .ck-expedition-sheet summary small,
+  .ck-goals-count { max-width: 54px; font-size: 7px; }
+  .ck-map-body,
+  .ck-goals-list { max-height: 24vh; }
+  .ck-map-node { min-height: 26px; grid-template-columns: 18px minmax(0, 1fr) auto; padding: 2px; gap: 3px; }
+  .ck-map-index { width: 16px; height: 16px; font-size: 6px; }
+  .ck-map-copy b { font-size: 7px; }
+  .ck-map-copy small { display: none; }
+  .ck-map-state { font-size: 6px; }
+  .ck-goal { grid-template-columns: 16px minmax(0, 1fr); gap: 4px; padding: 4px 2px; }
+  .ck-goal-check { width: 15px; height: 15px; }
+  .ck-goal-copy b { font-size: 7px; }
+  .ck-goal-detail { font-size: 6px; }
+  .ck-cache { width: 40px; height: 40px; border-radius: 11px; }
+  .ck-cache-art .ui-icon { width: 18px; height: 18px; }
+  .ck-cache-label { font-size: 6.2px; line-height: 11px; }
+  body.ck-cave .ck-go-icon { display: none !important; }
+  body.ck-cave .ck-boost-label { font-size: 9px !important; }
+  body.ck-cave .ck-pad,
+  body.ck-cave .ck-dig { bottom: 8px !important; }
+  .ck-world-toast { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); font-size: 8px; }
+}
+
+/* ---------- الأفقي القصير: عمود أدوات جانبي ومسرح ممتد ---------- */
+@media (orientation: landscape) and (max-height: 560px) {
+  body.ck-cave .bottom-nav { width: min(340px, 46vw); height: 40px; margin: 0 auto !important; }
+  body.ck-cave .bottom-nav button { min-height: 33px !important; }
+  body.ck-cave .bottom-nav .nav-icon { width: 19px !important; height: 19px !important; }
+  body.ck-cave #energy-container { align-self: auto; width: 150px; margin-inline-start: auto !important; margin-inline-end: max(10px, env(safe-area-inset-right, 0px)) !important; }
+  body.ck-cave .ck-hud { align-self: auto; margin-inline-start: max(8px, env(safe-area-inset-left, 0px)) !important; margin-inline-end: auto !important; padding-top: 2px; }
+  body.ck-cave .ck-hud .balance-strip { width: 112px; min-height: 29px; }
+  body.ck-cave .ck-sound { width: 32px; height: 32px; }
+  body.ck-cave .ck-nodes { width: auto; padding-inline: 0 !important; gap: 5px; }
+  body.ck-cave .ck-node { --ck-node: clamp(40px, 13vh, 44px) !important; }
+  body.ck-cave .ck-nodes[data-count="5"] .ck-node { --ck-node: 40px !important; }
+  body.ck-cave .ck-node-tag { display: none; }
+  .ck-fullscreen-toggle { width: 36px; height: 29px; }
+  .ck-fullscreen-toggle .ui-icon { width: 16px; height: 16px; }
+  .ck-expedition-rail { top: 37px; left: 4px; width: min(188px, 29vw); gap: 3px; }
+  .ck-expedition-sheet summary { min-height: 25px; padding: 1px 5px; }
+  .ck-expedition-sheet summary > .ui-icon { width: 13px; height: 13px; }
+  .ck-sheet-title { font-size: 7px; }
+  .ck-expedition-sheet summary small,
+  .ck-goals-count { font-size: 6px; max-width: 46px; }
+  .ck-map-body,
+  .ck-goals-list { max-height: 43vh; }
+  body.ck-cave .ck-machine-console { top: 3px !important; right: 3px !important; width: min(190px, 29vw) !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; padding: 3px !important; gap: 2px !important; }
+  body.ck-cave .ck-machine-console-title { display: none; }
+  body.ck-cave .ck-machine-status { grid-column: 1 / -1; min-height: 8px !important; font-size: 5.8px !important; }
+  body.ck-cave .ck-machine-console button { min-height: 25px !important; font-size: 5.8px !important; }
+  body.ck-cave .ck-actions { margin-inline-start: auto; margin-inline-end: 4px; width: 148px; padding-inline: 2px !important; flex-direction: column; }
+  body.ck-cave .ck-go,
+  body.ck-cave .ck-boost { width: 100%; min-height: 40px !important; flex: none; }
+  body.ck-cave .ck-pad { --pad: 62px; left: 4px !important; bottom: 4px !important; }
+  body.ck-cave .ck-dig { --dig: 56px; right: calc(146px + env(safe-area-inset-right, 0px)) !important; bottom: 4px !important; }
+  .ck-cache { width: 34px; height: 34px; border-radius: 9px; }
+  .ck-cache-art .ui-icon { width: 16px; height: 16px; }
+  .ck-cache-label { display: none; }
+  .ck-world-toast { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); font-size: 7px; }
+}
+
+@media (max-height: 380px) and (orientation: landscape) {
+  body.ck-cave .ck-pad { --pad: 52px; }
+  body.ck-cave .ck-dig { --dig: 48px; }
+  body.ck-cave .ck-actions { width: 112px; }
+  body.ck-cave .ck-go,
+  body.ck-cave .ck-boost { min-height: 40px !important; }
+  .ck-expedition-rail { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-cache[data-state="ready"],
+  .ck-ore-cart,
+  .ck-ore-chute b,
+  .ck-treasure-vault,
+  .ck-lift-shaft[data-moving="true"] .ck-lift-cage { animation: none !important; }
+  .ck-world-toast,
+  .ck-goal-meter i { transition: none !important; }
+}

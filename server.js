@@ -622,7 +622,27 @@ function applyArena(user, op, now) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, duelDay: '', duelGold: 0, quests: Quests.normalize() });
+// حالة وردية الآلات تأتي من مسارات /api/mine-machinery وحدها؛ normalize يحافظ عليها
+// عند كل تطبيع ملف بدل إسقاطها مع الحقول المجهولة (كان هذا يُلغي أي وردية محفوظة).
+function normalizeMineMachinery(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const status = ['active', 'stopped', 'expired'].includes(value.status) ? value.status : null;
+  const zone = Math.floor(Number(value.zone));
+  const startedAt = Number(value.startedAt);
+  const lastClaimAt = Number(value.lastClaimAt);
+  const ore = String(value.ore || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 24);
+  if (!status || !Number.isInteger(zone) || zone < 0 || zone >= PlatformRules.MINES.length) return null;
+  if (!Number.isFinite(startedAt) || startedAt <= 0 || !Number.isFinite(lastClaimAt) || lastClaimAt <= 0) return null;
+  if (!ore) return null;
+  const id = String(value.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'mine-machinery';
+  const job = {
+    id, status, zone, ore, startedAt, lastClaimAt,
+    claimSeq: Math.max(0, Math.floor(Number(value.claimSeq) || 0)),
+  };
+  if (status === 'stopped' && Number.isFinite(Number(value.stoppedAt))) job.stoppedAt = Number(value.stoppedAt);
+  return job;
+}
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, duelDay: '', duelGold: 0, quests: Quests.normalize(), mineMachinery: null, mineMachineryDay: '', mineMachineryProduced: 0 });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -647,6 +667,9 @@ function ensureSync(user) {
     duelDay: typeof sync.duelDay === 'string' ? sync.duelDay : '',
     duelGold: Math.max(0, Math.floor(Number(sync.duelGold) || 0)),
     quests: Quests.normalize(sync.quests),
+    mineMachinery: normalizeMineMachinery(sync.mineMachinery),
+    mineMachineryDay: typeof sync.mineMachineryDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sync.mineMachineryDay) ? sync.mineMachineryDay : '',
+    mineMachineryProduced: Math.max(0, Math.floor(Number(sync.mineMachineryProduced) || 0)),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));

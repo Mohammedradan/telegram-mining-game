@@ -172,6 +172,8 @@
   let clock = 0;                                   // ملّي ثانية متراكمة (حقيقية في الحلقة، افتراضية في step للاختبار)
   const miner = { x: 0.26, y: 0.8, face: 1, step: 0, moving: false };
   let mineWorld = MineWorld ? MineWorld.create() : null;
+  let lastLiftFloor = mineWorld ? mineWorld.floor : null;
+  let liftMoveTimer = 0;
   const machinery = { drill: false, conveyor: false, worker: false };
   let rock = null;
   const swing = createSwing();
@@ -310,9 +312,26 @@
     try { els.bob.animate([{ scale: '.4', opacity: 0 }, { scale: '1.1', opacity: 1, offset: 0.6 }, { scale: '1', opacity: 1 }], { duration: 340, easing: 'cubic-bezier(.2,.9,.3,1.2)' }); } catch (e) { /* زينة */ }
   }
 
+  function pulseLift() {
+    if (!els || !els.world || !els.world.querySelector || !root.setTimeout) return;
+    const elevator = els.world.querySelector('.ck-lift-shaft');
+    if (!elevator || !elevator.dataset) return;
+    elevator.dataset.moving = 'true';
+    try {
+      if (liftMoveTimer && root.clearTimeout) root.clearTimeout(liftMoveTimer);
+      liftMoveTimer = root.setTimeout(() => {
+        liftMoveTimer = 0;
+        if (elevator.dataset) elevator.dataset.moving = 'false';
+      }, 1600);
+    } catch (e) { /* مؤقّت بيئي فقط */ }
+  }
+
   function updateMineScene() {
     if (!els || !mineWorld || !MineWorld) return;
     const mine = MineWorld.MINES[mineWorld.index];
+    const floorChanged = lastLiftFloor !== mineWorld.floor;
+    if (floorChanged && lastLiftFloor !== null) pulseLift();
+    lastLiftFloor = mineWorld.floor;
     if (els.world.dataset) {
       els.world.dataset.mine = mine.id;
       els.world.dataset.floor = mineWorld.floor;
@@ -416,6 +435,7 @@
       const traversal = mineWorld && MineWorld
         ? MineWorld.step(mineWorld, miner, steer, dt, aspect, band, CFG.SPEED, CFG.DEPTH_SPEED)
         : (stepMiner(miner, steer, dt, aspect, band), { moved: Math.hypot(miner.x - ox, (miner.y - oy) / aspect), transition: null, climbing: false });
+      if (mineWorld && traversal.floor && traversal.floor !== lastLiftFloor) updateMineScene();
       if (rk && !traversal.transition) separate(miner, rk, aspect, R.sep);
       if (traversal.transition) {
         rock = createRock({ x: traversal.transition === 'next' ? 0.72 : 0.28, y: 0.8 });
@@ -635,27 +655,46 @@
     set.dataset.drill = 'off'; set.dataset.conveyor = 'off'; set.dataset.worker = 'idle';
     set.setAttribute('aria-label', 'منشآت المنجم وأدوات التحكم بها');
     set.innerHTML = `
+      <div class="ck-cave-layer ck-cave-far" aria-hidden="true"><i></i><b></b><span></span></div>
+      <div class="ck-cave-layer ck-cave-near" aria-hidden="true"><i></i><b></b></div>
       <div class="ck-tunnel ck-tunnel-back"><i></i><b></b></div>
       <div class="ck-tunnel ck-tunnel-side"><i></i><b></b></div>
+      <div class="ck-catwalk ck-catwalk-upper" aria-hidden="true"><i></i><i></i><i></i><b>منصة المراقب</b></div>
+      <div class="ck-catwalk ck-catwalk-lower" aria-hidden="true"><i></i><i></i><i></i><b>خط الاستخراج</b></div>
       <div class="ck-ladder"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>ممر علوي</span></div>
+      <div class="ck-rock-pillar ck-rock-pillar-a" aria-hidden="true"></div>
+      <div class="ck-rock-pillar ck-rock-pillar-b" aria-hidden="true"></div>
+      <div class="ck-supply-pipes" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
       <div class="ck-rail"><i></i><i></i></div>
       <div class="ck-drill-cart"><span class="ck-cart-wheel"></span><span class="ck-cart-body"></span><span class="ck-cart-arm"></span><span class="ck-cart-bit"></span><b>حفّار آلي</b></div>
+      <div class="ck-ore-cart" aria-hidden="true"><span class="ck-ore-cart-ore"></span><span class="ck-ore-cart-body"></span><i></i><b>عربة الخام</b></div>
+      <div class="ck-ore-chute" aria-hidden="true"><i></i><b></b></div>
       <div class="ck-lift-shaft"><i class="ck-lift-cable"></i><span class="ck-lift-cage"><i></i><i></i><b>مصعد</b></span></div>
       <div class="ck-rover"><i></i><b>روبوت نقل</b></div>
+      <div class="ck-secret-alcove ck-secret-alcove-a" aria-hidden="true"><i></i><span>عدة قديمة</span></div>
+      <div class="ck-secret-alcove ck-secret-alcove-b" aria-hidden="true"><i></i><span>ممر سري</span></div>
+      <div class="ck-treasure-vault" aria-hidden="true"><i></i><i></i><span>غرفة الكنز</span></div>
       <div class="ck-cave-atmosphere" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><b></b></div>
       <div class="ck-support-beam ck-support-beam-a" aria-hidden="true"></div>
       <div class="ck-support-beam ck-support-beam-b" aria-hidden="true"></div>
+      <div class="ck-support-beam ck-support-beam-c" aria-hidden="true"></div>
       <div class="ck-steam-vent ck-steam-vent-a" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="ck-steam-vent ck-steam-vent-b" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="ck-steam-vent ck-steam-vent-c" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="ck-gallery ck-gallery-upper"><i></i><b></b><span>الممر العلوي</span></div>
       <div class="ck-gallery ck-gallery-lower"><i></i><b></b><span>منطقة الاستخراج</span></div>
       <div class="ck-crystal-seam ck-crystal-seam-a"><i></i><i></i><i></i></div>
       <div class="ck-crystal-seam ck-crystal-seam-b"><i></i><i></i></div>
+      <div class="ck-crystal-seam ck-crystal-seam-c"><i></i><i></i><i></i><i></i></div>
       <div class="ck-conveyor"><i class="ck-belt"></i><span></span><span></span><span></span><b>نقل الخام</b></div>
       <div class="ck-ore-loader"><i></i><b></b><span></span></div>
       <div class="ck-crew-worker ck-crew-hauler"><i class="ck-worker-pack"></i><b></b><span>عامل نقل</span></div>
       <div class="ck-crew-worker ck-crew-technician"><i class="ck-worker-pack"></i><b></b><span>فني صيانة</span></div>
       <div class="ck-work-lamp"></div>
+      <div class="ck-work-lamp ck-work-lamp-b"></div>
+      <div class="ck-work-lamp ck-work-lamp-c"></div>
+      <div class="ck-floor-beacon ck-floor-beacon-upper" aria-hidden="true"><span>علوي</span></div>
+      <div class="ck-floor-beacon ck-floor-beacon-lower" aria-hidden="true"><span>سفلي</span></div>
       <div class="ck-depth-sign"><b>المنجم الحجري</b><small>120 م · حجر ونحاس · 0/3</small></div>
       <div class="ck-exit-gate" data-open="false">اكسر 3 صخور لفتح الممر</div>
       <section class="ck-machine-console" aria-label="لوحة تشغيل المنشآت">
