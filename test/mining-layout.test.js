@@ -8,7 +8,7 @@ const css = fs.readFileSync(path.join(__dirname, '../public/mining-layout.css'),
 const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
 
 test('mining playfield expands beyond the old narrow stage width', () => {
-  assert.match(css, /#tab-mining > \.ck-stage\s*\{[^}]*max-width:\s*min\(100%,\s*760px\)/s);
+  assert.match(css, /#ck-stage\s*\{[^}]*max-width:\s*min\(100%,\s*760px\)/s);
   assert.match(css, /min-height:\s*clamp\(300px,\s*48dvh,\s*620px\)/);
   assert.match(html, /href="\/mining-layout\.css\?v=1"/);
 });
