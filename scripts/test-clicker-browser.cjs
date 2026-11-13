@@ -17,7 +17,7 @@ async function main() {
   if (!executablePath) throw new Error('Set CHROMIUM_PATH to an installed Chromium executable');
   const browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--no-zygote', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const errors = [];
-  const report = { layout: {}, scene: {}, taps: {}, energy: {}, boost: {}, upgrades: {}, cta: {}, sound: {}, keyboard: {}, level: {}, dig: {}, reducedMotion: {}, viewports: [], errors };
+  const report = { layout: {}, scene: {}, taps: {}, energy: {}, boost: {}, upgrades: {}, cta: {}, sound: {}, keyboard: {}, level: {}, dig: {}, machinery: {}, reducedMotion: {}, viewports: [], errors };
 
   async function open(viewport, extras = {}) {
     const ctx = await browser.newContext({ viewport, hasTouch: true, reducedMotion: 'no-preference', ...extras });
@@ -116,6 +116,44 @@ async function main() {
     assert.match(sheets.hero, /hero-sheet\.webp/);
     assert.match(sheets.ore, /ore-sheet\.webp/);
     report.scene.phone = { picture: 'portrait', images: scene.imgs.length, sheets: true };
+
+    // 1c) machinery controls must start and stop a real server-side production shift.
+    await page.waitForFunction(() => window.DigSite?.inspect?.().active && document.querySelector('.ck-machine-console'), null, { timeout: 10000 });
+    await page.waitForFunction(() => window.PlatformBridge?.user?.() && window.MineMachineryClient, null, { timeout: 10000 });
+    const initialMachinery = await page.evaluate(() => PlatformBridge.request('/api/mine-machinery/status'));
+    assert.equal(!!(initialMachinery.job && initialMachinery.job.active), false, 'the test account starts without an active machinery shift');
+    for (const action of ['drill', 'conveyor', 'worker']) {
+      await page.locator('[data-machine-action="' + action + '"]').tap();
+    }
+    await page.waitForFunction(() => {
+      const local = window.DigSite?.inspect?.().machinery;
+      const server = window.MineMachineryClient?.create ? null : null;
+      return !!(local && local.drill && local.conveyor && local.worker);
+    }, null, { timeout: 5000 });
+    await page.waitForFunction(async () => {
+      const status = await window.PlatformBridge.request('/api/mine-machinery/status');
+      return !!(status.job && status.job.active && status.job.zone === 0);
+    }, null, { timeout: 10000, polling: 100 });
+    const activeMachinery = await page.evaluate(() => ({
+      scene: window.DigSite.inspect().machinery,
+      controls: [...document.querySelectorAll('.ck-machine-console button')].map((button) => button.getAttribute('aria-pressed')),
+      status: window.MineMachineryClient ? 'connected' : 'missing',
+    }));
+    assert.deepEqual(activeMachinery.scene, { drill: true, conveyor: true, worker: true });
+    assert.deepEqual(activeMachinery.controls, ['true', 'true', 'true']);
+    assert.equal(activeMachinery.status, 'connected');
+    await page.locator('[data-machine-action="drill"]').tap();
+    await page.waitForFunction(async () => {
+      const status = await window.PlatformBridge.request('/api/mine-machinery/status');
+      return !!(status.job && !status.job.active);
+    }, null, { timeout: 10000, polling: 100 });
+    const stoppedMachinery = await page.evaluate(() => ({
+      scene: window.DigSite.inspect().machinery,
+      controls: [...document.querySelectorAll('.ck-machine-console button')].map((button) => button.getAttribute('aria-pressed')),
+    }));
+    assert.deepEqual(stoppedMachinery.scene, { drill: false, conveyor: false, worker: false });
+    assert.deepEqual(stoppedMachinery.controls, ['false', 'false', 'false']);
+    report.machinery.phone = { serverStart: true, serverStop: true, controls: true };
 
     // 2) tilt follows the touch point (right edge presses the right side in, top edge presses the top in)
     const tilt = await page.evaluate(`(() => { const tap = ${TAP}; const read = () => { const c = document.getElementById('ck-ore'); return [parseFloat(c.style.getPropertyValue('--ry')), parseFloat(c.style.getPropertyValue('--rx')), c.classList.contains('is-down'), parseFloat(c.style.getPropertyValue('--sc'))]; };
