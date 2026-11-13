@@ -24,7 +24,7 @@ async function main() {
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     // The aborted Telegram SDK request is expected: the page must work with every external resource unavailable.
-    page.on('console', (m) => { if (m.type() === 'error' && !/ERR_FAILED|Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`); });
+    page.on('console', (m) => { const t = m.text(); if (t.startsWith('CLICKER_FOCUS_TOGGLED')) console.log(t); else if (m.type() === 'error' && !/ERR_FAILED|Failed to load resource/.test(t)) errors.push(`console: ${t}`); });
     page.on('requestfailed', (r) => { if (new URL(r.url()).origin === new URL(base).origin) errors.push(`request failed: ${r.url()}`); });
     await page.route('**/*', (r) => (new URL(r.request().url()).origin === new URL(base).origin ? r.continue() : r.abort()));
     // optional stress knob for slow CI runners: CLICKER_CPU_THROTTLE=4 makes the page 4x slower (assertions must not depend on speed)
@@ -35,7 +35,11 @@ async function main() {
       const origToggle = DOMTokenList.prototype.toggle;
       const origAdd = DOMTokenList.prototype.add;
       const record = (op, name, rest) => {
-        if (String(name).includes('ck-mining-focus')) window.__focusToggleEvents.push(`${op}:${name}:${rest.map((x) => String(x)).join(',')}\n${new Error().stack || ''}`);
+        if (String(name) === 'ck-mining-focus' || String(name) === 'ck-mining-focus-available') {
+          const stack = (new Error().stack || '').split('\n').slice(0, 6).join('|');
+          window.__focusToggleEvents.push(`${op}:${name}:${rest.map((x) => String(x)).join(',')} @ ${stack}`);
+          if (String(name) === 'ck-mining-focus' && typeof name === 'string') console.log(`CLICKER_FOCUS_TOGGLED ${op} ${name}:${rest.map((x) => String(x)).join(',')} @ ${stack}`);
+        }
       };
       DOMTokenList.prototype.toggle = function (name, ...rest) { record('toggle', name, rest); return origToggle.call(this, name, ...rest); };
       DOMTokenList.prototype.add = function (name, ...rest) { record('add', name, rest); return origAdd.call(this, name, ...rest); };
@@ -190,6 +194,16 @@ async function main() {
     const g3 = await page.evaluate(() => state.gold);
     assert.equal(g3, g2, 'a stray tap on the miner is scenery: it costs no energy (he is steered with the stick)');
     const nodesBox = await page.locator('#ck-nodes').boundingBox();
+    // TEMP DIAGNOSTIC: what really sits at the "empty scenery" corner (rects + topmost element)
+    const preTap = await page.evaluate(() => {
+      const r = (s) => { const b = document.querySelector(s)?.getBoundingClientRect(); return b ? [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] : null; };
+      const nodes = document.getElementById('ck-nodes').getBoundingClientRect();
+      const x = nodes.left + 4, y = nodes.top + 4;
+      const el = document.elementFromPoint(x, y);
+      const chain = []; let cur = el; while (cur && chain.length < 5) { chain.push(`${cur.tagName}#${cur.id || ''}.${String(cur.className || '').split(' ').slice(0, 3).join('.')}`); cur = cur.parentElement; }
+      return { tap: [Math.round(x), Math.round(y)], nodes: r('#ck-nodes'), fullscreen: r('#ck-fullscreen'), hud: r('.ck-hud'), stage: r('#ck-stage'), top: chain, bodyClass: document.body.className };
+    });
+    console.log('CLICKER_NODES_CORNER', JSON.stringify(preTap));
     await page.touchscreen.tap(nodesBox.x + 4, nodesBox.y + 4); // the corner of the medal row: empty scenery
     assert.equal(await page.evaluate(() => state.gold), g3, 'scenery between the medals never mines');
     report.taps.realTouch = { rock: true, minerIsScenery: true, sceneryIgnored: true };
