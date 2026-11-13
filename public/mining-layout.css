@@ -1,0 +1,66 @@
+/* Expanded mining playfield: prioritize the actual cave over surrounding chrome. */
+body.ck-cave #ck-stage {
+  width: 100%;
+  max-width: min(100%, 760px);
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 0;
+  gap: clamp(3px, .8vh, 8px);
+}
+body.ck-cave #ck-stage .ck-area {
+  flex: 1 1 auto;
+  min-height: clamp(300px, 48dvh, 620px);
+  width: 100%;
+  max-width: 100%;
+  border-radius: 16px;
+}
+body.ck-cave #ck-stage .ck-nodes {
+  flex: 0 0 auto;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+body.ck-cave #ck-stage .ck-machine-console {
+  width: min(230px, 39%);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+}
+body.ck-cave #ck-stage .ck-machine-console-title,
+body.ck-cave #ck-stage .ck-machine-status {
+  grid-column: 1 / -1;
+}
+body.ck-cave #ck-stage .ck-machine-console button {
+  min-height: 34px;
+  padding: 4px 3px;
+  font-size: clamp(8px, 1.2vw, 10px);
+}
+@media (min-width: 700px) {
+  body.ck-cave #ck-stage { max-width: min(100%, 980px); }
+  body.ck-cave #ck-stage .ck-area { min-height: min(62dvh, 720px); }
+  body.ck-cave #ck-stage .ck-machine-console { width: min(280px, 32%); }
+}
+@media (max-width: 520px) {
+  body.ck-cave #ck-stage { max-width: 100%; }
+  body.ck-cave #ck-stage .ck-area {
+    min-height: clamp(290px, 46dvh, 520px);
+    border-radius: 12px;
+  }
+  body.ck-cave #ck-stage .ck-machine-console {
+    width: min(210px, 48%);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.ck-cave #ck-stage .ck-machine-console button { min-height: 31px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  body.ck-cave #ck-stage {
+    max-width: 100%;
+    min-height: 0;
+  }
+  body.ck-cave #ck-stage .ck-area {
+    min-height: 0;
+    height: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.ck-cave #ck-stage * { scroll-behavior: auto; }
+}
