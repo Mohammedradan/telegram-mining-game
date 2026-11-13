@@ -15,6 +15,7 @@ const ArenaRules = require('./public/arena-rules');
 const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
 const { mountDeepDig } = require('./deep-dig-api');
 const { mountMineMachinery } = require('./mine-machinery-api');
+const { mountStation } = require('./station-api');
 const Quests = require('./quests');
 const Prestige = require('./public/prestige-rules');
 // قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
@@ -667,6 +668,7 @@ function ensureSync(user) {
     duelDay: typeof sync.duelDay === 'string' ? sync.duelDay : '',
     duelGold: Math.max(0, Math.floor(Number(sync.duelGold) || 0)),
     quests: Quests.normalize(sync.quests),
+    station: obj(sync.station),
     mineMachinery: normalizeMineMachinery(sync.mineMachinery),
     mineMachineryDay: typeof sync.mineMachineryDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sync.mineMachineryDay) ? sync.mineMachineryDay : '',
     mineMachineryProduced: Math.max(0, Math.floor(Number(sync.mineMachineryProduced) || 0)),
@@ -1340,6 +1342,7 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
 mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, trackQuests: (user, facts) => Quests.addRun(user.sync.quests, facts), now: Date.now });
 mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, now: Date.now });
 mountMineMachinery({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
+mountStation({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
 
 // ---------------------------------------------------------------------------
 // ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص

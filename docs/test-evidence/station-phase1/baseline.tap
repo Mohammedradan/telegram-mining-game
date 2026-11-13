@@ -1,0 +1,340 @@
+TAP version 13
+# Subtest: stickVector: dead zone, rescaled ramp, clamp to the unit circle and hostile input
+ok 1 - stickVector: dead zone, rescaled ramp, clamp to the unit circle and hostile input
+  ---
+  duration_ms: 2.138977
+  type: 'test'
+  ...
+# Subtest: stepMiner: speed, normalised diagonals, depth speed, band clamp, facing and the distance it reports
+ok 2 - stepMiner: speed, normalised diagonals, depth speed, band clamp, facing and the distance it reports
+  ---
+  duration_ms: 0.469176
+  type: 'test'
+  ...
+# Subtest: separate / inReach / dirTo / alignment: the miner stops at the rock, never inside it
+ok 3 - separate / inReach / dirTo / alignment: the miner stops at the rock, never inside it
+  ---
+  duration_ms: 0.537404
+  type: 'test'
+  ...
+# Subtest: createSwing: windup → strike (the hit lands as the strike starts) → recover → done, about four swings a second
+ok 4 - createSwing: windup → strike (the hit lands as the strike starts) → recover → done, about four swings a second
+  ---
+  duration_ms: 1.932436
+  type: 'test'
+  ...
+# Subtest: rock health: stages by thirds, damage clamps at zero, breaking is reported once
+ok 5 - rock health: stages by thirds, damage clamps at zero, breaking is reported once
+  ---
+  duration_ms: 0.449562
+  type: 'test'
+  ...
+# Subtest: pickRockSpot: stays in its band, away from the miner and the controls, with a fallback when nothing fits
+ok 6 - pickRockSpot: stays in its band, away from the miner and the controls, with a fallback when nothing fits
+  ---
+  duration_ms: 3.476971
+  type: 'test'
+  ...
+# Subtest: mine depth lane: the worker can move from the upper tunnel to the lower work floor
+ok 7 - mine depth lane: the worker can move from the upper tunnel to the lower work floor
+  ---
+  duration_ms: 0.162997
+  type: 'test'
+  ...
+# Subtest: depthScale grows toward the viewer and poseFor picks frames in the right priority
+ok 8 - depthScale grows toward the viewer and poseFor picks frames in the right priority
+  ---
+  duration_ms: 0.453301
+  type: 'test'
+  ...
+# Subtest: init: shows the controls, places the miner and the rock from the real sizes, and refuses to start without its elements
+ok 9 - init: shows the controls, places the miner and the rock from the real sizes, and refuses to start without its elements
+  ---
+  duration_ms: 4.499358
+  type: 'test'
+  ...
+# Subtest: a hidden tab measures zero: nothing is placed until the field has a size, then it is placed once
+ok 10 - a hidden tab measures zero: nothing is placed until the field has a size, then it is placed once
+  ---
+  duration_ms: 2.403038
+  type: 'test'
+  ...
+# Subtest: the stick walks the miner to the rock and he digs: every landed swing is exactly one opts.swing call and one health point
+ok 11 - the stick walks the miner to the rock and he digs: every landed swing is exactly one opts.swing call and one health point
+  ---
+  duration_ms: 3.964826
+  type: 'test'
+  ...
+# Subtest: breaking the rock: a burst and a crumble cue, a cheer, a ghost of the old rock, and a fresh rock the miner has to walk to
+ok 12 - breaking the rock: a burst and a crumble cue, a cheer, a ghost of the old rock, and a fresh rock the miner has to walk to
+  ---
+  duration_ms: 4.403926
+  type: 'test'
+  ...
+# Subtest: a refused swing (no energy) costs nothing and pauses the auto-dig for 700 ms
+ok 13 - a refused swing (no energy) costs nothing and pauses the auto-dig for 700 ms
+  ---
+  duration_ms: 2.556635
+  type: 'test'
+  ...
+# Subtest: rate: auto-digging never exceeds four swings a second at any frame rate
+ok 14 - rate: auto-digging never exceeds four swings a second at any frame rate
+  ---
+  duration_ms: 34.646593
+  type: 'test'
+  ...
+# Subtest: tapping the rock still mines at once: the rock takes the hit, the miner walks over and swings for show (no second charge)
+ok 15 - tapping the rock still mines at once: the rock takes the hit, the miner walks over and swings for show (no second charge)
+  ---
+  duration_ms: 3.704461
+  type: 'test'
+  ...
+# Subtest: keyboard: arrows and WASD walk, space digs, typing targets and chords are ignored, and nothing runs on other tabs
+ok 16 - keyboard: arrows and WASD walk, space digs, typing targets and chords are ignored, and nothing runs on other tabs
+  ---
+  duration_ms: 1.74143
+  type: 'test'
+  ...
+# Subtest: the real loop: rAF timestamps drive movement and swings, then the loop sleeps by itself
+ok 17 - the real loop: rAF timestamps drive movement and swings, then the loop sleeps by itself
+  ---
+  duration_ms: 2.048512
+  type: 'test'
+  ...
+# Subtest: pausing: an open window, a hidden page or a lost focus release the stick and stop the loop
+ok 18 - pausing: an open window, a hidden page or a lost focus release the stick and stop the loop
+  ---
+  duration_ms: 0.974086
+  type: 'test'
+  ...
+# Subtest: the pad: one finger steers, other fingers and right clicks are ignored, release re-centres, and listeners are removed
+ok 19 - the pad: one finger steers, other fingers and right clicks are ignored, release re-centres, and listeners are removed
+  ---
+  duration_ms: 1.473332
+  type: 'test'
+  ...
+# Subtest: the dig button: hold to dig, release to stop; a keyboard activation is one deliberate swing
+ok 20 - the dig button: hold to dig, release to stop; a keyboard activation is one deliberate swing
+  ---
+  duration_ms: 2.48254
+  type: 'test'
+  ...
+# Subtest: layering: the miner is drawn in front of the rock once he is at it, and by depth otherwise
+ok 21 - layering: the miner is drawn in front of the rock once he is at it, and by depth otherwise
+  ---
+  duration_ms: 0.837194
+  type: 'test'
+  ...
+# Subtest: flip and walking frames: facing follows the walk and the stride alternates walk1/walk2 with idle between
+ok 22 - flip and walking frames: facing follows the walk and the stride alternates walk1/walk2 with idle between
+  ---
+  duration_ms: 0.868481
+  type: 'test'
+  ...
+# Subtest: pressing against the rock while a swing is refused is standing, not walking (no stride animation on the spot)
+ok 23 - pressing against the rock while a swing is refused is standing, not walking (no stride animation on the spot)
+  ---
+  duration_ms: 1.00735
+  type: 'test'
+  ...
+# Subtest: economy isolation: the module has no way to touch gold, energy, storage or the server except opts.swing
+ok 24 - economy isolation: the module has no way to touch gold, energy, storage or the server except opts.swing
+  ---
+  duration_ms: 1.149474
+  type: 'test'
+  ...
+# Subtest: page wiring: the dig site is initialised with handleMine as its only effect, tapped rocks and tab changes reach it, and every control exists
+ok 25 - page wiring: the dig site is initialised with handleMine as its only effect, tapped rocks and tab changes reach it, and every control exists
+  ---
+  duration_ms: 1.321116
+  type: 'test'
+  ...
+# Subtest: styles: controls are hidden until the dig site is running, only the rock takes touches in the world, the pad owns its gestures
+ok 26 - styles: controls are hidden until the dig site is running, only the rock takes touches in the world, the pad owns its gestures
+  ---
+  duration_ms: 0.604874
+  type: 'test'
+  ...
+# Subtest: sprite sheets: the CSS grid and aspect ratios are the shipped pixels (a re-export with other dimensions would stretch the characters)
+ok 27 - sprite sheets: the CSS grid and aspect ratios are the shipped pixels (a re-export with other dimensions would stretch the characters)
+  ---
+  duration_ms: 0.759899
+  type: 'test'
+  ...
+# Subtest: build and CI know the module: syntax check in the build script and the E2E exercises the controls
+ok 28 - build and CI know the module: syntax check in the build script and the E2E exercises the controls
+  ---
+  duration_ms: 0.858411
+  type: 'test'
+  ...
+# Subtest: living mine adventure scene: the mining world builds layered galleries, a moving ore line and two visible crew roles
+ok 29 - living mine adventure scene: the mining world builds layered galleries, a moving ore line and two visible crew roles
+  ---
+  duration_ms: 0.939799
+  type: 'test'
+  ...
+# Subtest: mine atmosphere: depth layers, timber supports, steam and dust are present and motion-safe
+ok 30 - mine atmosphere: depth layers, timber supports, steam and dust are present and motion-safe
+  ---
+  duration_ms: 0.835842
+  type: 'test'
+  ...
+# Subtest: mine biome presentation follows the active mine and floor without replacing traversal state
+ok 31 - mine biome presentation follows the active mine and floor without replacing traversal state
+  ---
+  duration_ms: 0.939628
+  type: 'test'
+  ...
+# Subtest: mine machinery controls are interactive, accessible, and keep the worker assignment dependent on the conveyor
+ok 32 - mine machinery controls are interactive, accessible, and keep the worker assignment dependent on the conveyor
+  ---
+  duration_ms: 0.979368
+  type: 'test'
+  ...
+# Subtest: key releases clear held movement and dig after focus or modifier changes
+ok 33 - key releases clear held movement and dig after focus or modifier changes
+  ---
+  duration_ms: 1.971453
+  type: 'test'
+  ...
+# Subtest: cave transition clears carried inputs and approach without landing strikes
+ok 34 - cave transition clears carried inputs and approach without landing strikes
+  ---
+  duration_ms: 1.570032
+  type: 'test'
+  ...
+# Subtest: discovery saves are normalized, deduped and tied to known caches
+ok 35 - discovery saves are normalized, deduped and tied to known caches
+  ---
+  duration_ms: 2.778592
+  type: 'test'
+  ...
+# Subtest: objectives describe real progress from DigSite state and saved discoveries
+ok 36 - objectives describe real progress from DigSite state and saved discoveries
+  ---
+  duration_ms: 0.595244
+  type: 'test'
+  ...
+# Subtest: secret cache opens only after enough mining and a server-started machinery shift
+ok 37 - secret cache opens only after enough mining and a server-started machinery shift
+  ---
+  duration_ms: 0.374337
+  type: 'test'
+  ...
+# Subtest: expanded mining shell is wired, responsive and focusable
+ok 38 - expanded mining shell is wired, responsive and focusable
+  ---
+  duration_ms: 0.90581
+  type: 'test'
+  ...
+# Subtest: expedition layer grants no economy or server rewards from the client
+ok 39 - expedition layer grants no economy or server rewards from the client
+  ---
+  duration_ms: 0.253581
+  type: 'test'
+  ...
+# Subtest: mine machinery production is server-timed, persisted and ledgered once
+ok 40 - mine machinery production is server-timed, persisted and ledgered once
+  ---
+  duration_ms: 2.681604
+  type: 'test'
+  ...
+# Subtest: mine machinery enforces a daily production cap and stops the shift
+ok 41 - mine machinery enforces a daily production cap and stops the shift
+  ---
+  duration_ms: 0.679277
+  type: 'test'
+  ...
+# Subtest: mine machinery rejects locked mines and invalid zones
+ok 42 - mine machinery rejects locked mines and invalid zones
+  ---
+  duration_ms: 0.357496
+  type: 'test'
+  ...
+# Subtest: mine machinery starts a server shift for the selected unlocked mine and schedules a claim
+ok 43 - mine machinery starts a server shift for the selected unlocked mine and schedules a claim
+  ---
+  duration_ms: 2.989226
+  type: 'test'
+  ...
+# Subtest: mine machinery sync restores an existing server shift without starting another
+ok 44 - mine machinery sync restores an existing server shift without starting another
+  ---
+  duration_ms: 0.492392
+  type: 'test'
+  ...
+# Subtest: mine machinery claim accepts only the server production receipt and refreshes the wallet
+ok 45 - mine machinery claim accepts only the server production receipt and refreshes the wallet
+  ---
+  duration_ms: 0.789376
+  type: 'test'
+  ...
+# Subtest: mine machinery stop cancels the timer and closes the server shift
+ok 46 - mine machinery stop cancels the timer and closes the server shift
+  ---
+  duration_ms: 0.494399
+  type: 'test'
+  ...
+# Subtest: mine machinery refuses server actions without an authenticated player
+ok 47 - mine machinery refuses server actions without an authenticated player
+  ---
+  duration_ms: 1.50931
+  type: 'test'
+  ...
+# Subtest: world contains the six planned mine biomes in progression order
+ok 48 - world contains the six planned mine biomes in progression order
+  ---
+  duration_ms: 1.486883
+  type: 'test'
+  ...
+# Subtest: vertical movement requires reaching a ladder or elevator shaft
+ok 49 - vertical movement requires reaching a ladder or elevator shaft
+  ---
+  duration_ms: 0.453666
+  type: 'test'
+  ...
+# Subtest: the elevator shaft also connects the lower and upper work lanes
+ok 50 - the elevator shaft also connects the lower and upper work lanes
+  ---
+  duration_ms: 0.200586
+  type: 'test'
+  ...
+# Subtest: a new cave opens only after three completed rock breaks and is traversed at the upper tunnel
+ok 51 - a new cave opens only after three completed rock breaks and is traversed at the upper tunnel
+  ---
+  duration_ms: 0.253335
+  type: 'test'
+  ...
+# Subtest: upper tunnel returns to the previous cave and the final cave has no forward overflow
+ok 52 - upper tunnel returns to the previous cave and the final cave has no forward overflow
+  ---
+  duration_ms: 0.187775
+  type: 'test'
+  ...
+# Subtest: all six caves are reachable and revisitable with phone body-safe bounds
+ok 53 - all six caves are reachable and revisitable with phone body-safe bounds
+  ---
+  duration_ms: 1.474142
+  type: 'test'
+  ...
+# Subtest: exit requires upper tunnel position and deliberate movement toward it
+ok 54 - exit requires upper tunnel position and deliberate movement toward it
+  ---
+  duration_ms: 0.178085
+  type: 'test'
+  ...
+# Subtest: non-finite time cannot corrupt world positions or trigger transitions
+ok 55 - non-finite time cannot corrupt world positions or trigger transitions
+  ---
+  duration_ms: 0.256305
+  type: 'test'
+  ...
+1..55
+# tests 55
+# suites 0
+# pass 55
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1114.040366

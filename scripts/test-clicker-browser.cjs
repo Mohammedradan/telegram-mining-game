@@ -819,6 +819,7 @@ async function main() {
       assert.ok(ws.count === 8 && ws.nodesOn && ws.hero && ws.ringBottom <= ws.ctaTop + 1 && ws.ctaBottom <= ws.vh + 0.5, `${tag}: the workshop fits (${JSON.stringify(ws)})`);
       await v.page.evaluate(() => window.closeWorkshop());
       await require('./mine-traversal-browser.cjs')(v.page, tag);
+      if ([320,844,1280].includes(viewport.width)) await require('./station-browser.cjs')(v.page, tag);
       report.viewports.push(tag);
       await v.ctx.close();
     }

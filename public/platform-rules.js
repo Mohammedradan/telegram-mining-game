@@ -1398,6 +1398,115 @@
     }
   }
 
+  // Shared motion kernel: the platform game and the mining station call the same
+  // jump windows, gravity and collision code. Defaults preserve legacy replay.
+  function updateJumpWindow(s, mask) {
+    const p = s.player;
+    p.coyote = p.grounded ? 6 : Math.max(0, p.coyote - 1);
+    p.jumpBuffer = (mask & INPUT.JUMP) && !(s.lastMask & INPUT.JUMP) ? 6 : Math.max(0, p.jumpBuffer - 1);
+  }
+  function applyJump(s) {
+    const p = s.player;
+    if (p.jumpBuffer && p.coyote) {
+      p.vy = p.jumpSpeed; p.grounded = false; p.coyote = 0; p.jumpBuffer = 0;
+      s.events.push({ type: 'jump', x: p.x, y: p.y + p.h });
+    }
+  }
+  function moveActor(s, mask, level, dodging = false) {
+    const p = s.player;
+    const routePlatforms = level.platforms.filter(box => box.route === 'upper');
+    const solids = level.platforms.filter(box => box.route !== 'upper').concat(s.rocks.filter(r => r.hp > 0));
+    // Each upper branch has a deterministic ladder at x + 14, running from the floor (y=300)
+    // to the branch platform. UP now climbs when the miner is aligned with those rails.
+    const explicitLadder = (level.ladders || []).find(rail =>
+      Math.abs((p.x + p.w / 2) - (rail.x + 14)) <= 24 &&
+      p.y + p.h >= rail.y - .5 && p.y + p.h <= rail.bottom + .5);
+    const descending = !!(level.downMask && (mask & level.downMask));
+    const ladder = explicitLadder || (!level.ladders && routePlatforms.find(box => {
+      const ladderCenter = box.x + 14;
+      // Keep the ladder target active until the miner's feet reach the ledge.
+      return Math.abs((p.x + p.w / 2) - ladderCenter) <= 28 &&
+        p.y < 300 && p.y + p.h > box.y - 3;
+    }));
+    let climbing = Boolean(((mask & INPUT.UP) || (descending && explicitLadder)) && ladder && !dodging && !p.guard.active && p.hearts > 0);
+    // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
+    // Upper branches remain one-way ledges; their ladders are the only way to climb from below.
+    if (climbing) {
+      p.x = ladder.x + 14 - p.w / 2;
+      p.vx = 0;
+    } else {
+      p.x += p.vx * DT;
+      for (const box of solids) if (overlap(p, box)) {
+        if (p.vx > 0) p.x = box.x - p.w;
+        else if (p.vx < 0) p.x = box.x + box.w;
+      }
+    }
+    p.x = Math.max(0, Math.min(level.width - p.w, p.x));
+    // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
+    if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
+    const wasGrounded = p.grounded;
+    const previousBottom = p.y + p.h;
+    if (climbing && !descending && p.y + p.h <= ladder.y + 0.5) {
+      // Stop exactly on the upper platform instead of passing through it.
+      p.y = ladder.y - p.h;
+      p.vy = 0;
+      p.grounded = true;
+      p.upperRouteY = ladder.y;
+      climbing = false;
+    } else {
+      if (climbing) { p.vy = descending ? 145 : -145; if (descending) p.upperRouteY = null; }
+      else p.vy = Math.min(680, p.vy + 1200 * DT);
+      const wasFalling = !climbing && p.vy >= 0;
+      p.y += p.vy * DT;
+      p.grounded = false;
+      if (climbing && !descending && p.y + p.h <= ladder.y) {
+        p.y = ladder.y - p.h;
+        p.vy = 0;
+        p.grounded = true;
+        p.upperRouteY = ladder.y;
+        climbing = false;
+      }
+      if (climbing && descending && p.y + p.h >= ladder.bottom) {
+        p.y = ladder.bottom - p.h; p.vy = 0; p.grounded = true;
+        p.upperRouteY = ladder.bottom; climbing = false;
+      }
+      for (const box of solids) if (overlap(p, box)) {
+        // At a ladder's top, a neighboring lower ledge may share the same y-coordinate
+        // and slightly overlap the miner's width. Do not let that side edge block climbing.
+        if (climbing && box.y === ladder.y) continue;
+        if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
+        else if (p.vy < 0) p.y = box.y + box.h;
+        p.vy = 0;
+      }
+      for (const box of routePlatforms) {
+        const overlapsLedge = p.x < box.x + box.w && p.x + p.w > box.x;
+        const climbedLedge = p.upperRouteY === box.y;
+        // A ladder-qualified ledge is persistent support, not a one-frame landing test.
+        // This also handles adjacent same-height solids that overlap the miner at the ladder top.
+        // Treat the climbed ledge as a one-way collision plane on every frame.
+        // Use the previous feet position as well as the current one so a fast fall,
+        // knockback, or gravity step cannot tunnel through the platform after release.
+        const persistentLanding = (!level.ladders || !climbing) && climbedLedge && overlapsLedge &&
+          previousBottom <= box.y + 8 && p.y + p.h >= box.y;
+        const newlyLanded = wasFalling && previousBottom <= box.y &&
+          p.y + p.h >= box.y && overlapsLedge && ((mask & INPUT.UP) || level.walkableRoutes);
+        if (persistentLanding || newlyLanded) {
+          p.y = box.y - p.h;
+          p.grounded = true;
+          p.vy = 0;
+          if (climbedLedge) p.upperRouteY = box.y;
+        }
+      }
+    }
+    if (!wasGrounded && p.grounded) {
+      p.landTimer = 6;
+      s.events.push({ type: 'land', x: p.x, y: p.y + p.h });
+    }
+    if (p.landTimer > 0) p.landTimer--;
+    if (level.ladders) p.climbing = climbing;
+    return solids;
+  }
+
   function step(s, mask) {
     if (s.status !== 'playing') return s;
     s.events = []; s.tick++;
@@ -1429,8 +1538,7 @@
     if (p.heavyCooldown > 0) p.heavyCooldown--;
     if (p.dodge.cooldown > 0) p.dodge.cooldown--;
     if (p.comboTimer > 0 && --p.comboTimer === 0) p.combo = 0;
-    p.coyote = p.grounded ? 6 : Math.max(0, p.coyote - 1);
-    p.jumpBuffer = (mask & INPUT.JUMP) && !(s.lastMask & INPUT.JUMP) ? 6 : Math.max(0, p.jumpBuffer - 1);
+    updateJumpWindow(s, mask);
     const direction = ((mask & INPUT.RIGHT) ? 1 : 0) - ((mask & INPUT.LEFT) ? 1 : 0);
     // الصدّ: فعّال على الأرض وبلا ضربة جارية، ويستهلك «نَفَساً» محدوداً؛ عند نفاده ينكسر الدرع
     // لثوانٍ قصيرة فيصير القفز والمراوغة بديلاً حقيقياً. يبطئ الحركة إلى 45%.
@@ -1464,10 +1572,7 @@
     p.vx = direction * p.speed * (p.guard.active ? (100 - DUEL.guardSlow) / 100 : soft ? COMBAT.softScale / 100 : 1);
     if (dodging) p.vx = p.dodge.dir * COMBAT.dodge.speed;
     if (direction && !dodging) p.facing = direction;
-    if (p.jumpBuffer && p.coyote) {
-      p.vy = p.jumpSpeed; p.grounded = false; p.coyote = 0; p.jumpBuffer = 0;
-      s.events.push({ type: 'jump', x: p.x, y: p.y + p.h });
-    }
+    applyJump(s);
 
     // MINE Action: targets rocks/ores only
     if ((mask & INPUT.MINE) && !p.attack) {
@@ -1641,87 +1746,7 @@
 
     // الارتداد يغلب الإدخال أثناء إطارات تطبيقه (9 إطارات) ثم يعود التحكم كاملاً
     if (p.knock && p.knock.ticks > 0) { p.knock.ticks--; p.vx = p.knock.vx; }
-    const routePlatforms = level.platforms.filter(box => box.route === 'upper');
-    const solids = level.platforms.filter(box => box.route !== 'upper').concat(s.rocks.filter(r => r.hp > 0));
-    // Each upper branch has a deterministic ladder at x + 14, running from the floor (y=300)
-    // to the branch platform. UP now climbs when the miner is aligned with those rails.
-    const ladder = routePlatforms.find(box => {
-      const ladderCenter = box.x + 14;
-      // Keep the ladder target active until the miner's feet reach the ledge.
-      return Math.abs((p.x + p.w / 2) - ladderCenter) <= 28 &&
-        p.y < 300 && p.y + p.h > box.y - 3;
-    });
-    let climbing = Boolean((mask & INPUT.UP) && ladder && !dodging && !p.guard.active && p.hearts > 0);
-    // Axis-separated fixed 60 Hz collision: max displacement < the thinnest solid.
-    // Upper branches remain one-way ledges; their ladders are the only way to climb from below.
-    if (climbing) {
-      p.x = ladder.x + 14 - p.w / 2;
-      p.vx = 0;
-    } else {
-      p.x += p.vx * DT;
-      for (const box of solids) if (overlap(p, box)) {
-        if (p.vx > 0) p.x = box.x - p.w;
-        else if (p.vx < 0) p.x = box.x + box.w;
-      }
-    }
-    p.x = Math.max(0, Math.min(level.width - p.w, p.x));
-    // جدران الساحة: في المبارزة لا يخرج اللاعب من بقعة القتال (ولا يسقط في فجوة المنجم)
-    if (s.duel?.arena) p.x = Math.max(s.duel.arena.x0, Math.min(s.duel.arena.x1 - p.w, p.x));
-    const wasGrounded = p.grounded;
-    const previousBottom = p.y + p.h;
-    if (climbing && p.y + p.h <= ladder.y + 0.5) {
-      // Stop exactly on the upper platform instead of passing through it.
-      p.y = ladder.y - p.h;
-      p.vy = 0;
-      p.grounded = true;
-      p.upperRouteY = ladder.y;
-      climbing = false;
-    } else {
-      if (climbing) p.vy = -145;
-      else p.vy = Math.min(680, p.vy + 1200 * DT);
-      const wasFalling = !climbing && p.vy >= 0;
-      p.y += p.vy * DT;
-      p.grounded = false;
-      if (climbing && p.y + p.h <= ladder.y) {
-        p.y = ladder.y - p.h;
-        p.vy = 0;
-        p.grounded = true;
-        p.upperRouteY = ladder.y;
-        climbing = false;
-      }
-      for (const box of solids) if (overlap(p, box)) {
-        // At a ladder's top, a neighboring lower ledge may share the same y-coordinate
-        // and slightly overlap the miner's width. Do not let that side edge block climbing.
-        if (climbing && box.y === ladder.y) continue;
-        if (p.vy > 0) { p.y = box.y - p.h; p.grounded = true; }
-        else if (p.vy < 0) p.y = box.y + box.h;
-        p.vy = 0;
-      }
-      for (const box of routePlatforms) {
-        const overlapsLedge = p.x < box.x + box.w && p.x + p.w > box.x;
-        const climbedLedge = p.upperRouteY === box.y;
-        // A ladder-qualified ledge is persistent support, not a one-frame landing test.
-        // This also handles adjacent same-height solids that overlap the miner at the ladder top.
-        // Treat the climbed ledge as a one-way collision plane on every frame.
-        // Use the previous feet position as well as the current one so a fast fall,
-        // knockback, or gravity step cannot tunnel through the platform after release.
-        const persistentLanding = climbedLedge && overlapsLedge &&
-          previousBottom <= box.y + 8 && p.y + p.h >= box.y;
-        const newlyLanded = wasFalling && previousBottom <= box.y &&
-          p.y + p.h >= box.y && overlapsLedge && (mask & INPUT.UP);
-        if (persistentLanding || newlyLanded) {
-          p.y = box.y - p.h;
-          p.grounded = true;
-          p.vy = 0;
-          if (climbedLedge) p.upperRouteY = box.y;
-        }
-      }
-    }
-    if (!wasGrounded && p.grounded) {
-      p.landTimer = 6;
-      s.events.push({ type: 'land', x: p.x, y: p.y + p.h });
-    }
-    if (p.landTimer > 0) p.landTimer--;
+    const solids = moveActor(s, mask, level, dodging);
 
     // Projectile physics and collisions
     for (let i = s.projectiles.length - 1; i >= 0; i--) {
@@ -2075,6 +2100,7 @@
 
   return {
     BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,
+    motion: Object.freeze({ updateJumpWindow, applyJump, moveActor }),
     VERSION, FPS, DT, MAX_TICKS, INPUT, CHARACTERS, capture, duelHintPlan, HINT_TIMING, PAD, stickDir, padMask, LEVEL, LEVELS, levelFor, seedFromId, layoutFor, create, step, replay, overlap, activeHazard, canExit, cameraFor,
     rewardFor, rewardBreakdown, rewardCap, completionBonus, RUN_REWARD, BAT, oreSummary, oreAward, milestoneList, milestoneOres, ORES, MILESTONES, MILESTONE_GOLD,
     // V6: أهداف الجولة والمفترق والعرق النادر
