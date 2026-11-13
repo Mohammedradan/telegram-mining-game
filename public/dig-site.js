@@ -586,6 +586,14 @@
       <div class="ck-drill-cart"><span class="ck-cart-wheel"></span><span class="ck-cart-body"></span><span class="ck-cart-arm"></span><span class="ck-cart-bit"></span><b>حفّار آلي</b></div>
       <div class="ck-lift-shaft"><i class="ck-lift-cable"></i><span class="ck-lift-cage"><i></i><i></i><b>مصعد</b></span></div>
       <div class="ck-rover"><i></i><b>روبوت نقل</b></div>
+      <div class="ck-gallery ck-gallery-upper"><i></i><b></b><span>الممر العلوي</span></div>
+      <div class="ck-gallery ck-gallery-lower"><i></i><b></b><span>منطقة الاستخراج</span></div>
+      <div class="ck-crystal-seam ck-crystal-seam-a"><i></i><i></i><i></i></div>
+      <div class="ck-crystal-seam ck-crystal-seam-b"><i></i><i></i></div>
+      <div class="ck-conveyor"><i class="ck-belt"></i><span></span><span></span><span></span><b>نقل الخام</b></div>
+      <div class="ck-ore-loader"><i></i><b></b><span></span></div>
+      <div class="ck-crew-worker ck-crew-hauler"><i class="ck-worker-pack"></i><b></b><span>عامل نقل</span></div>
+      <div class="ck-crew-worker ck-crew-technician"><i class="ck-worker-pack"></i><b></b><span>فني صيانة</span></div>
       <div class="ck-work-lamp"></div>
       <div class="ck-depth-sign"><b>المنجم الحجري</b><small>120 م · حجر ونحاس · 0/3</small></div>
       <div class="ck-exit-gate" data-open="false">اكسر 3 صخور لفتح الممر</div>
