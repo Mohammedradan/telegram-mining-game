@@ -237,6 +237,25 @@ async function main() {
     await settle(page);
 
     // 7) boost: the button looks active (not greyed out), doubles the numbers, and the glow turns violet
+    // TEMP DIAGNOSTIC (to be removed before merge): dump the geometry/computed chain of #boost-btn
+    const dbg = await page.evaluate(() => {
+      const out = { bodyClass: document.body.className, win: [window.innerWidth, window.innerHeight, window.devicePixelRatio], appHeight: getComputedStyle(document.body).getPropertyValue('--app-height') };
+      const chain = [];
+      let el = document.getElementById('boost-btn');
+      while (el && el !== document.documentElement) { chain.push(el); el = el.parentElement; }
+      out.chain = chain.map((node) => {
+        const cs = getComputedStyle(node), r = node.getBoundingClientRect();
+        return { tag: node.tagName, id: node.id, cls: node.className && String(node.className).slice(0, 90), r: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], display: cs.display, vis: cs.visibility, op: cs.opacity, ov: cs.overflow, pos: cs.position, mw: cs.maxWidth, mh: cs.maxHeight, mnh: cs.minHeight, h: cs.height, w: cs.width, flex: cs.flex, gtr: cs.gridTemplateColumns };
+      });
+      const tab = document.getElementById('tab-mining');
+      out.scroll = { doc: [document.documentElement.scrollHeight, document.documentElement.clientHeight], tab: [tab.scrollHeight, tab.clientHeight], stage: [document.getElementById('ck-stage').scrollHeight, document.getElementById('ck-stage').clientHeight] };
+      const b = document.getElementById('boost-btn');
+      out.checkVis = { btn: b.checkVisibility ? b.checkVisibility() : 'n/a', actions: document.querySelector('.ck-actions').checkVisibility ? document.querySelector('.ck-actions').checkVisibility() : 'n/a', tab: tab.checkVisibility ? tab.checkVisibility() : 'n/a', body: document.body.checkVisibility ? document.body.checkVisibility() : 'n/a' };
+      out.boost = { attrs: b.outerHTML.slice(0, 200), cv: b.checkVisibility ? b.checkVisibility() : null };
+      out.focused = document.activeElement && document.activeElement.id;
+      return out;
+    });
+    console.log('CLICKER_DEBUG', JSON.stringify(dbg, null, 1));
     await page.locator('#boost-btn').tap();
     await page.waitForFunction(() => document.getElementById('boost-btn').dataset.state === 'active');
     const boost = await page.evaluate(`(() => { const tap = ${TAP}; const b = document.getElementById('boost-btn'), cs = getComputedStyle(b), q = (s) => document.querySelector(s);
