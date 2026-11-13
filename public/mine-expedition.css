@@ -205,7 +205,7 @@ body.ck-cave .ck-machine-status { min-height: 10px !important; font-size: 7.5px 
   position: relative;
   z-index: 4;
   flex: none;
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -222,6 +222,7 @@ body.ck-cave .ck-machine-status { min-height: 10px !important; font-size: 7.5px 
   -webkit-tap-highlight-color: transparent;
 }
 .ck-fullscreen-toggle .ui-icon { width: 19px; height: 19px; pointer-events: none; }
+body.ck-cave .ck-fullscreen-toggle { display: inline-flex; }
 .ck-fullscreen-toggle span { display: none; font-size: 10px; font-weight: 900; white-space: nowrap; }
 .ck-fullscreen-toggle .ck-fs-close { display: none; }
 .ck-fullscreen-toggle[aria-pressed="true"] .ck-fs-open { display: none; }
