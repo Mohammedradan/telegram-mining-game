@@ -85,7 +85,7 @@ test('الربط: السحب يُصفَّر عند رفع الإصبع أو فق
     'every way a finger can leave clears the movement');
   assert.match(game, /addEventListener\('blur'[\s\S]{0,120}clearHolds\(\); stickReset\(\)/, 'losing focus also stops the stick');
   assert.match(rulesSource, /const padMask = \(\{ stick = 0, bits = \[\] \} = \{\}\) =>/, 'the duel mask is assembled by the shared helper');
-  assert.match(game, /if \(R\.padMask\) mask = R\.padMask\(\{ stick: duelStickDir, bits: \[mask\] \}\)/, 'the game delegates mask assembly to the shared helper');
+  assert.match(game, /if \(R\.padMask\) mask = R\.padMask\(\{ stick: arenaStick\.inspect\(\)\.dir, bits: \[mask\] \}\)/, 'the game delegates mask assembly to the shared helper');
 });
 
 test('الضغط المطوّل: ضربة قوية واحدة بعد 260ms، وفي وضع العصا فقط', () => {
