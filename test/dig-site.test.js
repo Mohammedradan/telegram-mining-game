@@ -784,3 +784,17 @@ test('mine atmosphere: depth layers, timber supports, steam and dust are present
     assert.ok(styles.includes(token), `atmosphere styles include ${token}`);
   }
 });
+
+test('mine biome presentation follows the active mine and floor without replacing traversal state', () => {
+  const source = read('public', 'dig-site.js');
+  const styles = read('public', 'clicker.css');
+  for (const token of ['mineSet.dataset.mine','mineSet.dataset.floor','mineSet.dataset.progress']) {
+    assert.ok(source.includes(token), `scene state exposes ${token}`);
+  }
+  for (const biome of ['stone','iron','gold','crystal','lava','legendary']) {
+    assert.ok(styles.includes(`.ck-mine-set[data-mine="${biome}"]`), `distinct biome styling for ${biome}`);
+  }
+  assert.match(styles, /\.ck-mine-set\[data-floor="upper"\] \.ck-gallery-upper/);
+  assert.match(styles, /\.ck-mine-set\[data-floor="lower"\] \.ck-gallery-lower/);
+  assert.match(styles, /\.ck-mine-set\[data-progress="3"\] \.ck-exit-gate/);
+});
