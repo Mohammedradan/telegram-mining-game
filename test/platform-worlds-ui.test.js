@@ -251,7 +251,7 @@ test('worlds UI: every event the boss engine emits is heard and seen by the game
     const handlers = (game.match(new RegExp(`event\\.type === '${type}'`, 'g')) || []).length;
     assert.ok(handlers >= roles[type], `${type} is handled in ${handlers} places, expected ${roles[type]}`);
   }
-  assert.match(game, /clang: \{ freq/, 'a blocked hit rings');
+  assert.match(audio, /clang: \{ freq/, 'a blocked hit rings');
   assert.match(game, /event\.type === 'hit' && event\.damage === 0 \? 'clang'/, 'and the ring replaces the normal hit sound');
   assert.match(game, /event\.damage === 0\) pushFloater\([^)]*'مدرّع'/, 'with a word, not only a colour');
 });
