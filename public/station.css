@@ -1,0 +1,18 @@
+/* Greybox intentionally uses no new image assets; motion and persistence first. */
+.station-entry{pointer-events:auto;display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid #53748c;border-radius:12px;color:#e5c879;background:#142431;cursor:pointer}
+.station-entry .ui-icon{width:21px;height:21px}
+#station-view[hidden]{display:none!important}
+#station-view{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;min-height:0;background:#09131f;color:#e5eef7;border-radius:12px;overflow:hidden;padding:6px;gap:4px}
+#station-view header{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;font-size:12px}
+#station-view button{min-height:44px;min-width:44px;padding:6px 10px;border:1px solid #5c7f95;border-radius:9px;background:#183245;color:#eef7ff;touch-action:none;font-size:12px;cursor:pointer}
+#station-view button:focus-visible,.station-entry:focus-visible{outline:3px solid #f6d77a;outline-offset:-3px}
+#station-view button[data-down],#station-view button[aria-pressed=true]{background:#536947}
+#station-view p{margin:0;flex-shrink:0;font-size:11px;line-height:1.4}
+#station-status{min-height:16px;color:#91e5bd}
+#station-view .station-hint{color:#b4c3cf;font-size:10px}
+.station-field{flex:1;min-height:80px;position:relative;overflow:hidden}
+#station-canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+.station-controls{display:flex;flex-wrap:wrap;justify-content:space-around;gap:4px;flex-shrink:0;direction:ltr;padding-bottom:env(safe-area-inset-bottom,0px)}
+body.station-open #ck-stage{visibility:hidden;pointer-events:none}
+@media(orientation:landscape) and (max-height:560px){#station-view .station-hint{display:none}#station-view header{font-size:10px}.station-controls{justify-content:center;gap:12px}#station-view button{min-height:44px}}
+@media(prefers-reduced-motion:reduce){#station-view *{animation:none!important;transition:none!important}}

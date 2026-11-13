@@ -197,6 +197,8 @@
   function overlayOpen() {
     const doc = root.document;
     if (!doc || !doc.getElementById) return false;
+    const station = doc.getElementById('station-view');
+    if (station && station.hidden === false) return true;
     const sheet = els.sheet, ws = doc.getElementById('ws-overlay'), mines = doc.getElementById('mines-overlay'), dive = doc.getElementById('dd-overlay');
     return !!((sheet && sheet.hidden === false) || (ws && ws.hidden === false) || (mines && mines.hidden === false) || (dive && dive.hidden === false));
   }
