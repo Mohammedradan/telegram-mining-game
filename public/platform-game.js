@@ -436,6 +436,7 @@
       el('platform-overlay')?.classList?.remove('help-open');
     }
     el('platform-overlay').hidden = false;
+    el('platform-overlay').style.display = 'flex'; // تغلب على display:flex في platform.css الذي يتجاوز سمة hidden
     el('platform-title').textContent = title;
     el('platform-message').textContent = text;
     el('platform-resume').hidden = !resume;
@@ -507,7 +508,9 @@
     paused = false; clearInput(); accumulator = 0; last = 0; hitStopUntil = 0;
     // الغلاف يُخفى دائمًا عند الاستئناف: بدء المبارزة من الساحة قد يسبق ظهور المشهد بجزء من الثانية،
     // وكان هذا يترك اللاعب على «شاشة البداية» رغم أن الجولة بدأت على الخادم.
-    el('platform-overlay').hidden = true; audioUnlock();
+    el('platform-overlay').hidden = true;
+    el('platform-overlay').style.display = 'none'; // تحييد display:flex من platform.css الذي يتجاوز سمة hidden
+    audioUnlock();
     syncSceneState();
     if (!visible()) return; // الإطارات لا تُشغَّل إلا في مشهد مرئي؛ onShow يعيدها عند الدخول
     schedule(); canvas.focus({ preventScroll: true });
@@ -516,6 +519,7 @@
   function onShow() {
     if (!running || paused) { draw(); return; }
     el('platform-overlay').hidden = true;
+    el('platform-overlay').style.display = 'none';
     schedule(); draw();
   }
 
