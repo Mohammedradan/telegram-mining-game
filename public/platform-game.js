@@ -1732,7 +1732,7 @@
     for (const v of duelPulses.values()) mask |= v;
     duelPulses.clear();
     // V13: اتجاه السحب الأفقي يُدمج بعد الأزرار — زرُ جهة يفوز ولا يلغيه السحب
-    if (R.padMask) mask = R.padMask({ stick: duelStickDir, bits: [mask] });
+    if (R.padMask) mask = R.padMask({ stick: arenaStick.inspect().dir, bits: [mask] });
     if (duelSim?.player) duelSim.lastMask = mask;
     return mask;
   }
@@ -2094,21 +2094,11 @@
   // ويترك الإبهام اليمنى لأربعة أزرار فعل بدل ثمانية.
   const PAD_MODE_KEY = 'arenaPadMode';
   let padMode = 'stick';
-  let duelStickDir = 0, stickPointer = null, stickOriginX = 0;
   const stickEl = el('arena-stick');
   const stickKnob = stickEl && typeof stickEl.querySelector === 'function' ? stickEl.querySelector('.as-knob') : null;
-  function stickReset() {
-    duelStickDir = 0; stickPointer = null;
-    if (stickEl) { stickEl.dataset.active = 'false'; stickEl.dataset.dir = 'none'; }
-    if (stickKnob && stickKnob.style) stickKnob.style.transform = '';
-  }
-  function stickMove(clientX) {
-    const dx = clientX - stickOriginX;
-    duelStickDir = R.stickDir ? R.stickDir(dx) : 0;
-    const span = R.PAD?.knobMax || 26;
-    if (stickKnob && stickKnob.style) stickKnob.style.transform = `translate(calc(-50% + ${Math.max(-1, Math.min(1, dx / 60)) * span}px), -50%)`;
-    if (stickEl) stickEl.dataset.dir = duelStickDir > 0 ? 'right' : duelStickDir < 0 ? 'left' : 'none';
-  }
+  const arenaStick = window.PlatformStick.create({ rules: R, element: stickEl, knob: stickKnob });
+  const stickReset = () => arenaStick.reset();
+  const stickMove = clientX => arenaStick.move(clientX);
   function applyPadMode(mode) {
     padMode = mode === 'buttons' ? 'buttons' : 'stick';
     if (document.body?.classList) document.body.classList.toggle('pad-stick', padMode === 'stick');
@@ -2126,15 +2116,15 @@
     stickEl.addEventListener('pointerdown', e => {
       if (!duelRunning || duelPaused) return;
       e.preventDefault();
-      stickPointer = e.pointerId; stickOriginX = e.clientX;
+      arenaStick.begin(e.pointerId, e.clientX);
       stickEl.setPointerCapture?.(e.pointerId);
       stickEl.dataset.active = 'true';
       stickMove(e.clientX);
     });
-    stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickPointer) stickMove(e.clientX); });
+    stickEl.addEventListener('pointermove', e => { if (arenaStick.matches(e.pointerId)) stickMove(e.clientX); });
     // رفع الإصبع أو فقدانه يُصفّر الحركة فوراً — لا «مشي معلّق» بعد خروج الإبهام
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'])
-      stickEl.addEventListener(type, e => { if (e.pointerId === stickPointer) stickReset(); });
+      stickEl.addEventListener(type, e => { if (arenaStick.matches(e.pointerId)) stickReset(); });
     stickEl.addEventListener('contextmenu', e => e.preventDefault());
   }
   // الضغط المطوّل على «ضرب» = ضربة قوية واحدة (يُغني عن زر «قوي» في وضع العصا)
@@ -2197,7 +2187,7 @@
     pause, onShow, showArenaPreview, hideArenaPreview,
     // مبارزة الساحة المستقلة (على مسرح تبويب الساحة نفسه)
     startArenaRun, duelBusy, pauseDuel, resumeDuel, duelAdvance, duelAbandon,
-    padMode: () => padMode, setPadMode: applyPadMode, stickState: () => ({ dir: duelStickDir, pointer: stickPointer }),
+    padMode: () => padMode, setPadMode: applyPadMode, stickState: () => arenaStick.inspect(),
     duelInspect: () => ({ ...duelBusy(), rival: duelSim?.enemies?.[0]?.name || null, hearts: duelSim?.player?.hearts ?? null, inputs: duelInputs.length }),
     // حالة المسرح الاستعراضي (لاختبار بصري حقيقي: هل يتقدّم؟ من الخصم المعروض؟)
     arenaInspect: () => ({ zone: arenaZone, tick: arenaSim?.tick ?? 0, running: Boolean(arenaRaf), rival: arenaSim?.enemies?.[0]?.name || null,
