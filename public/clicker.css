@@ -1025,3 +1025,54 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-world[data-mine="crystal"] .ck-tunnel { border-color:#65b8d8; box-shadow:inset 0 0 24px #164f77,0 0 18px #54d8ff55; }
 .ck-world[data-mine="lava"] .ck-tunnel { border-color:#c35c37; box-shadow:inset 0 0 26px #7a210e,0 0 18px #ff5c2944; }
 .ck-world[data-mine="legendary"] .ck-tunnel { border-color:#ad83e9; box-shadow:inset 0 0 28px #4c2679,0 0 22px #c28cff66; }
+
+
+/* Living mine adventure scene v2: layered galleries, visible crew, ore handling and industrial activity. */
+.ck-gallery{position:absolute;z-index:1;height:17%;border-top:5px solid #8b795e;border-bottom:2px solid #3a4655;background:linear-gradient(180deg,#283344bb,#080e1bd9);box-shadow:0 5px 12px #0008,inset 0 8px 12px #0008;opacity:.88}
+.ck-gallery:before,.ck-gallery:after{content:"";position:absolute;top:-9px;width:8px;height:calc(100% + 12px);background:linear-gradient(90deg,#342b25,#b18a53 48%,#3a3027);box-shadow:0 2px 5px #000}
+.ck-gallery:before{left:5%}.ck-gallery:after{right:5%}
+.ck-gallery i,.ck-gallery b{position:absolute;top:38%;width:16%;height:5px;background:#a88a5a;box-shadow:0 2px 3px #000}
+.ck-gallery i{left:23%}.ck-gallery b{right:23%}
+.ck-gallery span{position:absolute;right:8px;top:4px;color:#d8c49a;font-size:7px;font-weight:900;text-shadow:0 2px 3px #000}
+.ck-gallery-upper{left:23%;top:19%;width:48%;transform:scale(.86);transform-origin:left top}
+.ck-gallery-lower{left:18%;right:16%;bottom:30%;height:13%;opacity:.72}
+.ck-crystal-seam{position:absolute;z-index:1;display:flex;align-items:flex-end;gap:3px;filter:drop-shadow(0 0 7px #4bdcff88);opacity:.88}
+.ck-crystal-seam-a{left:28%;top:30%;height:40px}.ck-crystal-seam-b{right:22%;top:48%;height:30px;transform:scale(.8)}
+.ck-crystal-seam i{display:block;width:9px;height:25px;background:linear-gradient(110deg,#d8ffff,#49c9ed 42%,#174e8d);clip-path:polygon(50% 0,100% 30%,75% 100%,18% 85%,0 25%);box-shadow:0 0 8px #42cfff}
+.ck-crystal-seam i:nth-child(2){height:38px;width:12px}.ck-crystal-seam i:nth-child(3){height:19px}
+.ck-conveyor{position:absolute;z-index:2;left:34%;right:19%;bottom:25%;height:17px;border:2px solid #69798a;border-radius:5px;background:linear-gradient(#1b2938,#080f1a);box-shadow:0 3px 6px #000b;transform:skewY(-3deg)}
+.ck-conveyor:before,.ck-conveyor:after{content:"";position:absolute;bottom:-7px;width:7px;height:8px;border-radius:50%;background:#9aa8b4;border:2px solid #273443}
+.ck-conveyor:before{left:8%}.ck-conveyor:after{right:8%}
+.ck-conveyor .ck-belt{position:absolute;inset:2px;background:repeating-linear-gradient(90deg,#b28b4c 0 7px,#594329 7px 12px);animation:ck-belt-flow .55s linear infinite}
+.ck-conveyor span{position:absolute;z-index:1;top:-9px;width:8px;height:8px;border-radius:2px;background:linear-gradient(135deg,#f7d77b,#8b541e);box-shadow:0 0 4px #ffca5a;animation:ck-ore-flow 4s linear infinite}
+.ck-conveyor span:nth-of-type(2){animation-delay:-1.3s}.ck-conveyor span:nth-of-type(3){animation-delay:-2.6s}
+.ck-conveyor b{position:absolute;right:0;top:17px;color:#e7d4a6;font-size:7px;white-space:nowrap;text-shadow:0 2px 3px #000}
+.ck-ore-loader{position:absolute;z-index:2;right:17%;bottom:28%;width:31px;height:39px;border:3px solid #b58b4d;border-radius:5px 5px 2px 2px;background:linear-gradient(135deg,#4c6170,#142333);box-shadow:0 0 9px #ffc65a33}
+.ck-ore-loader:before{content:"";position:absolute;left:4px;top:-9px;width:16px;height:8px;background:#d7b16a;border-radius:4px}
+.ck-ore-loader i{position:absolute;left:5px;bottom:5px;width:15px;height:12px;background:linear-gradient(135deg,#f7d47b,#98601f);clip-path:polygon(0 30%,25% 0,70% 10%,100% 55%,75% 100%,15% 85%)}
+.ck-ore-loader b{position:absolute;left:10px;top:-17px;width:7px;height:9px;border-left:2px solid #e7c77e;animation:ck-loader-lift 1.8s ease-in-out infinite}
+.ck-ore-loader span{position:absolute;bottom:-8px;left:4px;width:7px;height:7px;border-radius:50%;background:#111c29;border:2px solid #aebdca;box-shadow:14px 0 #111c29,14px 0 0 2px #aebdca}
+.ck-crew-worker{position:absolute;z-index:3;width:23px;height:42px;bottom:18%;filter:drop-shadow(0 3px 3px #000b);animation:ck-worker-walk 2.8s ease-in-out infinite alternate}
+.ck-crew-worker:before{content:"";position:absolute;left:6px;top:0;width:13px;height:11px;border:2px solid #e4b65e;border-radius:9px 9px 4px 4px;background:linear-gradient(135deg,#ffdc82,#9b5c22);box-shadow:0 -3px 0 -1px #ffe5a4}
+.ck-crew-worker:after{content:"";position:absolute;left:5px;top:11px;width:16px;height:19px;border:2px solid #7b5935;border-radius:5px;background:linear-gradient(90deg,#a64c25,#e19a42 55%,#713b24)}
+.ck-crew-worker b{position:absolute;left:8px;top:31px;width:5px;height:11px;background:#8d552e;border-radius:3px;box-shadow:8px 0 #70462d;transform-origin:top;animation:ck-worker-legs .42s ease-in-out infinite alternate}
+.ck-crew-worker .ck-worker-pack{position:absolute;z-index:1;left:0;top:14px;width:7px;height:13px;border-radius:3px;background:#4c7890;border:1px solid #a6c4ce}
+.ck-crew-worker span{position:absolute;left:-8px;bottom:-12px;white-space:nowrap;color:#f0d9a5;font-size:7px;font-weight:900;text-shadow:0 2px 3px #000}
+.ck-crew-hauler{left:39%;animation-duration:3.4s}
+.ck-crew-technician{right:35%;bottom:32%;transform:scale(.82);animation-duration:2.5s;animation-delay:-1.1s}
+.ck-crew-technician:before{background:linear-gradient(135deg,#b9edff,#387c9c);border-color:#8de8ff}
+.ck-crew-technician:after{background:linear-gradient(90deg,#23536c,#4d9bb0 55%,#183d54)}
+@keyframes ck-belt-flow{to{background-position:12px 0}}
+@keyframes ck-ore-flow{0%{left:5%;transform:translateY(0) rotate(0)}45%{transform:translateY(-3px) rotate(25deg)}100%{left:88%;transform:translateY(0) rotate(180deg)}}
+@keyframes ck-loader-lift{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes ck-worker-walk{0%{translate:0 0}50%{translate:5px -1px}100%{translate:12px 0}}
+@keyframes ck-worker-legs{to{transform:rotate(22deg)}}
+@media(max-width:520px){
+ .ck-gallery-upper{left:25%;top:21%;width:43%}.ck-gallery-lower{left:17%;right:14%;bottom:31%}
+ .ck-conveyor{left:32%;right:17%;bottom:25%;height:13px;transform:scale(.9) skewY(-3deg);transform-origin:left center}
+ .ck-crew-worker{scale:.82;transform-origin:bottom center}.ck-crew-hauler{left:37%}.ck-crew-technician{right:34%;bottom:33%}
+ .ck-crystal-seam-a{left:27%;top:31%;scale:.8}
+}
+@media(prefers-reduced-motion:reduce){
+ .ck-conveyor .ck-belt,.ck-conveyor span,.ck-ore-loader b,.ck-crew-worker,.ck-crew-worker b{animation:none!important}
+}
