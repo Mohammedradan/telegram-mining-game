@@ -16,6 +16,9 @@
   gap: 6px;
   min-height: 0;
 }
+/* الغلاف قد يحصل على display:flex من platform.css الذي يتجاوز سمة hidden؛
+   نُطابقه بـ !important حتى يُخفي الغلاف فعلاً عند إخفائه programaciónياً. */
+#platform-overlay[hidden] { display: none !important; }
 .mine-stage {
   min-height: 0;
   touch-action: none;
