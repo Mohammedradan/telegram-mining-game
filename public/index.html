@@ -4455,7 +4455,7 @@
     });
     window.ClickerFX?.init({ fmt, haptic, buy: buyUpgrade, goals: UPGRADES, mine: goToMine, workshop: WS_RULES ? wsOpen : null, deepDive: deepDiveReady ? () => window.DeepDigUI.open() : null });
     // موقع الحفر: كل ضربة للمعدّن تمرّ من handleMine نفسه (طاقة + ذهب + عملية mine)؛ يعيد false حين ترفضها قلة الطاقة
-    window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic });
+    window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic, refresh: () => bootstrap() });
     // المرشد (عرض فقط): يقرأ state ولا يكتب ذهباً ولا عمليات؛ يبدأ بعد اعتماد حالة الخادم كي لا يبدو اللاعب القديم جديداً
     window.Guide?.init({
       getState: () => state, getZone: () => window.PlatformGame?.getZone?.() ?? 0,
@@ -4475,6 +4475,8 @@
   </script>
   <!-- جسر منجم المنصّة: يربط مشهد اللعبة بواجهات المزامنة والمصادقة أعلاه -->
   <script src="/platform-bridge.js?v=3"></script>
+  <script src="/mine-machinery-client.js?v=1"></script>
+  <script>window.DigSite?.syncMachinery?.();</script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
   <script src="/platform-summary.js?v=1"></script>
   <script src="/platform-audio.js?v=1"></script>
