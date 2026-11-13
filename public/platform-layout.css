@@ -125,7 +125,7 @@
   background: transparent; border: none; box-shadow: none;
   pointer-events: none;
 }
-#platform-scene.scene-live .mine-stage .mine-controls { display: flex; }
+#platform-scene.scene-live .mine-stage .mine-controls { display: flex !important; }
 .mine-stage .mine-controls.ctl-editing { display: flex; z-index: 6; }
 .mine-stage .mine-controls .virtual-joystick,
 .mine-stage .mine-controls .action-btn { pointer-events: auto; }
