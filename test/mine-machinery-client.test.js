@@ -69,12 +69,14 @@ test('mine machinery claim accepts only the server production receipt and refres
 test('mine machinery stop cancels the timer and closes the server shift', async () => {
   const h = harness([
     { job: { active: true, id: 'shift-4', zone: 0 } },
+    { produced: 0, ore: 'stone', job: { active: true, id: 'shift-4', zone: 0 } },
     { job: { active: false, id: 'shift-4', zone: 0 } },
   ]);
   await h.client.start(0);
   const result = await h.client.stop();
   assert.equal(result.ok, true);
-  assert.equal(h.calls[1].path, '/api/mine-machinery/stop');
+  assert.equal(h.calls[1].path, '/api/mine-machinery/claim');
+  assert.equal(h.calls[2].path, '/api/mine-machinery/stop');
   assert.equal(h.client.inspect().active, false);
   assert.equal(h.timers.size, 0);
 });
