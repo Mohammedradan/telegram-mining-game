@@ -11,7 +11,7 @@ const page = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 
 test('a connected overland landscape has walkable terrain, obstacles, and route progress driven by the miner', () => {
   assert.equal((digSite.match(/class="ck-route-node" data-route-index=/g) || []).length, 6);
-  assert.match(digSite, /class="ck-overland-world" hidden aria-hidden="true"/);
+  assert.match(digSite, /class="ck-overland-world" hidden role="region" aria-label="مسار جبلي متصل بين المناجم/);
   assert.match(digSite, /class="ck-overland-road"/);
   assert.match(digSite, /data-obstacle="boulder"/);
   assert.match(digSite, /data-obstacle="steam"/);

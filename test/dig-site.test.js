@@ -860,7 +860,10 @@ test('cave exit opens a walkable landscape; arrival requires traversing it and g
     assert.equal(ds.inspect().mine.index,mineIndex,'leaving the cave does not change the destination immediately');
     assert.equal(ds.inspect().keys.r,false); assert.equal(ds.inspect().digHeld,false);
     assert.equal(ds.inspect().swing,'idle');
+    const outdoorPosition={...ds.inspect().miner};
     ds.debug.setDig(true); ds.debug.step(.1,5); ds.debug.setDig(false);
+    assert.equal(ds.inspect().miner.x,outdoorPosition.x,'dig-to-rock auto-approach is disabled on the route');
+    assert.equal(ds.inspect().miner.y,outdoorPosition.y);
     assert.equal(swings.length,0,'even a held dig input cannot call the economy hook outdoors');
     ds.debug.setStick(0,-1); ds.debug.step(.1,5);
     ds.debug.setStick(0,1); ds.debug.step(.1,2); // thread between the steam vent and boulder lines

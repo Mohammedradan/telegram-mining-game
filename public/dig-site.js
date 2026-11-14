@@ -557,7 +557,7 @@
     const dig = wantsDig();
     let steer = { x: ix, y: iy };
     // اقتراب تلقائي: زر الحفر مضغوط (أو لُمست الصخرة من بعيد) والعصا في المنتصف
-    if (!manual && rk && !inReach(miner, rk, aspect, R.reach) && (dig || clock < approachUntil)) steer = dirTo(miner, rk, aspect);
+    if ((!mineWorld || mineWorld.mode !== 'overland') && !manual && rk && !inReach(miner, rk, aspect, R.reach) && (dig || clock < approachUntil)) steer = dirTo(miner, rk, aspect);
 
     let moved = 0, transitioned = false;
     if (swing.phase === 'idle') {
@@ -828,7 +828,7 @@
         </svg>
         <span class="ck-route-caption">درب الجبال · اجتز الصخور لفتح الممر التالي</span>
       </div>
-      <div class="ck-overland-world" hidden aria-hidden="true">
+      <div class="ck-overland-world" hidden role="region" aria-label="مسار جبلي متصل بين المناجم، استخدم العصا لتجاوز العوائق والمشي إلى الكهف التالي">
         <div class="ck-overland-horizon"><i class="ck-outdoor-sun"></i><i class="ck-land-peak ck-land-peak-back"></i><i class="ck-land-peak ck-land-peak-mid"></i><i class="ck-land-peak ck-land-peak-front"></i></div>
         <svg class="ck-overland-road" viewBox="0 0 600 420" preserveAspectRatio="none" aria-hidden="true"><path class="ck-road-shadow" d="M-10 340 C100 290 125 365 225 325 S345 260 415 315 505 355 620 270"/><path class="ck-road-surface" d="M-10 340 C100 290 125 365 225 325 S345 260 415 315 505 355 620 270"/><path class="ck-road-ruts" d="M-10 340 C100 290 125 365 225 325 S345 260 415 315 505 355 620 270"/></svg>
         <div class="ck-road-entrance ck-road-origin"><i></i><b class="ck-road-origin-name">المنجم الحالي</b></div>
