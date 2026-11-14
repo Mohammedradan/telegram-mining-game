@@ -1143,3 +1143,104 @@ body.ck-cave .ck-sound { display: grid; }
 @keyframes ck-worker-haul{from{translate:-8px 0}to{translate:18px -2px}}
 @media(max-width:520px){.ck-machine-console{right:5px;top:5px;width:min(184px,54%);padding:6px;gap:4px}.ck-machine-console button{min-height:27px;font-size:9px}}
 @media(prefers-reduced-motion:reduce){.ck-mine-set[data-drill="on"] .ck-drill-cart,.ck-mine-set[data-drill="on"] .ck-cart-bit,.ck-mine-set[data-worker="assigned"] .ck-crew-hauler{animation:none!important}}
+
+/* Adventure road: a readable mountain route between distinct cave entrances. */
+.ck-expedition-route{position:absolute;z-index:4;left:clamp(128px,34vw,240px);right:2%;top:1.5%;height:clamp(55px,9.5vh,82px);min-height:54px;padding:2px 5px 12px;border:1px solid #e1b85b66;border-radius:12px;background:linear-gradient(180deg,#101b2bd9,#070d19c9);box-shadow:0 5px 14px #0008,inset 0 1px #fff2;pointer-events:none;overflow:hidden}
+.ck-expedition-route svg{display:block;width:100%;height:100%;overflow:visible}
+.ck-route-mountain-back{fill:#35465acc}.ck-route-mountain-front{fill:#18283beF}
+.ck-route-road-shadow{fill:none;stroke:#050a12;stroke-width:11;stroke-linecap:round}
+.ck-route-road{fill:none;stroke:#b88d4d;stroke-width:5;stroke-linecap:round;stroke-dasharray:3 5;filter:drop-shadow(0 1px 2px #000)}
+.ck-route-node{color:#8793a2;transition:color .25s ease,filter .25s ease}
+.ck-route-node text{fill:#c5d0db;font-size:9px;font-weight:900;text-anchor:middle;paint-order:stroke;stroke:#07101c;stroke-width:2px;stroke-linejoin:round}
+.ck-route-halo{fill:#09111dcc;stroke:#78899a;stroke-width:2}
+.ck-route-cave{fill:#080d15;stroke:#9cabb8;stroke-width:2}
+.ck-route-light{fill:#728294}
+.ck-route-node.is-open{color:#f3c768}.ck-route-node.is-open .ck-route-halo{stroke:#d7ac55}.ck-route-node.is-open .ck-route-cave{stroke:#f4cf75}.ck-route-node.is-open .ck-route-light{fill:#ffd568}
+.ck-route-node.is-current{color:#7bf0bd;filter:drop-shadow(0 0 7px #51e7b2)}
+.ck-route-node.is-current .ck-route-halo{fill:#155340;stroke:#9affd5;stroke-width:3}
+.ck-route-node.is-current .ck-route-cave{fill:#071712;stroke:#a8ffdc}
+.ck-route-node.is-locked{opacity:.65}
+.ck-route-traveler{fill:#ffd66f;stroke:#4f3210;stroke-width:1.5;filter:drop-shadow(0 0 4px #ffc85c);transition:transform .7s cubic-bezier(.2,.8,.2,1)}
+.ck-route-traveler circle{fill:#263b4c;stroke:#e5eaf0;stroke-width:1.3}
+.ck-route-caption{position:absolute;left:8px;right:8px;bottom:1px;overflow:hidden;color:#e9d39f;font-size:7px;font-weight:800;line-height:10px;text-align:center;text-shadow:0 1px 3px #000;white-space:nowrap}
+.ck-mobile-rig{position:absolute;left:0;top:0;width:clamp(48px,12cqw,78px);height:clamp(29px,7cqh,43px);z-index:2;transform-origin:50% 100%;filter:drop-shadow(0 3px 3px #000b);will-change:transform;pointer-events:none}
+.ck-mobile-rig-cab{position:absolute;left:12%;bottom:18%;width:48%;height:54%;border:2px solid #f0c56b;border-radius:8px 11px 4px 4px;background:linear-gradient(145deg,#ffc85c,#a65c1a 55%,#382719);box-shadow:inset 0 3px 3px #fff1a7}
+.ck-mobile-rig-cab:before{content:"";position:absolute;left:20%;top:17%;width:53%;height:28%;border-radius:3px;background:linear-gradient(135deg,#7bdaf0,#17354b);border:1px solid #b7f1fa}
+.ck-mobile-rig-boom{position:absolute;left:48%;top:12%;width:35%;height:8px;border-radius:8px;background:linear-gradient(#ffe296,#a76220);transform:rotate(-25deg);transform-origin:left center}
+.ck-mobile-rig-bit{position:absolute;right:1%;top:0;width:11px;height:11px;border:3px solid #b8f5ff;border-left-color:#1597b8;border-radius:50%;box-shadow:0 0 8px #57dcff;animation:ck-mobile-bit .25s linear infinite alternate}
+.ck-mobile-rig b{position:absolute;left:5%;bottom:-4px;color:#fff0bf;font-size:7px;font-weight:900;text-shadow:0 1px 3px #000;white-space:nowrap}
+.ck-mobile-wheel{position:absolute;bottom:8%;left:21%;width:11px;height:11px;border:3px solid #bbc6ce;border-radius:50%;background:#162332;box-shadow:25px 0 0 -3px #162332,25px 0 0 0 #bbc6ce;animation:ck-mobile-wheel .8s linear infinite}
+.ck-mobile-rig[data-active="true"] .ck-mobile-rig-cab{box-shadow:inset 0 3px 3px #fff1a7,0 0 9px #ffb94477}
+.ck-mobile-rig[data-active="true"] .ck-mobile-rig-bit{animation-duration:.11s}
+.ck-mobile-hauler{position:absolute;left:0;top:0;width:27px;height:42px;z-index:3;filter:drop-shadow(0 2px 3px #000b);will-change:transform;pointer-events:none}
+.ck-mobile-hauler:before{content:"";position:absolute;left:7px;top:1px;width:13px;height:12px;border:2px solid #f0c05d;border-radius:9px 9px 4px 4px;background:linear-gradient(135deg,#ffe49a,#98561e);box-shadow:0 -3px 0 -1px #fff1b9}
+.ck-mobile-hauler:after{content:"";position:absolute;left:4px;top:14px;width:19px;height:19px;border:2px solid #79b8c9;border-radius:6px;background:linear-gradient(90deg,#285066,#65a4ae 55%,#193849)}
+.ck-mobile-hauler i{position:absolute;z-index:1;left:0;top:16px;width:7px;height:13px;border-radius:3px;background:#83512c;border:1px solid #d1a451}
+.ck-mobile-hauler b{position:absolute;left:7px;top:33px;width:5px;height:9px;background:#8b542e;border-radius:3px;box-shadow:8px 0 #68432c;transform-origin:top}
+.ck-mobile-hauler span{position:absolute;left:-4px;bottom:-11px;color:#ffe1a6;font-size:7px;font-weight:900;white-space:nowrap;text-shadow:0 1px 3px #000}
+.ck-mobile-hauler[data-walking="true"] b{animation:ck-hauler-step .22s ease-in-out infinite alternate}
+@keyframes ck-mobile-bit{to{transform:rotate(90deg);filter:brightness(1.7)}}
+@keyframes ck-mobile-wheel{to{transform:rotate(360deg)}}
+@keyframes ck-hauler-step{to{transform:rotate(28deg)}}
+@media(max-width:520px){.ck-expedition-route{left:clamp(122px,34vw,180px);right:2%;height:58px;min-height:50px;padding-inline:2px}.ck-route-caption{font-size:6.5px}.ck-route-node text{font-size:8px}.ck-mobile-rig{width:54px;height:31px}}
+@media(prefers-reduced-motion:reduce){.ck-mobile-rig-bit,.ck-mobile-wheel,.ck-mobile-hauler[data-walking="true"] b{animation:none!important}.ck-route-traveler{transition:none}}
+.ck-route-hazard{fill:#978576;stroke:#3d3430;stroke-width:1.5;filter:drop-shadow(0 2px 2px #000)}
+.ck-route-hazard path:first-child{fill:#9b8d7c}.ck-route-hazard path:nth-child(2){fill:none;stroke:#51453b;stroke-width:1.3}
+.ck-route-hazard text{fill:#ffd8a1;stroke:#201715;stroke-width:2px;paint-order:stroke;font-size:6px;font-weight:900;text-anchor:middle}
+.ck-route-hazard[data-cleared="true"]{opacity:0;transition:opacity .3s}
+
+/* The map's rockfall is also a solid gate in the upper mine tunnel. */
+.ck-rockslide{position:absolute;z-index:5;right:15%;top:31%;width:clamp(50px,12cqw,82px);height:clamp(34px,8cqh,54px);pointer-events:none;filter:drop-shadow(0 5px 4px #000b);transition:opacity .32s ease,transform .45s cubic-bezier(.2,.8,.2,1)}
+.ck-rockslide i{position:absolute;bottom:13%;width:48%;height:75%;border:1px solid #49535b;border-radius:42% 54% 28% 35%;background:radial-gradient(ellipse at 35% 22%,#adb0a9,#657078 46%,#333d43 82%);clip-path:polygon(8% 100%,0 53%,17% 30%,31% 35%,41% 4%,59% 29%,76% 17%,100% 55%,94% 100%)}
+.ck-rockslide i:nth-child(1){left:0;transform:rotate(-7deg)}.ck-rockslide i:nth-child(2){left:26%;bottom:23%;width:45%;height:76%;transform:rotate(5deg);background:radial-gradient(ellipse at 30% 20%,#c4c2b7,#727872 45%,#394047 84%)}.ck-rockslide i:nth-child(3){right:0;transform:rotate(9deg)}
+.ck-rockslide b{position:absolute;left:50%;bottom:-9px;max-width:160px;padding:2px 5px;border:1px solid #edaf60;border-radius:6px;background:#251711e8;color:#ffe1ac;font-size:clamp(6px,1.8vw,8px);font-weight:900;line-height:1.2;text-align:center;white-space:nowrap;transform:translateX(-50%);text-shadow:0 1px #000}
+.ck-mine-set[data-floor="lower"] .ck-rockslide{opacity:.48;transform:scale(.78)}
+.ck-rockslide[data-cleared="true"]{opacity:0;transform:translateX(40px) rotate(18deg) scale(.7)}
+.ck-rockslide[data-end="true"]{display:none}
+@media(max-width:520px){.ck-rockslide{right:15%;top:32%;width:54px;height:36px}}
+@media(prefers-reduced-motion:reduce){.ck-rockslide{transition:none}}
+
+/* Use the game's illustrated tracked drill vehicle rather than a placeholder box. */
+.ck-mobile-rig{width:clamp(64px,14cqw,102px);height:clamp(50px,11cqh,80px)}
+.ck-mobile-rig-art{position:absolute;inset:0;display:block;background:url("/assets/cave/crew/rig.webp?v=1") center/contain no-repeat;transform-origin:center;filter:drop-shadow(0 2px 2px #0008)}
+.ck-mobile-rig[data-face="right"] .ck-mobile-rig-art{transform:scaleX(-1)}
+.ck-mobile-rig[data-active="true"] .ck-mobile-rig-art{animation:ck-rig-rumble .2s ease-in-out infinite alternate;filter:drop-shadow(0 0 6px #ffc55388)}
+.ck-mobile-rig b{z-index:2;bottom:-4px;left:50%;padding:1px 4px;border:1px solid #e2bd69;border-radius:5px;background:#14151ce8;transform:translateX(-50%)}
+.ck-mobile-rig[data-face="right"] b{left:50%}
+@keyframes ck-rig-rumble{to{translate:0 -2px}}
+/* A playable, continuous overland segment. The miner crosses this terrain under their own input. */
+.ck-overland-world{position:absolute;z-index:1;inset:0;overflow:hidden;pointer-events:none;background:linear-gradient(180deg,#86c7db 0%,#d9d49d 48%,#9d8250 69%,#4c4030 100%);isolation:isolate}
+.ck-overland-world[hidden]{display:none!important}
+.ck-overland-horizon{position:absolute;inset:0 0 22%;overflow:hidden;background:linear-gradient(180deg,#76b8d4 0%,#c5d4ba 72%,#e5c98b 100%)}
+.ck-outdoor-sun{position:absolute;left:16%;top:10%;width:clamp(34px,7vw,68px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#fff4b9 0 45%,#ffd06e88 66%,transparent 72%);filter:drop-shadow(0 0 14px #ffe28c99)}
+.ck-land-peak{position:absolute;bottom:4%;left:-4%;width:110%;height:80%;clip-path:polygon(0 65%,8% 48%,16% 60%,27% 18%,37% 55%,48% 12%,58% 57%,70% 25%,83% 61%,92% 31%,100% 52%,100% 100%,0 100%)}
+.ck-land-peak-back{background:linear-gradient(145deg,#d2dfd1,#839d8a 55%,#607969);opacity:.8}
+.ck-land-peak-mid{bottom:-5%;height:60%;transform:translateX(10%);clip-path:polygon(0 62%,12% 21%,24% 61%,38% 13%,51% 62%,65% 24%,77% 60%,90% 9%,100% 50%,100% 100%,0 100%);background:linear-gradient(180deg,#879b77,#536348 75%,#4c5137)}
+.ck-land-peak-front{bottom:-19%;height:48%;transform:translateX(-7%);clip-path:polygon(0 35%,12% 10%,25% 38%,39% 2%,56% 42%,70% 5%,82% 39%,94% 13%,100% 29%,100% 100%,0 100%);background:linear-gradient(180deg,#786e4b,#534936 74%,#332e25)}
+.ck-overland-road{position:absolute;z-index:1;inset:25% -2% 0;width:104%;height:75%;overflow:visible}
+.ck-overland-road path{fill:none;stroke-linecap:round}
+.ck-road-shadow{stroke:#463526;stroke-width:104;opacity:.56}
+.ck-road-surface{stroke:#d5b36f;stroke-width:78;filter:drop-shadow(0 5px 3px #45341e88)}
+.ck-road-ruts{stroke:#a78650;stroke-width:3;stroke-dasharray:2 14;opacity:.8}
+.ck-road-entrance{position:absolute;z-index:3;bottom:19%;width:clamp(52px,14cqw,100px);height:clamp(66px,18cqh,112px);display:flex;align-items:flex-end;justify-content:center}
+.ck-road-entrance i{position:absolute;inset:0 10% 0;border:8px solid #6e6653;border-bottom:0;border-radius:50% 50% 4px 4px;background:linear-gradient(180deg,#303533,#080c0e 78%);box-shadow:0 0 0 4px #484537,0 0 20px #f3d08677}
+.ck-road-entrance b{position:relative;z-index:1;max-width:100%;padding:3px 6px;border:1px solid #fff0be88;border-radius:7px;background:#17202add;color:#fff1c4;font-size:clamp(7px,1.8vw,10px);text-shadow:0 1px #000;white-space:nowrap}
+.ck-road-origin{right:1%}.ck-road-destination{left:1%}
+.ck-overland-world[data-direction="back"] .ck-road-origin{left:1%;right:auto}
+.ck-overland-world[data-direction="back"] .ck-road-destination{right:1%;left:auto}
+.ck-road-obstacle{position:absolute;z-index:4;display:flex;align-items:flex-end;flex-direction:column;gap:3px;width:clamp(48px,10cqw,78px);pointer-events:none}
+.ck-road-obstacle i{display:block;width:100%;height:clamp(28px,8cqh,48px);background:linear-gradient(145deg,#d0c4a1 0%,#74776e 45%,#333c3b 78%);clip-path:polygon(0 100%,8% 50%,23% 34%,30% 11%,48% 26%,62% 0,75% 33%,95% 47%,100% 100%);filter:drop-shadow(0 6px 3px #241f17)}
+.ck-road-obstacle b{padding:2px 4px;border-radius:5px;background:#1e2928cc;color:#fff0bd;font-size:clamp(6px,1.5vw,8px);white-space:nowrap;text-shadow:0 1px #000}
+.ck-road-boulder{left:37%;bottom:22%}.ck-road-steam{left:66%;bottom:49%}
+.ck-road-steam i{width:58%;height:clamp(34px,9cqh,60px);border:4px solid #646e70;border-bottom:0;border-radius:45% 45% 10% 10%;background:repeating-linear-gradient(0deg,#d8e3d6,#d8e3d6 3px,#778887 4px,#778887 7px);opacity:.88}
+.ck-outdoor-board{position:absolute;z-index:5;left:50%;top:7%;display:flex;flex-direction:column;gap:3px;max-width:75%;padding:7px 13px;border:1px solid #f5dd9b;border-radius:12px;background:#172b31d9;color:#fff1c5;text-align:center;transform:translateX(-50%);box-shadow:0 5px 16px #202a2c55}
+.ck-outdoor-board b{font-size:clamp(12px,3vw,17px)}.ck-outdoor-board span{font-size:clamp(8px,2vw,10px)}
+.ck-mine-set[data-route-mode="overland"]> :not(.ck-overland-world):not(.ck-mobile-rig):not(.ck-mobile-hauler){visibility:hidden!important}
+.ck-world[data-route-mode="overland"] #mine-btn{visibility:hidden;pointer-events:none}
+.ck-world[data-route-mode="overland"] .ck-overland-world{z-index:1}
+.ck-overland-world[data-obstacle="boulder"] .ck-road-boulder i,.ck-overland-world[data-obstacle="steam"] .ck-road-steam i{filter:brightness(1.35) drop-shadow(0 0 10px #fff0a8)}
+.ck-mobile-rig,.ck-mobile-hauler{z-index:8}
+@media(max-width:520px){.ck-road-shadow{stroke-width:82}.ck-road-surface{stroke-width:60}.ck-road-entrance{bottom:20%}.ck-road-boulder{left:35%;bottom:22%}.ck-road-steam{left:68%;bottom:51%}}
+@media(prefers-reduced-motion:reduce){.ck-overland-world *{scroll-behavior:auto}}
+#ck-stage[data-route-mode="overland"] .ck-dig{visibility:hidden;pointer-events:none}
+#ck-stage[data-route-mode="overland"] #tap-hint{visibility:hidden}
