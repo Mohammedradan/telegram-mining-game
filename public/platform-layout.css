@@ -109,6 +109,7 @@
   backdrop-filter: blur(4px); text-shadow: 0 1px 4px #000;
 }
 .mine-hud--overlay .hud-pause {
+  position: relative; z-index: 50; /* يرسم فوق الغلاف حتى لو بقي مرئياً لأي سبب */
   pointer-events: auto; flex: 0 0 auto;
   width: 38px; height: 38px; min-width: 38px; min-height: 38px;
   padding: 0; border-radius: 50%;
