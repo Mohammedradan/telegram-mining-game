@@ -44,17 +44,37 @@ module.exports = async function verifyTraversal(page, tag) {
       const band = DigSite.inspect().band;
       DigSite.debug.place({x:band.x1-.025,y:.4});
     });
+    // Leave the upper tunnel first; forward travel then runs left across the mountain.
     await page.keyboard.down('ArrowRight');
     try {
-      await page.waitForFunction(expected => DigSite.inspect().mine.index === expected, index+1);
+      await page.waitForFunction(() => DigSite.inspect().mine.mode === 'overland');
     } finally { await page.keyboard.up('ArrowRight'); }
+    const direction = await page.evaluate(() => DigSite.inspect().mine.travelDirection < 0 ? 'ArrowLeft' : 'ArrowRight');
+    // The overland segment is a real route: first verify the boulder blocks
+    // horizontal travel, then steer around it instead of teleporting through it.
+    await page.keyboard.down(direction);
+    try {
+      await page.waitForFunction(() => DigSite.inspect().mine.mode === 'overland' && DigSite.inspect().mine.lastObstacle === 'boulder', null, { timeout: 10000 });
+    } finally { await page.keyboard.up(direction); }
+    const blocked = await page.evaluate(() => DigSite.inspect().mine);
+    assert.equal(blocked.index, index, `${tag}: the boulder blocks cave progression until bypassed`);
+    assert.equal(blocked.lastObstacle, 'boulder', `${tag}: the route reports the physical obstacle`);
+    const vertical = await page.evaluate(() => DigSite.inspect().miner.y > 0.62 ? 'ArrowUp' : 'ArrowDown');
+    await page.keyboard.down(direction);
+    await page.keyboard.down(vertical);
+    try {
+      await page.waitForFunction(expected => DigSite.inspect().mine.index === expected, index+1, { timeout: 30000 });
+    } finally {
+      await page.keyboard.up(direction);
+      await page.keyboard.up(vertical);
+    }
     const reached = await page.evaluate(() => ({mine:DigSite.inspect().mine, scene:document.querySelector('.ck-mine-set').dataset.mine}));
     assert.equal(reached.mine.floor,'lower',`${tag}: next cave starts on lower landing`);
     assert.equal(reached.scene,reached.mine.definition.id,`${tag}: scene follows traversal`);
   }
   const economy = await page.evaluate(() => ({gold:state.gold, stats:DigSite.inspect().stats, passive:state.passiveIncome}));
   assert.equal(economy.gold,baseline.gold,`${tag}: traversal and visual setup mint no gold ${JSON.stringify({baseline,economy})}`);
-  assert.equal(await page.locator('.ck-exit-gate').textContent(),'نهاية مسار المناجم');
+  assert.equal(await page.locator('.ck-exit-gate').textContent(),'آخر منجم · العودة يساراً',`${tag}: the final cave advertises the real return route`);
 
   // Release must still work if focus changes between keydown and keyup.
   await page.keyboard.down('ArrowLeft');
