@@ -10,14 +10,15 @@
   (document.querySelector('.ck-hud')||tab).append(entry);
   const root=document.createElement('section');root.id='station-view';root.hidden=true;
   root.setAttribute('aria-label','محطة الصدى القديمة — عالم الحركة التجريبي');
-  root.innerHTML=`<header><b>محطة الصدى · الحركة فقط</b><button type="button" id="station-close">حفظ وعودة</button></header>
+  root.innerHTML=`<header><b>محطة الصدى · الحركة والمصعد</b><button type="button" id="station-close">حفظ وعودة</button></header>
     <p id="station-status" role="status" aria-live="polite"></p>
-    <p class="station-hint">استكشف الطبقات الثلاث. الأسهم أو A/D، مسافة للقفز، W/S للسلم، Shift للجري. المصعد والعربة والصدى لاحقاً.</p>
+    <p class="station-hint">استكشف الطبقات الثلاث. الأسهم أو A/D، مسافة للقفز، W/S للسلم، Shift للجري. E لنداء/تشغيل المصعد؛ داخل المنصة اختر أعلى أو أسفل. العربة والصدى لاحقاً.</p>
+    <p id="station-lift-status" role="status" aria-live="polite"></p>
     <div class="station-field"><canvas id="station-canvas" tabindex="0" aria-label="عالم حركة جانبي؛ استخدم أزرار الحركة أو لوحة المفاتيح"></canvas></div>
     <div class="station-controls" role="group" aria-label="تحكم العامل">
     <button type="button" data-station="1" aria-label="يسار">يسار</button><button type="button" data-station="2" aria-label="يمين">يمين</button>
     <button type="button" data-station="1024" aria-label="تسلق لأعلى">أعلى</button><button type="button" data-station="2048" aria-label="تسلق لأسفل">أسفل</button>
-    <button type="button" data-station="4" aria-label="قفز">قفز</button><button type="button" id="station-run" aria-pressed="false">جري</button></div>
+    <button type="button" data-station="4" aria-label="قفز">قفز</button><button type="button" data-station="8192" aria-label="نداء أو تشغيل المصعد">المصعد E</button><button type="button" id="station-run" aria-pressed="false">جري</button></div>
     <button type="button" id="station-retry" hidden>إعادة محاولة الحفظ</button><button type="button" id="station-restore" hidden>استعادة آخر حفظ</button>`;
   tab.append(root);
   const canvas=root.querySelector('canvas');
@@ -27,7 +28,7 @@
   let suspended=false;
   let sim=null,id=null,seq=0,open=false,starting=false,closing=false,raf=0,last=0,acc=0,pending=[],ticks=0,packet=null,busy=null,error=false,running=false,sessionOwner=null;
   const keys=new Set(),pointers=new Map(),pulses=new Set();
-  const keyMap={ArrowLeft:1,KeyA:1,ArrowRight:2,KeyD:2,ArrowUp:1024,KeyW:1024,ArrowDown:2048,KeyS:2048,Space:4,ShiftLeft:4096,ShiftRight:4096};
+  const keyMap={ArrowLeft:1,KeyA:1,ArrowRight:2,KeyD:2,ArrowUp:1024,KeyW:1024,ArrowDown:2048,KeyS:2048,Space:4,ShiftLeft:4096,ShiftRight:4096,KeyE:8192};
   function reset() {keys.clear();pointers.clear();pulses.clear();last=0;acc=0;root.querySelectorAll('[data-station]').forEach(b=>b.removeAttribute('data-down'));}
   function visible() {return open&&!suspended&&!document.hidden&&tab.classList.contains('active');}
   function message(text) {status.textContent=text;}
@@ -62,6 +63,7 @@
       await bridge.ready();if(!bridge.user()) throw new Error('يلزم حساب خادمي لحفظ الاستكشاف');
       await bridge.flush();
       const receipt=await request('start',{});
+      if(receipt.state?.version!==R.VERSION) throw new Error('حدّث الصفحة لتحميل قواعد المحطة الحالية');
       sim=receipt.state;id=receipt.id;seq=receipt.seq;sessionOwner=bridge.user();pending=[];ticks=0;packet=null;error=false;
       root.querySelector('#station-retry').hidden=true;root.querySelector('#station-restore').hidden=true;
       reset();open=true;root.hidden=false;document.body.classList.add('station-open');
@@ -93,6 +95,15 @@
     for(const b of R.level.platforms){ctx.fillStyle=b.route?'#46738b':'#ad8054';ctx.fillRect(b.x,b.y,b.w,b.h);}
     ctx.strokeStyle='#e5c879';ctx.lineWidth=4;
     for(const l of R.level.ladders){for(const x of [l.x,l.x+28]){ctx.beginPath();ctx.moveTo(x,l.y);ctx.lineTo(x,l.bottom);ctx.stroke();}for(let y=l.y;y<l.bottom;y+=20){ctx.beginPath();ctx.moveTo(l.x,y);ctx.lineTo(l.x+28,y);ctx.stroke();}}
+    const lift=sim.lift,spec=R.Lift.SPEC;
+    ctx.fillStyle='#111d2a';ctx.fillRect(spec.x,210,spec.w,800);
+    ctx.strokeStyle='#668396';ctx.lineWidth=3;
+    for(const x of [spec.x,spec.x+spec.w]){ctx.beginPath();ctx.moveTo(x,210);ctx.lineTo(x,980);ctx.stroke();}
+    ctx.strokeStyle='#d6b46c';ctx.beginPath();ctx.moveTo(spec.x+spec.w/2,200);ctx.lineTo(spec.x+spec.w/2,lift.y);ctx.stroke();
+    for(const box of R.Lift.platforms(lift)){ctx.fillStyle=box.gate?'#cc7858':'#7de1b3';ctx.fillRect(box.x,box.y,box.w,box.h);}
+    ctx.strokeStyle=R.Lift.moving(lift)?'#ffc877':'#7de1b3';ctx.strokeRect(spec.x,lift.y-70,spec.w,70);
+    const hint=root.querySelector('#station-lift-status'),text=R.Lift.hint(sim);
+    if(hint.textContent!==text)hint.textContent=text;
     const p=sim.player;ctx.fillStyle='#edb35a';ctx.fillRect(p.x,p.y,p.w,p.h);ctx.fillStyle='#f0f8ff';ctx.fillRect(p.x+(p.facing>0?p.w-10:2),p.y+10,8,8);
   }
   function frame(time) {
@@ -109,7 +120,7 @@
   root.querySelector('#station-restore').addEventListener('click',()=>{if(window.confirm('استعادة آخر نقطة مؤكدة وإلغاء الحركة غير المحفوظة؟'))void start();});
   root.querySelector('#station-run').addEventListener('click',e=>{running=!running;e.currentTarget.setAttribute('aria-pressed',String(running));});
   for(const b of root.querySelectorAll('[data-station]')){
-    b.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;const value=Number(b.dataset.station);pointers.set(e.pointerId,value);if(value===4)pulses.add(value);b.setPointerCapture(e.pointerId);b.dataset.down='true';e.preventDefault();});
+    b.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;const value=Number(b.dataset.station);pointers.set(e.pointerId,value);if(value===4||value===R.Lift.ACTION||value===R.INPUT.UP||value===R.DOWN)pulses.add(value);b.setPointerCapture(e.pointerId);b.dataset.down='true';e.preventDefault();});
     const release=e=>{pointers.delete(e.pointerId);if(e.type==='pointercancel')pulses.delete(Number(b.dataset.station));delete b.dataset.down;};
     for(const event of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(event,release);
   }
@@ -117,7 +128,7 @@
     if(!visible())return;
     if(e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();void close();return;}
     if(e.ctrlKey||e.metaKey||e.altKey||e.target.closest('input,textarea,select,button,[contenteditable="true"]'))return;
-    if(keyMap[e.code]){e.preventDefault();keys.add(e.code);if(e.code==='Space'&&!e.repeat)pulses.add(4);}
+    if(keyMap[e.code]){e.preventDefault();keys.add(e.code);if(!e.repeat&&[4,R.Lift.ACTION,R.INPUT.UP,R.DOWN].includes(keyMap[e.code]))pulses.add(keyMap[e.code]);}
   },true);
   document.addEventListener('keyup',e=>{keys.delete(e.code);if(visible()&&keyMap[e.code])e.preventDefault();},true);
   window.addEventListener('blur',()=>{suspended=true;reset();if(open)void flush();});

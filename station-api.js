@@ -4,14 +4,14 @@ const Rules = require('./public/station-rules');
 const LIFETIME = 30 * 60 * 1000;
 
 // Same authenticated user, transaction and ledger as the rest of the game.
-// Only discovery/checkpoint metadata is introduced in phase 1. No rewards/resources.
+// Discovery/checkpoint and lift metadata only. No rewards/resources.
 function mountStation({app,store,requireAuth,rateLimit,asyncRoute,prepare,now=Date.now}) {
   app.post('/api/station/start',requireAuth,rateLimit('station-start',12),asyncRoute(async(req,res)=>{
     const response=await store.withUsers([req.player.id],async()=>{
       const user=await prepare(req.player);
       const saved=user.sync.station;
-      const state=Rules.create(saved?.version===Rules.VERSION?saved.progress:{});
-      Rules.step(state,0);
+      const state=Rules.create([1,Rules.VERSION].includes(saved?.version)?saved.progress:{});
+      Rules.discover(state);
       const session={id:crypto.randomUUID(),seq:0,startedAt:now(),state,lastDigest:null};
       user.sync.station={version:Rules.VERSION,progress:Rules.progress(state),session};
       user.revision++; user.updatedAt=now(); await store.putUser(user);

@@ -1,0 +1,138 @@
+
+> telegram-mining-clicker@1.0.0 test:clicker
+> node scripts/test-clicker-browser.cjs
+
+Station public-control E2E passed: 320x568
+Station public-control E2E passed: 844x390
+Station public-control E2E passed: 1280x800
+{
+  "layout": {
+    "phone": true,
+    "leaveReturn": true
+  },
+  "scene": {
+    "phone": {
+      "picture": "portrait",
+      "images": 5,
+      "sheets": true
+    }
+  },
+  "taps": {
+    "tilt": true,
+    "burst": {
+      "floats": 8,
+      "particles": 150,
+      "litPixels": 3569
+    },
+    "realTouch": {
+      "rock": true,
+      "minerIsScenery": true,
+      "sceneryIgnored": true
+    },
+    "frenzy": true
+  },
+  "energy": {
+    "low": true,
+    "empty": true,
+    "refill": true
+  },
+  "boost": {
+    "active": true,
+    "doubled": true,
+    "badgeFollowsAcrossTabs": true,
+    "passivePulse": true
+  },
+  "upgrades": {
+    "ringFills": true,
+    "readyArrow": true,
+    "pointer": true,
+    "bought": true,
+    "serverAgrees": true,
+    "windowChained": true,
+    "closes": [
+      "Escape",
+      "backdrop",
+      "button"
+    ],
+    "workshopMedal": true
+  },
+  "cta": {
+    "startsRound": true,
+    "resumesPausedRound": true
+  },
+  "sound": {
+    "toggle": true,
+    "persisted": true
+  },
+  "keyboard": {
+    "enterSpace": true,
+    "noRepeat": true
+  },
+  "level": {
+    "celebration": true
+  },
+  "dig": {
+    "touchStick": {
+      "walksLeft": true,
+      "digsAtRock": true,
+      "swingsPerSecond": 2.89,
+      "reCentres": true
+    },
+    "accounting": {
+      "swings": 9,
+      "gold": 18,
+      "energy": 18
+    },
+    "break": {
+      "ghost": true,
+      "particles": 150
+    },
+    "holdButton": {
+      "breaks": 1,
+      "swings": 7
+    },
+    "tapOnRock": {
+      "paysLikeATap": true,
+      "minerWalksOver": true
+    },
+    "keyboard": {
+      "arrows": true,
+      "wasd": true,
+      "space": true,
+      "noScroll": true
+    },
+    "noEnergy": {
+      "refused": 3,
+      "resumes": true
+    },
+    "pause": {
+      "window": true,
+      "tab": true
+    }
+  },
+  "reducedMotion": {
+    "tilt": false,
+    "particles": 0,
+    "gainShown": true,
+    "digWorks": true
+  },
+  "viewports": [
+    "320x568",
+    "360x740",
+    "360x800",
+    "375x667",
+    "375x812",
+    "390x844",
+    "844x390",
+    "821x934",
+    "1280x800"
+  ],
+  "errors": [],
+  "crew": {
+    "shown": true,
+    "capped": true,
+    "scenery": true,
+    "companion": true,
+    "walk": true
+  }
+}
