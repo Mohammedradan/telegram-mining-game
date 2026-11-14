@@ -74,7 +74,7 @@ module.exports = async function verifyTraversal(page, tag) {
   }
   const economy = await page.evaluate(() => ({gold:state.gold, stats:DigSite.inspect().stats, passive:state.passiveIncome}));
   assert.equal(economy.gold,baseline.gold,`${tag}: traversal and visual setup mint no gold ${JSON.stringify({baseline,economy})}`);
-  assert.equal(await page.locator('.ck-exit-gate').textContent(),'نهاية مسار المناجم');
+  assert.equal(await page.locator('.ck-exit-gate').textContent(),'آخر منجم · العودة يساراً',`${tag}: the final cave advertises the real return route`);
 
   // Release must still work if focus changes between keydown and keyup.
   await page.keyboard.down('ArrowLeft');
