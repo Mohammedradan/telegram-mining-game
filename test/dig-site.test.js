@@ -193,7 +193,7 @@ test('depthScale grows toward the viewer and poseFor picks frames in the right p
 });
 
 // ============================== المتحكم على DOM وهمي ==============================
-function makeEnv({ w = 400, h = 300, rng = seeded(21), fx = true } = {}) {
+function makeEnv({ w = 400, h = 300, rng = seeded(21), fx = true, storage = new Map() } = {}) {
   const calls = { raf: [], fx: [], timers: [] };
   const doc = { handlers: {}, hidden: false };
   const classList = (initial = []) => {
@@ -239,6 +239,7 @@ function makeEnv({ w = 400, h = 300, rng = seeded(21), fx = true } = {}) {
   const saved = {};
   const globals = {
     document: doc, ClickerFX: fxObj,
+    localStorage: { getItem(key) { return storage.has(key) ? storage.get(key) : null; }, setItem(key, value) { storage.set(key, String(value)); } },
     requestAnimationFrame: (fn) => { calls.raf.push(fn); return calls.raf.length; }, cancelAnimationFrame: () => {},
     addEventListener: (type, fn) => { (win.handlers[type] = win.handlers[type] || []).push(fn); },
     removeEventListener: (type, fn) => { win.handlers[type] = (win.handlers[type] || []).filter((f) => f !== fn); },
@@ -298,6 +299,23 @@ test('init: shows the controls, places the miner and the rock from the real size
   // no document at all (Node, a worker): init says no instead of throwing
   const bare = fresh();
   assert.equal(bare.init({}), false);
+});
+
+test('mine route progress resumes safely after reload without persisting economy state', () => {
+  const storage = new Map();
+  withSite({ storage }, ({ ds }) => {
+    ds.debug.setMineProgress(2, 2, 2);
+    assert.deepEqual([ds.inspect().mine.index, ds.inspect().mine.unlocked, ds.inspect().mine.breaks], [2, 2, 2]);
+    assert.ok(storage.has('minequest.mine-route.v1'));
+  });
+  withSite({ storage }, ({ ds }) => {
+    assert.deepEqual([ds.inspect().mine.index, ds.inspect().mine.unlocked, ds.inspect().mine.breaks], [2, 2, 2]);
+    assert.equal(ds.inspect().gold, undefined, 'the local route record contains no wallet or reward');
+  });
+  storage.set('minequest.mine-route.v1', '{bad json');
+  withSite({ storage }, ({ ds }) => {
+    assert.deepEqual([ds.inspect().mine.index, ds.inspect().mine.unlocked, ds.inspect().mine.breaks], [0, 0, 0], 'corrupt local state falls back to the first mine');
+  });
 });
 
 test('a hidden tab measures zero: nothing is placed until the field has a size, then it is placed once', () => {

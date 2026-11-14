@@ -43,10 +43,15 @@
     if (vertical) state.floor=miner.y<.56?'upper':'lower';
     state.climbing=vertical;
     if (Math.abs(x)>.2) miner.face=x>0?1:-1;
+    // A locked rockslide is a physical barrier in the upper exit tunnel, not just a label.
+    // Previously unlocked caves remain passable; the final mine is a safe dead end.
+    const atUpperTunnel = state.floor==='upper' && miner.y<.56;
+    if (atUpperTunnel && x>.05 && state.index<MINES.length-1 && !canAdvance(state)) {
+      miner.x=Math.min(miner.x,Math.max(band.x0,band.x1-.06));
+    }
     let transition=null;
     // Use measured body-safe bounds, not .91: mobile sprites can cap x at .80.
     // The upper-floor flag alone is insufficient after walking away from a shaft.
-    const atUpperTunnel = state.floor==='upper' && miner.y<.56;
     if (atUpperTunnel && x>.05 && miner.x>=band.x1-.005 && canAdvance(state)) {
       state.index++; state.unlocked=Math.max(state.unlocked,state.index); state.breaks=0;
       miner.x=band.x0+.04; miner.y=Math.min(band.y1,.8); state.floor='lower';

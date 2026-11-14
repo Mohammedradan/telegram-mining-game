@@ -5,6 +5,17 @@ const MineWorld = require('../public/mine-world.js');
 test('world contains the six planned mine biomes in progression order', () => {
   assert.deepEqual(MineWorld.MINES.map(m=>m.id), ['stone','iron','gold','crystal','lava','legendary']);
 });
+test('an uncleared rockslide physically blocks the upper exit until three rocks are mined', () => {
+  const world=MineWorld.create(), miner={x:.72,y:.4,face:1}, band={x0:.08,x1:.92,y0:.34,y1:.88};
+  world.floor='upper';
+  MineWorld.step(world,miner,{x:1,y:0},1,1,band);
+  assert.ok(Math.abs(miner.x-.86)<1e-9,'the body stops at the rockfall instead of slipping through the exit');
+  assert.equal(world.index,0);
+  for(let i=0;i<3;i++) MineWorld.recordBreak(world);
+  MineWorld.step(world,miner,{x:1,y:0},.4,1,band);
+  assert.equal(world.index,1,'the cleared route becomes traversable');
+});
+
 test('vertical movement requires reaching a ladder or elevator shaft', () => {
   const world=MineWorld.create(), miner={x:.5,y:.8,face:1}, band={x0:.08,x1:.92,y0:.34,y1:.88};
   MineWorld.step(world,miner,{x:0,y:-1},.2,1,band);
