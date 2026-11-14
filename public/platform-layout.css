@@ -1,0 +1,274 @@
+/* تخطيط منجم المنصّة بلا تمرير — عرض فقط، لا يمسّ منطق اللعب ولا الحساب.
+   الشريط العلوي مدمج، مؤشرات اللعب HUD عائمة داخل الكانفاس، أزرار اللمس داخل المشهد،
+   وحالتا Lobby/Live: في الجولة النشطة ينطوي شريط الشخصيات وشريط التنقل ليتوسّع الكانفاس.
+   كل المعرفات والأصناف الأصلية محفوظة؛ هذه الطبقة تعيد التوزيع فقط. */
+
+/* ===== قفل أبعاد الشاشة: بلا تمرير للصفحة أثناء اللعب ===== */
+/* body نفسه إطار 100dvh ثابت (app-shell.css)؛ هنا نثبّت المشهد داخل التبويب فلا يفيض أبداً. */
+#tab-play { overflow: hidden; }
+#platform-scene {
+  height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 0;
+}
+/* الغلاف قد يحصل على display:flex من platform.css الذي يتجاوز سمة hidden؛
+   نُطابقه بـ !important حتى يُخفي الغلاف فعلاً عند إخفائه programaciónياً. */
+#platform-overlay {
+  pointer-events: none; /* الغلاف لا يحجب النقرات على عناصر اللعب خلفه مهما كانت حالته */
+}
+#platform-overlay * { pointer-events: auto; /* أزرار الغلاف نفسها تظل قابلة للنقر */ }
+.mine-stage {
+  min-height: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#platform-canvas { touch-action: none; }
+
+/* ===== الشريط العلوي المدمج: عنوان + اقتصاد + إجراءات في صف واحد ===== */
+.mine-topbar { flex-wrap: nowrap; gap: 8px; }
+.mine-title { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.mine-badge {
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, #f4bf62, #e09a2d);
+  display: grid; place-items: center; color: #4a3212;
+  box-shadow: 0 2px 8px rgba(244, 191, 98, .35);
+}
+.mine-title-text { min-width: 0; }
+.mine-title-text h2 {
+  font-size: clamp(13px, 3.6vw, 16px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mine-topbar .mine-economy {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 10px;
+  padding: 0; border: none; background: transparent; box-shadow: none;
+  min-height: 0;
+}
+.mine-topbar .mine-gold, .mine-topbar .mine-energy {
+  font-size: clamp(11px, 3vw, 13px); white-space: nowrap;
+}
+.mine-heading-actions { flex: 0 0 auto; }
+.topbar-gear {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  font-size: 10px; padding: 7px 10px; border-radius: 9px; min-height: 38px;
+  background: rgba(34, 51, 60, .9); border: 1px solid #40505a; color: #e8f1f5;
+  white-space: nowrap; cursor: pointer; font-weight: 700;
+}
+.topbar-gear .ui-icon { width: 14px; height: 14px; color: #f6d58a; }
+.topbar-gear:active { transform: scale(.96); }
+.guide-entry-top {
+  position: relative; width: auto; height: auto; min-width: 38px; min-height: 38px;
+  padding: 7px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  border-radius: 9px; font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.guide-entry-top .ui-icon { width: 14px; height: 14px; }
+.guide-entry-top .guide-new { top: calc(100% - 8px); }
+.guide-entry-top .guide-dot { top: -2px; inset-inline-start: -2px; }
+
+/* ===== شريط الشخصيات: يظهر في الاستعداد وينطوي أثناء الجولة ===== */
+.mine-hero-btn { flex-direction: column; gap: 1px; min-height: 48px; }
+.hero-name { font-size: clamp(10px, 2.8vw, 11px); font-weight: 800; line-height: 1.2; }
+.hero-desc {
+  font-size: 8.5px; font-weight: 600; color: #8fa5b3; line-height: 1.25;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.mine-hero-btn.active .hero-desc { color: #e6c98d; }
+#platform-scene.scene-live .mine-hero-bar { display: none; }
+
+/* ===== HUD عائم داخل الكانفاس ===== */
+.mine-hud--overlay {
+  position: absolute; top: 8px; left: 8px; right: 8px; z-index: 3;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 6px;
+  direction: ltr; pointer-events: none;
+  padding: 0; border: none; background: transparent; box-shadow: none;
+  min-height: 0;
+}
+.mine-hud--overlay #platform-hearts {
+  justify-self: start; padding: 4px 8px; border-radius: 999px;
+  background: rgba(8, 18, 30, .55); border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(4px); text-shadow: 0 1px 4px #000;
+}
+.hud-center { justify-self: center; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.mine-hud--overlay #platform-progress {
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  background: rgba(8, 18, 30, .55); border: 1px solid rgba(243, 198, 111, .3);
+  backdrop-filter: blur(4px); text-shadow: 0 1px 4px #000;
+  max-width: 38vw; overflow: hidden; text-overflow: ellipsis;
+}
+.mine-hud--overlay #goal-chip {
+  padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  background: rgba(8, 18, 30, .55); backdrop-filter: blur(4px);
+}
+.hud-right { justify-self: end; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mine-hud--overlay #platform-resources { gap: 4px; }
+.mine-hud--overlay .res-chip {
+  padding: 3px 6px; border-radius: 999px;
+  background: rgba(8, 18, 30, .55); border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(4px); text-shadow: 0 1px 4px #000;
+}
+.mine-hud--overlay .hud-pause {
+  position: relative; z-index: 50; /* يرسم فوق الغلاف حتى لو بقي مرئياً لأي سبب */
+  pointer-events: auto; flex: 0 0 auto;
+  width: 38px; height: 38px; min-width: 38px; min-height: 38px;
+  padding: 0; border-radius: 50%;
+  background: rgba(8, 18, 30, .6); border: 1px solid rgba(255, 255, 255, .22);
+  backdrop-filter: blur(4px); box-shadow: 0 3px 10px rgba(0, 0, 0, .4);
+  display: grid; place-items: center;
+}
+.mine-hud--overlay .hud-pause .ui-icon { width: 17px; height: 17px; }
+.mine-hud--overlay .hud-pause:active { transform: scale(.94); }
+/* في المبارزة تُخفى عدّادات التعدين كما قبل (القاعدة الأصلية تبقى سارية) */
+
+/* ===== أزرار اللمس داخل المشهد: عصا يساراً وأزرار يميناً بقوس دائري شفاف ===== */
+.mine-stage .mine-controls {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 8px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: transparent; border: none; box-shadow: none;
+  pointer-events: none;
+}
+/* إخفاء حاوية اللمس في حالة الاستعداد (Lobby)، وإظهارها أثناء الجولة النشطة */
+#platform-scene:not(.scene-live) .mine-stage .mine-controls { display: none; }
+/* وضع تحريك المواضع يجبر الإظهار حتى في الاستعداد */
+.mine-stage .mine-controls.ctl-editing { display: flex !important; z-index: 6; }
+.mine-stage .mine-controls .virtual-joystick,
+.mine-stage .mine-controls .action-btn { pointer-events: auto; }
+.mine-stage .mine-controls-actions {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;
+  align-content: end; justify-items: center; max-width: 62%;
+}
+.mine-stage .mine-controls .action-btn {
+  width: clamp(46px, 13vw, 56px); height: clamp(46px, 13vw, 56px);
+  min-width: 0; min-height: 0; padding: 4px 2px; gap: 1px;
+  border-radius: 50%; border-bottom-width: 2px;
+  background: linear-gradient(145deg, rgba(36, 58, 74, .72), rgba(30, 47, 62, .72));
+  backdrop-filter: blur(3px);
+}
+.mine-stage .mine-controls .action-btn .ui-icon { width: 20px; height: 20px; }
+.mine-stage .mine-controls .action-btn span { font-size: 8px; }
+/* القوس: الصف العلوي مائل قليلاً نحو الإبهام (إزاحة بصرية فقط، لا تمسّ التخطيط المحفوظ) */
+.mine-stage .mine-controls-actions .action-btn:nth-child(odd) { transform: translateY(3px); }
+.mine-stage .mine-controls-actions .action-btn[data-down="true"],
+.mine-stage .mine-controls-actions .action-btn:active { transform: translateY(2px) scale(.96); }
+.mine-stage .mine-controls .virtual-joystick {
+  width: clamp(84px, 24vw, 110px); height: clamp(84px, 24vw, 110px);
+  flex: 0 0 auto;
+}
+.mine-stage .mine-controls .joystick-base {
+  background: radial-gradient(circle, rgba(30, 50, 70, .35), rgba(15, 25, 35, .5));
+  backdrop-filter: blur(2px);
+}
+/* على الكمبيوتر تُخفى عناصر التحكم الفردية (لوحة المفاتيح)، لكن الحاوية تبقى مرئية لتحديد المواضع */
+/* إخفاء العصا وأزرار الإجراء عند وضع touch-hidden، مع إبقاء الإيقاف في HUD ظاهراً */
+.mine-stage .mine-controls.touch-hidden .virtual-joystick { display: none }
+.mine-stage .mine-controls.touch-hidden .action-btn:not(.pause-btn) { display: none }
+.mine-stage .mine-controls.touch-hidden { justify-content: flex-end; background: none; border-color: transparent; padding: 0; }
+
+/* ===== شريط الحالة الديناميكي: بطاقة عائمة مدمجة فوق أزرار اللمس ===== */
+.mine-status--toast {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(clamp(84px, 24vw, 110px) + 18px); z-index: 3;
+  width: max-content; max-width: calc(100% - 20px);
+  padding: 4px 10px; border-radius: 999px; pointer-events: none;
+  font-size: 9.5px; line-height: 1.4; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  background: rgba(8, 18, 30, .6); border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(4px); text-shadow: 0 1px 4px #000;
+}
+#platform-scene:not(.scene-live) .mine-status--toast { bottom: 10px; }
+
+/* ===== نافذة إعدادات التحكم (Modal / Drawer) ===== */
+.ctl-modal { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; justify-content: center; }
+.ctl-modal[hidden] { display: none !important; }
+.ctl-modal-backdrop { position: absolute; inset: 0; background: rgba(3, 6, 12, .62); backdrop-filter: blur(2px); }
+.ctl-modal-card {
+  position: relative; width: min(520px, 100%); max-height: min(72dvh, 560px);
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-radius: 18px 18px 0 0; border: 1px solid rgba(243, 198, 111, .35); border-bottom: none;
+  background: linear-gradient(160deg, #14232f, #0a1622); color: #eef6ff;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, .55);
+}
+.ctl-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ctl-modal-head h3 { margin: 0; font-size: 15px; font-weight: 900; color: #ffe1a0; }
+.ctl-modal-close {
+  width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(34, 51, 60, .9); border: 1px solid #40505a; color: #e8f1f5; cursor: pointer;
+}
+.ctl-modal-close .ui-icon { width: 16px; height: 16px; }
+.ctl-modal-body { overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.ctl-modal .ctl-settings { margin-top: 0; }
+.ctl-modal .mine-keyhint { text-align: start; }
+/* وضع التحريك: البطاقة تنكمش للأعلى والخلفية لا تحجب اللوحة حتى يبقى السحب ممكناً */
+.ctl-modal--editing { align-items: flex-start; }
+.ctl-modal--editing .ctl-modal-backdrop { background: rgba(3, 6, 12, .25); pointer-events: none; }
+.ctl-modal--editing .ctl-modal-card { max-height: 42dvh; border-radius: 0 0 18px 18px; border-bottom: 1px solid rgba(243, 198, 111, .35); }
+
+/* ===== حالة اللعب النشطة: شريط علوي رفيع + تنقّل منكمش ليتوسّع الكانفاس ===== */
+#platform-scene.scene-live .mine-kicker { display: none; }
+#platform-scene.scene-live .mine-title-text h2 { font-size: clamp(11px, 3vw, 13px); }
+#platform-scene.scene-live .mine-badge { width: 26px; height: 26px; border-radius: 7px; }
+#platform-scene.scene-live .mine-heading-actions button { min-height: 32px; padding: 5px 8px; }
+body.scene-live .bottom-nav { padding: 2px; gap: 2px; }
+body.scene-live .bottom-nav button {
+  flex-direction: row !important; justify-content: center; gap: 3px;
+  padding: 4px 2px !important; min-height: 32px;
+}
+body.scene-live .bottom-nav button span { display: none; }
+body.scene-live .bottom-nav .nav-icon { width: 17px; height: 17px; }
+
+/* ===== الوضع الرأسي للهواتف: صف واحد مضغوط وخطوط متجاوبة ===== */
+@media (max-width: 480px) {
+  .mine-topbar .mute-label, .mine-topbar .topbar-btn-label { display: none; }
+  .mine-topbar .mine-heading-actions button { padding: 7px 8px; }
+  .mine-hud--overlay #platform-resources .res-chip:nth-child(4) { display: none; }
+  .mine-hud--overlay #platform-progress { max-width: 30vw; font-size: 9px; }
+  .mine-hud--overlay #goal-chip { font-size: 8.5px; }
+  .hero-desc { font-size: 8px; }
+}
+@media (max-width: 360px) {
+  .mine-badge { width: 28px; height: 28px; }
+  .mine-topbar .mine-economy { gap: 6px; }
+  .mine-stage .mine-controls-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; max-width: 66%; }
+  .mine-stage .mine-controls .action-btn { width: 44px; height: 44px; }
+  .mine-stage .mine-controls .virtual-joystick { width: 76px; height: 76px; }
+}
+
+/* ===== الوضع الأفقي للهواتف: هوامش رأسية دنيا والكانفاس يملأ الارتفاع ===== */
+@media (max-height: 520px) and (orientation: landscape) {
+  #platform-scene { gap: 4px; }
+  .mine-kicker { display: none; }
+  .mine-topbar { padding: 3px 6px; }
+  .mine-badge { width: 26px; height: 26px; }
+  .mine-title-text h2 { font-size: 12px; }
+  .mine-heading-actions button { min-height: 32px; padding: 4px 8px; }
+  .mine-hero-btn { min-height: 36px; padding: 3px 2px; }
+  .hero-desc { display: none; }
+  .mine-stage .mine-controls { padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)); }
+  .mine-stage .mine-controls .virtual-joystick { width: 72px; height: 72px; }
+  .mine-stage .mine-controls .action-btn { width: 44px; height: 44px; }
+  .mine-stage .mine-controls .action-btn .ui-icon { width: 17px; height: 17px; }
+  .mine-status--toast { bottom: 84px; font-size: 8.5px; }
+  .mine-hud--overlay { top: 5px; left: 5px; right: 5px; }
+  .mine-hud--overlay .hud-pause { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+}
+
+/* ===== الشاشات الكبيرة والكمبيوتر: المشهد في المنتصف بملء ذكي ===== */
+@media (min-width: 800px) {
+  #platform-scene { max-width: 980px; margin-inline: auto; width: 100%; }
+  .mine-stage .mine-controls-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 46%; }
+  .mine-hud--overlay #platform-progress { max-width: 320px; }
+}
+@media (min-width: 1024px) {
+  .mine-stage .mine-controls-actions { max-width: 40%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mine-stage .mine-controls .action-btn,
+  .mine-hud--overlay .hud-pause { transition: none; }
+}
