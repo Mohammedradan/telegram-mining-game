@@ -24,12 +24,15 @@
           const raw = backing && backing.getItem(KEY);
           const saved = raw ? JSON.parse(raw) : null;
           const last = clamp(integer(lastMine, 5), 0, 100);
-          if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return { index: 0, unlocked: 0, breaks: 0 };
+          if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return { index: 0, unlocked: 0, breaks: 0, mode: 'mine', travelDirection: 1, routeProgress: 0 };
           const index = clamp(integer(saved.index), 0, last);
           const unlocked = clamp(integer(saved.unlocked, index), index, last);
           const breaks = clamp(integer(saved.breaks), 0, 3);
-          return { index, unlocked, breaks };
-        } catch (_) { return { index: 0, unlocked: 0, breaks: 0 }; }
+          const travelDirection = Number(saved.travelDirection) === -1 ? -1 : 1;
+          const canResumeTravel = saved.mode === 'overland' && (travelDirection < 0 ? index < last : index > 0);
+          const routeProgress = Number(saved.routeProgress);
+          return { index, unlocked, breaks, mode: canResumeTravel ? 'overland' : 'mine', travelDirection, routeProgress: canResumeTravel && Number.isFinite(routeProgress) ? clamp(routeProgress, 0, 1) : 0 };
+        } catch (_) { return { index: 0, unlocked: 0, breaks: 0, mode: 'mine', travelDirection: 1, routeProgress: 0 }; }
       },
       save(progress, lastMine = 5) {
         try {
@@ -38,7 +41,10 @@
           const index = clamp(integer(progress.index), 0, last);
           const unlocked = clamp(integer(progress.unlocked, index), index, last);
           const breaks = clamp(integer(progress.breaks), 0, 3);
-          backing.setItem(KEY, JSON.stringify({ index, unlocked, breaks }));
+          const travelDirection = Number(progress.travelDirection) === -1 ? -1 : 1;
+          const mode = progress.mode === 'overland' && (travelDirection < 0 ? index < last : index > 0) ? 'overland' : 'mine';
+          const routeProgress = Number(progress.routeProgress);
+          backing.setItem(KEY, JSON.stringify({ index, unlocked, breaks, mode, travelDirection, routeProgress: mode === 'overland' && Number.isFinite(routeProgress) ? clamp(routeProgress, 0, 1) : 0 }));
           return true;
         } catch (_) { return false; }
       },

@@ -175,17 +175,30 @@
   let mineWorld = MineWorld ? MineWorld.create() : null;
   let lastLiftFloor = mineWorld ? mineWorld.floor : null;
   let liftMoveTimer = 0;
-  let travelTimer = 0;
   const machinery = { drill: false, conveyor: false, worker: false };
   let routeStore = null;
   // Progress belongs to the route-only store; it never authorizes rewards or server production.
+  let routePositionRestored = false, lastRouteSavedProgress = 0;
   function loadMineRoute() {
     if (!MineWorld) return null;
-    const saved = routeStore ? routeStore.load(MineWorld.MINES.length - 1) : { index: 0, unlocked: 0, breaks: 0 };
+    const saved = routeStore ? routeStore.load(MineWorld.MINES.length - 1) : { index: 0, unlocked: 0, breaks: 0, mode: 'mine', travelDirection: 1, routeProgress: 0 };
     const worldState = MineWorld.create(saved.index);
     worldState.unlocked = saved.unlocked;
     worldState.breaks = saved.breaks;
+    worldState.mode = saved.mode;
+    worldState.travelDirection = saved.travelDirection;
+    worldState.routeProgress = saved.routeProgress;
     return worldState;
+  }
+  function restoreMinePosition() {
+    if (routePositionRestored || !measured || !mineWorld || mineWorld.mode !== 'overland') return;
+    const direction = mineWorld.travelDirection < 0 ? -1 : 1;
+    const p = clamp(num(mineWorld.routeProgress), 0, 1);
+    miner.x = direction > 0 ? band.x0 + (band.x1 - band.x0) * p : band.x1 - (band.x1 - band.x0) * p;
+    miner.y = 0.8;
+    miner.face = direction;
+    routePositionRestored = true;
+    lastRouteSavedProgress = mineWorld.routeProgress;
   }
   function saveMineRoute() {
     return !!(routeStore && mineWorld && MineWorld && routeStore.save(mineWorld, MineWorld.MINES.length - 1));
@@ -275,8 +288,9 @@
     if (!els || !measured) return;
     const rig = els.world.querySelector && els.world.querySelector('.ck-mobile-rig');
     const hauler = els.world.querySelector && els.world.querySelector('.ck-mobile-hauler');
-    const targetRigX = machinery.drill && rock ? rock.x : clamp(miner.x - miner.face * 0.17, band.x0 + 0.04, band.x1 - 0.04);
-    const targetRigY = machinery.drill && rock ? clamp(rock.y + 0.025, band.y0, band.y1) : clamp(miner.y + 0.055, band.y0, band.y1);
+    const miningMode = !mineWorld || mineWorld.mode !== 'overland';
+    const targetRigX = machinery.drill && miningMode && rock ? rock.x : clamp(miner.x - miner.face * 0.17, band.x0 + 0.04, band.x1 - 0.04);
+    const targetRigY = machinery.drill && miningMode && rock ? clamp(rock.y + 0.025, band.y0, band.y1) : clamp(miner.y + 0.055, band.y0, band.y1);
     const rigEase = clamp(Math.max(0, dt) * (machinery.drill ? 1.5 : 2.2), 0, 1);
     fieldRig.x += (targetRigX - fieldRig.x) * rigEase;
     fieldRig.y += (targetRigY - fieldRig.y) * rigEase;
@@ -373,33 +387,6 @@
     } catch (e) { /* مؤقّت بيئي فقط */ }
   }
 
-  function showOverlandTrip(fromIndex, toIndex, direction) {
-    if (!els || !els.world || !els.world.querySelector) return;
-    const scene = els.world.querySelector('.ck-overland-transition');
-    const set = els.world.querySelector('.ck-mine-set');
-    if (!scene || !set) return;
-    if (travelTimer && root.clearTimeout) root.clearTimeout(travelTimer);
-    const from = MineWorld.MINES[clamp(fromIndex, 0, MineWorld.MINES.length - 1)];
-    const to = MineWorld.MINES[clamp(toIndex, 0, MineWorld.MINES.length - 1)];
-    const fromLabel = scene.querySelector('.ck-trip-from');
-    const toLabel = scene.querySelector('.ck-trip-to');
-    if (fromLabel) fromLabel.textContent = from.name;
-    if (toLabel) toLabel.textContent = to.name;
-    scene.dataset.direction = direction === 'previous' ? 'back' : 'forward';
-    scene.dataset.from = from.id;
-    scene.dataset.to = to.id;
-    scene.hidden = false;
-    set.dataset.traveling = 'true';
-    if (els.root && els.root.dataset) els.root.dataset.traveling = 'true';
-    const duration = reduced ? 260 : 1550;
-    travelTimer = root.setTimeout(() => {
-      travelTimer = 0;
-      scene.hidden = true;
-      set.dataset.traveling = 'false';
-      if (els.root && els.root.dataset) els.root.dataset.traveling = 'false';
-    }, duration);
-  }
-
   function updateMineScene() {
     if (!els || !mineWorld || !MineWorld) return;
     const mine = MineWorld.MINES[mineWorld.index];
@@ -409,12 +396,30 @@
     if (els.world.dataset) {
       els.world.dataset.mine = mine.id;
       els.world.dataset.floor = mineWorld.floor;
+      els.world.dataset.routeMode = mineWorld.mode;
+    }
+    if (els.root && els.root.dataset) els.root.dataset.routeMode = mineWorld.mode;
+    const overland = mineWorld.mode === 'overland';
+    const overlandWorld = els.world.querySelector ? els.world.querySelector('.ck-overland-world') : null;
+    if (overlandWorld) {
+      overlandWorld.hidden = !overland;
+      const origin = overlandWorld.querySelector('.ck-road-origin-name');
+      const destination = overlandWorld.querySelector('.ck-road-destination-name');
+      const direction = mineWorld.travelDirection < 0 ? -1 : 1;
+      if (origin) origin.textContent = mine.name;
+      if (destination) destination.textContent = MineWorld.MINES[clamp(mineWorld.index + (mineWorld.travelDirection < 0 ? 1 : -1), 0, MineWorld.MINES.length - 1)].name;
+      overlandWorld.dataset.direction = direction < 0 ? 'forward' : 'back';
+      overlandWorld.dataset.progress = String(mineWorld.routeProgress || 0);
+      overlandWorld.dataset.obstacle = mineWorld.lastObstacle || '';
+      const distance = overlandWorld.querySelector('.ck-outdoor-distance');
+      if (distance) distance.textContent = `امشِ حتى المنجم التالي · ${Math.max(0, Math.round((1 - mineWorld.routeProgress) * 100))}% متبقٍ`;
     }
     const mineSet = els.world.querySelector ? els.world.querySelector('.ck-mine-set') : null;
     if (mineSet && mineSet.dataset) {
       mineSet.dataset.mine = mine.id;
       mineSet.dataset.floor = mineWorld.floor;
       mineSet.dataset.progress = String(Math.min(3, mineWorld.breaks));
+      mineSet.dataset.routeMode = mineWorld.mode;
     }
     const sign = els.world.querySelector ? els.world.querySelector('.ck-depth-sign') : null;
     if (sign) {
@@ -445,7 +450,9 @@
       });
       const caption = route.querySelector('.ck-route-caption');
       if (caption) {
-        caption.textContent = finalMine
+        caption.textContent = mineWorld.mode === 'overland'
+          ? `رحلة متصلة ${mineWorld.travelDirection < 0 ? 'نحو' : 'للعودة إلى'} ${MineWorld.MINES[clamp(mineWorld.index + (mineWorld.travelDirection < 0 ? 1 : -1), 0, MineWorld.MINES.length - 1)].name} · تقدّم الطريق ${Math.round(mineWorld.routeProgress * 100)}%`
+          : finalMine
           ? 'وصلت إلى آخر كهف · بوابة اليسار تعيدك للمناجم السابقة'
           : !routeOpen
             ? `تحدّي الانهيار: احفر ${3 - mineWorld.breaks} صخور لفتح الطريق`
@@ -454,15 +461,16 @@
               : 'الطريق مفتوح · اصعد بالسلم أو المصعد إلى الممر العلوي';
       }
       const points = [56, 151, 246, 341, 436, 541];
-      const next = Math.min(points.length - 1, mineWorld.index + 1);
-      // Mining clears the rockslide and advances the cart halfway; walking through the upper tunnel completes the trip.
-      const progress = Math.min(0.55, mineWorld.breaks / 3 * 0.55);
-      const x = points[mineWorld.index] + (points[next] - points[mineWorld.index]) * progress;
+      const target = mineWorld.mode === 'overland'
+        ? clamp(mineWorld.index + (mineWorld.travelDirection < 0 ? 1 : -1), 0, points.length - 1)
+        : Math.min(points.length - 1, mineWorld.index + 1);
+      const progress = mineWorld.mode === 'overland' ? mineWorld.routeProgress : Math.min(0.55, mineWorld.breaks / 3 * 0.55);
+      const x = points[mineWorld.index] + (points[target] - points[mineWorld.index]) * progress;
       const traveler = route.querySelector('.ck-route-traveler');
       if (traveler) traveler.setAttribute('transform', `translate(${x} 38)`);
       const hazard = route.querySelector('.ck-route-hazard');
       if (hazard) {
-        hazard.setAttribute('transform', `translate(${(points[mineWorld.index] + points[next]) / 2} 41)`);
+        hazard.setAttribute('transform', `translate(${(points[mineWorld.index] + points[target]) / 2} 41)`);
         hazard.dataset.cleared = MineWorld.canAdvance(mineWorld) || mineWorld.index === MineWorld.MINES.length - 1 ? 'true' : 'false';
       }
     }
@@ -509,6 +517,7 @@
 
   // ضربة تعدّن فعلاً: handleMine الأصلي يحسم الطاقة والذهب؛ نصيب الصخرة فقط إن قُبلت
   function economicHit() {
+    if (mineWorld && mineWorld.mode === 'overland') return;
     const pt = hitPoint();
     let ok = false;
     try { ok = !!opts.swing(pt.x, pt.y); } catch (e) { ok = false; }
@@ -553,33 +562,37 @@
     let moved = 0, transitioned = false;
     if (swing.phase === 'idle') {
       const ox = miner.x, oy = miner.y;
-      const originMineIndex = mineWorld ? mineWorld.index : 0;
       const traversal = mineWorld && MineWorld
         ? MineWorld.step(mineWorld, miner, steer, dt, aspect, band, CFG.SPEED, CFG.DEPTH_SPEED)
         : (stepMiner(miner, steer, dt, aspect, band), { moved: Math.hypot(miner.x - ox, (miner.y - oy) / aspect), transition: null, climbing: false });
       if (mineWorld && traversal.floor && traversal.floor !== lastLiftFloor) updateMineScene();
-      if (rk && !traversal.transition) separate(miner, rk, aspect, R.sep);
+      if (rk && !traversal.transition && !traversal.overland) separate(miner, rk, aspect, R.sep);
       if (traversal.transition) {
-        // A cave landing is a safe stop, not a carried-over approach or strike.
+        // Leaving/arriving is a change of continuous terrain, not a timed travel overlay.
         transitioned = true;
         halt();
-        rock = createRock({ x: traversal.transition === 'next' ? 0.72 : 0.28, y: 0.8 });
-        last.stage = -1; last.hp = -1; paintRock(); updateMineScene(); saveMineRoute();
-        showOverlandTrip(originMineIndex, mineWorld ? mineWorld.index : originMineIndex, traversal.transition);
-        if (fx) fx.cue('milestone');
-        haptic('success');
+        if (traversal.transition === 'arrive') {
+          rock = createRock({ x: 0.6, y: 0.8 });
+          last.stage = -1; last.hp = -1; paintRock();
+          if (fx) fx.cue('milestone');
+          haptic('success');
+        }
+        updateMineScene(); saveMineRoute();
+      }
+      if (mineWorld && traversal.overland && Math.abs(mineWorld.routeProgress - lastRouteSavedProgress) >= 0.02) {
+        lastRouteSavedProgress = mineWorld.routeProgress; saveMineRoute(); updateMineScene();
       }
       if (els && els.miner && els.miner.dataset) els.miner.dataset.climbing = traversal.climbing ? 'true' : 'false';
       // احسب الحركة بعد فصل التصادم؛ MineWorld.step يحسب الإزاحة قبل أن يمنع
       // الصخرة المعدّن من التقدم، وإلا تظهر دورة مشي وهو عالق مكانه.
-      // الانتقال بين المناجم نقل فوري وليس خطوة مشي أيضاً.
+      // حدّ تبديل تضاريس الكهف والطريق ليس مسافة حركة إضافية في دورة اللعب.
       moved = traversal.transition ? 0 : Math.hypot(miner.x - ox, (miner.y - oy) / Math.max(0.2, aspect));
     }
     miner.moving = moved > 1e-5;
     miner.step += moved / CFG.STEP_LEN;
     positionFieldUnits(dt);
 
-    const reach = !!rk && inReach(miner, rk, aspect, R.reach);
+    const reach = (!mineWorld || mineWorld.mode !== 'overland') && !!rk && inReach(miner, rk, aspect, R.reach);
     if (!reach && clock >= approachUntil) pendingShow = 0;          // لمسة قديمة لا تُنتج ضربة استعراضية متأخرة
     const toward = manual && !!rk && alignment({ x: ix, y: iy }, miner, rk, aspect) > CFG.TOWARD;
     const econ = !transitioned && reach && (dig || toward) && clock >= dryUntil;
@@ -598,8 +611,9 @@
 
   const fieldUnitsNeedFrame = () => {
     if (!measured) return false;
-    const rigTargetX = machinery.drill && rock ? rock.x : clamp(miner.x - miner.face * 0.17, band.x0 + 0.04, band.x1 - 0.04);
-    const rigTargetY = machinery.drill && rock ? clamp(rock.y + 0.025, band.y0, band.y1) : clamp(miner.y + 0.055, band.y0, band.y1);
+    const miningMode = !mineWorld || mineWorld.mode !== 'overland';
+    const rigTargetX = machinery.drill && miningMode && rock ? rock.x : clamp(miner.x - miner.face * 0.17, band.x0 + 0.04, band.x1 - 0.04);
+    const rigTargetY = machinery.drill && miningMode && rock ? clamp(rock.y + 0.025, band.y0, band.y1) : clamp(miner.y + 0.055, band.y0, band.y1);
     const workerTargetX = machinery.worker ? clamp(miner.x - miner.face * 0.13, band.x0 + 0.025, band.x1 - 0.025) : 0.38;
     const workerTargetY = machinery.worker ? clamp(miner.y + 0.015, band.y0, band.y1) : 0.82;
     return Math.hypot(rigTargetX - fieldRig.x, rigTargetY - fieldRig.y) > 0.006 ||
@@ -669,7 +683,7 @@
   }
 
   function onDigDown(e) {
-    if (!e || digPointer !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if ((mineWorld && mineWorld.mode === 'overland') || !e || digPointer !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
     digPointer = e.pointerId == null ? 0 : e.pointerId;
     try { if (els.dig.setPointerCapture && e.pointerId != null) els.dig.setPointerCapture(e.pointerId); } catch (err) { /* اختياري */ }
     digHeld = true;
@@ -690,6 +704,7 @@
   }
   // ضغطة لوحة مفاتيح على الزر (Enter/Space) = ضربة واحدة: يقترب المعدّن إن كان بعيداً
   function onDigClick(e) {
+    if (mineWorld && mineWorld.mode === 'overland') return;
     if (e && e.detail !== 0) return;       // النقرات بالمؤشر تعالجها pointerdown
     touched();
     if (rock && inReach(miner, rock, aspect, R.reach)) pendingShow = 0;
@@ -725,7 +740,7 @@
 
   // نقرة مقبولة على الصخرة نفسها (handleMine أضاف الذهب): تُصيب الصخرة ويتجه إليها المعدّن ويلوّح بالمعول إن وصل
   function onTap(info) {
-    if (!api.active || !rock) return;
+    if (!api.active || !rock || (mineWorld && mineWorld.mode === 'overland')) return;
     stats.taps++;
     approachUntil = clock + CFG.APPROACH_MS;
     if (!wantsDig()) pendingShow = 1;
@@ -736,13 +751,6 @@
   function onTab(tabId) {
     if (!api.active) return;
     halt();
-    if (travelTimer && root.clearTimeout) root.clearTimeout(travelTimer);
-    travelTimer = 0;
-    const travelScene = els.world && els.world.querySelector ? els.world.querySelector('.ck-overland-transition') : null;
-    const mineSet = els.world && els.world.querySelector ? els.world.querySelector('.ck-mine-set') : null;
-    if (travelScene) travelScene.hidden = true;
-    if (mineSet && mineSet.dataset) mineSet.dataset.traveling = 'false';
-    if (els.root && els.root.dataset) els.root.dataset.traveling = 'false';
     if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
     raf = 0; lastTs = 0;
     try { if (els.world.querySelectorAll) els.world.querySelectorAll('.ck-ghost').forEach((g) => g.remove()); } catch (e) { /* زينة */ }
@@ -820,15 +828,14 @@
         </svg>
         <span class="ck-route-caption">درب الجبال · اجتز الصخور لفتح الممر التالي</span>
       </div>
-      <div class="ck-overland-transition" hidden aria-live="polite">
-        <div class="ck-overland-sky" aria-hidden="true">
-          <div class="ck-overland-peaks ck-overland-peaks-back"></div><div class="ck-overland-peaks ck-overland-peaks-front"></div>
-          <svg class="ck-overland-trail" viewBox="0 0 600 300" preserveAspectRatio="none" aria-hidden="true"><path d="M35 221 C120 165 164 255 249 202 S369 154 421 210 516 245 566 173"/><path d="M35 221 C120 165 164 255 249 202 S369 154 421 210 516 245 566 173"/></svg>
-          <span class="ck-overland-entrance ck-overland-from">مدخل</span><span class="ck-overland-entrance ck-overland-to">مدخل</span>
-          <div class="ck-trip-vehicle"><i class="ck-trip-miner"></i><i class="ck-trip-machine"></i></div>
-          <i class="ck-trip-rock ck-trip-rock-a"></i><i class="ck-trip-rock ck-trip-rock-b"></i>
-        </div>
-        <div class="ck-trip-banner"><b>رحلة عبر الجبال</b><span><i class="ck-trip-from">المنجم الحجري</i><i class="ck-trip-arrow">←</i><i class="ck-trip-to">منجم الحديد</i></span></div>
+      <div class="ck-overland-world" hidden aria-hidden="true">
+        <div class="ck-overland-horizon"><i class="ck-outdoor-sun"></i><i class="ck-land-peak ck-land-peak-back"></i><i class="ck-land-peak ck-land-peak-mid"></i><i class="ck-land-peak ck-land-peak-front"></i></div>
+        <svg class="ck-overland-road" viewBox="0 0 600 420" preserveAspectRatio="none" aria-hidden="true"><path class="ck-road-shadow" d="M-10 340 C100 290 125 365 225 325 S345 260 415 315 505 355 620 270"/><path class="ck-road-surface" d="M-10 340 C100 290 125 365 225 325 S345 260 415 315 505 355 620 270"/><path class="ck-road-ruts" d="M-10 340 C100 290 125 365 225 325 S345 260 415 315 505 355 620 270"/></svg>
+        <div class="ck-road-entrance ck-road-origin"><i></i><b class="ck-road-origin-name">المنجم الحالي</b></div>
+        <div class="ck-road-entrance ck-road-destination"><i></i><b class="ck-road-destination-name">المنجم التالي</b></div>
+        <div class="ck-road-obstacle ck-road-boulder" data-obstacle="boulder"><i></i><b>صخور ضخمة · التفاف</b></div>
+        <div class="ck-road-obstacle ck-road-steam" data-obstacle="steam"><i></i><b>نفّاثة بخار · التفاف</b></div>
+        <div class="ck-outdoor-board"><b>درب الجبال</b><span class="ck-outdoor-distance">امشِ حتى مدخل الكهف التالي</span></div>
       </div>
       <div class="ck-cave-layer ck-cave-far" aria-hidden="true"><i></i><b></b><span></span></div>
       <div class="ck-cave-layer ck-cave-near" aria-hidden="true"><i></i><b></b></div>
@@ -940,7 +947,7 @@
     try { const mq = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)'); reduced = !!(mq && mq.matches); if (mq && mq.addEventListener) mq.addEventListener('change', (e) => { reduced = !!e.matches; }); } catch (e) { reduced = false; }
     fx = root.ClickerFX && root.ClickerFX.active ? root.ClickerFX : null;
     rock = createRock({ x: 0.6, y: 0.8 });
-    const relayout = safe(() => { measure(); render(last.pose || 'idle'); });
+    const relayout = safe(() => { measure(); restoreMinePosition(); render(last.pose || 'idle'); });
     els.pad.addEventListener('pointerdown', safe(onPadDown));
     els.dig.addEventListener('pointerdown', safe(onDigDown));
     els.dig.addEventListener('click', safe(onDigClick));
@@ -958,6 +965,7 @@
     els.root.dataset.dig = '1';           // يُظهر العصا وزر الحفر (clicker.css) ويُسكت وثبة المعدّن القديمة في ClickerFX
     paintRock();
     measure();
+    restoreMinePosition();
     positionFieldUnits(0);
     render('idle');
     api.active = true;

@@ -846,24 +846,29 @@ test('key releases clear held movement and dig after focus or modifier changes',
   });
 });
 
-test('cave transition clears carried inputs and approach without landing strikes', () => {
+test('cave exit opens a walkable landscape; arrival requires traversing it and grants no mining swings', () => {
   withSite({}, ({ ds, swings }) => {
     for (let n=0;n<3;n++) { ds.debug.setRock({x:.5,y:.8},1); ds.onTap({}); }
     ds.onTab('mining');
-    assert.equal(ds.inspect().approaching,false,'stopping clears automatic approach');
     ds.debug.place({x:.14,y:.4});
     ds.debug.setStick(0,-1); ds.debug.step(.05); ds.debug.setStick(0,0);
     assert.equal(ds.inspect().mine.floor,'upper');
+    const mineIndex=ds.inspect().mine.index;
     ds.debug.place({x:ds.inspect().band.x1,y:.4});
-    ds.debug.setKey('r',true);
-    ds.debug.setDig(true);
-    ds.debug.step(.05);
-    assert.equal(ds.inspect().mine.index,1);
-    assert.equal(ds.inspect().keys.r,false);
-    assert.equal(ds.inspect().digHeld,false);
-    assert.equal(ds.inspect().approaching,false);
+    ds.debug.setKey('r',true); ds.debug.setDig(true); ds.debug.step(.05);
+    assert.equal(ds.inspect().mine.mode,'overland');
+    assert.equal(ds.inspect().mine.index,mineIndex,'leaving the cave does not change the destination immediately');
+    assert.equal(ds.inspect().keys.r,false); assert.equal(ds.inspect().digHeld,false);
     assert.equal(ds.inspect().swing,'idle');
-    ds.debug.step(.05,20);
-    assert.equal(swings.length,0,'no automatic strike in the new cave');
+    ds.debug.setDig(true); ds.debug.step(.1,5); ds.debug.setDig(false);
+    assert.equal(swings.length,0,'even a held dig input cannot call the economy hook outdoors');
+    ds.debug.setStick(0,-1); ds.debug.step(.1,5);
+    ds.debug.setStick(0,1); ds.debug.step(.1,2); // thread between the steam vent and boulder lines
+    ds.debug.setStick(-1,0); ds.debug.step(.1,25);
+    ds.debug.setStick(0,-1); ds.debug.step(.1,10); // walk above the boulder cluster
+    ds.debug.setStick(-1,0); ds.debug.step(.1,25);
+    assert.equal(ds.inspect().mine.index,mineIndex+1,'the next cave is reached only after walking the route: '+JSON.stringify({mine:ds.inspect().mine,miner:ds.inspect().miner,band:ds.inspect().band}));
+    assert.equal(ds.inspect().mine.mode,'mine');
+    assert.equal(swings.length,0,'travel cannot produce economic mining hits');
   });
 });
