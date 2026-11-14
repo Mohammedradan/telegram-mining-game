@@ -460,10 +460,16 @@ async function main() {
     const touch = (type, ...points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([x, y], i) => ({ x, y, id: i + 1 })) });
     const pc = [padB.l + padB.w / 2, padB.t + padB.h / 2];
     const m0 = await page.evaluate(() => DigSite.inspect());
+    // The cave wall is only a few hundredths past the distance this step asks for, and a slow runner covers that in one or
+    // two frames. A sampler inside the page therefore keeps the first frame in which he is past the mark, so the pose is
+    // read while he is still walking (a read from outside could land after he had already stopped at the wall).
+    await page.evaluate((x) => { window.__ckLeft = null; const sample = () => { const i = DigSite.inspect();
+      if (i.miner.x < x - 0.05) { window.__ckLeft = { i, sx: parseFloat(document.getElementById('ck-stick').style.getPropertyValue('--sx')), on: document.getElementById('ck-pad').classList.contains('is-on'), act: document.getElementById('ck-miner').dataset.act, face: document.getElementById('ck-miner').dataset.face, y: scrollY }; return; }
+      requestAnimationFrame(sample); }; requestAnimationFrame(sample); }, m0.miner.x);
     await touch('touchStart', pc);
     for (const dx of [-10, -22, -34]) await touch('touchMove', [pc[0] + dx, pc[1]]);
-    await page.waitForFunction((x) => DigSite.inspect().miner.x < x - 0.05, m0.miner.x, { timeout: 15000 });
-    const left = await page.evaluate(() => ({ i: DigSite.inspect(), sx: parseFloat(document.getElementById('ck-stick').style.getPropertyValue('--sx')), on: document.getElementById('ck-pad').classList.contains('is-on'), act: document.getElementById('ck-miner').dataset.act, face: document.getElementById('ck-miner').dataset.face, y: scrollY }));
+    await page.waitForFunction(() => window.__ckLeft, null, { timeout: 15000 });
+    const left = await page.evaluate(() => window.__ckLeft);
     assert.equal(left.i.miner.face, -1, 'he turned left');
     assert.equal(left.face, '-1', 'the picture is mirrored');
     assert.equal(left.act, 'walk');
