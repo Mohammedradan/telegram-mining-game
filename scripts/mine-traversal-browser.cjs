@@ -44,6 +44,11 @@ module.exports = async function verifyTraversal(page, tag) {
       const band = DigSite.inspect().band;
       DigSite.debug.place({x:band.x1-.025,y:.4});
     });
+    // Leave the upper tunnel first; forward travel then runs left across the mountain.
+    await page.keyboard.down('ArrowRight');
+    try {
+      await page.waitForFunction(() => DigSite.inspect().mine.mode === 'overland');
+    } finally { await page.keyboard.up('ArrowRight'); }
     const direction = await page.evaluate(() => DigSite.inspect().mine.travelDirection < 0 ? 'ArrowLeft' : 'ArrowRight');
     // The overland segment is a real route: first verify the boulder blocks
     // horizontal travel, then steer around it instead of teleporting through it.
