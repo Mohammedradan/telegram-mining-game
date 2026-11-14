@@ -44,10 +44,25 @@ module.exports = async function verifyTraversal(page, tag) {
       const band = DigSite.inspect().band;
       DigSite.debug.place({x:band.x1-.025,y:.4});
     });
-    await page.keyboard.down('ArrowRight');
+    const direction = await page.evaluate(() => DigSite.inspect().mine.travelDirection < 0 ? 'ArrowLeft' : 'ArrowRight');
+    // The overland segment is a real route: first verify the boulder blocks
+    // horizontal travel, then steer around it instead of teleporting through it.
+    await page.keyboard.down(direction);
     try {
-      await page.waitForFunction(expected => DigSite.inspect().mine.index === expected, index+1);
-    } finally { await page.keyboard.up('ArrowRight'); }
+      await page.waitForFunction(() => DigSite.inspect().mine.mode === 'overland' && DigSite.inspect().mine.lastObstacle === 'boulder', null, { timeout: 10000 });
+    } finally { await page.keyboard.up(direction); }
+    const blocked = await page.evaluate(() => DigSite.inspect().mine);
+    assert.equal(blocked.index, index, `${tag}: the boulder blocks cave progression until bypassed`);
+    assert.equal(blocked.lastObstacle, 'boulder', `${tag}: the route reports the physical obstacle`);
+    const vertical = await page.evaluate(() => DigSite.inspect().miner.y > 0.62 ? 'ArrowUp' : 'ArrowDown');
+    await page.keyboard.down(direction);
+    await page.keyboard.down(vertical);
+    try {
+      await page.waitForFunction(expected => DigSite.inspect().mine.index === expected, index+1, { timeout: 30000 });
+    } finally {
+      await page.keyboard.up(direction);
+      await page.keyboard.up(vertical);
+    }
     const reached = await page.evaluate(() => ({mine:DigSite.inspect().mine, scene:document.querySelector('.ck-mine-set').dataset.mine}));
     assert.equal(reached.mine.floor,'lower',`${tag}: next cave starts on lower landing`);
     assert.equal(reached.scene,reached.mine.definition.id,`${tag}: scene follows traversal`);
