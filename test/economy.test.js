@@ -233,7 +233,7 @@ test('boost: server-owned window — doubles boosted clicks and passive income, 
   ]);
   assert.deepEqual(body.results.map((r) => r.status), ['ok', 'ok', 'ok', 'active']);
   assert.equal(body.results[2].gold, 20);
-  assert.ok(body.state.boostUntil > Date.now() && body.state.boostUntil <= Date.now() + 30_000);
+  assert.ok(body.state.boostUntil > body.serverTime && body.state.boostUntil <= body.serverTime + 30_000);
   assert.ok(Math.abs(body.state.boostCooldownUntil - body.state.boostUntil - 270_000) < 1000);
   assert.equal(body.state.gold, 1000 - 200 + 20);
   // تعزيز منتهٍ وتهدئة سارية ⇒ يُرفض؛ ولا يُقبل تعزيز مزوّر عبر الحفظ القديم
