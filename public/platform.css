@@ -477,7 +477,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 .res-chip.goal-chip.done .ui-icon{color:#7dffd4}
 
 .overlay-goals{display:flex;flex-direction:column;gap:6px;width:100%;max-width:440px}
-.goal-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.goal-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .mine-overlay .goal-option{display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 4px;border-radius:11px;background:linear-gradient(160deg,rgba(30,47,58,.95),rgba(18,31,40,.95));border:1px solid #40505a;color:#cfe0e2;box-shadow:none;transition:transform .15s,opacity .15s,border-color .15s;text-shadow:none;min-height:0}
 .mine-overlay .goal-option .ui-icon{width:16px;height:16px;color:#8fb6c4}
 .mine-overlay .goal-option b{font-size:10.5px;font-weight:900;color:#e8f1f5;line-height:1.3}

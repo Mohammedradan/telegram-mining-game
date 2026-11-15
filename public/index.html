@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/game.css?v=2">
   <link rel="stylesheet" href="/app-shell.css?v=1">
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=24">
+  <link rel="stylesheet" href="/platform.css?v=25">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/station.css?v=3">
@@ -22,7 +22,7 @@
   <!-- Arena visual polish — presentation only -->
   <link rel="stylesheet" href="/arena-polish.css?v=1">
   <!-- Platform gameplay UI polish — visual-only responsive controls and HUD -->
-  <link rel="stylesheet" href="/platform-polish.css?v=1">
+  <link rel="stylesheet" href="/platform-polish.css?v=2">
   <!-- Interface v2: consistent navigation, touch targets and responsive action buttons -->
   <link rel="stylesheet" href="/minequest-interface-v2.css?v=1">
   <!-- عالم التعدين الموسّع: ملء الشاشة، خرائط وأهداف قابلة للطي وطبقات كهف أعمق -->
@@ -305,7 +305,7 @@
           <p id="platform-message" class="overlay-lead">اختر هدف الجولة ثم ابدأ — واقرأ «كيف ألعب؟» إن كانت هذه أول مرة.</p>
           <details class="overlay-help" id="overlay-help">
             <summary>كيف ألعب؟</summary>
-            <p>هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F (اضغطها بإيقاع فتتكوّن سلسلة من ثلاث ضربات) · الضربة الثقيلة L · المراوغة V · الصدّ S · المهارة Q. في المبارزة الحيّة: راقب إنذار الخصم — الموجة تُقفز، والضربة الكاسرة لا يوقفها الدرع فقفز أو رُغ.</p>
+              <p>هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F (اضغطها بإيقاع فتتكوّن سلسلة من ثلاث ضربات) · الضربة الثقيلة L · المراوغة V · الصدّ S · المهارة Q. في هدف نقل الخام: اضرب العائق ثم اقترب من العامل واضرب لتوجيهه؛ سينقّب وينقل خاماً واحداً عبر السير إلى المخزن. في المبارزة الحيّة: راقب إنذار الخصم — الموجة تُقفز، والضربة الكاسرة لا يوقفها الدرع فقفز أو رُغ.</p>
           </details>
           <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b id="mission-gems">0/3</b><span>اجمع 3 بلورات</span></div>
@@ -324,6 +324,9 @@
               </button>
               <button type="button" class="goal-option" data-goal="2" role="radio" aria-checked="false">
                 <svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><b>سباق البوابة</b><i>قبل 75 ثانية</i>
+              </button>
+              <button type="button" class="goal-option" data-goal="3" role="radio" aria-checked="false">
+                <svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><b>نقل الخام</b><i>العامل والسير للمخزن</i>
               </button>
             </div>
             <p class="goal-hint" id="goal-hint">املأ الحقيبة ثم اعبر البوابة</p>
@@ -1204,7 +1207,7 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=20"></script>
+  <script src="/platform-rules.js?v=22"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=3"></script>
   <script src="/platform-bosses.js?v=6"></script>
@@ -1212,7 +1215,7 @@
   <!-- B5: علامات الإنذار الأرضية (عرض فقط) — تُحمَّل قبل المُصيِّر الذي يرسمها -->
   <script src="/platform-arena-ready.js?v=1"></script>
   <script src="/platform-telegraphs.js?v=1"></script>
-  <script src="/platform-renderer.js?v=24"></script>
+  <script src="/platform-renderer.js?v=25"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
@@ -4621,7 +4624,7 @@
   <script src="/platform-summary.js?v=1"></script>
   <script src="/platform-audio.js?v=1"></script>
   <script src="/platform-stick.js?v=1"></script>
-  <script src="/platform-game.js?v=48"></script>
+  <script src="/platform-game.js?v=49"></script>
   <script src="/station-rules.js?v=1"></script>
   <script src="/station-ui.js?v=3"></script>
 </body>
