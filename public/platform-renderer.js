@@ -1457,6 +1457,52 @@
       }
     }
 
+    if (s.logistics) {
+      const l = s.logistics;
+      if (l.storage.x + l.storage.w >= camera - 40 && l.jam.x <= camera + w + 40) {
+        const beltStart = l.worker.x + 18, beltEnd = l.storage.x + 4;
+        c.strokeStyle = '#6f5940'; c.lineWidth = 5; c.beginPath(); c.moveTo(beltStart, 291); c.lineTo(beltEnd, 291); c.stroke();
+        c.strokeStyle = '#d1a35d'; c.lineWidth = 2; c.beginPath(); c.moveTo(beltStart, 289); c.lineTo(beltEnd, 289); c.stroke();
+        for (let x = beltStart + 4; x < beltEnd; x += 10) {
+          const offset = l.workerAssigned && !l.delivered ? (s.tick % 10) : 0;
+          c.fillStyle = '#30271f'; c.fillRect(x - offset, 287, 2, 8);
+        }
+        round(c, l.jam.x + 2, 272, 21, 28, 4, l.jammed ? '#755236' : '#383b39');
+        strokeRound(c, l.jam.x + 2, 272, 21, 28, 4, l.jammed ? '#e5a84e' : '#64716d', 1.5);
+        if (l.jammed) {
+          c.strokeStyle = '#e65f4d'; c.lineWidth = 3; c.beginPath();
+          c.moveTo(l.jam.x + 5, 277); c.lineTo(l.jam.x + 19, 294);
+          c.moveTo(l.jam.x + 19, 277); c.lineTo(l.jam.x + 5, 294); c.stroke();
+        }
+        const haulProgress = l.phase === 'hauling' ? 1 - l.timer / 60 : 0;
+        const workerX = l.worker.x + haulProgress * 24;
+        c.fillStyle = '#c99550'; c.beginPath(); c.arc(workerX + 12, 269, 7, 0, Math.PI * 2); c.fill();
+        round(c, workerX + 5, 276, 14, 17, 4, l.workerAssigned ? '#4e9a83' : '#647b83');
+        c.strokeStyle = '#b7c8c0'; c.lineWidth = 2; c.beginPath();
+        const step = l.workerAssigned && l.phase === 'mining' ? Math.sin(s.tick * .32) * 3 : 0;
+        c.moveTo(workerX + 7, 292); c.lineTo(workerX + 5 + step, 299);
+        c.moveTo(workerX + 17, 292); c.lineTo(workerX + 19 - step, 299); c.stroke();
+        if (l.phase === 'mining') {
+          c.strokeStyle = '#e4c078'; c.lineWidth = 2; c.beginPath();
+          c.moveTo(workerX + 17, 278); c.lineTo(workerX + 23, 285 + Math.sin(s.tick * .32) * 2);
+          c.lineTo(workerX + 27, 278 + Math.sin(s.tick * .32) * 2); c.stroke();
+        }
+        round(c, l.machine.x, 277, 29, 20, 4, '#42545a');
+        strokeRound(c, l.machine.x, 277, 29, 20, 4, '#8ba3a0', 1.5);
+        c.fillStyle = l.delivered ? '#58e1bd' : '#d1a35d';
+        c.beginPath(); c.arc(l.machine.x + 14, 287, 6, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#243339'; c.lineWidth = 2; c.beginPath();
+        c.moveTo(l.machine.x + 14, 281); c.lineTo(l.machine.x + 14, 293);
+        c.moveTo(l.machine.x + 8, 287); c.lineTo(l.machine.x + 20, 287); c.stroke();
+        if (l.phase === 'hauling') {
+          crystal(c, beltStart + (beltEnd - beltStart) * haulProgress, 280, 0.34, '#9fe8ff', false);
+        }
+        round(c, l.storage.x, 276, 28, 24, 3, '#76583a');
+        strokeRound(c, l.storage.x, 276, 28, 24, 3, '#c19a5e', 1.5);
+        if (l.delivered) crystal(c, l.storage.x + 14, 278, 0.48, '#5cf3d2', false);
+      }
+    }
+
     // ---- Gems ----
     for (const gem of s.gems) {
       if (gem.taken || gem.x < camera - 20 || gem.x > camera + w + 20) continue;

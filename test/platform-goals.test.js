@@ -24,10 +24,39 @@ const atFork = (zone = 0, goal = 0, hero = 'miner') => {
 const pressMine = (s, frames = 20) => { R.step(s, R.INPUT.MINE); const events = s.events.slice(); for (let i = 0; i < frames; i++) R.step(s, 0); return events; };
 const tick = (s, n) => { for (let i = 0; i < n; i++) R.step(s, 0); };
 
-test('V6 goals: three run goals, safe normalisation, and a config that keeps the goal', () => {
-  assert.equal(R.VERSION, 14, 'V21 ladder climbing invalidates older run tickets');
-  assert.equal(R.GOALS.length, 3);
-  assert.deepEqual(R.GOALS.map(g => g.id), ['ore', 'vein', 'speed']);
+test('V22 logistics: clear a jam, assign the worker, process ore through the machine, then deliver it', () => {
+  const s = R.create('miner', 7, { zone: 0, goal: 3 });
+  const l = s.logistics, p = s.player, oreBefore = s.ores[l.ore];
+  assert.deepEqual([R.goalStatus(s).id, R.goalStatus(s).now, R.goalStatus(s).target, R.goalStatus(s).done],
+    ['logistics', 0, 4, false]);
+
+  p.x = l.jam.x - p.w; p.y = l.jam.y + l.jam.h - p.h; p.grounded = true; p.facing = 1;
+  R.step(s, R.INPUT.MINE);
+  assert.equal(l.jammed, false, 'the player physically clears the conveyor blockage');
+
+  p.x = l.worker.x - p.w;
+  tick(s, p.attack + 1);
+  R.step(s, R.INPUT.MINE);
+  assert.equal(l.workerAssigned, true, 'the nearby worker only starts after the player assigns them');
+  assert.equal(l.phase, 'mining');
+  tick(s, 200);
+  assert.equal(l.oreMined, true, 'the worker completes a timed extraction cycle');
+  assert.equal(l.delivered, true, 'the machine completes a timed haul to storage');
+  assert.equal(l.phase, 'stored');
+  assert.equal(s.ores[l.ore] - oreBefore, 1, 'one replayable ore is stored');
+  assert.deepEqual([R.goalStatus(s).now, R.goalStatus(s).done], [4, true]);
+
+  const first = structuredClone(s);
+  const second = structuredClone(s);
+  R.step(first, 0);
+  R.step(second, 0);
+  assert.deepEqual(first.logistics, second.logistics, 'mission state remains deterministic frame to frame');
+});
+
+test('V22 goals: four run goals, safe normalisation, and a config that keeps the goal', () => {
+  assert.equal(R.VERSION, 15, 'V22 logistics replay invalidates older run tickets');
+  assert.equal(R.GOALS.length, 4);
+  assert.deepEqual(R.GOALS.map(g => g.id), ['ore', 'vein', 'speed', 'logistics']);
   for (const g of R.GOALS) { assert.ok(g.name.length > 2); assert.ok(g.blurb.length > 5); assert.ok(g.hint.length > 5); }
   assert.equal(R.normalizeConfig({ goal: 2 }).goal, 2);
   assert.equal(R.normalizeConfig({ goal: 7 }).goal, 0, 'an unknown goal falls back to the first one');
@@ -204,7 +233,7 @@ test('V6 UI: the page ships the goal picker, the summary and the first-run coach
     'summary-goal', 'platform-event', 'platform-coach', 'coach-next', 'coach-skip']) {
     assert.match(html, new RegExp(`id="${id}"`), `index.html ships #${id}`);
   }
-  assert.equal((html.match(/data-goal="/g) || []).length, 3, 'three goal options are on the start card');
+  assert.equal((html.match(/data-goal="/g) || []).length, 4, 'four goal options are on the start card');
   assert.match(game, /goal: selectedGoal/, 'the chosen goal is sent with the start request');
   assert.match(game, /R\.goalStatus\(sim\)/, 'the HUD reads the goal progress from the shared engine');
   assert.match(game, /renderSummary\(/, 'the run summary is rendered on the real finish path');

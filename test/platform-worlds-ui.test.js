@@ -56,7 +56,7 @@ test('worlds UI: upper branch ledges have a distinct safety trim and visible cli
   const s = freshState(1);
   const normal = drawFull(s);
   assert.ok(normal.calls.length > 300, 'the mine scene still renders through the real renderer');
-  assert.match(rendererJs, /box\.route === 'upper'/, 'the renderer has a dedicated upper-route drawing path');
+  assert.match(rendererJs, /if \(box\.route !== 'upper'\) return/, 'the renderer has a dedicated upper-route drawing path');
   assert.match(rendererJs, /#e5b85c/, 'upper routes have an industrial amber edge');
   assert.match(rendererJs, /#72dfcf/, 'upper routes have a readable teal climb marker');
   assert.match(rendererJs, /c\.moveTo\(-4, 2\); c\.lineTo\(0, -3\); c\.lineTo\(4, 2\)/, 'the climb marker is a vector chevron');
@@ -72,7 +72,7 @@ test('worlds UI: upper branch platforms draw a bolted access ladder without chan
   Renderer.draw(canvasWith(ctx), s, { reduced: true });
   assert.match(rendererJs, /const ladderX = box\.x \+ 14/, 'upper routes include bolted ladder rails');
   assert.match(rendererJs, /ry \+= 10/, 'ladder rungs are evenly spaced');
-  assert.equal(R.VERSION, 14, 'climbable ladders are part of deterministic simulation version');
+  assert.equal(R.VERSION, 15, 'logistics joins the deterministic simulation version');
 });
 
 test('worlds UI: every mine draws at every position, in every phase of its timed hazards, with and without reduced motion — and never throws', () => {

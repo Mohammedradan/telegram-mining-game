@@ -643,7 +643,7 @@ function normalizeMineMachinery(value) {
   if (status === 'stopped' && Number.isFinite(Number(value.stoppedAt))) job.stoppedAt = Number(value.stoppedAt);
   return job;
 }
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, duelDay: '', duelGold: 0, quests: Quests.normalize(), mineMachinery: null, mineMachineryDay: '', mineMachineryProduced: 0 });
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, duelDay: '', duelGold: 0, quests: Quests.normalize(), platformLogistics: { deliveries: 0, completed: 0, oreStored: 0 }, mineMachinery: null, mineMachineryDay: '', mineMachineryProduced: 0 });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -669,6 +669,14 @@ function ensureSync(user) {
     duelGold: Math.max(0, Math.floor(Number(sync.duelGold) || 0)),
     quests: Quests.normalize(sync.quests),
     station: obj(sync.station),
+    platformLogistics: (() => {
+      const progress = obj(sync.platformLogistics);
+      return {
+        deliveries: Math.max(0, Math.min(1_000_000, Math.floor(Number(progress.deliveries) || 0))),
+        completed: Math.max(0, Math.min(1_000_000, Math.floor(Number(progress.completed) || 0))),
+        oreStored: Math.max(0, Math.min(1_000_000, Math.floor(Number(progress.oreStored) || 0))),
+      };
+    })(),
     mineMachinery: normalizeMineMachinery(sync.mineMachinery),
     mineMachineryDay: typeof sync.mineMachineryDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sync.mineMachineryDay) ? sync.mineMachineryDay : '',
     mineMachineryProduced: Math.max(0, Math.floor(Number(sync.mineMachineryProduced) || 0)),
@@ -1021,6 +1029,7 @@ function profileOf(user, isNew = false, extra = {}) {
     daily: dailyInfo(user),
     dailyGold: dailyGoldView(user.sync, now),
     quests: questsView(user),
+    platformLogistics: { ...user.sync.platformLogistics },
     isNew,
     serverTime: now,
     ...extra,

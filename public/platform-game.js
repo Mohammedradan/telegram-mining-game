@@ -368,9 +368,9 @@
       chipText.textContent = `${goalDef?.short || gs.name} ${value}`;
       if (chipBox) {
         chipBox.classList.toggle('done', Boolean(gs.done));
-        chipBox.title = gs.done ? `الهدف محقّق: ${gs.name}` : `هدف الجولة: ${gs.name}`;
+        chipBox.title = gs.done ? `الهدف محقّق: ${gs.name}` : `هدف الجولة: ${gs.name}${goalDef?.hint ? ` — ${goalDef.hint}` : ''}`;
       }
-      if (chipUse) chipUse.setAttribute('href', gs.id === 'ore' ? '#i-bag' : gs.id === 'vein' ? '#i-gem' : '#i-bolt');
+      if (chipUse) chipUse.setAttribute('href', gs.id === 'ore' ? '#i-bag' : gs.id === 'vein' ? '#i-gem' : gs.id === 'logistics' ? '#i-pickaxe' : '#i-bolt');
     }
     tickEventBanner();
     const mg = el('mission-gems'), mr = el('mission-rocks'), mf = el('mission-fill'), mb = el('mission-boss');
@@ -662,6 +662,21 @@
         eventBanner('نسمة الخام', 'ثلاث بلورات ظهرت قرب المفترق — اقفز والتقطها قبل أن تذهب مع الريح.', 320);
         feedback('نسمة خام: ثلاث بلورات فوق أرض المفترق — اقفز لالتقاطها.');
         spawnBurst(event.x, event.y, '#ffd166', 16);
+      } else if (event.type === 'logistics_jam_cleared') {
+        eventBanner('عاد السير للعمل', 'اقترب من العامل واضرب مرة أخرى لتوجيهه إلى استخراج الخام.', 300);
+        spawnBurst(event.x, event.y, '#ffd166', 12);
+      } else if (event.type === 'logistics_blocked') {
+        eventBanner('السير عالق', 'أزل العائق أولاً بضربة الحفر.', 220);
+      } else if (event.type === 'logistics_worker_assigned') {
+        eventBanner('بدأ العامل العمل', 'ينقّب ثم ينقل الخام آلياً إلى المخزن.', 260);
+        haptic('light');
+      } else if (event.type === 'logistics_ore_mined') {
+        eventBanner('استخرج العامل الخام', 'بدأت الآلة نقله عبر السير إلى المخزن.', 240);
+        spawnBurst(event.x, event.y, '#9fe8ff', 10);
+      } else if (event.type === 'logistics_delivered') {
+        eventBanner('وصل الخام للمخزن', 'اكتملت دورة العامل والسير؛ اعبر البوابة لإتمام الهدف.', 320);
+        spawnBurst(event.x, event.y, '#58e1bd', 18);
+        haptic('win');
       }
 
       if (!reduced) {

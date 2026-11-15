@@ -40,7 +40,7 @@ test('ألوان الأرض من جلد المنجم لا لون واحد لكل
 
 test('الأرض المنظورية مرتبطة بكتل الأرض فقط والساحة ما زالت تستثنيها', () => {
   const arenaSkip = renderer.indexOf('if (arenaMode && box.y >= 290) continue;');
-  const hook = renderer.indexOf('if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk); continue; }');
+  const hook = renderer.search(/if \(!arenaMode && box\.y >= 290 && box\.h >= 40\) \{ drawMineGround\(c, box, camera, w, sk(?:, !!hasCaveArtwork)?\); continue; \}/);
   assert.ok(arenaSkip > 0, 'the arena still skips mine ground blocks');
   assert.ok(hook > 0, 'the mine ground hook exists');
   assert.ok(hook > arenaSkip, 'and runs after the arena bypass, so the arena floor is untouched');

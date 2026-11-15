@@ -8,7 +8,7 @@
   // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
   // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
   // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
-  const VERSION = 14; // V21: real deterministic ladder climbing joins the upper mine branches; older run tickets are rejected
+  const VERSION = 15; // V22: deterministic worker logistics joins mine-run replay; older tickets are rejected
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -35,7 +35,7 @@
     { id: 'chest',      label: 'صندوق الكنز',     slots: { rare: 2, mid: 1 }, check: s => s.chestFound === true },
   ]);
   const CHEST_SLOTS = Object.freeze({ common: 2, mid: 2, rare: 2 });
-  // ===== V6: أهداف الجولة الثلاثة + مفترق المخاطرة + العرق النادر =====
+  // أهداف التعدين الأساسية، مع مفترق المخاطرة والعرق النادر وهدف النقل المتكامل.
   // الهدف يُختار قبل الجولة ويُثبَّت في تذكرة الخادم مثل المنجم والمعدات، فيُعاد التشغيل به ولا يمكن تبديله بعد البدء.
   // المكافأة الذهبية لم تُمسّ (نفس سقف الـ100 اليومي)؛ الجديد يُدفع من **الخامات** التي تُصرف على معدات الورشة،
   // لذلك لا تُخلق عملة ولا سقف جديد. كل الأرقام صحيحة وحتمية.
@@ -43,7 +43,14 @@
     { id: 'ore', short: 'الخام', name: 'جمع الخام', blurb: 'حقيبة ممتلئة: كل بلّورة وصخرة تُحتسب قبل البوابة', hint: 'املأ الحقيبة ثم اعبر البوابة' },
     { id: 'vein', short: 'العرق', name: 'العرق النادر', blurb: 'ثلاث ضربات متتابعة تكسر العرق قبل أن يتصلّب', hint: 'اصعد إلى المنصة العالية واضرب العرق النادر بسرعة' },
     { id: 'speed', short: 'سباق', name: 'سباق البوابة', blurb: 'اعبر البوابة قبل 75 ثانية', hint: 'لا تتوقّف: الطريق والبوابة قبل 75 ثانية' },
+    { id: 'logistics', short: 'النقل', name: 'نقل الخام', blurb: 'أزل عائق السير، وجّه العامل، ثم انتظر وصول الخام إلى المخزن', hint: 'اضرب العائق ثم اضرب قرب العامل لتوجيهه؛ راقب السير حتى يصل الخام للمخزن' },
   ]);
+  const LOGISTICS_TICKS = Object.freeze({ mining: 90, hauling: 60 });
+  function logisticsLayout(zone) {
+    const x = zone === 0 ? 1340 : zone === 2 ? 1280 : zone === 5 ? 1410 : 1510;
+    return { jam: { x, y: 260, w: 25, h: 40 }, worker: { x: x + 44, y: 262, w: 24, h: 38 },
+      machine: { x: x + 78, y: 268, w: 32, h: 32 }, storage: { x: x + 116, y: 268, w: 30, h: 32 } };
+  }
   // هدف الخام يتدرّج مع العمق لأن الخامات نفسها أغلى هناك (الكمية واحدة).
   const oreTarget = zone => 14 + 2 * (Number.isInteger(zone) && zone > 0 ? zone : 0);
   const SPEED_TICKS = 60 * 75;
@@ -670,7 +677,9 @@
   }
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const activeHazard = (h, tick) => (tick + (h.phase || 0)) % h.period < h.active;
-  const canExit = s => s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
+  const canExit = s => s.goal === 3 && s.mode !== 'duel'
+    ? s.logistics?.delivered === true && (!s.bossId || s.bossDefeated === true)
+    : s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
 
   // ===== ساحة المفترق: موضع مشتق من تضاريس المنجم نفسه (لا عشوائية ولا تعديل على الأرض) =====
   // قطعة أرض مستوية قرب راية المنتصف، بعيدة عن الأخطار والصخور والبوابة. فوقها شيئان غير صلبين
@@ -704,6 +713,11 @@
     if (goal.id === 'vein') {
       const v = s.vein || { hp: 3, maxHp: 3 };
       return { id: goal.id, name: goal.name, now: Math.max(0, v.maxHp - Math.max(0, v.hp)), target: v.maxHp, done: s.veinBroken === true };
+    }
+    if (goal.id === 'logistics') {
+      const l = s.logistics || {};
+      const now = Number(Boolean(!l.jammed)) + Number(Boolean(l.workerAssigned)) + Number(Boolean(l.oreMined)) + Number(Boolean(l.delivered));
+      return { id: goal.id, name: goal.name, now, target: 4, done: l.delivered === true };
     }
     return { id: goal.id, name: goal.name, now: Math.ceil((s.tick || 0) / FPS), target: Math.round(SPEED_TICKS / FPS), done: s.status === 'won' && s.tick <= SPEED_TICKS };
   }
@@ -889,6 +903,10 @@
       perch,
       vein: perch ? { x: perch.x, y: perch.y - 34, w: 24, h: 34, hp: 3, maxHp: 3, timer: 0, broken: false } : null,
       veinBroken: false,
+      ...(cfg.mode === 'mine' && GOALS[cfg.goal].id === 'logistics' ? { logistics: {
+        ...logisticsLayout(cfg.zone), jammed: true, workerAssigned: false, phase: 'idle',
+        timer: 0, oreMined: false, delivered: false, ore: mine.tier.common,
+      } } : {}),
       fork: perch ? { x: perch.x + 60, y: perch.y - 30, w: 30, h: 30, hits: 0, timer: 0, choice: null, locked: false } : null,
       choice: null,
       oreWind: false,
@@ -1581,7 +1599,18 @@
       const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - reach, y: p.y - 8, w: reach, h: p.h + 16 };
       const rock = s.rocks.find(r => r.hp > 0 && overlap(hitbox, r));
       // أولوية الضربة: صخرة الخام ثم العرق النادر ثم صندوق المفترق (كلها في المدى نفسه).
-      if (rock) hitRock(s, rock, p.miningPower, 'player');
+      if (s.logistics?.jammed && overlap(hitbox, s.logistics.jam)) {
+        s.logistics.jammed = false;
+        s.events.push({ type: 'logistics_jam_cleared', x: s.logistics.jam.x + 12, y: s.logistics.jam.y });
+      } else if (s.logistics && overlap(hitbox, s.logistics.worker)) {
+        if (s.logistics.jammed) s.events.push({ type: 'logistics_blocked', x: s.logistics.worker.x, y: s.logistics.worker.y });
+        else if (!s.logistics.workerAssigned) {
+          s.logistics.workerAssigned = true;
+          s.logistics.phase = 'mining';
+          s.logistics.timer = LOGISTICS_TICKS.mining;
+          s.events.push({ type: 'logistics_worker_assigned', x: s.logistics.worker.x, y: s.logistics.worker.y });
+        }
+      } else if (rock) hitRock(s, rock, p.miningPower, 'player');
       else if (s.vein && !s.vein.broken && overlap(hitbox, s.vein)) hitVein(s);
       else if (s.fork && !s.fork.locked && overlap(hitbox, s.fork)) hitFork(s);
       else s.events.push({ type: 'mine_miss', x: p.x + (p.facing > 0 ? p.w + 10 : -10), y: p.y + 15 });
@@ -1858,6 +1887,20 @@
     }
     for (const hazard of s.hazards || level.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
     for (const wave of s.waves) if (!(wave.delay > 0) && overlap(p, wave)) hurt(s, wave.x + wave.w / 2);
+    if (s.logistics?.workerAssigned && !s.logistics.delivered && s.logistics.timer > 0) {
+      s.logistics.timer--;
+      if (s.logistics.timer === 0 && s.logistics.phase === 'mining') {
+        s.logistics.oreMined = true;
+        s.logistics.phase = 'hauling';
+        s.logistics.timer = LOGISTICS_TICKS.hauling;
+        s.events.push({ type: 'logistics_ore_mined', x: s.logistics.worker.x, y: s.logistics.worker.y });
+      } else if (s.logistics.timer === 0 && s.logistics.phase === 'hauling') {
+        s.logistics.delivered = true;
+        s.logistics.phase = 'stored';
+        addOres(s.ores, { [s.logistics.ore]: 1 });
+        s.events.push({ type: 'logistics_delivered', x: s.logistics.storage.x + 15, y: s.logistics.storage.y });
+      }
+    }
     if (s.status === 'playing' && s.mode !== 'duel' && canExit(s) && overlap(p, level.exit)) {
       s.status = 'won'; s.events.push({ type: 'win', x: p.x, y: p.y });
     }

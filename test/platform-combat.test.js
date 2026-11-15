@@ -29,7 +29,7 @@ function tapAttack(s, mask) {
 }
 
 test('V8 inputs: dodge, heavy and the analog walk bit are part of the recorded mask', () => {
-  assert.equal(R.VERSION, 14, 'V21 adds deterministic ladder climbing');
+  assert.equal(R.VERSION, 15, 'V22 adds deterministic logistics replay');
   assert.equal(R.INPUT.DODGE, 128);
   assert.equal(R.INPUT.HEAVY, 256);
   assert.equal(R.INPUT.SOFT, 512);
