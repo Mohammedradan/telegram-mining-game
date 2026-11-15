@@ -309,7 +309,13 @@ async function main() {
     assert.equal(await zonePage.evaluate(() => window.PlatformGame.getZone()), 0, 'the client falls back to the first mine');
     report.lockedMine = { status: 403, fallbackZone: 0 };
     report.cosmeticZones = { zone: zoneState.zone, name: await zonePage.evaluate(i => window.PlatformRules.ZONES[i].name, zoneState.zone) };
+    // Opening the mine map pauses the run and deliberately covers the HUD with the pause overlay.
+    // Resume through its visible action before testing the pause control underneath it.
+    await zonePage.locator('#platform-resume').click();
+    await zonePage.waitForFunction(() => document.getElementById('platform-overlay').hidden && !window.PlatformGame.inspect().paused);
     await zonePage.locator('#platform-pause').click();
+    await zonePage.waitForFunction(() => window.PlatformGame.inspect().paused);
+    assert.equal(await zonePage.locator('#platform-overlay').isVisible(), true, 'pause restores its blocking overlay');
     assert.deepEqual(errors, []);
     await zoneContext.ctx.close();
     // ورشة المعدّن — معاينة بصرية تفاعلية على العميل فقط.
