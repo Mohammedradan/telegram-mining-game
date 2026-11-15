@@ -29,6 +29,8 @@
   <link rel="stylesheet" href="/mine-expedition.css?v=5">
   <!-- تخطيط منجم المنصّة بلا تمرير: شريط علوي مدمج + HUD داخل الكانفاس + حالات Lobby/Live (عرض فقط) -->
   <link rel="stylesheet" href="/platform-layout.css?v=2">
+  <!-- Lobby and arena showcase refresh — visual only -->
+  <link rel="stylesheet" href="/game-showcase.css?v=2">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -780,6 +782,7 @@
           </div>
           <div class="ar-tools">
             <span id="ar-record" class="ar-chip">—</span>
+            <button class="ar-tool ar-leaderboard" type="button" onclick="switchTab('leaderboard')" aria-label="افتح لوحة الصدارة">المتصدرون</button>
             <button id="ar-gear-btn" class="ar-tool" type="button" aria-label="افتح عدّة القتال والترقيات">العدّة</button>
             <button id="ar-log-btn" class="ar-tool" type="button" aria-expanded="false" aria-controls="ar-log" aria-label="افتح سجل المبارزات">السجل</button>
           </div>
