@@ -198,7 +198,7 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-node[data-state="ready"] .ck-node-tag { color: #d8ffe5; border-color: rgba(74, 222, 128, .85); box-shadow: 0 2px 6px rgba(0, 0, 0, .55), 0 0 10px rgba(74, 222, 128, .35); }
 .ck-node-tag.is-label { color: #c8e9ff; border-color: rgba(125, 211, 252, .55); }
 /* خمس ميداليات (مع «الأعماق»): تُصغَّر قليلاً لتتسع في الصف على أضيق الشاشات (يضبط ClickerFX الخاصية data-count) */
-.ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(40px, min(12.6vw, calc(var(--app-height, 100vh) * .068)), 62px); gap: 7px; }
+.ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(44px, min(12.6vw, calc(var(--app-height, 100vh) * .068)), 62px); gap: 7px; }
 .ck-nodes[data-count="5"] .ck-node-tag { min-width: 40px; padding-inline: 5px 6px; font-size: 10.5px; }
 .ck-nodes[data-count="5"] .ck-node-tag svg { width: 11px; height: 11px; }
 /* شارة «جديد» على ميدالية الحفر العميق: تختفي بعد أول فتح (ClickerFX يضبط data-fresh) */
@@ -269,7 +269,7 @@ body.ck-cave .ck-sound { display: grid; }
 }
 @supports (width: 1cqw) {
   .ck-area {
-    --miner-h: min(40cqh, 38cqw);
+    --miner-h: min(48cqh, 38cqw);
     --rock-w: min(36cqw, 52cqh);
     --pad: clamp(68px, min(27cqw, 38cqh), 96px);
     --dig: clamp(58px, min(22cqw, 31cqh), 78px);
