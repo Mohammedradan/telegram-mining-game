@@ -368,7 +368,7 @@
     padding: 7px 5px; transform: none; font-size: 12px;
   }
   #platform-scene.scene-lobby .overlay-row {
-    right: 8px; bottom: 7px; width: min(55%, 230px); display: flex; gap: 4px; margin: 0;
+    right: 8px; bottom: 7px; width: min(62%, 230px); display: flex; gap: 4px; margin: 0;
   }
   #platform-scene.scene-lobby .overlay-row button { min-height: 36px; padding: 4px; font-size: 9px; }
   #platform-scene.scene-lobby .overlay-row .mine-select-label,
