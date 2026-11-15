@@ -310,3 +310,11 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-liv
     border-radius: 0;
   }
 }
+
+
+/* Hide global navigation only while a platform round is actively running.
+   The controller removes body.scene-live on pause, finish, or return to lobby,
+   so navigation is restored without losing the current round. */
+body.scene-live .bottom-nav {
+  display: none !important;
+}
