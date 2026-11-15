@@ -153,6 +153,18 @@ test('arena UI: the screen starts idle with one clear call to action, not four d
   assert.equal(page.byId('arena-intent').hidden, true, 'no intent before a match');
 });
 
+test('arena lobby: showcase reward and record use arena data, and leaders come from the server', () => {
+  for (const id of ['ar-showcase-reward', 'ar-showcase-wins', 'ar-showcase-losses', 'arena-showcase-leaders']) {
+    assert.ok(ids.has(id), `${id} is available in the ready screen`);
+  }
+  assert.match(html, /txt\('ar-showcase-reward', String\(m\.rival\.reward\)\)/);
+  assert.match(html, /txt\('ar-showcase-wins', String\(m\.record\.wins\)\)/);
+  assert.match(html, /txt\('ar-showcase-losses', String\(m\.record\.losses\)\)/);
+  assert.match(html, /renderArenaShowcaseLeaders\(leaderboard\)/);
+  assert.match(html, /for \(const row of leaderboard\.slice\(0, 3\)\)/);
+  assert.match(html, /renderArenaShowcaseLeaders\(\[\], true\)/, 'server failures are shown, not replaced with sample ranks');
+});
+
 test('arena UI: a real match — announce, approach, strike, enemy turn, then a verdict card', async () => {
   const page = boot();
   assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);

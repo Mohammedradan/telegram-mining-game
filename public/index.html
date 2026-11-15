@@ -30,7 +30,7 @@
   <!-- تخطيط منجم المنصّة بلا تمرير: شريط علوي مدمج + HUD داخل الكانفاس + حالات Lobby/Live (عرض فقط) -->
   <link rel="stylesheet" href="/platform-layout.css?v=2">
   <!-- Lobby and arena showcase refresh — visual only -->
-  <link rel="stylesheet" href="/game-showcase.css?v=2">
+  <link rel="stylesheet" href="/game-showcase.css?v=3">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -827,6 +827,23 @@
             <p class="ar-skill" id="ar-rival-skill">—</p>
           </article>
         </div>
+
+        <aside class="ar-showcase-panel ar-showcase-reward" aria-label="مكافأة الساحة وسجلك">
+          <div class="ar-showcase-heading"><b>مكافأة الفوز</b><span>الخصم المختار</span></div>
+          <div class="ar-showcase-prize"><strong id="ar-showcase-reward">—</strong><span>ذهب</span></div>
+          <div class="ar-showcase-record">
+            <span>سجلك</span>
+            <b><i id="ar-showcase-wins">—</i> فوز · <i id="ar-showcase-losses">—</i> خسارة</b>
+          </div>
+        </aside>
+
+        <aside class="ar-showcase-panel ar-showcase-leaders" aria-label="المتصدرون حسب الذهب المكتسب">
+          <div class="ar-showcase-heading"><b>المتصدرون</b><span>حسب الذهب المكتسب</span></div>
+          <div id="arena-showcase-leaders" class="ar-showcase-leader-list" aria-live="polite">
+            <p>جارٍ تحميل المتصدرين…</p>
+          </div>
+          <button type="button" class="ar-showcase-link" onclick="switchTab('leaderboard')">عرض لوحة الصدارة</button>
+        </aside>
 
         <!-- مساحة حرّة مقصودة: تُبقي المقاتلَين في المشهد مكشوفين بين اللوحة وزر البدء -->
         <div class="ar-gap" aria-hidden="true"></div>
@@ -1774,6 +1791,9 @@
       txt('ar-rival-hp', String(m.rival.hp));
       txt('ar-rival-moves', String(m.rival.moves));
       txt('ar-rival-reward', String(m.rival.reward));
+      txt('ar-showcase-reward', String(m.rival.reward));
+      txt('ar-showcase-wins', String(m.record.wins));
+      txt('ar-showcase-losses', String(m.record.losses));
       txt('ar-rival-skill', m.rival.locked && m.rival.needs.length ? `مقفل — يحتاج: ${m.rival.needs.join(' · ')}` : (m.rival.tag || m.rival.role));
       // توازن القوة (مؤشر عرض فقط)
       const fill = document.getElementById('ar-balance-fill');
@@ -2721,11 +2741,40 @@
       } catch (e) { /* السباقات تحتاج خادماً */ }
     }
 
+    function renderArenaShowcaseLeaders(leaderboard, failed = false) {
+      const box = document.getElementById('arena-showcase-leaders');
+      if (!box) return;
+      box.textContent = '';
+      if (failed) {
+        const message = document.createElement('p');
+        message.textContent = 'تعذّر تحميل الصدارة — تحقّق من الاتصال.';
+        box.appendChild(message);
+        return;
+      }
+      if (!leaderboard.length) {
+        const message = document.createElement('p');
+        message.textContent = 'لا يوجد متصدرون بعد.';
+        box.appendChild(message);
+        return;
+      }
+      for (const row of leaderboard.slice(0, 3)) {
+        const item = document.createElement('div');
+        item.className = 'ar-showcase-leader';
+        const name = document.createElement('b');
+        name.textContent = `#${row.rank} ${row.name}`;
+        const gold = document.createElement('span');
+        gold.textContent = `مستوى ${row.level} · ${fmt(row.totalEarned)} ذهب`;
+        item.append(name, gold);
+        box.appendChild(item);
+      }
+    }
+
     async function loadLeaderboard() {
       loadRaceLeaderboard();
       const list = document.getElementById('leaderboard-list');
       try {
         const { leaderboard } = await api('/api/leaderboard');
+        renderArenaShowcaseLeaders(leaderboard);
         list.innerHTML = '';
         if (!leaderboard.length) {
           list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">لا لاعبين بعد — كن أول معدّن! ⛏️</p>';
@@ -2752,6 +2801,7 @@
           list.appendChild(el);
         }
       } catch (e) {
+        renderArenaShowcaseLeaders([], true);
         list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">تعذّر تحميل الصدارة (تحتاج اتصالاً بالخادم)</p>';
       }
     }
@@ -4105,7 +4155,7 @@
         window.PlatformGame?.pauseDuel?.();
         if (!document.body.classList.contains('duel-live')) window.PlatformGame?.hideArenaPreview?.();
       }
-      if (tabId === 'leaderboard') loadLeaderboard();
+      if (tabId === 'leaderboard' || tabId === 'arena') loadLeaderboard();
       if (tabId === 'arena') updateArenaUI();
       haptic('light');
     }
