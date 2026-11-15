@@ -309,37 +309,53 @@
 
   function drawMineLift(c, x, tick, reduced) {
     const bob = reduced ? 0 : Math.sin(tick * 0.025) * 3;
-    const carY = 164 + bob;
+    const carY = 154 + bob;
     c.save();
-    c.fillStyle = 'rgba(5,12,17,.62)';
-    c.fillRect(x - 28, 72, 56, 230);
-    round(c, x - 39, 68, 8, 236, 2, '#47372b');
-    round(c, x + 31, 68, 8, 236, 2, '#47372b');
-    round(c, x - 36, 70, 3, 232, 1, '#a17a4d');
-    round(c, x + 32, 70, 3, 232, 1, '#a17a4d');
-    c.strokeStyle = '#9b794c';
-    c.lineWidth = 3;
-    c.beginPath(); c.moveTo(x, 78); c.lineTo(x, carY); c.stroke();
-    c.fillStyle = '#c49a5a';
-    c.beginPath(); c.arc(x, 78, 9, 0, TAU); c.fill();
-    c.fillStyle = '#453323';
-    c.beginPath(); c.arc(x, 78, 4, 0, TAU); c.fill();
-    for (let y = 104; y < 298; y += 32) {
-      round(c, x - 28, y, 56, 4, 1, '#705438');
-      round(c, x - 25, y + 1, 50, 1, 1, '#b08a5a');
+    c.fillStyle = 'rgba(5,12,17,.72)';
+    c.fillRect(x - 38, 48, 76, 254);
+    round(c, x - 47, 44, 10, 260, 3, '#343c43');
+    round(c, x + 37, 44, 10, 260, 3, '#343c43');
+    round(c, x - 44, 46, 3, 256, 1, '#c3914e');
+    round(c, x + 39, 46, 3, 256, 1, '#c3914e');
+    round(c, x - 51, 42, 102, 9, 3, '#29333b');
+    round(c, x - 44, 43, 88, 3, 1, '#e1b458');
+    c.strokeStyle = '#b19b75';
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x - 16, 50); c.lineTo(x - 16, carY); c.moveTo(x + 16, 50); c.lineTo(x + 16, carY); c.stroke();
+    round(c, x - 22, 47, 44, 7, 3, '#424950');
+    c.fillStyle = '#f5c55e';
+    c.beginPath(); c.arc(x, 50, 4, 0, TAU); c.fill();
+    for (let y = 76; y < 298; y += 32) {
+      round(c, x - 37, y, 74, 5, 2, '#3c4448');
+      round(c, x - 34, y + 1, 68, 1.5, 1, '#b18a52');
+      c.fillStyle = '#e7b650';
+      c.fillRect(x - 46, y + 1, 4, 3);
+      c.fillRect(x + 42, y + 1, 4, 3);
     }
-    round(c, x - 24, carY, 48, 54, 4, '#46382e');
-    round(c, x - 20, carY + 4, 40, 43, 3, '#182731');
-    round(c, x - 17, carY + 7, 34, 34, 2, '#28606a');
-    c.fillStyle = 'rgba(113,225,222,.22)';
-    c.fillRect(x - 15, carY + 9, 30, 2);
-    round(c, x - 27, carY + 47, 54, 7, 2, '#a47a46');
-    c.fillStyle = '#e9c66e';
-    c.fillRect(x - 23, carY + 49, 46, 2);
-    c.fillStyle = '#6fe7dc';
-    c.beginPath(); c.arc(x, carY + 18, 3, 0, TAU); c.fill();
-    c.fillStyle = '#f0c66c';
-    c.beginPath(); c.arc(x, 76, 3, 0, TAU); c.fill();
+    round(c, x - 31, carY, 62, 58, 5, '#39444b');
+    round(c, x - 27, carY + 4, 54, 46, 3, '#1a252c');
+    round(c, x - 23, carY + 8, 46, 35, 2, '#70431f');
+    const cabinGlow = c.createLinearGradient(0, carY + 8, 0, carY + 43);
+    cabinGlow.addColorStop(0, '#ffdc82');
+    cabinGlow.addColorStop(0.55, '#f49732');
+    cabinGlow.addColorStop(1, '#8e3d1e');
+    c.fillStyle = cabinGlow;
+    c.fillRect(x - 21, carY + 10, 42, 31);
+    c.fillStyle = 'rgba(255,244,197,.48)';
+    c.fillRect(x - 17, carY + 12, 3, 25);
+    c.fillRect(x + 13, carY + 12, 3, 25);
+    round(c, x - 35, carY + 48, 70, 9, 3, '#b78643');
+    c.fillStyle = '#f3cc68';
+    c.fillRect(x - 29, carY + 50, 58, 2);
+    c.save();
+    c.beginPath(); c.rect(x - 36, carY + 48, 72, 9); c.clip();
+    for (let sx = x - 36; sx < x + 38; sx += 16) {
+      c.fillStyle = '#202a30';
+      c.beginPath(); c.moveTo(sx, carY + 57); c.lineTo(sx + 8, carY + 57); c.lineTo(sx + 16, carY + 48); c.lineTo(sx + 8, carY + 48); c.fill();
+    }
+    c.restore();
+    c.fillStyle = '#fff0b0';
+    c.beginPath(); c.arc(x - 18, carY + 19, 2.5, 0, TAU); c.arc(x + 18, carY + 19, 2.5, 0, TAU); c.fill();
     c.restore();
   }
 
@@ -743,7 +759,39 @@
   // بحجم يتغيّر مع العمق + تعتيم مقدمة). عرض بصري فقط: صندوق الأرض في المحاكاة لا يتغيّر،
   // والإحداثيات هنا في فضاء العالم (الرسم داخل translate(-camera)) فنستخدم مركز الشاشة
   // كنقطة تلاشٍ عبر camera + w / 2.
-  function drawMineGround(c, box, camera, w, sk) {
+  function drawUpperRoute(c, box, tick, reduced) {
+    if (box.route !== 'upper') return;
+    const pulse = reduced ? 0.68 : 0.68 + Math.sin((tick || 0) * 0.08) * 0.18;
+    c.fillStyle = '#e5b85c';
+    c.fillRect(box.x + 5, box.y + 7, box.w - 10, 3);
+    c.fillStyle = '#72dfcf';
+    c.globalAlpha = pulse;
+    c.fillRect(box.x + 8, box.y + 2, box.w - 16, 2);
+    c.globalAlpha = 1;
+    const markerX = box.x + box.w / 2;
+    c.save();
+    c.translate(markerX, box.y - 13);
+    c.fillStyle = '#182c34';
+    c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#72dfcf'; c.lineWidth = 2.4; c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(-4, 2); c.lineTo(0, -3); c.lineTo(4, 2); c.stroke();
+    c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 5); c.stroke();
+    c.restore();
+    const ladderX = box.x + 14;
+    c.strokeStyle = '#26343a'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(ladderX - 6, box.y + 8); c.lineTo(ladderX - 6, 300); c.moveTo(ladderX + 6, box.y + 8); c.lineTo(ladderX + 6, 300); c.stroke();
+    c.strokeStyle = '#b68b52'; c.lineWidth = 2.5;
+    for (let ry = box.y + 16; ry < 298; ry += 10) {
+      c.beginPath(); c.moveTo(ladderX - 6, ry); c.lineTo(ladderX + 6, ry); c.stroke();
+    }
+    c.fillStyle = '#d5c08a';
+    for (const ry of [box.y + 12, 294]) {
+      c.beginPath(); c.arc(ladderX - 6, ry, 2, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(ladderX + 6, ry, 2, 0, Math.PI * 2); c.fill();
+    }
+  }
+
+  function drawMineGround(c, box, camera, w, sk, mineTrack = false) {
     const top = box.y, bottom = box.y + box.h, depth = bottom - top;
     const vpx = camera + w / 2, K = 0.16;
     const rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
@@ -796,6 +844,24 @@
     c.fillStyle = sk.moss;
     for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
       c.beginPath(); c.ellipse(mx, top + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
+    }
+
+    if (mineTrack) {
+      const railY = top + 22;
+      const start = Math.max(box.x, Math.floor((camera - 32) / 42) * 42);
+      const end = Math.min(box.x + box.w, camera + w + 42);
+      for (let x = start; x < end; x += 42) {
+        round(c, x, railY - 3, 26, 13, 2, '#503a29');
+        round(c, x + 2, railY - 1, 22, 3, 1, '#9b7447');
+      }
+      const railLeft = Math.max(box.x, camera - 4), railRight = Math.min(box.x + box.w, camera + w + 4);
+      if (railRight > railLeft) {
+        round(c, railLeft, railY, railRight - railLeft, 4, 1, '#38434a');
+        round(c, railLeft, railY + 10, railRight - railLeft, 4, 1, '#38434a');
+        c.fillStyle = '#b4c0c2';
+        c.fillRect(railLeft, railY, railRight - railLeft, 1);
+        c.fillRect(railLeft, railY + 10, railRight - railLeft, 1);
+      }
     }
 
     // تعتيم المقدمة: يقفل الحافة السفلية ويقرأ الأرض كسطح ممتد
@@ -905,6 +971,7 @@
     const skin = (root.PlatformScenery ? root.PlatformScenery.skinFor(L.id) : null);
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
     const zone = (R.ZONES || [])[s.zone || 0] || DEFAULT_ZONE;
+    const hasCaveArtwork = s.zone === 0 && caveBackdrop && caveBackdrop.complete && caveBackdrop.naturalWidth;
 
     const ArenaScene = root.PlatformArenaScene;
     const arenaId = Number.isInteger(opts.arenaId) ? opts.arenaId : (Number.isInteger(s.arenaId) ? s.arenaId : (s.zone || 0) % 4);
@@ -915,78 +982,81 @@
     } else {
     // ===== Background =====
     // Deep cavern gradient with vignette
-    const bg = c.createLinearGradient(0, 0, 0, 360);
+    const sceneTop = 360 - worldH;
+    const bg = c.createLinearGradient(0, sceneTop, 0, 360);
     bg.addColorStop(0, zone.sky[0]);
     bg.addColorStop(0.18, zone.sky[1]);
     bg.addColorStop(0.5, zone.sky[2]);
     bg.addColorStop(0.78, zone.sky[3]);
     bg.addColorStop(1, zone.sky[4]);
-    c.fillStyle = bg; c.fillRect(0, 0, w, 360);
-    if (s.zone === 0 && caveBackdrop && caveBackdrop.complete && caveBackdrop.naturalWidth) {
+    c.fillStyle = bg; c.fillRect(0, sceneTop, w, worldH);
+    if (hasCaveArtwork) {
       const sourceRatio = caveBackdrop.naturalWidth / caveBackdrop.naturalHeight;
-      const viewRatio = w / 360;
+      const viewRatio = w / worldH;
       const sourceW = sourceRatio > viewRatio ? caveBackdrop.naturalHeight * viewRatio : caveBackdrop.naturalWidth;
       const sourceH = sourceRatio > viewRatio ? caveBackdrop.naturalHeight : caveBackdrop.naturalWidth / viewRatio;
       const sourceX = (caveBackdrop.naturalWidth - sourceW) / 2;
       const sourceY = (caveBackdrop.naturalHeight - sourceH) / 2;
       c.save();
-      c.globalAlpha = 0.86;
-      c.drawImage(caveBackdrop, sourceX, sourceY, sourceW, sourceH, 0, 0, w, 360);
+      c.globalAlpha = 0.98;
+      c.drawImage(caveBackdrop, sourceX, sourceY, sourceW, sourceH, 0, sceneTop, w, worldH);
       c.restore();
     }
-
     // Vignette darkening at edges
-    const vignette = c.createRadialGradient(w / 2, 180, w * 0.4, w / 2, 180, w * 0.95);
+    const vignetteRadius = Math.max(w, worldH);
+    const vignette = c.createRadialGradient(w / 2, sceneTop + worldH / 2, vignetteRadius * 0.4, w / 2, sceneTop + worldH / 2, vignetteRadius * 0.95);
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.55)');
-    c.fillStyle = vignette; c.fillRect(0, 0, w, 360);
+    vignette.addColorStop(1, `rgba(0,0,0,${hasCaveArtwork ? 0.22 : 0.55})`);
+    c.fillStyle = vignette; c.fillRect(0, sceneTop, w, worldH);
 
     // ---- Parallax layers ----
 
     // Layer -2: Far cavern wall silhouette with faint crystals
-    const shiftFar = camera * 0.07;
-    c.fillStyle = zone.far;
-    for (let i = Math.floor(shiftFar / 260) - 1; i < Math.ceil((shiftFar + w) / 260) + 1; i++) {
-      const x = i * 260 - shiftFar;
-      c.beginPath();
-      c.moveTo(x - 70, 0); c.lineTo(x + 20, 65 + (Math.abs(i * 7) % 30)); c.lineTo(x + 100, 0); c.fill();
-      // distant crystal glimmer
-      if (i % 3 === 0) {
-        c.fillStyle = '#2a6b7a22';
-        c.beginPath(); c.arc(x + 40, 45, 4, 0, Math.PI * 2); c.fill();
-        c.fillStyle = zone.far;
+    if (!hasCaveArtwork) {
+      const shiftFar = camera * 0.07;
+      c.fillStyle = zone.far;
+      for (let i = Math.floor(shiftFar / 260) - 1; i < Math.ceil((shiftFar + w) / 260) + 1; i++) {
+        const x = i * 260 - shiftFar;
+        c.beginPath();
+        c.moveTo(x - 70, 0); c.lineTo(x + 20, 65 + (Math.abs(i * 7) % 30)); c.lineTo(x + 100, 0); c.fill();
+        // distant crystal glimmer
+        if (i % 3 === 0) {
+          c.fillStyle = '#2a6b7a22';
+          c.beginPath(); c.arc(x + 40, 45, 4, 0, Math.PI * 2); c.fill();
+          c.fillStyle = zone.far;
+        }
       }
-    }
 
-    // Layer 0: Distant stalactites
-    const shift0 = camera * 0.14;
-    c.fillStyle = zone.mid;
-    for (let i = Math.floor(shift0 / 200) - 1; i < Math.ceil((shift0 + w) / 200) + 1; i++) {
-      const x = i * 200 - shift0;
-      const hgt = 55 + (Math.abs(i * 13) % 35);
-      c.beginPath(); c.moveTo(x - 45, 0); c.lineTo(x + 20, hgt); c.lineTo(x + 85, 0); c.fill();
-      // tiny drips
-      c.fillStyle = '#1a3a4a';
-      c.fillRect(x + 18, hgt - 2, 2, 6);
+      // Layer 0: Distant stalactites
+      const shift0 = camera * 0.14;
       c.fillStyle = zone.mid;
-    }
+      for (let i = Math.floor(shift0 / 200) - 1; i < Math.ceil((shift0 + w) / 200) + 1; i++) {
+        const x = i * 200 - shift0;
+        const hgt = 55 + (Math.abs(i * 13) % 35);
+        c.beginPath(); c.moveTo(x - 45, 0); c.lineTo(x + 20, hgt); c.lineTo(x + 85, 0); c.fill();
+        // tiny drips
+        c.fillStyle = '#1a3a4a';
+        c.fillRect(x + 18, hgt - 2, 2, 6);
+        c.fillStyle = zone.mid;
+      }
 
-    // Layer 1: Mid rock columns & arches
-    const shift1 = camera * 0.30;
-    c.fillStyle = zone.columns;
-    for (let i = Math.floor(shift1 / 180) - 1; i < Math.ceil((shift1 + w) / 180) + 1; i++) {
-      const x = i * 180 - shift1;
-      c.beginPath();
-      c.moveTo(x - 60, 340); c.lineTo(x - 20, 105 + (Math.abs(i * 5) % 30)); c.lineTo(x + 35, 70 + (i % 2) * 30); c.lineTo(x + 90, 170); c.lineTo(x + 155, 340); c.fill();
-      // arch highlights
-      c.fillStyle = '#1e4458';
-      c.fillRect(x + 10, 120, 2, 40);
+      // Layer 1: Mid rock columns & arches
+      const shift1 = camera * 0.30;
       c.fillStyle = zone.columns;
+      for (let i = Math.floor(shift1 / 180) - 1; i < Math.ceil((shift1 + w) / 180) + 1; i++) {
+        const x = i * 180 - shift1;
+        c.beginPath();
+        c.moveTo(x - 60, 340); c.lineTo(x - 20, 105 + (Math.abs(i * 5) % 30)); c.lineTo(x + 35, 70 + (i % 2) * 30); c.lineTo(x + 90, 170); c.lineTo(x + 155, 340); c.fill();
+        // arch highlights
+        c.fillStyle = '#1e4458';
+        c.fillRect(x + 10, 120, 2, 40);
+        c.fillStyle = zone.columns;
+      }
     }
 
     // Layer 2: Near supports, rails, mushrooms
     const shift2 = camera * 0.54;
-    for (let i = Math.floor(shift2 / 240) - 1; i < Math.ceil((shift2 + w) / 240) + 1; i++) {
+    if (!hasCaveArtwork) for (let i = Math.floor(shift2 / 240) - 1; i < Math.ceil((shift2 + w) / 240) + 1; i++) {
       const x = i * 240 - shift2;
       // timber beam
       round(c, x + 15, 50, 12, 260, 3, '#2d241e');
@@ -1184,7 +1254,31 @@
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
       if (arenaMode && box.y >= 290) continue; // أرض الساحة يرسمها مشهد الحلبة (منصّة حجرية) لا كتل المنجم
       // V18: أرض المنجم تُرسم بمنظور (كتلة عريضة عند خط الأرض) بدل الكتلة المسطّحة
-      if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk); continue; }
+      if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk, !!hasCaveArtwork); continue; }
+      if (!arenaMode && hasCaveArtwork && box.h < 25) {
+        round(c, box.x - 3, box.y + 4, box.w + 6, box.h - 1, 4, '#24343c');
+        round(c, box.x, box.y, box.w, 7, 2, '#4b3828');
+        round(c, box.x + 2, box.y + 1, box.w - 4, 3, 1, '#bc8d4e');
+        for (let plankX = box.x + 8; plankX < box.x + box.w - 4; plankX += 18) {
+          c.fillStyle = '#5c432e';
+          c.fillRect(plankX, box.y + 7, 15, 2);
+          c.fillStyle = '#d3a953';
+          c.fillRect(plankX, box.y + 6, 2, 1.5);
+        }
+        c.fillStyle = '#e1b458';
+        c.fillRect(box.x + 4, box.y + 10, box.w - 8, 2);
+        round(c, box.x + 8, box.y + 17, 7, 28, 2, '#463527');
+        round(c, box.x + 9, box.y + 18, 3, 25, 1, '#b38a50');
+        round(c, box.x + box.w - 15, box.y + 17, 7, 28, 2, '#463527');
+        round(c, box.x + box.w - 13, box.y + 18, 3, 25, 1, '#b38a50');
+        c.strokeStyle = '#543e2d'; c.lineWidth = 3;
+        c.beginPath();
+        c.moveTo(box.x + 12, box.y + 23); c.lineTo(box.x + 28, box.y + 42);
+        c.moveTo(box.x + box.w - 12, box.y + 23); c.lineTo(box.x + box.w - 28, box.y + 42);
+        c.stroke();
+        drawUpperRoute(c, box, s.tick, reduced);
+        continue;
+      }
       // base rock
       round(c, box.x, box.y, box.w, box.h, 4, sk.rock[0]);
       // inner shading
@@ -1200,37 +1294,7 @@
       }
       // V21: upper branch ledges use a distinct industrial safety trim and a readable
       // upward chevron. This is visual guidance only; collision and route input stay in rules.
-      if (box.route === 'upper') {
-        const pulse = reduced ? 0.68 : 0.68 + Math.sin((s.tick || 0) * 0.08) * 0.18;
-        c.fillStyle = '#e5b85c';
-        c.fillRect(box.x + 5, box.y + 7, box.w - 10, 3);
-        c.fillStyle = '#72dfcf';
-        c.globalAlpha = pulse;
-        c.fillRect(box.x + 8, box.y + 2, box.w - 16, 2);
-        c.globalAlpha = 1;
-        const markerX = box.x + box.w / 2;
-        c.save();
-        c.translate(markerX, box.y - 13);
-        c.fillStyle = '#182c34';
-        c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2); c.fill();
-        c.strokeStyle = '#72dfcf'; c.lineWidth = 2.4; c.lineCap = 'round'; c.lineJoin = 'round';
-        c.beginPath(); c.moveTo(-4, 2); c.lineTo(0, -3); c.lineTo(4, 2); c.stroke();
-        c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 5); c.stroke();
-        c.restore();
-        // V22: bolted access ladder visually connects the lower tunnel to this upper branch.
-        const ladderX = box.x + 14;
-        c.strokeStyle = '#26343a'; c.lineWidth = 4;
-        c.beginPath(); c.moveTo(ladderX - 6, box.y + 8); c.lineTo(ladderX - 6, 300); c.moveTo(ladderX + 6, box.y + 8); c.lineTo(ladderX + 6, 300); c.stroke();
-        c.strokeStyle = '#b68b52'; c.lineWidth = 2.5;
-        for (let ry = box.y + 16; ry < 298; ry += 10) {
-          c.beginPath(); c.moveTo(ladderX - 6, ry); c.lineTo(ladderX + 6, ry); c.stroke();
-        }
-        c.fillStyle = '#d5c08a';
-        for (const ry of [box.y + 12, 294]) {
-          c.beginPath(); c.arc(ladderX - 6, ry, 2, 0, Math.PI * 2); c.fill();
-          c.beginPath(); c.arc(ladderX + 6, ry, 2, 0, Math.PI * 2); c.fill();
-        }
-      }
+      drawUpperRoute(c, box, s.tick, reduced);
       // stone cracks & strata
       c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       for (let x = Math.max(box.x + 8, Math.floor(camera / 36) * 36); x < Math.min(box.x + box.w - 8, camera + w); x += 36) {

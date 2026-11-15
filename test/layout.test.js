@@ -151,7 +151,7 @@ test('phase 1+2: impact feedback and ore economy are wired into the real UI', ()
 // المنجم المنصّة: هيكلة بلا تمرير — شريط علوي مدمج واحد، HUD عائم داخل الكانفاس، نافذة إعدادات التحكم، حالة Lobby/Live.
 test('platform: single compact top bar replaces stacked header bars (zero-scroll)', () => {
   const gameCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-layout.css'), 'utf8');
-  assert.ok(html.match(/<link[^>]+href="\/platform-layout\.css/), 'index.html links platform-layout.css');
+  assert.ok(html.match(/<link[^>]+href="\/platform-layout\.css\?v=6/), 'index.html links the current platform layout stylesheet');
   assert.ok(gameCss.length > 0, 'platform-layout.css exists and is non-empty');
   assert.match(gameCss, /#platform-scene\s*\{\s*[^}]*overflow:\s*hidden;/s);
   assert.match(gameCss, /height:\s*100dvh;/s);
@@ -171,6 +171,7 @@ test('platform: single compact top bar replaces stacked header bars (zero-scroll
 });
 
 test('platform: floating in-canvas HUD overlay, single pause button', () => {
+  const layout = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-layout.css'), 'utf8');
   assert.match(html, /<div class="mine-hud mine-hud--overlay"/);
   assert.match(html, /id="platform-hearts"/);
   assert.match(html, /id="platform-progress"/);
@@ -181,6 +182,8 @@ test('platform: floating in-canvas HUD overlay, single pause button', () => {
   const pauseOccurrences = (html.match(/id="platform-pause"/g) || []).length;
   assert.equal(pauseOccurrences, 1, `expected exactly one #platform-pause, found ${pauseOccurrences}`);
   assert.match(html, /class="action-btn pause-btn hud-pause"/);
+  assert.match(layout, /#platform-scene:not\(\.scene-live\)\s+\.mine-hud--overlay\s*\{\s*display:\s*none;/,
+    'the in-game HUD stays out of the lobby and result overlay');
   // لا شريط إيقاف عريض أسفل الكانفاس
   assert.doesNotMatch(html, /mine-controls-actions[^>]*platform-pause/s);
 });
@@ -210,6 +213,24 @@ test('platform: Lobby vs Live state classes', () => {
   assert.match(game, /openCtlSettings/);
   assert.match(game, /closeCtlSettings/);
   assert.match(game, /layoutEditing/);
+});
+
+test('active platform gameplay gets the screen space without losing tab navigation', () => {
+  const layout = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-layout.css'), 'utf8');
+  assert.match(layout, /body #platform-scene\.scene-live \.mine-title,\s*body #platform-scene\.scene-live \.mine-economy \{ display: none; \}/);
+  assert.match(layout, /body\.scene-live \.bottom-nav \{\s*flex: 0 0 52px;/);
+  assert.match(layout, /body #platform-scene\.scene-lobby \.mine-topbar \{\s*display: grid;/);
+  assert.match(html, /id="platform-status" class="mine-status mine-status--toast mine-status--hint"/);
+  assert.match(layout, /#platform-scene\.scene-live \.mine-status--hint \{ display: none; \}/);
+});
+
+test('the movement prototype button stays inside the mining screen', () => {
+  const stationUi = fs.readFileSync(path.join(__dirname, '..', 'public', 'station-ui.js'), 'utf8');
+  const stationCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'station.css'), 'utf8');
+  assert.match(stationUi, /const entryHost=tab\.querySelector\('#ck-stage'\)\|\|tab;/);
+  assert.doesNotMatch(stationUi, /document\.querySelector\('\.ck-hud'\)/);
+  assert.match(stationCss, /\.station-entry\{[^}]*position:absolute;/);
+  assert.match(stationCss, /#station-view\{inset:50% auto auto 50%;[^}]*height:min\(48dvh,520px\)/);
 });
 
 // المرحلة 3: الورشة صارت مدعومة بالخادم (بدل المعاينة) + خريطة المناجم + عرض الصلابة في المشهد.
@@ -258,8 +279,8 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(renderer, /drawDrone\(c, s\.player/);
   // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
   assert.match(html, /platform-rules\.js\?v=20/);
-  assert.match(html, /platform-game\.js\?v=47/);
-  assert.match(html, /platform-renderer\.js\?v=21/);
+  assert.match(html, /platform-game\.js\?v=48/);
+  assert.match(html, /platform-renderer\.js\?v=24/);
   assert.match(html, /platform-scenery\.js\?v=3/);
   assert.match(html, /platform-bosses\.js\?v=6/);
   assert.match(html, /platform\.css\?v=24/);

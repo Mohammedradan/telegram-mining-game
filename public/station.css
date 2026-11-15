@@ -1,8 +1,11 @@
 /* Greybox intentionally uses no new image assets; motion and persistence first. */
-.station-entry{pointer-events:auto;display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid #53748c;border-radius:12px;color:#e5c879;background:#142431;cursor:pointer}
+.station-entry{position:absolute;top:8px;inset-inline-end:8px;z-index:10;pointer-events:auto;display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid #53748c;border-radius:12px;color:#e5c879;background:#142431;cursor:pointer}
 .station-entry .ui-icon{width:21px;height:21px}
 #station-view[hidden]{display:none!important}
 #station-view{position:absolute;inset:0;z-index:60;display:flex;flex-direction:column;min-height:0;background:#09131f;color:#e5eef7;border-radius:12px;overflow:hidden;padding:6px;gap:4px}
+#station-view{inset:50% auto auto 50%;width:min(520px,calc(100% - 16px));height:min(48dvh,520px);transform:translate(-50%,-50%);border:1px solid #53748c;box-shadow:0 12px 40px rgba(0,0,0,.62)}
+#tab-mining::before{content:none}
+body.station-open #tab-mining::before{content:"";position:absolute;inset:0;z-index:59;background:rgba(2,7,14,.68);backdrop-filter:blur(2px)}
 #station-view header{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;font-size:12px}
 #station-view button{min-height:44px;min-width:44px;padding:6px 10px;border:1px solid #5c7f95;border-radius:9px;background:#183245;color:#eef7ff;touch-action:none;font-size:12px;cursor:pointer}
 #station-view button:focus-visible,.station-entry:focus-visible{outline:3px solid #f6d77a;outline-offset:-3px}
@@ -13,6 +16,7 @@
 .station-field{flex:1;min-height:80px;position:relative;overflow:hidden}
 #station-canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
 .station-controls{display:flex;flex-wrap:wrap;justify-content:space-around;gap:4px;flex-shrink:0;direction:ltr;padding-bottom:env(safe-area-inset-bottom,0px)}
-body.station-open #ck-stage{visibility:hidden;pointer-events:none}
+body.station-open #ck-stage{visibility:visible;opacity:.22;filter:blur(2px);pointer-events:none}
 @media(orientation:landscape) and (max-height:560px){#station-view .station-hint{display:none}#station-view header{font-size:10px}.station-controls{justify-content:center;gap:12px}#station-view button{min-height:44px}}
+@media(orientation:landscape) and (max-height:560px){#station-view{height:min(82dvh,500px)}}
 @media(prefers-reduced-motion:reduce){#station-view *{animation:none!important;transition:none!important}}

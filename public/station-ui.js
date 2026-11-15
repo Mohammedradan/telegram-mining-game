@@ -7,7 +7,8 @@
   entry.id='station-enter';entry.type='button';entry.className='station-entry';
   entry.setAttribute('aria-label','محطة الصدى — تجربة الحركة');entry.title='محطة الصدى — تجربة الحركة';
   entry.innerHTML='<svg class="ui-icon" aria-hidden="true"><use href="#i-rope"></use></svg>';
-  (document.querySelector('.ck-hud')||tab).append(entry);
+  const entryHost=tab.querySelector('#ck-stage')||tab;
+  entryHost.append(entry);
   const root=document.createElement('section');root.id='station-view';root.hidden=true;
   root.setAttribute('aria-label','محطة الصدى القديمة — عالم الحركة التجريبي');
   root.innerHTML=`<header><b>محطة الصدى · الحركة فقط</b><button type="button" id="station-close">حفظ وعودة</button></header>

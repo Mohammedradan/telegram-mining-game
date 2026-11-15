@@ -202,7 +202,7 @@
   } catch (_) {}
 
   const storageKey = () => `platform-run:v1:${owner}`;
-  const say = text => { const s = el('platform-status'); if (s) s.textContent = text; };
+  const say = text => { const s = el('platform-status'); if (s) { s.classList.remove('mine-status--hint'); s.textContent = text; } };
   const visible = () => !document.hidden && !el('platform-scene').hidden && el('play-panel-adventure').classList.contains('active') && el('tab-play').classList.contains('active');
   const draw = () => renderer.draw(canvas, sim, {
     reduced, particles, shake, floaters, beams, telegraphs: telegraphsFor(),

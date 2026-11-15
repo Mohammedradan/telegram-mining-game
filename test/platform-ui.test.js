@@ -323,6 +323,8 @@ test('platform UI: without a server identity the round is offline training — p
   const game = page.PlatformGame().inspect();
   assert.equal(game.running, true);
   assert.ok(!game.ticket, 'no server ticket without an identity');
+  assert.equal(page.byId('platform-status').classList.contains('mine-status--hint'), false,
+    'a live status message replaces the persistent control hint');
   assert.match(page.byId('platform-status').textContent, /تدريب بلا اتصال/);
   const x0 = game.x;
   page.key('keydown', 'ArrowRight');
