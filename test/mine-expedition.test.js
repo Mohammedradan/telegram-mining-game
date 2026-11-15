@@ -118,6 +118,7 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /\.ck-catwalk-lower\s*\{[^}]*left:\s*50%;[^}]*right:\s*2%;[^}]*top:\s*64%;/);
   assert.match(css, /\.ck-catwalk-lower::after\s*\{[^}]*height:\s*clamp\(70px,\s*28vh,\s*180px\)/);
   assert.match(css, /@media\s*\(max-width:\s*520px\)/);
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-node \{ --ck-node: 44px !important; \}/, 'the five mobile medals retain a 44px minimum touch target');
   assert.match(css, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*560px\)/);
   assert.match(css, /@media\s*\(min-width:\s*760px\)/);
   assert.match(css, /data-conveyor="on"\]\s*\.ck-ore-cart/);
