@@ -343,6 +343,41 @@
   #tab-arena .ar-chip { padding-inline: 7px; font-size: 8.5px; }
 }
 
+@media (max-width: 600px) and (min-height: 620px) {
+  #platform-scene.scene-lobby .mine-overlay { display: block; overflow: hidden; }
+  #platform-scene.scene-lobby .mine-overlay > * { position: absolute; }
+  #platform-scene.scene-lobby .overlay-kicker { top: 8px; left: 50%; transform: translateX(-50%); }
+  #platform-scene.scene-lobby .mine-overlay h3 {
+    top: 47px; left: 50%; margin: 0; transform: translateX(-50%);
+    max-width: 64%; white-space: nowrap;
+  }
+  #platform-scene.scene-lobby .overlay-mission {
+    top: 8px; right: 8px; width: min(48%, 170px); max-width: none; padding: 5px 7px;
+  }
+  #platform-scene.scene-lobby .overlay-lead,
+  #platform-scene.scene-lobby .overlay-help,
+  #platform-scene.scene-lobby .goal-hint { display: none; }
+  #platform-scene.scene-lobby #platform-goals {
+    right: 8px; bottom: 52px; width: min(55%, 230px); margin: 0; padding: 0;
+    background: transparent; border: 0;
+  }
+  #platform-scene.scene-lobby .goal-options { gap: 4px; }
+  #platform-scene.scene-lobby .goal-option { min-height: 58px; padding: 5px 3px; }
+  #platform-scene.scene-lobby #platform-start {
+    top: 110px; left: 8px; bottom: auto; width: min(38%, 150px); min-width: 0; min-height: 44px;
+    padding: 7px 5px; transform: none; font-size: 12px;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    right: 8px; bottom: 7px; width: min(55%, 230px); display: flex; gap: 4px; margin: 0;
+  }
+  #platform-scene.scene-lobby .overlay-row button { min-height: 36px; padding: 4px; font-size: 9px; }
+  #platform-scene.scene-lobby .overlay-row .mine-select-label,
+  #platform-scene.scene-lobby .overlay-row .mine-select-hits { display: none; }
+  #platform-scene.scene-lobby #platform-resume {
+    left: 8px; bottom: 7px; width: min(38%, 150px); min-width: 0; padding: 7px 5px; font-size: 11px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #platform-scene.scene-lobby .mine-hero-btn,
   #platform-scene.scene-lobby #platform-start,

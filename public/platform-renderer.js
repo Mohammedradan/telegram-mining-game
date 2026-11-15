@@ -343,14 +343,17 @@
     c.restore();
   }
 
-  function drawHero(c, p, tick, reduced) {
+  function drawHero(c, p, tick, reduced, showcaseScale = 1) {
     const heroId = p.hero || 'miner';
     const isRun = p.pose === 'run' && !reduced;
     const phase = isRun ? Math.sin(tick * 0.34) * 6 : 0;
     const breath = !reduced && p.pose === 'idle' ? Math.sin(tick * 0.07) * 0.8 : 0;
+    const visualScale = Number.isFinite(showcaseScale) ? Math.max(1, Math.min(2.8, showcaseScale)) : 1;
     c.save();
     c.translate(p.x + 12, p.y + 20);
     c.scale(p.facing, 1);
+    c.scale(visualScale, visualScale);
+    c.translate(0, 21 * (1 / visualScale - 1));
 
     // hurt flash
     if (p.invulnerable && Math.floor(tick / 4) % 2 === 0) c.globalAlpha = 0.35;
@@ -870,6 +873,7 @@
     // ساحة المبارزة: تُرسم فقط عندما يطلبها مسرح تبويب الساحة (opts.arena).
     // قماش تبويب اللعب يبقى منجمًا دائمًا — لا مبارزة نينجا داخل تجربة اللعب الأصلية.
     const arenaMode = !!opts.arena;
+    const showcase = Boolean(opts.showcase && !arenaMode);
     // الساحة تُقرَّب (zoom) فتُقرأ كمبارزة: نافذة رأسية أقصر مثبّتة على أرض القتال (y=360 أسفل الشاشة)
     const zoom = Math.max(1, Math.min(2, Number(opts.zoom) || (arenaMode ? 1.34 : 1)));
     // V19: الساحة مواضع مقاتليها ثابتة في العالم (البطل ≈230 والخصم ≈380) وليست ملاحَقة بكاميرا،
@@ -881,6 +885,8 @@
     const arena = arenaMode ? arenaLayout(s, cssW, cssH) : null;
     const w = arena ? arena.w : Math.max(280, (360 / zoom) * aspect);
     const worldH = arena ? arena.worldH : Math.max(360 / zoom, w / aspect);
+    const displayPlayer = showcase ? { ...s.player, x: Math.max(s.player.x, w * 0.32) } : s.player;
+    const cameraState = showcase ? { ...s, player: displayPlayer } : s;
     const scale = pixelW / w, sy = pixelH / worldH;
     // الأرض عند 80% من ارتفاع المسرح في الحلبة (تُظهر أرضية أمامية للعمق)، وأسفل الشاشة في المنجم
     const yTop = arena ? ARENA_FRAME.groundAt * pixelH - 360 * sy : -(360 - worldH) * sy;
@@ -894,7 +900,7 @@
       c.translate(shakeX, shakeY);
     }
 
-    const camera = arena ? arenaCamera(s, arena) : R.cameraFor(s, w);
+    const camera = arena ? arenaCamera(s, arena) : (showcase ? R.cameraFor(cameraState, w) : R.cameraFor(s, w));
     const L = R.levelFor ? R.levelFor(s.zone) : R.LEVEL; // V5: كل منجم له مستواه (الأرض والأخطار والراية واللافتات والبوابة)
     const skin = (root.PlatformScenery ? root.PlatformScenery.skinFor(L.id) : null);
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
@@ -1548,11 +1554,12 @@
     if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced, arenaMode ? 'arena' : 'mine');
 
     // ---- Hero ----
-    drawHeroGhost(c, s.player, s.tick, reduced);
-    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale);
-    else drawHero(c, s.player, s.tick, reduced);
+    drawHeroGhost(c, displayPlayer, s.tick, reduced);
+    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale, drawHero);
+    else drawHero(c, displayPlayer, s.tick, reduced, showcase ? 2.6 : 1);
     // ---- Mining robot companion (V4 equipment) ----
-    if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
+    if (showcase && displayPlayer.robot) drawDrone(c, displayPlayer, s.tick, reduced);
+    else if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
     for (const beam of (opts.beams || [])) {
       c.globalAlpha = Math.max(0, Math.min(1, beam.life / 8));
       c.strokeStyle = '#7dffd4'; c.lineWidth = 2.5; c.lineCap = 'round';

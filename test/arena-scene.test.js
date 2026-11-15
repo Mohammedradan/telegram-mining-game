@@ -46,8 +46,8 @@ function paint(sim, opts = {}) {
   return paints;
 }
 
-const duel = () => {
-  const s = R.create(0, 4242, { zone: 0, mode: 'duel' });
+const duel = (hero = 'miner') => {
+  const s = R.create(hero, 4242, { zone: 0, mode: 'duel' });
   for (let i = 0; i < 30; i++) R.step(s, 0);
   return s;
 };
@@ -57,11 +57,12 @@ const mine = () => {
   return s;
 };
 
-test('a duel paints the ninja arena (moonlit temple, sakura petals, two fighters) — never the mine tunnels', () => {
+test('a duel paints the arena and the selected miner — never the mine tunnels', () => {
   const duelPaints = paint(duel(), { arena: true });
   assert.ok(duelPaints.includes('#ffc2dd'), 'falling sakura petals are drawn');
   assert.ok(duelPaints.includes('#f9a8d4'), 'sakura blossoms are drawn');
-  assert.ok(duelPaints.includes('#ef2d56'), 'the shadow warrior (red scarf) is on the stage');
+  assert.ok(duelPaints.includes('#e8b248'), 'the selected miner wears the correct helmet');
+  assert.ok(duelPaints.includes('#3e7f9e'), 'the selected miner wears the correct overalls');
   assert.ok(duelPaints.includes('#7c3aed'), 'the shadow ninja (violet scarf) is on the stage');
   assert.ok(duelPaints.includes('#7c1d22'), 'the torii gate is drawn');
   assert.ok(!duelPaints.includes('#5b6e6c'), 'no mining rocks in the arena');
@@ -73,7 +74,13 @@ test('a duel paints the ninja arena (moonlit temple, sakura petals, two fighters
   assert.ok(minePaints.includes('#5b6e6c'), 'the mine still paints its own rocks');
 });
 
-test('the arena scene is a real module: four themed arenas and procedural ninjas', () => {
+test('the arena fighter art follows miner, warrior and archer selection', () => {
+  for (const [hero, color] of [['miner', '#e8b248'], ['warrior', '#5dade2'], ['archer', '#2ecc71']]) {
+    assert.ok(paint(duel(hero), { arena: true }).includes(color), `${hero} art is used in the arena`);
+  }
+});
+
+test('the arena scene is a real module: four themed arenas and an animated rival', () => {
   const sandbox = { Math, Date, console };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
