@@ -1334,6 +1334,11 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
   });
 }));
 
+app.get('/api/arena-leaderboard', rateLimit('arena-board', 120), asyncRoute(async (req, res) => {
+  const top = await store.arenaLeaderboard(10);
+  res.json({ leaderboard: top.map((row, i) => ({ rank: i + 1, ...row })) });
+}));
+
 // ---------------------------------------------------------------------------
 // 🧭 منجم المنصّة (اللعبة الجانبية الحتمية): بداية الجولة وإنهاؤها بإعادة تشغيل
 // الخادم للحركات المسجّلة مع مكافأة افتراضية واحدة مضمونة المعاملة — نفس المصادقة

@@ -219,6 +219,17 @@ function createSqliteStore(file) {
       return conn.prepare('SELECT * FROM users ORDER BY CAST(json_extract(state_json, \'$.totalEarned\') AS REAL) DESC LIMIT ?')
         .all(limit).map(rowToUser);
     },
+    async arenaLeaderboard(limit) {
+      return conn.prepare(`SELECT id, name,
+          CAST(COALESCE(json_extract(sync_json, '$.arena.record.wins'), 0) AS INTEGER) AS wins,
+          CAST(COALESCE(json_extract(sync_json, '$.arena.record.losses'), 0) AS INTEGER) AS losses,
+          CAST(COALESCE(json_extract(sync_json, '$.arena.record.draws'), 0) AS INTEGER) AS draws
+        FROM users
+        WHERE CAST(COALESCE(json_extract(sync_json, '$.arena.record.wins'), 0) AS INTEGER) > 0
+        ORDER BY wins DESC, losses ASC, name COLLATE NOCASE ASC, id ASC
+        LIMIT ?`).all(limit)
+        .map((r) => ({ name: r.name, wins: Number(r.wins) || 0, losses: Number(r.losses) || 0, draws: Number(r.draws) || 0 }));
+    },
     async recordRaceResult(week, { id, name, score, won }) {
       conn.prepare(`INSERT INTO race_stats (week, user_id, name, races, wins, best_score, total_score, updated_at)
         VALUES (?, ?, ?, 1, ?, ?, ?, ?)
@@ -387,6 +398,19 @@ function createPgStore(url) {
     async countUsers() { return Number((await q('SELECT COUNT(*) AS c FROM users')).rows[0].c); },
     async topUsers(limit) {
       return (await q("SELECT * FROM users ORDER BY (state_json->>'totalEarned')::double precision DESC LIMIT $1", [limit])).rows.map(rowToUser);
+    },
+    async arenaLeaderboard(limit) {
+      const { rows } = await q(`SELECT id, name, wins, losses, draws FROM (
+        SELECT id, name,
+          GREATEST(COALESCE(NULLIF(sync_json #>> '{arena,record,wins}', '')::integer, 0), 0) AS wins,
+          GREATEST(COALESCE(NULLIF(sync_json #>> '{arena,record,losses}', '')::integer, 0), 0) AS losses,
+          GREATEST(COALESCE(NULLIF(sync_json #>> '{arena,record,draws}', '')::integer, 0), 0) AS draws
+        FROM users
+      ) AS records
+      WHERE wins > 0
+      ORDER BY wins DESC, losses ASC, name ASC, id ASC
+      LIMIT $1`, [limit]);
+      return rows.map((r) => ({ name: r.name, wins: Number(r.wins) || 0, losses: Number(r.losses) || 0, draws: Number(r.draws) || 0 }));
     },
     async getPending(id) { return Number((await q('SELECT count FROM pending_referrals WHERE id = $1', [String(id)])).rows[0]?.count || 0); },
     async addPending(id) {

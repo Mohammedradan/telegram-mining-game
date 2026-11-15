@@ -229,6 +229,36 @@ test('V10 server: a forged loadout in the request body is ignored — the saved 
   assert.equal(sim.player.guard.maxStamina, 200, 'and the armor breath');
 });
 
+test('arena leaderboard ranks real persistent records and excludes players without wins', async () => {
+  const players = [
+    { key: 'top-clean', name: 'Top Clean', record: { wins: 5, losses: 0, draws: 1 } },
+    { key: 'top-rough', name: 'Top Rough', record: { wins: 5, losses: 2, draws: 0 } },
+    { key: 'bronze', name: 'Bronze', record: { wins: 2, losses: 0, draws: 0 } },
+    { key: 'no-wins', name: 'No Wins', record: { wins: 0, losses: 7, draws: 0 } },
+  ];
+  for (const player of players) {
+    const guestId = `board_${runId}_${player.key}`;
+    const playerHeaders = { 'X-Guest-Id': guestId, 'Content-Type': 'application/json' };
+    const created = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: playerHeaders });
+    assert.equal(created.status, 200);
+    await store.withUsers([`guest_${guestId}`], async () => {
+      const user = await store.getUser(`guest_${guestId}`);
+      user.name = player.name;
+      user.sync.arena.record = player.record;
+      await store.putUser(user);
+    });
+  }
+
+  const response = await fetch(`http://127.0.0.1:${port}/api/arena-leaderboard`);
+  assert.equal(response.status, 200);
+  const { leaderboard } = await response.json();
+  assert.deepEqual(leaderboard, [
+    { rank: 1, name: 'Top Clean', wins: 5, losses: 0, draws: 1 },
+    { rank: 2, name: 'Top Rough', wins: 5, losses: 2, draws: 0 },
+    { rank: 3, name: 'Bronze', wins: 2, losses: 0, draws: 0 },
+  ]);
+});
+
 // ---------- 7) الرحلة الكاملة عبر الخادم: معدات ← مبارزة ← خسارة/فوز ← مكافأة ← عودة ← تعدين ----------
 // كل خطوة تمرّ على HTTP الحقيقي، والنتيجة والمكافأة تُقرأ من إعادة تشغيل الخادم لا من العميل.
 const journeyGuest = `journey_${runId}`;

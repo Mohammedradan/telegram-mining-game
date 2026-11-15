@@ -689,6 +689,11 @@
     <div id="leaderboard-list" class="flex flex-col gap-2">
       <p class="text-xs text-slate-500 text-center py-6">جارٍ التحميل…</p>
     </div>
+    <h2 class="text-lg font-bold text-slate-200 mt-4">⚔️ صدارة مبارزات الساحة</h2>
+    <p class="text-[10px] text-slate-500">سجل دائم — انتصارات أكثر، ثم خسائر أقل. تُحتسب نتائج المبارزات الموثّقة فقط.</p>
+    <div id="arena-leaderboard-list" class="flex flex-col gap-2">
+      <p class="text-xs text-slate-500 text-center py-4">جارٍ تحميل سجل الساحة…</p>
+    </div>
     <h2 class="text-lg font-bold text-slate-200 mt-4">🏆 بطولة سباقات الأسبوع <span id="race-week" class="text-[10px] text-slate-400"></span></h2>
     <p class="text-[10px] text-slate-500">ترتيب المتسابقين هذا الأسبوع — انتصارات أكثر، ثم أفضل نتيجة. افُز بسباقات ⚔️ لتصعد هنا!</p>
     <div id="race-leaderboard-list" class="flex flex-col gap-2">
@@ -837,12 +842,12 @@
           </div>
         </aside>
 
-        <aside class="ar-showcase-panel ar-showcase-leaders" aria-label="المتصدرون حسب الذهب المكتسب">
-          <div class="ar-showcase-heading"><b>المتصدرون</b><span>حسب الذهب المكتسب</span></div>
+        <aside class="ar-showcase-panel ar-showcase-leaders" aria-label="متصدرو مبارزات الساحة">
+          <div class="ar-showcase-heading"><b>متصدرو الساحة</b><span>سجل دائم</span></div>
           <div id="arena-showcase-leaders" class="ar-showcase-leader-list" aria-live="polite">
             <p>جارٍ تحميل المتصدرين…</p>
           </div>
-          <button type="button" class="ar-showcase-link" onclick="switchTab('leaderboard')">عرض لوحة الصدارة</button>
+          <button type="button" class="ar-showcase-link" onclick="switchTab('leaderboard')">عرض ترتيب الساحة</button>
         </aside>
 
         <!-- مساحة حرّة مقصودة: تُبقي المقاتلَين في المشهد مكشوفين بين اللوحة وزر البدء -->
@@ -2747,13 +2752,13 @@
       box.textContent = '';
       if (failed) {
         const message = document.createElement('p');
-        message.textContent = 'تعذّر تحميل الصدارة — تحقّق من الاتصال.';
+        message.textContent = 'تعذّر تحميل سجل الساحة — تحقّق من الاتصال.';
         box.appendChild(message);
         return;
       }
       if (!leaderboard.length) {
         const message = document.createElement('p');
-        message.textContent = 'لا يوجد متصدرون بعد.';
+        message.textContent = 'لا انتصارات مسجّلة بعد.';
         box.appendChild(message);
         return;
       }
@@ -2762,19 +2767,63 @@
         item.className = 'ar-showcase-leader';
         const name = document.createElement('b');
         name.textContent = `#${row.rank} ${row.name}`;
-        const gold = document.createElement('span');
-        gold.textContent = `مستوى ${row.level} · ${fmt(row.totalEarned)} ذهب`;
-        item.append(name, gold);
+        const record = document.createElement('span');
+        record.textContent = `${row.wins} فوز · ${row.losses} خسارة · ${row.draws} تعادل`;
+        item.append(name, record);
         box.appendChild(item);
+      }
+    }
+
+    function renderArenaLeaderboardList(leaderboard, failed = false) {
+      const list = document.getElementById('arena-leaderboard-list');
+      if (!list) return;
+      list.textContent = '';
+      if (failed) {
+        list.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">تعذّر تحميل سجل الساحة (تحتاج اتصالاً بالخادم)</p>';
+        return;
+      }
+      if (!leaderboard.length) {
+        list.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">لا انتصارات مسجّلة بعد — ابدأ أول مبارزة!</p>';
+        return;
+      }
+      for (const row of leaderboard) {
+        const item = document.createElement('div');
+        item.className = 'flex justify-between items-center border p-3 rounded-xl bg-slate-900/90 border-slate-800';
+        const medal = row.rank === 1 ? '🥇' : row.rank === 2 ? '🥈' : row.rank === 3 ? '🥉' : `#${row.rank}`;
+        const left = document.createElement('div');
+        left.className = 'min-w-0';
+        const name = document.createElement('div');
+        name.className = 'font-bold text-sm truncate';
+        name.textContent = `${medal} ${row.name}`;
+        const record = document.createElement('div');
+        record.className = 'text-[10px] text-slate-400';
+        record.textContent = `${row.wins} فوز · ${row.losses} خسارة · ${row.draws} تعادل`;
+        left.append(name, record);
+        const wins = document.createElement('div');
+        wins.className = 'font-black text-amber-300 text-sm shrink-0';
+        wins.textContent = `⚔️ ${row.wins}`;
+        item.append(left, wins);
+        list.appendChild(item);
+      }
+    }
+
+    async function loadArenaLeaderboard() {
+      try {
+        const { leaderboard } = await api('/api/arena-leaderboard');
+        renderArenaShowcaseLeaders(leaderboard);
+        renderArenaLeaderboardList(leaderboard);
+      } catch (e) {
+        renderArenaShowcaseLeaders([], true);
+        renderArenaLeaderboardList([], true);
       }
     }
 
     async function loadLeaderboard() {
       loadRaceLeaderboard();
+      loadArenaLeaderboard();
       const list = document.getElementById('leaderboard-list');
       try {
         const { leaderboard } = await api('/api/leaderboard');
-        renderArenaShowcaseLeaders(leaderboard);
         list.innerHTML = '';
         if (!leaderboard.length) {
           list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">لا لاعبين بعد — كن أول معدّن! ⛏️</p>';
@@ -2801,7 +2850,6 @@
           list.appendChild(el);
         }
       } catch (e) {
-        renderArenaShowcaseLeaders([], true);
         list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">تعذّر تحميل الصدارة (تحتاج اتصالاً بالخادم)</p>';
       }
     }

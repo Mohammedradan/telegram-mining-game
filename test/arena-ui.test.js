@@ -86,6 +86,7 @@ function boot() {
     const u = String(url);
     if (u.startsWith('/api/me')) return { ok: true, status: 200, json: async () => me };
     if (u.startsWith('/api/ops')) return { ok: true, status: 200, json: async () => ({ ok: true, accepted: [], revision: 3, serverSeq: 0, state: me.state }) };
+    if (u.startsWith('/api/arena-leaderboard')) return { ok: true, status: 200, json: async () => ({ leaderboard: [{ rank: 1, name: 'Arena Champion', wins: 3, losses: 0, draws: 1 }] }) };
     // تذكرة جولة صالحة: تسمح باختبار حالة «جولة جارية» ومنطق التخلّي عنها
     if (u.startsWith('/api/platform/start')) return { ok: true, status: 200, json: async () => ({
       id: 'run-probe', version: require('../public/platform-rules').VERSION, seed: 4242,
@@ -162,6 +163,11 @@ test('arena lobby: showcase reward and record use arena data, and leaders come f
   assert.match(html, /txt\('ar-showcase-losses', String\(m\.record\.losses\)\)/);
   assert.match(html, /renderArenaShowcaseLeaders\(leaderboard\)/);
   assert.match(html, /for \(const row of leaderboard\.slice\(0, 3\)\)/);
+  assert.match(html, /api\('\/api\/arena-leaderboard'\)/, 'the arena panel uses its own persistent duel ranking');
+  assert.match(html, /id="arena-leaderboard-list"/, 'the full arena ranking has a dedicated leaderboard section');
+  assert.match(html, /row\.wins\} فوز · \$\{row\.losses\} خسارة · \$\{row\.draws\} تعادل/);
+  const showcaseRenderer = html.slice(html.indexOf('function renderArenaShowcaseLeaders'), html.indexOf('function renderArenaLeaderboardList'));
+  assert.doesNotMatch(showcaseRenderer, /row\.totalEarned|row\.level/, 'the arena showcase never presents gold rankings as duel results');
   assert.match(html, /renderArenaShowcaseLeaders\(\[\], true\)/, 'server failures are shown, not replaced with sample ranks');
 });
 
