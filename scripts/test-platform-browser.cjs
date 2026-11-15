@@ -143,6 +143,11 @@ async function main() {
       const paused = await read(page); await wait(250); assert.equal((await read(page)).tick, paused.tick); assert.equal(paused.scheduled, false);
       await page.locator('#platform-resume').click();
       await page.waitForFunction(t => window.PlatformGame.inspect().tick > t, paused.tick, { timeout: 8000 });
+      await page.waitForFunction(() => document.body.classList.contains('scene-live'));
+      assert.equal(await page.locator('.bottom-nav').isVisible(), false, 'active play hides the global tab bar');
+      await page.locator('#platform-pause').click();
+      await page.waitForFunction(() => window.PlatformGame.inspect().paused && !document.body.classList.contains('scene-live'));
+      assert.equal(await page.locator('.bottom-nav').isVisible(), true, 'pause restores the global tab bar');
       await page.locator('#nav-mining').click(); const left = await read(page); assert.equal(left.paused, true); await wait(100); assert.equal((await read(page)).tick, left.tick);
       await page.locator('#nav-play').click();
       await page.reload();
@@ -153,6 +158,9 @@ async function main() {
       if (viewport.width === 390) await page.screenshot({ path: path.join(screenshots, 'platform-mobile.png') });
       if (viewport.width === 320) await page.screenshot({ path: path.join(screenshots, 'platform-small-phone.png') });
       if (viewport.width === 844) await page.screenshot({ path: path.join(screenshots, 'platform-landscape.png') });
+      await page.locator('#platform-pause').click();
+      await page.waitForFunction(() => window.PlatformGame.inspect().paused && !document.body.classList.contains('scene-live'));
+      assert.equal(await page.locator('.bottom-nav').isVisible(), true, 'the round is paused before the next browser suite starts');
       report.viewports.push({ ...viewport, multiTouch: touchReady, pause: true, reloadResume: true, touchPad: viewport.width < 1024 });
       await ctx.close();
     }
