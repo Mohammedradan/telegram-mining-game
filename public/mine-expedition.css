@@ -1042,7 +1042,7 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave .ck-hud .balance-strip { min-height: 36px; }
   body.ck-cave #energy-container { top: 48px; min-height: 27px; }
   body.ck-cave #ck-stage .ck-nodes { top: 86px; }
-  body.ck-cave #ck-stage .ck-node { --ck-node: 36px !important; }
+  body.ck-cave #ck-stage .ck-node { --ck-node: 44px !important; }
   body.ck-cave #ck-stage .ck-node-tag { display: none; }
   body.ck-cave .ck-depth-sign { top: 136px; max-width: 38vw; }
   body.ck-cave .ck-depth-sign b { font-size: 9px; }
