@@ -12,10 +12,31 @@
     Object.freeze({ id:'lava', name:'منجم الحمم', ore:'خام ناري', depth:'980 م' }),
     Object.freeze({ id:'legendary', name:'المنجم الأسطوري', ore:'خام أسطوري', depth:'1500 م' }),
   ]);
-  const ROAD_OBSTACLES = Object.freeze([
-    Object.freeze({ id:'boulder', x:.38, y:.78, radius:.09 }),
-    Object.freeze({ id:'steam', x:.67, y:.48, radius:.09 }),
+  const ROAD_LAYOUTS = Object.freeze([
+    Object.freeze([
+      Object.freeze({ id:'boulder', x:.38, y:.78, radius:.09 }),
+      Object.freeze({ id:'steam', x:.67, y:.48, radius:.09 }),
+    ]),
+    Object.freeze([
+      Object.freeze({ id:'boulder', x:.45, y:.68, radius:.09 }),
+      Object.freeze({ id:'steam', x:.72, y:.42, radius:.09 }),
+    ]),
+    Object.freeze([
+      Object.freeze({ id:'boulder', x:.31, y:.6, radius:.09 }),
+      Object.freeze({ id:'steam', x:.62, y:.77, radius:.09 }),
+    ]),
+    Object.freeze([
+      Object.freeze({ id:'boulder', x:.49, y:.79, radius:.09 }),
+      Object.freeze({ id:'steam', x:.73, y:.5, radius:.09 }),
+    ]),
+    Object.freeze([
+      Object.freeze({ id:'boulder', x:.35, y:.66, radius:.09 }),
+      Object.freeze({ id:'steam', x:.64, y:.43, radius:.09 }),
+    ]),
   ]);
+  const ROAD_OBSTACLES = ROAD_LAYOUTS[0];
+  const FLOOR_SPLIT = .56;
+  const SHAFTS = Object.freeze([.14, .84]);
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   function create(initial=0) {
     const index=clamp(Math.floor(Number(initial)||0),0,MINES.length-1);
@@ -32,12 +53,21 @@
     return !!state && state.index < MINES.length - 1 &&
       (state.breaks >= 3 || state.index < state.unlocked);
   }
+  function routeSegment(state) {
+    if (!state) return 0;
+    const index=clamp(Math.floor(Number(state.index)||0),0,MINES.length-1);
+    const destination=clamp(index+(state.travelDirection<0?1:-1),0,MINES.length-1);
+    return clamp(Math.min(index,destination),0,MINES.length-2);
+  }
+  function routeObstacles(state) {
+    return ROAD_LAYOUTS[routeSegment(state)];
+  }
   function moveOverland(state, miner, x, y, dt, aspect, band, speed, depthSpeed, oldX, oldY) {
     const direction=state.travelDirection < 0 ? -1 : 1;
     let nextX=clamp(miner.x+x*speed*dt,band.x0,band.x1);
     let nextY=clamp(miner.y+y*speed*depthSpeed*dt*Math.max(.2,aspect),band.y0,band.y1);
     let obstacle=null;
-    for (const item of ROAD_OBSTACLES) {
+    for (const item of routeObstacles(state)) {
       const d=Math.hypot(nextX-item.x,(nextY-item.y)/Math.max(.2,aspect));
       if (d < item.radius && Math.abs(nextX-oldX)>1e-8) {
         nextX=oldX;
@@ -79,15 +109,20 @@
     const len=Math.hypot(x,y), k=len>1?1/len:1, a=Math.max(.2,Number(aspect)||1);
     const ox=miner.x, oy=miner.y;
     if (state.mode==='overland') return moveOverland(state,miner,x*k,y*k,dt,a,band,speed,depthSpeed,ox,oy);
-    const ladder=Math.abs(miner.x-.14)<=.105, lift=Math.abs(miner.x-.84)<=.09;
+    const ladder=Math.abs(miner.x-SHAFTS[0])<=.105, lift=Math.abs(miner.x-SHAFTS[1])<=.09;
     const vertical=!!(ladder||lift) && Math.abs(y)>.05;
+    const laneMin=state.floor==='upper'?band.y0:FLOOR_SPLIT;
+    const laneMax=state.floor==='upper'?FLOOR_SPLIT-1e-4:band.y1;
+    miner.y=clamp(miner.y,laneMin,laneMax);
     miner.x=clamp(miner.x+x*k*speed*dt,band.x0,band.x1);
     // The y axis is depth in a cave and a cross-track lane outdoors.
-    miner.y=clamp(miner.y+y*k*speed*depthSpeed*dt*a,band.y0,band.y1);
-    if (vertical) state.floor=miner.y<.56?'upper':'lower';
+    const nextY=clamp(miner.y+y*k*speed*depthSpeed*dt*a,band.y0,band.y1);
+    miner.y=vertical?nextY:clamp(nextY,laneMin,laneMax);
+    if (vertical && ((state.floor==='lower' && miner.y<FLOOR_SPLIT) || (state.floor==='upper' && miner.y>=FLOOR_SPLIT)))
+      state.floor=miner.y<FLOOR_SPLIT?'upper':'lower';
     state.climbing=vertical;
     if (Math.abs(x)>.2) miner.face=x>0?1:-1;
-    const atUpperTunnel=state.floor==='upper' && miner.y<.56;
+    const atUpperTunnel=state.floor==='upper' && miner.y<FLOOR_SPLIT;
     // A locked rockslide physically blocks the upper exit, not just its label.
     if (atUpperTunnel && x>.05 && state.index<MINES.length-1 && !canAdvance(state))
       miner.x=Math.min(miner.x,Math.max(band.x0,band.x1-.06));
@@ -106,5 +141,5 @@
     const moved=transition ? 0 : Math.hypot(miner.x-ox,(miner.y-oy)/a);
     return { moved, transition, climbing:vertical, ladder, lift, floor:state.floor, overland:false };
   }
-  return Object.freeze({ MINES, ROAD_OBSTACLES, create, recordBreak, canAdvance, step });
+  return Object.freeze({ MINES, ROAD_OBSTACLES, ROAD_LAYOUTS, create, recordBreak, canAdvance, routeSegment, routeObstacles, step });
 });

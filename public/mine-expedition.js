@@ -31,6 +31,14 @@
     Object.freeze({ id: 'lava', name: 'منجم الحمم', ore: 'خام ناري', depth: '980 م' }),
     Object.freeze({ id: 'legendary', name: 'المنجم الأسطوري', ore: 'خام أسطوري', depth: '1500 م' }),
   ]);
+  const CACHE_POSITIONS = Object.freeze([
+    Object.freeze({ toolkit: Object.freeze({ x: 0.09, y: 0.67 }), secret: Object.freeze({ x: 0.89, y: 0.63 }) }),
+    Object.freeze({ toolkit: Object.freeze({ x: 0.78, y: 0.67 }), secret: Object.freeze({ x: 0.22, y: 0.48 }) }),
+    Object.freeze({ toolkit: Object.freeze({ x: 0.22, y: 0.48 }), secret: Object.freeze({ x: 0.78, y: 0.67 }) }),
+    Object.freeze({ toolkit: Object.freeze({ x: 0.72, y: 0.65 }), secret: Object.freeze({ x: 0.28, y: 0.46 }) }),
+    Object.freeze({ toolkit: Object.freeze({ x: 0.22, y: 0.67 }), secret: Object.freeze({ x: 0.78, y: 0.48 }) }),
+    Object.freeze({ toolkit: Object.freeze({ x: 0.78, y: 0.48 }), secret: Object.freeze({ x: 0.22, y: 0.67 }) }),
+  ]);
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
   const num = (value, fallback = 0) => {
     const n = Number(value);
@@ -100,9 +108,15 @@
     ];
   }
 
+  function cachePosition(cache, mineIndex = 0) {
+    const index = clamp(Math.floor(num(mineIndex)), 0, CACHE_POSITIONS.length - 1);
+    return CACHE_POSITIONS[index][cleanId(cache && cache.id)] || { x: num(cache && cache.x, 0.5), y: num(cache && cache.y, 0.7) };
+  }
+
   const cacheNear = (cache, snapshot) => {
     if (!cache || !snapshot) return false;
-    return distance({ x: cache.x, y: cache.y }, snapshot.miner, aspectOf(snapshot)) <= 0.23;
+    const position = cachePosition(cache, snapshot.mine && snapshot.mine.index);
+    return distance(position, snapshot.miner, aspectOf(snapshot)) <= 0.23;
   };
 
   function cacheState(cache, snapshot, discoveries) {
@@ -342,6 +356,9 @@
       refs.caches.forEach((button) => {
         const cache = cacheById.get(button.getAttribute('data-cache'));
         if (!cache) return;
+        const position = cachePosition(cache, snapshot.mine && snapshot.mine.index);
+        button.style.setProperty('--cache-x', String(position.x));
+        button.style.setProperty('--cache-y', String(position.y));
         const state = cacheState(cache, snapshot, discoveries);
         button.dataset.state = state;
         button.setAttribute('aria-pressed', state === 'found' ? 'true' : 'false');
@@ -400,9 +417,10 @@
   }
 
   Object.assign(api, {
-    VERSION: 1,
+    VERSION: 2,
     DISCOVERY_KEY,
     CACHE_DEFS,
+    CACHE_POSITIONS,
     TASK_DEFS,
     MINES,
     normalizeDiscoveries,
@@ -410,6 +428,7 @@
     markDiscovery,
     discovered,
     objectiveSnapshot,
+    cachePosition,
     cacheState,
     cacheNear,
     createStore,

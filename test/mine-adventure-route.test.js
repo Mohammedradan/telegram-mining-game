@@ -12,7 +12,13 @@ const page = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 test('a connected overland landscape has walkable terrain, obstacles, and route progress driven by the miner', () => {
   assert.equal((digSite.match(/class="ck-route-node" data-route-index=/g) || []).length, 6);
   assert.match(digSite, /class="ck-overland-world" hidden role="region" aria-label="مسار جبلي متصل بين المناجم/);
+  assert.match(digSite, /class="ck-land-ground" aria-hidden="true"/);
   assert.match(digSite, /class="ck-overland-road"/);
+  assert.match(digSite, /overlandWorld\.dataset\.segment = String\(MineWorld\.routeSegment\(mineWorld\)\)/);
+  assert.match(digSite, /MineWorld\.routeObstacles\(mineWorld\)/);
+  assert.match(digSite, /element\.style\.left = `\$\{\(obstacle\.x \* 100\)\.toFixed\(2\)\}%`/);
+  assert.match(styles, /\.ck-overland-world\[data-segment="4"\]/);
+  assert.match(styles, /\.ck-land-ground:before/);
   assert.match(digSite, /data-obstacle="boulder"/);
   assert.match(digSite, /data-obstacle="steam"/);
   assert.match(digSite, /mineWorld\.routeProgress/);
@@ -33,14 +39,16 @@ test('mine exits and overland travel preserve the physical edge while the player
   assert.match(digSite, /if \(traversal\.transition === 'arrive'\)/);
   assert.match(styles, /\.ck-overland-world\[hidden\]\{display:none!important\}/);
   assert.match(styles, /\.ck-mine-set\[data-route-mode="overland"\]/);
+  assert.match(styles, /#ck-world\[data-route-mode="overland"\] #mine-btn \{ visibility: hidden; pointer-events: none; \}/);
   assert.match(styles, /\.ck-road-obstacle/);
 });
 
-test('mobile drill and assigned hauler are positioned in the playfield and follow actual miner movement', () => {
+test('mobile drill and assigned hauler are positioned around the mine deposit', () => {
   assert.match(digSite, /class="ck-mobile-rig"/);
   assert.match(digSite, /class="ck-mobile-hauler"/);
-  assert.match(digSite, /targetRigX = machinery\.drill && miningMode && rock \? rock\.x : clamp\(miner\.x/);
-  assert.match(digSite, /targetWorkerX = machinery\.worker \? clamp\(miner\.x/);
+  const targets = digSite.slice(digSite.indexOf('function fieldTargets'), digSite.indexOf('function positionFieldUnits'));
+  assert.match(targets, /rig: drilling[\s\S]*rock\.x/);
+  assert.match(targets, /worker: assigned[\s\S]*rock\.x - 0\.16/);
   assert.match(digSite, /fieldUnitsNeedFrame/);
   assert.match(styles, /\.ck-mobile-rig\{/);
   assert.match(styles, /\.ck-mobile-hauler\{/);
@@ -55,9 +63,9 @@ test('the mountain obstacle unlocks only through mining progress, with responsiv
   assert.match(styles, /\.ck-rockslide\{/);
   assert.match(styles, /@media\(max-width:520px\).*ck-expedition-route/);
   assert.match(styles, /@media\(prefers-reduced-motion:reduce\).*ck-mobile-rig-bit/);
-  assert.match(page, /clicker\.css\?v=14/);
-  assert.match(page, /mine-world\.js\?v=3/);
+  assert.match(page, /clicker\.css\?v=18/);
+  assert.match(page, /mine-world\.js\?v=5/);
   assert.match(page, /mine-route-store\.js\?v=2/);
-  assert.match(page, /dig-site\.js\?v=11/);
+  assert.match(page, /dig-site\.js\?v=14/);
   assert.ok(page.indexOf('<script src="/mine-route-store.js') < page.indexOf('<script src="/dig-site.js'), 'the local route store loads before DigSite');
 });

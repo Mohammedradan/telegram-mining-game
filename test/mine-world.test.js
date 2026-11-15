@@ -17,6 +17,34 @@ const clearRoute=(world,miner,direction)=>{
 test('world contains the six planned mine biomes in progression order', () => {
   assert.deepEqual(MineWorld.MINES.map(m=>m.id), ['stone','iron','gold','crystal','lava','legendary']);
 });
+test('each mountain leg keeps the same terrain profile in either direction', () => {
+  for(let segment=0;segment<MineWorld.MINES.length-1;segment++){
+    const forward=MineWorld.create(segment); forward.travelDirection=-1;
+    const returning=MineWorld.create(segment+1); returning.travelDirection=1;
+    assert.equal(MineWorld.routeSegment(forward),segment);
+    assert.equal(MineWorld.routeSegment(returning),segment);
+  }
+  assert.equal(MineWorld.routeSegment(MineWorld.create(5)),MineWorld.MINES.length-2,'the final mine has no route beyond it');
+});
+test('each mountain leg has distinct obstacles that block the same positions on return', () => {
+  const layouts=new Set();
+  for(let segment=0;segment<MineWorld.MINES.length-1;segment++){
+    const forward=MineWorld.create(segment); forward.mode='overland'; forward.travelDirection=-1;
+    const returning=MineWorld.create(segment+1); returning.mode='overland'; returning.travelDirection=1;
+    const obstacles=MineWorld.routeObstacles(forward);
+    assert.deepEqual(MineWorld.routeObstacles(returning),obstacles);
+    layouts.add(obstacles.map(o=>`${o.id}:${o.x}:${o.y}`).join('|'));
+    for(const obstacle of obstacles){
+      for(const [world,direction,offset] of [[forward,-1,.12],[returning,1,-.12]]){
+        const miner={x:obstacle.x+offset,y:obstacle.y,face:direction};
+        const result=MineWorld.step(world,miner,{x:direction,y:0},.2,1,band);
+        assert.equal(result.obstacle,obstacle.id,`${obstacle.id} blocks leg ${segment} in direction ${direction}`);
+        assert.ok(Math.abs(miner.x-(obstacle.x+offset))<1e-9,'the player does not walk through a route hazard');
+      }
+    }
+  }
+  assert.equal(layouts.size,MineWorld.MINES.length-1,'the five legs do not reuse one obstacle layout');
+});
 test('the cave exit opens onto a walkable overland segment; breaking rocks does not teleport caves', () => {
   const world=MineWorld.create(), miner={x:.89,y:.4,face:1}; world.floor='upper';
   for(let i=0;i<3;i++) MineWorld.recordBreak(world);
@@ -44,12 +72,19 @@ test('an uncleared rockslide physically blocks the upper cave exit until three r
 });
 test('vertical movement requires reaching a ladder or elevator shaft', () => {
   const world=MineWorld.create(), miner={x:.5,y:.8,face:1};
-  MineWorld.step(world,miner,{x:0,y:-1},.2,1,band);
-  assert.ok(miner.y<.8);
+  MineWorld.step(world,miner,{x:0,y:-1},1,1,band);
+  assert.ok(miner.y>=.56,'the lower-floor boundary blocks climbing away from a shaft');
   assert.equal(world.floor,'lower');
-  miner.y=.8; miner.x=.14;
+  miner.x=.14;
   const r=MineWorld.step(world,miner,{x:0,y:-1},1,1,band);
-  assert.ok(miner.y<.8 && r.climbing); assert.equal(world.floor,'upper');
+  assert.ok(miner.y<.56 && r.climbing); assert.equal(world.floor,'upper');
+  miner.x=.5;
+  MineWorld.step(world,miner,{x:0,y:1},1,1,band);
+  assert.ok(miner.y<.56,'the upper floor boundary also blocks descent away from a shaft');
+  assert.equal(world.floor,'upper');
+  miner.x=.14;
+  MineWorld.step(world,miner,{x:0,y:1},1,1,band);
+  assert.ok(miner.y>=.56); assert.equal(world.floor,'lower');
 });
 test('the elevator shaft also connects the lower and upper work lanes', () => {
   const world=MineWorld.create(), miner={x:.84,y:.8,face:1};

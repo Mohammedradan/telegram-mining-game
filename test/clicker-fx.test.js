@@ -526,9 +526,9 @@ test('clicker.css honours reduced motion, never animates the size of a tap targe
   }
   // sizes adapt to the field they live in (container units) with a viewport fallback
   assert.match(css, /container-type: size/);
-  assert.match(css, /@supports \(width: 1cqw\) \{\s*\.ck-area \{\s*--miner-h: min\(50cqh, 46cqw\);\s*--rock-w: min\(35cqw, 52cqh\);/);
-  assert.match(css, /--miner-h: min\(46vw, 190px\)/);
-  assert.match(css, /--rock-w: min\(40vw, 170px\)/);
+  assert.match(css, /@supports \(width: 1cqw\) \{\s*\.ck-area \{\s*--miner-h: min\(40cqh, 38cqw\);\s*--rock-w: min\(36cqw, 52cqh\);/);
+  assert.match(css, /--miner-h: min\(38vw, 150px\)/);
+  assert.match(css, /--rock-w: min\(36vw, 150px\)/);
   assert.match(css, /@media \(orientation: landscape\) and \(max-height: 520px\)/);
   assert.match(css, /@media \(max-height: 640px\) \{[^}]*\.ck-hint \{ display: none; \}/);
   assert.match(css, /@media \(max-height: 700px\) \{\s*body\.ck-cave \.app-header \{ display: none; \}/);

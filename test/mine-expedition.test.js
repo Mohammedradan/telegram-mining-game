@@ -72,9 +72,41 @@ test('secret cache opens only after enough mining and a server-started machinery
   assert.equal(Expedition.cacheState(secret, secretPowered, { stone: ['secret'] }), 'found');
 });
 
+test('each cave places caches in distinct reachable locations and checks the displayed position', () => {
+  const toolkit = Expedition.CACHE_DEFS.find((cache) => cache.id === 'toolkit');
+  const secret = Expedition.CACHE_DEFS.find((cache) => cache.id === 'secret');
+  const layouts = Expedition.CACHE_POSITIONS.map((layout) => `${layout.toolkit.x},${layout.toolkit.y}:${layout.secret.x},${layout.secret.y}`);
+  assert.equal(Expedition.CACHE_POSITIONS.length, Expedition.MINES.length);
+  assert.equal(new Set(layouts).size, Expedition.MINES.length);
+  for (const layout of Expedition.CACHE_POSITIONS) {
+    for (const position of Object.values(layout)) {
+      assert.ok(position.x >= 0.08 && position.x <= 0.92);
+      assert.ok(position.y >= 0.34 && position.y <= 0.88);
+    }
+  }
+  const stonePosition = Expedition.cachePosition(toolkit, 0);
+  const ironPosition = Expedition.cachePosition(toolkit, 1);
+  assert.notDeepEqual(stonePosition, ironPosition);
+  assert.ok(stonePosition.y >= 0.56);
+  assert.ok(ironPosition.y >= 0.56);
+
+  const ironSecretPosition = Expedition.cachePosition(secret, 1);
+  assert.ok(ironSecretPosition.y >= 0.34 && ironSecretPosition.y < 0.56);
+  const ironMine = snapshot({
+    miner: ironSecretPosition,
+    mine: { ...snapshot().mine, index: 1, breaks: 2, definition: { id: 'iron' } },
+    machinery: { drill: true, conveyor: true, worker: true },
+  });
+  assert.equal(Expedition.cacheState(secret, ironMine, {}), 'ready');
+  assert.equal(Expedition.cacheNear(secret, snapshot({
+    miner: Expedition.cachePosition(secret, 0),
+    mine: { ...snapshot().mine, index: 1, breaks: 2, definition: { id: 'iron' } },
+  })), false);
+});
+
 test('expanded mining shell is wired, responsive and focusable', () => {
-  assert.match(html, /href="\/mine-expedition\.css\?v=1"/);
-  assert.match(html, /src="\/mine-expedition\.js\?v=1"/);
+  assert.match(html, /href="\/mine-expedition\.css\?v=2"/);
+  assert.match(html, /src="\/mine-expedition\.js\?v=2"/);
   assert.match(html, /id="i-fullscreen"/);
   assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
   assert.match(css, /body\.ck-cave\s*\{[^}]*max-width:\s*none/s);
@@ -82,6 +114,9 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /body\.ck-mining-focus/);
   assert.match(css, /\.ck-expedition-rail/);
   assert.match(css, /\.ck-goal\.is-done/);
+  assert.match(css, /\.ck-catwalk-upper\s*\{[^}]*left:\s*4%;[^}]*right:\s*4%;[^}]*top:\s*34%;/);
+  assert.match(css, /\.ck-catwalk-lower\s*\{[^}]*left:\s*4%;[^}]*right:\s*4%;[^}]*top:\s*56%;/);
+  assert.match(css, /\.ck-catwalk-lower::after\s*\{[^}]*height:\s*clamp\(70px,\s*28vh,\s*180px\)/);
   assert.match(css, /@media\s*\(max-width:\s*520px\)/);
   assert.match(css, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*560px\)/);
   assert.match(css, /@media\s*\(min-width:\s*760px\)/);
