@@ -63,7 +63,7 @@ test('the mountain obstacle unlocks only through mining progress, with responsiv
   assert.match(styles, /\.ck-rockslide\{/);
   assert.match(styles, /@media\(max-width:520px\).*ck-expedition-route/);
   assert.match(styles, /@media\(prefers-reduced-motion:reduce\).*ck-mobile-rig-bit/);
-  assert.match(page, /clicker\.css\?v=18/);
+  assert.match(page, /clicker\.css\?v=19/);
   assert.match(page, /mine-world\.js\?v=5/);
   assert.match(page, /mine-route-store\.js\?v=2/);
   assert.match(page, /dig-site\.js\?v=15/);
