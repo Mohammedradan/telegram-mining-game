@@ -26,7 +26,7 @@
   <!-- Interface v2: consistent navigation, touch targets and responsive action buttons -->
   <link rel="stylesheet" href="/minequest-interface-v2.css?v=1">
   <!-- عالم التعدين الموسّع: ملء الشاشة، خرائط وأهداف قابلة للطي وطبقات كهف أعمق -->
-  <link rel="stylesheet" href="/mine-expedition.css?v=2">
+  <link rel="stylesheet" href="/mine-expedition.css?v=5">
   <!-- تخطيط منجم المنصّة بلا تمرير: شريط علوي مدمج + HUD داخل الكانفاس + حالات Lobby/Live (عرض فقط) -->
   <link rel="stylesheet" href="/platform-layout.css?v=1">
 </head>
@@ -515,6 +515,10 @@
        معدّن يتفاعل، وزر «إلى المنجم». العرض كله من public/clicker-fx.js؛ الذهب والطاقة والعمليات تبقى من handleMine/buyUpgrade/activateBoost. -->
   <main id="tab-mining" class="tab-content flex-col items-center relative flex-1 ck-tab">
     <div id="ck-stage" class="ck-stage" data-boost="0" data-frenzy="0" data-fresh="1">
+      <div class="ck-screen-title">
+        <span class="ck-screen-title-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></span>
+        <span><b>منجم الأعماق المتقدمة</b><small>استكشف المناجم واجمع الخامات</small></span>
+      </div>
       <div class="ck-ambience" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <!-- ميداليات الترقية (تُبنى من clicker-fx.js): حلقة التقدّم = رصيدك ÷ سعر الترقية، وتخضرّ مع سهم حين تتاح -->
       <div id="ck-nodes" class="ck-nodes" role="group" aria-label="ترقيات التعدين"></div>
@@ -1190,7 +1194,7 @@
   <script src="/mine-world.js?v=5"></script>
   <script src="/mine-route-store.js?v=2"></script>
   <!-- موقع الحفر: المعدّن يمشي ويحفر بعصا التحكم؛ كل ضربة = handleMine واحد (الاقتصاد لم يتغير) -->
-  <script src="/dig-site.js?v=14"></script>
+  <script src="/dig-site.js?v=15"></script>
   <!-- الحفر العميق: بئر عمودي بعصا التحكم. نموذج حتمي + مُرسِم Canvas + صوت مولَّد + واجهة؛ عميل فقط (لا ذهب ولا خادم) -->
   <script src="/deep-dig.js?v=2"></script>
   <script src="/cave-sound.js?v=1"></script>
@@ -4511,7 +4515,7 @@
   <script src="/mine-machinery-client.js?v=1"></script>
   <script>window.DigSite?.syncMachinery?.();</script>
   <!-- طبقة الاستكشاف: ملء الشاشة، الخريطة، الأهداف ومخابئ الكهف (لا تمنح موارد من العميل) -->
-  <script src="/mine-expedition.js?v=2"></script>
+  <script src="/mine-expedition.js?v=4"></script>
   <!-- متحكم مشهد منجم المنصّة: خطوة ثابتة 60Hz وتسجيل حركات يتحقق منها الخادم -->
   <script src="/platform-summary.js?v=1"></script>
   <script src="/platform-audio.js?v=1"></script>

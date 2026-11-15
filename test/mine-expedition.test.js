@@ -105,8 +105,8 @@ test('each cave places caches in distinct reachable locations and checks the dis
 });
 
 test('expanded mining shell is wired, responsive and focusable', () => {
-  assert.match(html, /href="\/mine-expedition\.css\?v=2"/);
-  assert.match(html, /src="\/mine-expedition\.js\?v=2"/);
+  assert.match(html, /href="\/mine-expedition\.css\?v=5"/);
+  assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   assert.match(html, /id="i-fullscreen"/);
   assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
   assert.match(css, /body\.ck-cave\s*\{[^}]*max-width:\s*none/s);
@@ -114,8 +114,8 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /body\.ck-mining-focus/);
   assert.match(css, /\.ck-expedition-rail/);
   assert.match(css, /\.ck-goal\.is-done/);
-  assert.match(css, /\.ck-catwalk-upper\s*\{[^}]*left:\s*4%;[^}]*right:\s*4%;[^}]*top:\s*34%;/);
-  assert.match(css, /\.ck-catwalk-lower\s*\{[^}]*left:\s*4%;[^}]*right:\s*4%;[^}]*top:\s*56%;/);
+  assert.match(css, /\.ck-catwalk-upper\s*\{[^}]*left:\s*3%;[^}]*right:\s*48%;[^}]*top:\s*49%;/);
+  assert.match(css, /\.ck-catwalk-lower\s*\{[^}]*left:\s*50%;[^}]*right:\s*2%;[^}]*top:\s*64%;/);
   assert.match(css, /\.ck-catwalk-lower::after\s*\{[^}]*height:\s*clamp\(70px,\s*28vh,\s*180px\)/);
   assert.match(css, /@media\s*\(max-width:\s*520px\)/);
   assert.match(css, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*560px\)/);

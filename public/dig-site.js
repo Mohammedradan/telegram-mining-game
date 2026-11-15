@@ -940,13 +940,15 @@
       <div class="ck-floor-beacon ck-floor-beacon-lower" aria-hidden="true"><span>سفلي</span></div>
       <div class="ck-depth-sign"><b>المنجم الحجري</b><small>120 م · حجر ونحاس · 0/3</small></div>
       <div class="ck-exit-gate" data-open="false">اكسر 3 صخور لفتح الممر</div>
-      <section class="ck-machine-console" aria-label="لوحة تشغيل المنشآت">
-        <b class="ck-machine-console-title">تحكم المنشآت</b>
-        <button type="button" data-machine-action="drill" aria-pressed="false">تشغيل الحفّار</button>
-        <button type="button" data-machine-action="conveyor" aria-pressed="false">تشغيل سير الخام</button>
-        <button type="button" data-machine-action="worker" aria-pressed="false">تعيين عامل النقل</button>
-        <small class="ck-machine-status" aria-live="polite">المنشآت متوقفة</small>
-      </section>
+      <details class="ck-machine-console" aria-label="لوحة تشغيل المنشآت">
+        <summary class="ck-machine-console-title">تحكم المنشآت</summary>
+        <div class="ck-machine-console-body">
+          <button type="button" data-machine-action="drill" aria-pressed="false">تشغيل الحفّار</button>
+          <button type="button" data-machine-action="conveyor" aria-pressed="false">تشغيل سير الخام</button>
+          <button type="button" data-machine-action="worker" aria-pressed="false">تعيين عامل النقل</button>
+          <small class="ck-machine-status" aria-live="polite">المنشآت متوقفة</small>
+        </div>
+      </details>
     `;
     els.world.insertBefore(set, els.world.firstChild);
     const consoleEl = set.querySelector && set.querySelector('.ck-machine-console');

@@ -405,11 +405,6 @@
     if (root.addEventListener) root.addEventListener('resize', scheduleUpdate, { passive: true });
     if (doc.addEventListener) doc.addEventListener('visibilitychange', () => { if (!doc.hidden) scheduleUpdate(); });
     syncFullscreenButton();
-    if (refs.goalsPanel && num(root.innerWidth, 0) >= 980) refs.goalsPanel.open = true;
-    if (refs.mapPanel && num(root.innerWidth, 0) >= 1280) {
-      if (refs.goalsPanel) refs.goalsPanel.open = false;
-      refs.mapPanel.open = true;
-    }
     update();
     if (root.setInterval) root.setInterval(update, 500);
     api.active = true;

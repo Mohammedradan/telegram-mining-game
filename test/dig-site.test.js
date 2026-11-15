@@ -858,9 +858,13 @@ test('mine biome presentation follows the active mine and floor without replacin
 test('mine machinery controls are interactive, accessible, and keep the worker assignment dependent on the conveyor', () => {
   const source = read('public', 'dig-site.js');
   const styles = read('public', 'clicker.css');
+  const expeditionStyles = read('public', 'mine-expedition.css');
   for (const token of ['data-machine-action="drill"','data-machine-action="conveyor"','data-machine-action="worker"','aria-pressed="false"','machinery[action]','!machinery.conveyor','data-drill','data-conveyor','data-worker']) {
     assert.ok(source.includes(token), `machine interaction includes ${token}`);
   }
+  assert.match(source, /<details class="ck-machine-console"[\s\S]*?<summary class="ck-machine-console-title">تحكم المنشآت<\/summary>/);
+  assert.match(expeditionStyles, /\.ck-machine-console-title\s*\{[^}]*display:\s*flex !important/);
+  assert.match(expeditionStyles, /body\.ck-cave \.ck-machine-console\s*\{[^}]*z-index:\s*120 !important/);
   assert.match(styles, /\.ck-mine-set\[data-drill="on"\] \.ck-drill-cart/);
   assert.match(styles, /\.ck-mine-set\[data-conveyor="off"\].*animation-play-state:paused/);
   assert.match(styles, /\.ck-mine-set\[data-worker="assigned"\] \.ck-crew-hauler/);
