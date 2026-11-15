@@ -18,6 +18,10 @@
 
   // لون عرق الخام داخل الصخرة: يتعرّف اللاعب على نوع الغنيمة قبل كسرها (المحرك يحدد الخام من البذرة والمنجم والحظ)
   const ORE_TINT = { copper: '#d68a5a', iron: '#b3bec6', gold: '#ffd166', crystal: '#56ebd3', lava: '#ff7a45' };
+  const caveBackdrop = typeof root.Image === 'function' ? new root.Image() : null;
+  const heroSheet = typeof root.Image === 'function' ? new root.Image() : null;
+  if (caveBackdrop) caveBackdrop.src = '/assets/cave/cave-wide.jpg?v=1';
+  if (heroSheet) heroSheet.src = '/assets/cave/hero-sheet.webp?v=1';
 
   const round = (c, x, y, w, h, r, color) => {
     c.fillStyle = color;
@@ -289,6 +293,56 @@
     }
   }
 
+  function drawMinerSprite(c, p, tick, reduced) {
+    if (!heroSheet || !heroSheet.complete || !heroSheet.naturalWidth || !heroSheet.naturalHeight || p.pose === 'dead' || p.pose === 'hurt') return false;
+    let col = 0, row = 0;
+    if (p.pose === 'run') col = reduced ? 1 : 1 + Math.floor(tick / 8) % 2;
+    else if (p.pose === 'mine' || p.pose === 'attack' || p.pose === 'heavy') { row = 1; col = 1; }
+    else if (p.pose === 'victory') { row = 1; col = 2; }
+    else if (p.pose === 'guard') row = 1;
+    else if (p.pose === 'jump' || p.pose === 'fall') col = 2;
+    const frameW = heroSheet.naturalWidth / 3, frameH = heroSheet.naturalHeight / 2;
+    const idleBob = !reduced && p.pose === 'idle' ? Math.sin(tick * 0.07) * 0.8 : 0;
+    c.drawImage(heroSheet, col * frameW, row * frameH, frameW, frameH, -27, -37 + idleBob, 54, 58);
+    return true;
+  }
+
+  function drawMineLift(c, x, tick, reduced) {
+    const bob = reduced ? 0 : Math.sin(tick * 0.025) * 3;
+    const carY = 164 + bob;
+    c.save();
+    c.fillStyle = 'rgba(5,12,17,.62)';
+    c.fillRect(x - 28, 72, 56, 230);
+    round(c, x - 39, 68, 8, 236, 2, '#47372b');
+    round(c, x + 31, 68, 8, 236, 2, '#47372b');
+    round(c, x - 36, 70, 3, 232, 1, '#a17a4d');
+    round(c, x + 32, 70, 3, 232, 1, '#a17a4d');
+    c.strokeStyle = '#9b794c';
+    c.lineWidth = 3;
+    c.beginPath(); c.moveTo(x, 78); c.lineTo(x, carY); c.stroke();
+    c.fillStyle = '#c49a5a';
+    c.beginPath(); c.arc(x, 78, 9, 0, TAU); c.fill();
+    c.fillStyle = '#453323';
+    c.beginPath(); c.arc(x, 78, 4, 0, TAU); c.fill();
+    for (let y = 104; y < 298; y += 32) {
+      round(c, x - 28, y, 56, 4, 1, '#705438');
+      round(c, x - 25, y + 1, 50, 1, 1, '#b08a5a');
+    }
+    round(c, x - 24, carY, 48, 54, 4, '#46382e');
+    round(c, x - 20, carY + 4, 40, 43, 3, '#182731');
+    round(c, x - 17, carY + 7, 34, 34, 2, '#28606a');
+    c.fillStyle = 'rgba(113,225,222,.22)';
+    c.fillRect(x - 15, carY + 9, 30, 2);
+    round(c, x - 27, carY + 47, 54, 7, 2, '#a47a46');
+    c.fillStyle = '#e9c66e';
+    c.fillRect(x - 23, carY + 49, 46, 2);
+    c.fillStyle = '#6fe7dc';
+    c.beginPath(); c.arc(x, carY + 18, 3, 0, TAU); c.fill();
+    c.fillStyle = '#f0c66c';
+    c.beginPath(); c.arc(x, 76, 3, 0, TAU); c.fill();
+    c.restore();
+  }
+
   function drawHero(c, p, tick, reduced) {
     const heroId = p.hero || 'miner';
     const isRun = p.pose === 'run' && !reduced;
@@ -319,7 +373,7 @@
       c.beginPath(); c.ellipse(0, 19, 18 * shadowScale, 5 * shadowScale, 0, 0, Math.PI * 2); c.fill();
     }
 
-    if (heroId === 'miner') {
+    if (heroId === 'miner' && !drawMinerSprite(c, p, tick, reduced)) {
       // legs / boots with run animation
       const legSwing = phase;
       round(c, -11, 4 + legSwing / 3, 9, 15, 3, '#2a3c4f');
@@ -414,7 +468,6 @@
       // off-hand
       round(c, -17, -5 - phase / 3, 7, 13, 3, '#f2be94');
       if (p.pose === 'run') { c.save(); c.translate(-17, -5); c.rotate(phase * 0.02); round(c, 0, 0, 7, 13, 3, '#f2be94'); c.restore(); }
-
     } else if (heroId === 'warrior') {
       round(c, -11, 4 + phase / 3, 9, 15, 3, '#34495e');
       round(c, 3, 4 - phase / 3, 9, 15, 3, '#34495e');
@@ -863,6 +916,18 @@
     bg.addColorStop(0.78, zone.sky[3]);
     bg.addColorStop(1, zone.sky[4]);
     c.fillStyle = bg; c.fillRect(0, 0, w, 360);
+    if (s.zone === 0 && caveBackdrop && caveBackdrop.complete && caveBackdrop.naturalWidth) {
+      const sourceRatio = caveBackdrop.naturalWidth / caveBackdrop.naturalHeight;
+      const viewRatio = w / 360;
+      const sourceW = sourceRatio > viewRatio ? caveBackdrop.naturalHeight * viewRatio : caveBackdrop.naturalWidth;
+      const sourceH = sourceRatio > viewRatio ? caveBackdrop.naturalHeight : caveBackdrop.naturalWidth / viewRatio;
+      const sourceX = (caveBackdrop.naturalWidth - sourceW) / 2;
+      const sourceY = (caveBackdrop.naturalHeight - sourceH) / 2;
+      c.save();
+      c.globalAlpha = 0.86;
+      c.drawImage(caveBackdrop, sourceX, sourceY, sourceW, sourceH, 0, 0, w, 360);
+      c.restore();
+    }
 
     // Vignette darkening at edges
     const vignette = c.createRadialGradient(w / 2, 180, w * 0.4, w / 2, 180, w * 0.95);
@@ -937,6 +1002,7 @@
       c.beginPath(); c.arc(x + 55, 298, 3.5, Math.PI, 0); c.fill();
       round(c, x + 54, 298, 1.5, 5, 1, '#8deed2');
     }
+    if (s.zone === 0) drawMineLift(c, w * 0.54 - camera * 0.2, s.tick, reduced);
 
     // ---- Atmospheric particles: dust motes ----
     if (!reduced) {

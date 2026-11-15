@@ -272,3 +272,41 @@ body.scene-live .bottom-nav .nav-icon { width: 17px; height: 17px; }
   .mine-stage .mine-controls .action-btn,
   .mine-hud--overlay .hud-pause { transition: none; }
 }
+
+/* In a live run, remove the spare HUD row and let the cave fill the play area. */
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-live:not([hidden])) .ck-hud {
+  display: none !important;
+}
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-live:not([hidden])) #platform-scene {
+  justify-content: flex-start;
+  max-width: none;
+  margin: 0;
+  width: 100%;
+}
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-live:not([hidden])) .mine-stage {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+}
+
+@media (min-width: 760px) {
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-live:not([hidden])) {
+    width: 100vw !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-live:not([hidden])) #tab-play,
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-live:not([hidden])) #play-panel-adventure {
+    width: 100%;
+    max-width: none;
+    padding: 0 !important;
+    margin: 0;
+  }
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-live:not([hidden])) .mine-stage {
+    border: 0;
+    border-radius: 0;
+  }
+}
