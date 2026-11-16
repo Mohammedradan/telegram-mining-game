@@ -637,8 +637,33 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   color: #78350f !important;
 }
 
-#platform-scene.scene-lobby .overlay-row,
 #platform-scene.scene-lobby .overlay-mission {
+  display: none !important;
+}
+
+/* Keep the mine picker and workshop reachable; the reference lobby must not remove
+   the only controls that open the mine map and the workshop. */
+#platform-scene.scene-lobby .overlay-row {
+  position: absolute !important;
+  top: 120px !important;
+  right: 20px !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: min(225px, 23%) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  z-index: 12 !important;
+}
+#platform-scene.scene-lobby .overlay-row button {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+}
+/* A restored run is waiting for one clear action; the goal chooser must not sit
+   over the resume button and intercept its tap. */
+#platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-goals {
   display: none !important;
 }
 
@@ -2158,4 +2183,94 @@ body.arena-live:not(.duel-live) .arena-x-bar {
   #platform-scene.scene-lobby .mine-hero-btn,
   #platform-scene.scene-lobby #platform-start,
   #tab-arena .ar-balance u { transition: none !important; }
+}
+
+
+/* Responsive fixes for the live topbar and the lobby's missing navigation actions. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .overlay-row {
+    top: 120px !important;
+    right: 8px !important;
+    bottom: auto !important;
+    width: min(55%, 230px) !important;
+    display: flex !important;
+    gap: 4px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row button {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    min-height: 36px;
+    padding: 4px 3px;
+    font-size: 9px;
+  }
+  #platform-scene.scene-lobby .overlay-row .mine-select-label,
+  #platform-scene.scene-lobby .overlay-row .mine-select-hits { display: none; }
+}
+@media (max-width: 600px) and (min-height: 620px) {
+  #platform-scene.scene-lobby .overlay-row {
+    top: auto !important;
+    bottom: 7px !important;
+  }
+}
+@media (max-width: 600px) {
+  body #platform-scene.scene-live .mine-topbar {
+    gap: 4px !important;
+    padding: 4px 6px !important;
+    min-height: 48px !important;
+  }
+  body #platform-scene.scene-live .mine-title {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    gap: 4px !important;
+  }
+  body #platform-scene.scene-live .mine-badge {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+  }
+  body #platform-scene.scene-live .mine-title-text { min-width: 0 !important; }
+  body #platform-scene.scene-live .mine-title-text h2 {
+    max-width: 86px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 11px !important;
+  }
+  body #platform-scene.scene-live .mine-kicker { display: none !important; }
+  body #platform-scene.scene-live .mine-economy {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    gap: 3px !important;
+  }
+  body #platform-scene.scene-live .mine-gold,
+  body #platform-scene.scene-live .mine-energy {
+    min-width: 0 !important;
+    gap: 3px !important;
+    padding: 3px 5px !important;
+    font-size: 10px !important;
+  }
+  body #platform-scene.scene-live .mine-gold::after,
+  body #platform-scene.scene-live .mine-energy::after { display: none !important; }
+  body #platform-scene.scene-live .mine-gold .econ-icon,
+  body #platform-scene.scene-live .mine-energy .econ-icon {
+    width: 13px !important;
+    height: 13px !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions {
+    flex: 0 0 auto !important;
+    gap: 3px !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    min-height: 34px !important;
+    padding: 4px 6px !important;
+    font-size: 10px !important;
+    gap: 0 !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
+    width: 15px !important;
+    height: 15px !important;
+  }
+  body #platform-scene.scene-live .mine-topbar .mute-label,
+  body #platform-scene.scene-live .mine-topbar .topbar-btn-label { display: none !important; }
 }
