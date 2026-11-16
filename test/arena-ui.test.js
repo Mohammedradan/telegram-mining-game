@@ -384,7 +384,7 @@ test('arena preview: the demo shows the real moveset — jump, guard and dodge �
 });
 
 test('a duel ends with a duel summary: rival HP, hearts and blocks — not rocks, gems or the fork', () => {
-  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(game, /const duelRun = mode === 'duel'/, 'the summary branches on the run mode');
   assert.match(game, /titleEl\.textContent = duelRun \? 'ملخص المبارزة'/, 'the card is titled as a duel summary');
   assert.match(game, /summaryRow\('صحة الخصم'/, 'rival HP is the first real row');
@@ -435,7 +435,7 @@ test('a landing hit freezes the frame briefly and the verdict banner marks the f
 });
 
 test('the arena stage shows real combat feedback: hit sparks, damage numbers and impact shake', () => {
-  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(game, /function arenaFx\(\)/, 'there is an effects pass over the simulation events');
   assert.match(game, /arenaFloaters\.push\(\{[^}]*text: strong \? `-\$\{ev\.damage\}`/, 'landed hits print their damage');
   assert.match(game, /color: strong \? \(i % 2 \? '#ffd166' : '#fff3c9'\)/, 'hits throw warm sparks');

@@ -20,7 +20,7 @@
   const ORE_TINT = { copper: '#d68a5a', iron: '#b3bec6', gold: '#ffd166', crystal: '#56ebd3', lava: '#ff7a45' };
   const caveBackdrop = typeof root.Image === 'function' ? new root.Image() : null;
   const heroSheet = typeof root.Image === 'function' ? new root.Image() : null;
-  if (caveBackdrop) caveBackdrop.src = '/assets/cave/cave-wide.jpg?v=1';
+  if (caveBackdrop) caveBackdrop.src = '/assets/fantasy-adventure-bg.webp';
   if (heroSheet) heroSheet.src = '/assets/cave/hero-sheet.webp?v=1';
 
   const round = (c, x, y, w, h, r, color) => {

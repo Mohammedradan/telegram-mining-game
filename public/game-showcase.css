@@ -1,211 +1,1988 @@
 /* Reference-inspired lobby and arena presentation. Game state and rewards stay in their existing systems. */
 
-/* ===== Adventure lobby ===== */
+/* ==========================================================================
+   ===== 🧭 Widescreen App Layout for Adventure (مطابقة كاملة للشاشات العريضة) =====
+   ========================================================================== */
+@media (min-width: 800px) {
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) {
+    width: min(1672px, 100vw) !important;
+    max-width: 1672px !important;
+    margin: 0 auto !important;
+  }
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #tab-play,
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #play-panel-adventure,
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #platform-scene {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* Hide duplicate subnav tabs in adventure mode to let the stage shine like the reference screenshots */
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav {
+  display: none !important;
+}
+
+#platform-scene {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+/* ==========================================================================
+   ===== 🧭 Adventure Lobby (مشهد ردهة المغامرة مطابق للصورة المرجعية) =====
+   ========================================================================== */
+#platform-scene.scene-lobby {
+  background: radial-gradient(circle at 50% 10%, #152542 0%, #070d18 80%);
+}
+
+/* --- الشريط العلوي --- */
 #platform-scene.scene-lobby .mine-topbar {
-  border-color: rgba(104, 151, 221, .45);
-  background: linear-gradient(110deg, rgba(10, 23, 49, .97), rgba(17, 33, 65, .94) 56%, rgba(12, 24, 45, .97));
-  box-shadow: 0 7px 22px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .09);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 16px !important;
+  height: 68px !important;
+  min-height: 68px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+  direction: ltr !important;
+}
+
+.adv-topbar-brand {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+.adv-logo-img {
+  height: 48px !important;
+  width: auto !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 8px rgba(255, 180, 50, 0.45)) !important;
+}
+
+#platform-scene.scene-lobby .mine-title {
+  order: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
+  text-align: right !important;
 }
 #platform-scene.scene-lobby .mine-badge {
   color: #17213a;
   background: linear-gradient(145deg, #ffe58f, #f3aa35 72%, #d97922);
-  box-shadow: 0 0 18px rgba(255, 184, 67, .28), inset 0 1px 0 rgba(255, 255, 255, .65);
+  box-shadow: 0 0 18px rgba(255, 184, 67, .35), inset 0 1px 0 rgba(255, 255, 255, .65);
 }
 #platform-scene.scene-lobby .mine-title-text h2 {
   color: #fff0bc;
-  text-shadow: 0 2px 9px rgba(0, 0, 0, .62), 0 0 18px rgba(255, 192, 74, .18);
+  font-size: 14px;
+  font-weight: 900;
+  text-shadow: 0 2px 9px rgba(0, 0, 0, .62), 0 0 18px rgba(255, 192, 74, .25);
 }
-#platform-scene.scene-lobby .mine-kicker { color: #9dc9ff; }
+#platform-scene.scene-lobby .mine-kicker {
+  color: #9dc9ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+#platform-scene.scene-lobby .mine-economy {
+  order: 3 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  direction: rtl !important;
+}
 #platform-scene.scene-lobby .mine-topbar .mine-gold,
 #platform-scene.scene-lobby .mine-topbar .mine-energy {
-  padding: 6px 9px;
-  border: 1px solid rgba(135, 174, 231, .23);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 204, 77, .35);
   border-radius: 999px;
-  background: rgba(6, 15, 33, .57);
+  background: rgba(6, 15, 33, .85);
+  font-weight: 800;
+  color: #fff0c1;
+  font-size: 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-#platform-scene.scene-lobby .mine-hero-bar {
-  gap: 7px;
-  padding: 6px;
-  border-color: rgba(102, 143, 205, .35);
-  background: linear-gradient(110deg, rgba(9, 23, 49, .96), rgba(17, 36, 67, .91));
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .23), inset 0 1px 0 rgba(255, 255, 255, .06);
+#platform-scene.scene-lobby .mine-topbar .mine-gold .econ-icon { color: #f59e0b; width: 16px; height: 16px; }
+#platform-scene.scene-lobby .mine-topbar .mine-energy .econ-icon { color: #38bdf8; width: 16px; height: 16px; }
+
+#platform-scene.scene-lobby .mine-heading-actions {
+  order: 4 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
 }
-#platform-scene.scene-lobby .mine-hero-btn {
-  min-height: 58px;
-  border: 1px solid rgba(126, 158, 207, .14);
-  border-radius: 11px;
-  background: linear-gradient(145deg, rgba(29, 49, 82, .52), rgba(12, 24, 48, .6));
+#platform-scene.scene-lobby .mine-heading-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border: 1px solid rgba(135, 174, 231, .3);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(20, 38, 70, 0.85), rgba(10, 20, 40, 0.95));
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
-#platform-scene.scene-lobby .mine-hero-btn.active {
-  border-color: #ffc94f;
-  color: #fff2c7;
-  background: linear-gradient(145deg, rgba(113, 75, 25, .75), rgba(42, 37, 45, .92));
-  box-shadow: 0 0 0 1px rgba(255, 203, 77, .23), 0 0 18px rgba(255, 178, 45, .2), inset 0 1px 0 rgba(255, 239, 177, .2);
+#platform-scene.scene-lobby .mine-heading-actions button:hover {
+  border-color: #ffd36b;
+  transform: translateY(-1px);
 }
-#platform-scene.scene-lobby .mine-hero-btn.active::after {
-  height: 3px;
-  left: 12%;
-  right: 12%;
-  background: linear-gradient(90deg, transparent, #ffe17c, transparent);
-  box-shadow: 0 0 10px #ffc94f;
+
+/* --- شريط الملف الشخصي والمهمة والمؤشرات (Sub-header) --- */
+.lobby-subbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 16px !important;
+  height: 60px !important;
+  min-height: 60px !important;
+  border: 1px solid rgba(119, 169, 225, .25) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(90deg, rgba(9, 21, 45, 0.95), rgba(15, 31, 62, 0.9), rgba(9, 21, 45, 0.95)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  direction: ltr !important;
 }
-#platform-scene.scene-lobby .hero-icon { width: 21px; height: 21px; color: #f5ca6d; }
+#platform-scene.scene-live .lobby-subbar {
+  display: none !important;
+}
+
+.lobby-subbar-profile {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  direction: rtl !important;
+}
+.lobby-avatar-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.lobby-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #ffca54;
+  box-shadow: 0 0 12px rgba(255, 202, 84, 0.4);
+  object-fit: cover;
+}
+.lobby-level-badge {
+  position: absolute;
+  bottom: -3px;
+  left: -3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: 1px solid #fef08a;
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 900;
+}
+.lobby-profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lobby-player-name {
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+.lobby-xp-track {
+  position: relative;
+  width: 120px;
+  height: 15px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 204, 77, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lobby-xp-fill {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  border-radius: 999px;
+}
+.lobby-xp-text {
+  position: relative;
+  z-index: 1;
+  font-size: 8px;
+  font-weight: 800;
+  color: #f8fafc;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.lobby-subbar-quest {
+  order: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 7px 18px !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, rgba(69, 39, 13, 0.65), rgba(26, 33, 54, 0.85)) !important;
+  color: #fef08a;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  direction: rtl !important;
+}
+
+.lobby-subbar-chips {
+  order: 3 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
+}
+.lobby-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 800;
+}
+.lobby-chip--compass {
+  color: #38bdf8;
+  cursor: pointer;
+}
+
+/* --- مسرح المغامرة في وضع الاستعداد --- */
 #platform-scene.scene-lobby .mine-stage {
-  border: 1px solid rgba(245, 196, 91, .55);
-  box-shadow: 0 13px 36px rgba(0, 0, 0, .44), inset 0 0 0 1px rgba(255, 255, 255, .06);
-}
-#platform-scene.scene-lobby .mine-overlay {
-  gap: 7px;
-  padding: 14px;
+  position: relative !important;
+  flex: 1 1 660px !important;
+  min-height: 660px !important;
+  height: 660px !important;
+  border: 2px solid rgba(255, 204, 77, .65) !important;
+  border-radius: 20px !important;
   background:
-    linear-gradient(180deg, rgba(5, 14, 30, .08) 0%, rgba(5, 14, 30, .04) 42%, rgba(5, 13, 27, .38) 100%),
-    radial-gradient(ellipse at 50% 46%, transparent 32%, rgba(4, 10, 23, .2) 100%);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, .92);
+    url('/assets/lobby-adventure-stage.webp') center center / 100% 100% no-repeat,
+    #070d18 !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .6), 0 0 35px rgba(245, 158, 11, .25), inset 0 1px 0 rgba(255, 255, 255, .1) !important;
+  overflow: hidden !important;
+}
+#platform-scene.scene-lobby #platform-canvas {
+  opacity: 0.05 !important;
+}
+
+/* بطاقات الشخصيات: تطابق تام مع موضع ومقاس الصورة المرجعية */
+@media (min-width: 800px) {
+  #platform-scene.scene-lobby .mine-hero-bar {
+    position: absolute !important;
+    top: 265px !important;
+    left: 20px !important;
+    width: 250px !important;
+    height: 350px !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 12px 10px !important;
+    background: linear-gradient(160deg, rgba(12, 26, 52, 0.98), rgba(8, 17, 34, 0.98)) !important;
+    border: 2px solid rgba(255, 204, 77, 0.5) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    z-index: 10 !important;
+    backdrop-filter: blur(8px) !important;
+  }
+  #platform-scene.scene-lobby .mine-hero-bar::before {
+    content: "اختر شخصيتك";
+    display: block;
+    color: #ffd36b;
+    font-size: 14px;
+    font-weight: 900;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 211, 107, 0.25);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  }
+  #platform-scene.scene-lobby .mine-hero-btn {
+    width: 100% !important;
+    min-height: 80px !important;
+    padding: 8px 12px !important;
+    border-radius: 14px !important;
+    border: 1.5px solid rgba(135, 174, 231, 0.25) !important;
+    background: rgba(15, 25, 48, 0.8) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+  }
+  #platform-scene.scene-lobby .mine-hero-btn.active {
+    border-color: #ffd36b !important;
+    background: linear-gradient(145deg, rgba(160, 105, 24, 0.96), rgba(100, 60, 15, 0.98)) !important;
+    box-shadow: 0 0 18px rgba(245, 169, 42, 0.45) !important;
+  }
+}
+
+#platform-scene.scene-lobby .mine-hero-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+.hero-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.hero-card-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 204, 77, 0.6);
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.hero-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+#platform-scene.scene-lobby .hero-name {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+}
+#platform-scene.scene-lobby .hero-desc {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.25;
+}
+.hero-card-check {
+  display: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+#platform-scene.scene-lobby .mine-hero-btn.active .hero-card-check {
+  display: inline-flex;
+}
+#platform-scene.scene-lobby .mine-hero-btn.active .hero-name {
+  color: #fff0a7;
+}
+#platform-scene.scene-lobby .mine-hero-btn > .hero-icon {
+  display: none;
+}
+
+/* --- الغلاف التفاعلي فوق المسرح --- */
+#platform-scene.scene-lobby .mine-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  background: transparent !important;
+  display: block !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby .mine-overlay > * {
+  pointer-events: auto !important;
 }
 #platform-scene.scene-lobby .mine-overlay::before,
-#platform-scene.scene-lobby .mine-overlay::after { display: none; }
-#platform-scene.scene-lobby .overlay-kicker {
-  width: fit-content;
-  padding: 6px 12px;
-  border: 1px solid rgba(255, 204, 93, .57);
-  border-radius: 999px;
-  color: #ffe8ad;
-  background: linear-gradient(100deg, rgba(57, 35, 18, .86), rgba(13, 25, 45, .9));
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+#platform-scene.scene-lobby .mine-overlay::after { display: none !important; }
+#platform-scene.scene-lobby .overlay-kicker,
+#platform-scene.scene-lobby .mine-overlay h3,
+#platform-scene.scene-lobby .overlay-lead,
+#platform-scene.scene-lobby .overlay-help { display: none !important; }
+
+/* بطاقة البوصلة التوجيهية في ردهة المنجم (أعلى يمين داخل المسرح) */
+.lobby-compass-card {
+  position: absolute !important;
+  top: 15px !important;
+  right: 20px !important;
+  width: 395px !important;
+  height: 90px !important;
+  padding: 10px 18px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(12, 26, 52, 0.98), rgba(7, 16, 34, 0.98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  z-index: 10 !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  direction: rtl !important;
 }
-#platform-scene.scene-lobby .mine-overlay h3 {
-  color: #fff0be;
-  text-shadow: 0 2px 12px #020817, 0 0 20px rgba(255, 200, 89, .28);
+.compass-badge-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #38bdf8, #0369a1 70%, #082f49 100%);
+  border: 2.5px solid #ffd36b;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
 }
-#platform-scene.scene-lobby .overlay-mission {
-  border: 1px solid rgba(119, 169, 225, .5);
-  border-radius: 14px;
-  background: linear-gradient(145deg, rgba(8, 21, 43, .91), rgba(13, 28, 50, .83));
-  box-shadow: 0 9px 24px rgba(0, 0, 0, .33), inset 0 1px 0 rgba(255, 255, 255, .08);
-  backdrop-filter: blur(7px);
+.compass-text {
+  color: #fff0c1;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  text-align: right;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
-#platform-scene.scene-lobby .mission-row { color: #e7efff; }
-#platform-scene.scene-lobby .mission-row .ui-icon { color: #78cfff; }
-#platform-scene.scene-lobby .mission-progress { background: rgba(2, 8, 20, .8); }
-#platform-scene.scene-lobby .mission-progress i {
-  background: linear-gradient(90deg, #2ed5c4, #a4ef9b);
-  box-shadow: 0 0 10px rgba(77, 227, 197, .42);
+
+/* بطاقة حالة المنجم الجانبية (معلومات سريعة أسفل يمين) */
+.lobby-side-card {
+  position: absolute !important;
+  top: 465px !important;
+  right: 20px !important;
+  width: 315px !important;
+  height: 185px !important;
+  padding: 14px 18px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(12, 26, 52, 0.98), rgba(7, 16, 34, 0.98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  z-index: 10 !important;
+  backdrop-filter: blur(8px) !important;
+  direction: rtl !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-around !important;
+}
+.lobby-side-title {
+  color: #ffd36b;
+  font-size: 14px;
+  font-weight: 900;
+  border-bottom: 1px solid rgba(255, 211, 107, 0.25);
+  padding-bottom: 6px;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lobby-side-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.side-k { color: #cbd5e1; font-weight: 700; }
+.side-v { color: #f8fafc; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; }
+.side-v--ok { color: #4ade80; }
+.side-v .inline-coin { width: 14px; height: 14px; color: #f59e0b; }
+
+/* بطاقات أوضاع اللعب / أنماط اللعب (أسفل يسار) */
+#platform-scene.scene-lobby #platform-goals {
+  position: absolute !important;
+  top: 450px !important;
+  left: 20px !important;
+  width: 500px !important;
+  height: 185px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 10 !important;
+  direction: rtl !important;
+}
+#platform-scene.scene-lobby #platform-goals::before {
+  content: "أنماط اللعب";
+  display: block;
+  color: #ffd36b;
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 10px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+#platform-scene.scene-lobby .goal-options {
+  display: flex !important;
+  gap: 12px !important;
 }
 #platform-scene.scene-lobby .goal-option {
-  border-color: rgba(119, 167, 224, .37);
+  flex: 1 !important;
+  height: 135px !important;
+  padding: 10px 8px !important;
+  border: 1.5px solid rgba(119, 167, 224, .37) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(145deg, rgba(14, 30, 58, 0.98), rgba(8, 17, 34, 0.98)) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.goal-mode-img {
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
-  background: linear-gradient(145deg, rgba(15, 33, 62, .94), rgba(7, 17, 36, .96));
-  box-shadow: 0 5px 13px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .06);
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 204, 77, 0.45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.goal-mode-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.goal-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+.goal-mode-title .ui-icon {
+  display: none;
+}
+#platform-scene.scene-lobby .goal-option i {
+  display: none;
+}
+.goal-reward-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #ffd36b;
+  font-size: 11px;
+  font-weight: 800;
+}
+.goal-reward-tag .inline-coin {
+  width: 13px;
+  height: 13px;
+  color: #f59e0b;
 }
 #platform-scene.scene-lobby .goal-option.active {
-  border-color: #ffca54;
-  color: #fff0c1;
-  background: linear-gradient(145deg, rgba(157, 103, 27, .96), rgba(96, 59, 20, .98));
-  box-shadow: 0 0 0 1px rgba(255, 207, 89, .23), 0 0 18px rgba(245, 169, 42, .2);
+  border-color: #ffd36b !important;
+  background: linear-gradient(145deg, rgba(160, 105, 24, 0.98), rgba(100, 60, 15, 0.98)) !important;
+  box-shadow: 0 0 0 1px rgba(255, 211, 107, 0.4), 0 0 20px rgba(245, 169, 42, 0.45) !important;
+  transform: translateY(-2px) !important;
 }
-#platform-scene.scene-lobby .goal-option .ui-icon { color: #77dcff; }
-#platform-scene.scene-lobby .goal-option.active .ui-icon { color: #fff0a7; }
-#platform-scene.scene-lobby .goal-hint { color: #ffe4a0; }
-#platform-scene.scene-lobby #platform-start {
-  min-height: 52px;
-  border: 1px solid #fff0b0;
-  border-radius: 16px;
-  color: #2a1c0c;
-  background: linear-gradient(115deg, #ffe075, #ffae24 58%, #e88719);
-  box-shadow: 0 7px 22px rgba(247, 158, 32, .36), inset 0 2px 0 rgba(255, 255, 255, .66), inset 0 -3px 0 rgba(127, 67, 8, .2);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .4);
-  font-size: 15px;
-}
-#platform-scene.scene-lobby #platform-start:hover { filter: brightness(1.07); }
-#platform-scene.scene-lobby .overlay-row button {
-  border-color: rgba(135, 177, 229, .38);
-  color: #e9f2ff;
-  background: linear-gradient(140deg, rgba(18, 38, 69, .94), rgba(8, 19, 40, .96));
-  box-shadow: 0 5px 15px rgba(0, 0, 0, .25);
+#platform-scene.scene-lobby .goal-option.active .goal-mode-title {
+  color: #fff0a7;
 }
 
-@media (min-width: 800px) and (min-height: 620px) {
-  #platform-scene.scene-lobby { justify-content: flex-start; }
-  #platform-scene.scene-lobby .mine-stage {
-    flex: 1 1 0;
-    min-height: 360px;
-    max-height: none;
-  }
-  #platform-scene.scene-lobby .mine-overlay {
-    display: block;
-    overflow: hidden;
-  }
-  #platform-scene.scene-lobby .mine-overlay > * { position: absolute; }
-  #platform-scene.scene-lobby .overlay-kicker {
-    top: 14px; left: 50%; transform: translateX(-50%);
-  }
-  #platform-scene.scene-lobby .mine-overlay h3 {
-    top: 56px; left: 50%; transform: translateX(-50%);
-    margin: 0; font-size: clamp(18px, 2vw, 25px); white-space: nowrap;
-  }
-  #platform-scene.scene-lobby .overlay-lead,
-  #platform-scene.scene-lobby .overlay-help,
-  #platform-scene.scene-lobby .goal-hint { display: none; }
-  #platform-scene.scene-lobby .overlay-mission {
-    top: 15px; right: 15px; width: min(230px, 23%);
-    padding: 10px 12px;
-  }
-  #platform-scene.scene-lobby .overlay-mission .mission-row { font-size: 10px; }
-  #platform-scene.scene-lobby #platform-goals {
-    left: 15px; bottom: 14px; width: min(340px, 35%);
-    margin: 0; padding: 0; background: transparent; border: 0;
-  }
-  #platform-scene.scene-lobby .goal-options { gap: 6px; }
-  #platform-scene.scene-lobby .goal-option { min-height: 72px; padding: 8px 5px; }
-  #platform-scene.scene-lobby #platform-start {
-    left: 50%; bottom: 22px; transform: translateX(-50%);
-    width: min(310px, 31%); min-height: 70px; font-size: clamp(17px, 1.8vw, 22px);
-  }
-  #platform-scene.scene-lobby #platform-start:hover { transform: translate(-50%, -1px); }
-  #platform-scene.scene-lobby .overlay-row {
-    right: 15px; bottom: 14px; width: min(225px, 23%);
-    display: grid; grid-template-columns: 1fr; gap: 6px; margin: 0;
-  }
-  #platform-scene.scene-lobby .overlay-row button { min-height: 34px; padding: 6px 10px; }
-  #platform-scene.scene-lobby .overlay-row .mine-select { display: flex; }
+/* --- زر بدء المغامرة العملاق الذهبي 3D (وسط أسفل المسرح) --- */
+#platform-scene.scene-lobby #platform-start,
+#platform-scene.scene-lobby .adv-golden-cta {
+  position: absolute !important;
+  top: 465px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 11 !important;
+  height: 155px !important;
+  width: 420px !important;
+  padding: 12px 32px !important;
+  border: 3px solid #fff3b8 !important;
+  border-radius: 999px !important;
+  color: #2e1704 !important;
+  font-size: 26px !important;
+  font-weight: 900 !important;
+  background: linear-gradient(180deg, #ffe58f 0%, #f59e0b 52%, #b45309 100%) !important;
+  box-shadow: 0 12px 32px rgba(245, 158, 11, 0.65), 0 0 35px rgba(255, 215, 0, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.85) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+#platform-scene.scene-lobby #platform-start:hover,
+#platform-scene.scene-lobby .adv-golden-cta:hover {
+  transform: translateX(-50%) scale(1.03) !important;
+  box-shadow: 0 16px 40px rgba(245, 158, 11, 0.75), 0 0 45px rgba(255, 215, 0, 0.55) !important;
+}
+#platform-scene.scene-lobby #platform-start:active,
+#platform-scene.scene-lobby .adv-golden-cta:active {
+  transform: translateX(-50%) scale(0.97) !important;
+}
+.adv-cta-axe {
+  width: 40px !important;
+  height: 40px !important;
+  color: #451a03 !important;
+}
+.adv-cta-play {
+  font-size: 24px !important;
+  color: #78350f !important;
 }
 
-/* ===== Arena lobby ===== */
+#platform-scene.scene-lobby .overlay-row,
+#platform-scene.scene-lobby .overlay-mission {
+  display: none !important;
+}
+
+
+/* ==========================================================================
+   ===== ⚔️ Fantasy Adventure Live (المشهد الحي أثناء اللعب الفعلي) =====
+   ========================================================================== */
+#platform-scene.scene-live {
+  position: relative !important;
+  background: #080d16;
+  width: 100%;
+}
+
+/* 1. الشريط العلوي الكامل */
+#platform-scene.scene-live .mine-topbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 8px 24px !important;
+  min-height: 68px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98)) !important;
+  direction: ltr !important;
+}
+#platform-scene.scene-live .adv-topbar-brand { display: none !important; }
+#platform-scene.scene-live .lobby-subbar { display: none !important; }
+
+/* عنوان المنجم على أقصى اليمين (عربياً) */
+body #platform-scene.scene-live .mine-title {
+  display: flex !important;
+  order: 1 !important;
+  direction: rtl !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+body #platform-scene.scene-live .mine-badge {
+  display: flex !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+  border: 2px solid #ffd36b !important;
+  background: radial-gradient(circle at 35% 35%, #92400e, #451a03 70%, #1f0a00 100%) !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+body #platform-scene.scene-live .mine-badge .badge-icon {
+  width: 28px !important;
+  height: 28px !important;
+  color: #ffd36b !important;
+}
+body #platform-scene.scene-live .mine-title-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+body #platform-scene.scene-live .mine-title-text h2 {
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7) !important;
+}
+body #platform-scene.scene-live .mine-kicker {
+  display: block !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: #fbbf24 !important;
+}
+
+/* كبسولات العملات (الذهب والطاقة مع زر + الأخضر) */
+body #platform-scene.scene-live .mine-economy {
+  display: flex !important;
+  order: 2 !important;
+  direction: rtl !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+body #platform-scene.scene-live .mine-gold,
+body #platform-scene.scene-live .mine-energy {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 6px 14px 6px 8px !important;
+  border-radius: 999px !important;
+  background: rgba(10, 22, 46, 0.95) !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  color: #fef08a !important;
+}
+body #platform-scene.scene-live .mine-gold::after,
+body #platform-scene.scene-live .mine-energy::after {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6) !important;
+  margin-inline-start: 8px !important;
+  cursor: pointer !important;
+}
+body #platform-scene.scene-live .mine-gold .econ-icon {
+  width: 22px !important;
+  height: 22px !important;
+  color: #f59e0b !important;
+}
+body #platform-scene.scene-live .mine-energy {
+  border-color: rgba(56, 189, 248, 0.55) !important;
+  color: #bae6fd !important;
+}
+body #platform-scene.scene-live .mine-energy .econ-icon {
+  width: 22px !important;
+  height: 22px !important;
+  color: #38bdf8 !important;
+}
+
+/* أزرار الإجراءات العلوية */
+body #platform-scene.scene-live .mine-heading-actions {
+  display: flex !important;
+  order: 3 !important;
+  direction: rtl !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+body #platform-scene.scene-live .mine-heading-actions button {
+  min-height: 40px !important;
+  padding: 6px 16px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid rgba(135, 174, 231, 0.3) !important;
+  background: linear-gradient(180deg, rgba(20, 42, 80, 0.9), rgba(12, 26, 52, 0.95)) !important;
+  color: #f8fafc !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+}
+body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
+  width: 18px !important;
+  height: 18px !important;
+  color: #38bdf8 !important;
+}
+
+/* 2. مسرح اللعبة */
+#platform-scene.scene-live .mine-stage {
+  position: relative !important;
+  flex: 1 1 770px !important;
+  min-height: 700px !important;
+  height: 770px !important;
+  border: 2px solid rgba(245, 158, 11, 0.45) !important;
+  border-radius: 18px !important;
+  background:
+    url('/assets/fantasy-adventure-bg.webp') center 50% / 1672px 770px no-repeat,
+    radial-gradient(ellipse at 50% 50%, #17243c, #050a14) !important;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.75),
+    0 0 35px rgba(245, 158, 11, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  overflow: hidden !important;
+}
+#platform-scene.scene-live .mine-stage::after,
+#platform-scene.scene-lobby .mine-stage::after {
+  display: none !important;
+}
+#platform-scene.scene-live #platform-canvas {
+  position: relative;
+  z-index: 2;
+  background: transparent !important;
+}
+
+/* 3. شريط HUD العائم داخل الكانفاس */
+#platform-scene.scene-live .mine-hud--overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .mine-hud--overlay > * {
+  pointer-events: auto !important;
+}
+
+/* قلوب الصحة المتطابقة بدقة فوق الكبسولة */
+#platform-scene.scene-live #platform-hearts {
+  position: absolute !important;
+  top: 15px !important;
+  left: 20px !important;
+  width: 185px !important;
+  height: 54px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 32px !important;
+  color: #ef4444 !important;
+  text-shadow: 0 0 14px rgba(239, 68, 68, 0.95), 0 0 24px rgba(220, 38, 38, 0.8) !important;
+  font-weight: 900 !important;
+  letter-spacing: 8px !important;
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+/* رقائق الموارد العلوية تتطابق مع الكبسولات المرسومة بالخلفية */
+#platform-scene.scene-live .hud-right {
+  position: static !important;
+}
+#platform-scene.scene-live .mine-resources {
+  display: none !important;
+}
+#platform-scene.scene-live .res-chip {
+  display: none !important;
+}
+
+/* بطاقة تقدم المنجم والهدف أعلى يمين */
+#platform-scene.scene-live .hud-center {
+  position: absolute !important;
+  top: 15px !important;
+  right: 115px !important;
+  width: 350px !important;
+  height: 95px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 18px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+#platform-scene.scene-live #platform-progress {
+  display: none !important;
+}
+#platform-scene.scene-live #goal-chip {
+  display: none !important;
+}
+
+/* زر الإيقاف المؤقت فوق الزر الدائري أعلى يمين */
+#platform-scene.scene-live .hud-pause {
+  position: absolute !important;
+  top: 24px !important;
+  right: 20px !important;
+  width: 74px !important;
+  height: 74px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+#platform-scene.scene-live .hud-pause .ui-icon {
+  display: none !important;
+}
+
+/* 4. عناصر التحكم السفلية */
+#platform-scene.scene-live .mine-controls {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  pointer-events: none !important;
+  display: block !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .mine-controls * {
+  pointer-events: auto !important;
+}
+
+/* عصا التحكم الافتراضية فوق الرسمة أسفل يسار */
+#platform-scene.scene-live .virtual-joystick {
+  display: block !important;
+  position: absolute !important;
+  top: 480px !important;
+  left: 37px !important;
+  width: 210px !important;
+  height: 210px !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .joystick-base {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  position: relative !important;
+}
+#platform-scene.scene-live .joystick-base .dpad-arrow {
+  display: none !important;
+}
+#platform-scene.scene-live .joystick-handle {
+  width: 86px !important;
+  height: 86px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* شريط تبديل الشخصيات وسط أسفل */
+#platform-scene.scene-live .mine-hero-bar {
+  display: flex !important;
+  position: absolute !important;
+  bottom: 16px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  gap: 14px !important;
+  padding: 6px 14px !important;
+  border-radius: 18px !important;
+  background: rgba(8, 16, 32, 0.95) !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  z-index: 10 !important;
+  direction: rtl !important;
+  backdrop-filter: blur(8px) !important;
+}
+#platform-scene.scene-live .mine-hero-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 14px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid rgba(135, 174, 231, 0.3) !important;
+  background: rgba(12, 24, 48, 0.8) !important;
+  color: #f8fafc !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  transition: all 0.2s ease !important;
+}
+#platform-scene.scene-live .mine-hero-btn.active {
+  background: linear-gradient(180deg, #9a3412, #451a03) !important;
+  border-color: #ffd36b !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+#platform-scene.scene-live .hero-card-img {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 204, 77, 0.6) !important;
+  display: block !important;
+}
+#platform-scene.scene-live .hero-desc,
+#platform-scene.scene-live .hero-card-check,
+#platform-scene.scene-live .mine-hero-btn > .ui-icon {
+  display: none !important;
+}
+#platform-scene.scene-live .hero-name {
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  color: #f8fafc !important;
+  display: block !important;
+}
+#platform-scene.scene-live .mine-hero-btn.active .hero-name {
+  color: #fff0a7 !important;
+}
+
+/* مجموعة أزرار الإجراءات أسفل يمين */
+#platform-scene.scene-live .mine-controls-actions {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .mine-controls-actions .action-btn {
+  pointer-events: auto !important;
+  position: absolute !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+#platform-scene.scene-live .mine-controls-actions .action-btn span,
+#platform-scene.scene-live .mine-controls-actions .action-btn .ui-icon {
+  display: none !important;
+}
+#platform-scene.scene-live .mine-controls-actions .action-btn.move-btn,
+#platform-scene.scene-live .mine-controls-actions .climb-btn {
+  display: none !important;
+}
+
+/* زر الحفر والتعدين الذهبي الرئيسي */
+#platform-scene.scene-live .mine-controls-actions .primary-mine-btn,
+#platform-scene.scene-live .mine-controls-actions .mine-btn {
+  left: 1285px !important;
+  top: 635px !important;
+  width: 120px !important;
+  height: 120px !important;
+}
+
+/* زر القفز (سهم لأعلى) */
+#platform-scene.scene-live .mine-controls-actions .jump-btn:not(.climb-btn) {
+  left: 1450px !important;
+  top: 640px !important;
+  width: 88px !important;
+  height: 88px !important;
+}
+
+/* زر الضربة / الهجوم (سهم لأسفل) */
+#platform-scene.scene-live .mine-controls-actions .heavy-btn,
+#platform-scene.scene-live .mine-controls-actions .attack-btn {
+  left: 1530px !important;
+  top: 640px !important;
+  width: 88px !important;
+  height: 88px !important;
+}
+
+/* زر المراوغة / الجري */
+#platform-scene.scene-live .mine-controls-actions .dodge-btn {
+  left: 1555px !important;
+  top: 525px !important;
+  width: 95px !important;
+  height: 95px !important;
+}
+
+/* زر المهارة / التصويب (الهدف) */
+#platform-scene.scene-live .mine-controls-actions .skill-btn,
+#platform-scene.scene-live .mine-controls-actions .guard-btn {
+  left: 1555px !important;
+  top: 410px !important;
+  width: 95px !important;
+  height: 95px !important;
+}
+
+/* شريط الحالة والرسائل أسفل يسار بجانب العصا */
+#platform-scene.scene-live #platform-status {
+  position: absolute !important;
+  bottom: 20px !important;
+  left: 260px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 18px !important;
+  border-radius: 999px !important;
+  background: rgba(10, 20, 40, 0.9) !important;
+  border: 1.5px solid rgba(135, 174, 231, 0.3) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  color: #f8fafc !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  direction: rtl !important;
+  z-index: 10 !important;
+  opacity: 1 !important;
+  max-width: 240px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+#platform-scene.scene-live #platform-status::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
+  flex-shrink: 0;
+}
+
+
+/* ==========================================================================
+   ===== 🏛️ Arena lobby & Showdown =====
+   ========================================================================== */
 #tab-arena:not(.arena-fighting) {
   --arena-gold: #ffd36b;
   --arena-gold-soft: rgba(255, 195, 72, .24);
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(48, 108, 173, .26), transparent 52%),
+    radial-gradient(ellipse at 50% 0%, rgba(48, 108, 173, .3), transparent 52%),
+    radial-gradient(ellipse at 50% 100%, rgba(30, 20, 50, .35), transparent 60%),
     linear-gradient(180deg, #071328, #090e1e 74%, #050913);
 }
-#tab-arena .arena-stage {
-  border-color: rgba(255, 200, 79, .64);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, .38), 0 0 28px rgba(47, 143, 224, .15), inset 0 0 0 1px rgba(255, 255, 255, .07);
+
+/* Show app header and bottom nav in arena showdown view (matching screenshot) */
+body.arena-live:not(.duel-live) .app-header {
+  display: flex !important;
 }
-#tab-arena #arena-preview { filter: brightness(1.12) saturate(1.24) contrast(1.04); }
+body.arena-live:not(.duel-live) .bottom-nav {
+  display: flex !important;
+}
+body.arena-live:not(.duel-live) .arena-x-bar {
+  display: none !important;
+}
+
+#tab-arena:not(.arena-fighting) .arena-stage {
+  position: relative !important;
+  min-height: 520px;
+  border: 2px solid rgba(255, 204, 77, 0.75) !important;
+  border-radius: 22px !important;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(255, 180, 50, 0.08), transparent 65%),
+    url('/assets/arena-stage-clean.webp') center 46% / cover no-repeat,
+    #081321 !important;
+  box-shadow:
+    0 16px 44px rgba(0, 0, 0, 0.65),
+    0 0 35px rgba(245, 158, 11, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  overflow: hidden;
+}
+
+#tab-arena.arena-idle #arena-preview {
+  opacity: 0.05;
+  filter: brightness(1.1) saturate(1.2);
+}
+
 #tab-arena .arena-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(5, 14, 35, .2), transparent 25%, transparent 70%, rgba(51, 24, 10, .28)),
-    radial-gradient(ellipse at 50% 72%, rgba(255, 177, 64, .13), transparent 40%),
-    radial-gradient(ellipse at 50% 15%, rgba(72, 179, 255, .14), transparent 52%);
+    linear-gradient(180deg, rgba(5, 14, 35, .45) 0%, transparent 22%, transparent 70%, rgba(5, 14, 35, .6) 100%),
+    radial-gradient(ellipse at 50% 72%, rgba(255, 177, 64, .12), transparent 45%);
+  z-index: 1;
 }
+
 #tab-arena .ar {
-  background:
-    linear-gradient(180deg, rgba(5, 13, 32, .6), rgba(6, 14, 30, .12) 34%, rgba(7, 11, 24, .12) 63%, rgba(6, 11, 25, .78)),
-    radial-gradient(ellipse at 50% 52%, transparent 24%, rgba(4, 9, 22, .21) 100%);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 14px;
+  z-index: 2;
+  background: transparent;
 }
-#tab-arena .ar-title {
-  border-color: rgba(255, 209, 94, .64);
-  background: linear-gradient(115deg, rgba(15, 41, 79, .96), rgba(48, 31, 74, .95) 52%, rgba(17, 37, 69, .96));
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .14);
+
+/* Hide original cards, top bar, and rail in showdown view so the colosseum stage remains the star */
+.arena-showdown-view .ar-top { display: none !important; }
+.arena-showdown-view .ar-cards { display: none !important; }
+.arena-showdown-view .ar-gap { display: none !important; }
+.arena-showdown-view #ar-rail { display: none !important; }
+#tab-arena .as-bar { display: none !important; }
+
+/* ===== Top Showdown Subheader Bar ===== */
+.ar-showdown-header {
+  position: absolute !important;
+  top: 10px !important;
+  left: 14px !important;
+  right: 14px !important;
+  display: flex !important;
+  direction: ltr !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: auto !important;
+  z-index: 20 !important;
+  pointer-events: auto !important;
 }
-#tab-arena .ar-title b { color: #ffe8a6; font-size: 15px; text-shadow: 0 2px 10px rgba(255, 190, 60, .2); }
-#tab-arena .ar-title span { color: #c4dcff; }
-@media (min-width: 700px) {
-  #tab-arena .ar-title { min-width: min(360px, 42vw); padding: 9px 24px; }
-  #tab-arena .ar-title b { font-size: clamp(20px, 2.2vw, 28px); }
-  #tab-arena .ar-title span { font-size: 11px; }
+
+/* Profile Capsule (Physical Left) */
+.ar-showdown-profile {
+  display: flex !important;
+  direction: ltr !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 4px 14px 4px 6px !important;
+  background: linear-gradient(135deg, rgba(8, 20, 44, 0.94), rgba(14, 32, 66, 0.9)) !important;
+  border: 1px solid rgba(255, 204, 77, 0.55) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  backdrop-filter: blur(8px) !important;
 }
+.ar-profile-avatar-wrap {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+.ar-profile-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #ffd166;
+  background: #1e293b;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.ar-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ar-profile-meta { display: flex; flex-direction: column; gap: 3px; min-width: 110px; margin-left: 6px; }
+.ar-profile-lvl {
+  position: absolute !important;
+  bottom: -6px !important;
+  background: linear-gradient(180deg, #1e293b, #0f172a) !important;
+  border: 1.5px solid #ffd166 !important;
+  border-radius: 999px !important;
+  padding: 1px 7px !important;
+  font-size: 10px !important;
+  font-weight: 950 !important;
+  color: #ffd166 !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.6) !important;
+  white-space: nowrap !important;
+  z-index: 2 !important;
+}
+.ar-profile-bar {
+  position: relative;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(4, 10, 22, 0.9);
+  border: 1.5px solid rgba(74, 222, 128, 0.5);
+  overflow: hidden;
+}
+.ar-profile-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #22c55e);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+}
+.ar-profile-xp {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 1px 2px #000;
+}
+  color: #ffffff;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* Center Laurel Crest */
+.ar-showdown-crest-box {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: 2px !important;
+  pointer-events: none !important;
+}
+.ar-showdown-crest-img {
+  height: clamp(54px, 6.5vw, 76px) !important;
+  max-width: 320px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 4px 14px rgba(245, 158, 11, 0.45)) !important;
+}
+
+/* Season & Rank Capsule (Physical Right) */
+.ar-showdown-season {
+  display: flex !important;
+  direction: ltr !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+.ar-season-rank, .ar-season-timer {
+  display: flex !important;
+  direction: rtl !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 5px 12px !important;
+  background: linear-gradient(135deg, rgba(8, 20, 44, 0.94), rgba(14, 32, 66, 0.9)) !important;
+  border: 1px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+  color: #e2e8f0 !important;
+  backdrop-filter: blur(8px) !important;
+}
+.ar-rank-text, .ar-timer-text { display: flex; flex-direction: column; text-align: right; }
+.ar-season-rank b, .ar-season-timer b {
+  color: #ffd166;
+  font-size: 13px;
+  font-weight: 900;
+}
+.ar-season-rank small, .ar-season-timer small {
+  display: block;
+  font-size: 8.5px;
+  color: #94a3b8;
+}
+.ar-trophy-ico, .ar-clock-ico { font-size: 17px; }
+
+/* ===== Side Panels (Leaderboard on Physical Left & Rewards on Physical Right) ===== */
+#tab-arena .ar-showcase-panel {
+  position: absolute !important;
+  top: 72px !important;
+  transform: none !important;
+  z-index: 15 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: clamp(210px, 19vw, 255px) !important;
+  padding: 10px 12px !important;
+  border-radius: 16px !important;
+  background: linear-gradient(160deg, rgba(10, 24, 52, 0.95), rgba(5, 12, 28, 0.96)) !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.55) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(8px) !important;
+  pointer-events: auto !important;
+}
+#tab-arena .ar-showcase-leaders {
+  left: 14px !important; /* Physical Left */
+  right: auto !important;
+}
+#tab-arena .ar-showcase-reward {
+  right: 14px !important; /* Physical Right */
+  left: auto !important;
+}
+.ar-showcase-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 204, 77, 0.25);
+}
+.ar-showcase-heading b {
+  color: #ffd166;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+.ar-h-ico { font-size: 16px; }
+
+/* Leaderboard rows matching the showdown screenshot */
+.ar-showcase-leader-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.ar-showcase-leader {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  padding: 5px 8px !important;
+  border-radius: 8px !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  font-size: 11px !important;
+  direction: ltr !important;
+}
+.ar-ld-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  min-width: 0 !important;
+}
+.ar-ld-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+}
+.ar-showcase-leader.active-player,
+.ar-showcase-leader.rank-4 {
+  background: linear-gradient(90deg, rgba(217, 119, 6, 0.5), rgba(180, 83, 9, 0.65)) !important;
+  border: 1.5px solid #ffd166 !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4) !important;
+}
+.ar-ld-medal { font-weight: 900; width: 16px; text-align: center; }
+.ar-ld-avatar { font-size: 14px; }
+.ar-ld-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f8fafc; font-weight: 700; font-size: 11px; }
+.ar-ld-score { font-weight: 900; color: #ffd166; font-size: 10px; white-space: nowrap; direction: rtl; }
+.ar-ld-flag { font-size: 13px; }
+
+.ar-showcase-link {
+  margin-top: 8px;
+  padding: 7px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e3a8a, #0f172a);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.ar-showcase-link:hover {
+  background: linear-gradient(135deg, #2563eb, #1e3a8a);
+  color: #ffffff;
+}
+
+/* Rewards panel */
+.ar-chest-showcase {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 4px 0 8px;
+  position: relative;
+}
+.ar-chest-showcase::before {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent 70%);
+  filter: blur(12px);
+}
+.ar-chest-img {
+  width: 140px;
+  height: auto;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+}
+.ar-rewards-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.ar-rw-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 204, 77, 0.25);
+  color: #f1f5f9;
+  font-size: 12px;
+}
+.ar-rw-pill strong { color: #ffd166; font-size: 13px; font-weight: 900; }
+.ar-rw-pill.gem strong { color: #c084fc; }
+.ar-rw-pill.token strong { color: #fbbf24; }
+.ar-showcase-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 10px;
+  color: #94a3b8;
+}
+.ar-showcase-record b { color: #38bdf8; }
+
+/* ===== Bottom Showdown Controls ===== */
+.ar-showdown-bottom {
+  position: absolute !important;
+  bottom: 12px !important;
+  left: 14px !important;
+  right: 14px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  direction: ltr !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  width: auto !important;
+  z-index: 20 !important;
+  pointer-events: auto !important;
+}
+.ar-showdown-card {
+  width: clamp(200px, 19vw, 255px) !important;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(160deg, rgba(10, 24, 52, 0.94), rgba(5, 12, 28, 0.96)) !important;
+  border: 1px solid rgba(255, 204, 77, 0.45) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45) !important;
+  direction: rtl !important;
+  text-align: right !important;
+  flex-shrink: 0 !important;
+}
+.ar-tips-card {
+  order: 1 !important; /* Physical Left */
+}
+.ar-showdown-cta-box {
+  order: 2 !important; /* Center */
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.ar-daily-card {
+  order: 3 !important; /* Physical Right */
+}
+.ar-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffd166;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.ar-tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 10px;
+  color: #e2e8f0;
+}
+.ar-tips-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ar-chk {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+/* Daily matches card */
+.ar-daily-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 6px;
+}
+.ar-daily-val {
+  font-size: 20px;
+  font-weight: 950;
+  color: #ffffff;
+  letter-spacing: 1px;
+}
+.ar-daily-plus {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #10b981;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ar-daily-reward-tag {
+  font-size: 10px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ar-daily-reward-tag b { color: #c084fc; font-size: 11px; }
+
+/* Center Action Group: Big Gold 3D button flanked by Team & Season */
+.ar-flank-row {
+  display: flex !important;
+  direction: ltr !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+.ar-sub-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 10px 18px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.95), rgba(15, 23, 42, 0.95)) !important;
+  border: 1.5px solid rgba(96, 165, 250, 0.6) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transition: transform 0.15s ease, filter 0.15s ease !important;
+}
+.ar-sub-btn:hover {
+  transform: translateY(-2px) !important;
+  filter: brightness(1.15) !important;
+}
+
+/* Grand 3D Golden Battle Button */
+.ar-cta-showdown {
+  display: inline-flex !important;
+  direction: ltr !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  min-width: 250px !important;
+  height: 60px !important;
+  padding: 0 26px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, #ffe066 0%, #f59e0b 52%, #b45309 100%) !important;
+  border: 2px solid #fff3bf !important;
+  box-shadow:
+    0 8px 24px rgba(245, 158, 11, 0.5),
+    inset 0 3px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -3px 0 rgba(120, 53, 15, 0.7) !important;
+  color: #261605 !important;
+  cursor: pointer !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  transition: transform 0.12s ease, filter 0.12s ease !important;
+}
+.ar-cta-showdown:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  filter: brightness(1.08) !important;
+}
+.ar-cta-showdown:active {
+  transform: translateY(1px) scale(0.98) !important;
+}
+.ar-cta-ico { font-size: 24px; }
+.ar-cta-title { font-size: 19px; font-weight: 950; letter-spacing: .3px; }
+.ar-cta-energy {
+  display: inline-flex !important;
+  direction: ltr !important;
+  align-items: center !important;
+  gap: 3px !important;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  background: rgba(15, 23, 42, 0.88) !important;
+  color: #38bdf8 !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  text-shadow: none !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+.ar-showcase-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 204, 77, 0.25);
+}
+.ar-showcase-heading b {
+  color: #ffd166;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+.ar-h-ico { font-size: 16px; }
+
+/* Leaderboard rows matching the showdown screenshot */
+.ar-showcase-leader-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.ar-showcase-leader {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  padding: 5px 8px !important;
+  border-radius: 8px !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  font-size: 11px !important;
+  direction: ltr !important;
+}
+.ar-ld-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  min-width: 0 !important;
+}
+.ar-ld-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+}
+.ar-showcase-leader.active-player,
+.ar-showcase-leader.rank-4 {
+  background: linear-gradient(90deg, rgba(217, 119, 6, 0.5), rgba(180, 83, 9, 0.65)) !important;
+  border: 1.5px solid #ffd166 !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4) !important;
+}
+.ar-ld-medal { font-weight: 900; width: 16px; text-align: center; }
+.ar-ld-avatar { font-size: 14px; }
+.ar-ld-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f8fafc; font-weight: 700; font-size: 11px; }
+.ar-ld-score { font-weight: 900; color: #ffd166; font-size: 10px; white-space: nowrap; direction: rtl; }
+.ar-ld-flag { font-size: 13px; }
+
+.ar-showcase-link {
+  margin-top: 8px;
+  padding: 7px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e3a8a, #0f172a);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.ar-showcase-link:hover {
+  background: linear-gradient(135deg, #2563eb, #1e3a8a);
+  color: #ffffff;
+}
+
+/* Rewards panel */
+.ar-chest-showcase {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 4px 0 8px;
+  position: relative;
+}
+.ar-chest-showcase::before {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent 70%);
+  filter: blur(12px);
+}
+.ar-chest-img {
+  width: 140px;
+  height: auto;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+}
+.ar-rewards-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.ar-rw-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 204, 77, 0.25);
+  color: #f1f5f9;
+  font-size: 12px;
+}
+.ar-rw-pill strong { color: #ffd166; font-size: 13px; font-weight: 900; }
+.ar-rw-pill.gem strong { color: #c084fc; }
+.ar-rw-pill.token strong { color: #fbbf24; }
+.ar-showcase-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 10px;
+  color: #94a3b8;
+}
+.ar-showcase-record b { color: #38bdf8; }
+
+/* ===== Bottom Showdown Controls ===== */
+.ar-showdown-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 100%;
+  z-index: 10;
+  pointer-events: auto;
+  gap: 12px;
+}
+.ar-showdown-card {
+  width: clamp(170px, 18vw, 220px);
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(10, 24, 52, 0.94), rgba(5, 12, 28, 0.96));
+  border: 1px solid rgba(255, 204, 77, 0.45);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.ar-tips-card {
+  order: 1; /* Physical Left */
+}
+.ar-showdown-cta-box {
+  order: 2; /* Center */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.ar-daily-card {
+  order: 3; /* Physical Right */
+}
+.ar-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffd166;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.ar-tips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 10px;
+  color: #e2e8f0;
+}
+.ar-tips-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ar-chk {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+/* Daily matches card */
+.ar-daily-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 6px;
+}
+.ar-daily-val {
+  font-size: 20px;
+  font-weight: 950;
+  color: #ffffff;
+  letter-spacing: 1px;
+}
+.ar-daily-plus {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #10b981;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ar-daily-reward-tag {
+  font-size: 10px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ar-daily-reward-tag b { color: #c084fc; font-size: 11px; }
+
+/* Center Action Group: Big Gold 3D button flanked by Team & Season */
+.ar-flank-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ar-sub-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.95), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(96, 165, 250, 0.6);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.ar-sub-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
+}
+
+/* Grand 3D Golden Battle Button */
+.ar-cta-showdown {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  min-width: 240px !important;
+  height: 60px !important;
+  padding: 0 28px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, #ffe066 0%, #f59e0b 52%, #b45309 100%) !important;
+  border: 2px solid #fff3bf !important;
+  box-shadow:
+    0 8px 24px rgba(245, 158, 11, 0.5),
+    inset 0 3px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -3px 0 rgba(120, 53, 15, 0.7) !important;
+  color: #261605 !important;
+  cursor: pointer !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  transition: transform 0.12s ease, filter 0.12s ease !important;
+}
+.ar-cta-showdown:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  filter: brightness(1.08) !important;
+}
+.ar-cta-showdown:active {
+  transform: translateY(1px) scale(0.98) !important;
+}
+.ar-cta-ico { font-size: 22px; }
+.ar-cta-title { font-size: 18px; font-weight: 950; }
+.ar-cta-energy {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #38bdf8;
+  font-size: 13px;
+  font-weight: 900;
+  text-shadow: none;
+}
+
 #tab-arena .ar-chip,
 #tab-arena .ar-tool {
   border-color: rgba(129, 178, 235, .38);
@@ -228,7 +2005,6 @@
 }
 #tab-arena .ar-card.rival .ar-stats > span:last-child b { color: #ffdf84; }
 #platform-scene.scene-lobby .mine-stage canvas { filter: brightness(1.12) saturate(1.08); }
-#tab-arena .ar-showcase-panel { display: none; }
 #tab-arena .ar-lvl {
   color: #ffe4a2;
   background: rgba(255, 191, 55, .16);

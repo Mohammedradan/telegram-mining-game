@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const P = require('../public/prestige-rules');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 const css = fs.readFileSync(path.join(root, 'public', 'platform.css'), 'utf8');
 const EMOJI = /\p{Extended_Pictographic}/u;
 const plain = (v) => JSON.parse(JSON.stringify(v));

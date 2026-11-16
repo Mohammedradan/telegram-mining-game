@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
+const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8').replace(/\r\n/g, '\n');
 
 const groundStart = renderer.indexOf('function drawMineGround');
 const helper = groundStart >= 0 ? renderer.slice(groundStart, renderer.indexOf('// ---- Main draw ----')) : '';

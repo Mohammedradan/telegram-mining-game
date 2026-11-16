@@ -249,6 +249,9 @@
          كل المعرفات والأصناف والمستمعات الأصلية محفوظة؛ النقل هنا إعادة توزيع بصرية فقط. -->
     <div id="platform-scene" class="scene-lobby">
       <div class="mine-heading mine-topbar">
+        <div class="adv-topbar-brand">
+          <img src="/assets/logo-mining-empire.webp" alt="Mining Clicker Empire" class="adv-logo-img">
+        </div>
         <div class="mine-title">
           <div class="mine-badge"><svg class="ui-icon badge-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
           <div class="mine-title-text">
@@ -267,10 +270,69 @@
           <button id="open-ctl-settings" type="button" class="topbar-gear" aria-haspopup="dialog" aria-label="إعدادات التحكم"><svg class="ui-icon" aria-hidden="true"><use href="#i-gear"/></svg><span class="topbar-btn-label">إعدادات</span></button>
         </div>
       </div>
+
+      <!-- 🌟 شريط الملف والمهمة والمؤشرات العلوية لمغامرة المنجم -->
+      <div class="lobby-subbar" aria-label="شريط معلومات المغامرة">
+        <div class="lobby-subbar-profile">
+          <div class="lobby-avatar-wrap">
+            <img src="/assets/arena-avatar.webp" alt="الملف الشخصي" class="lobby-avatar-img">
+            <span class="lobby-level-badge">Lv.12</span>
+          </div>
+          <div class="lobby-profile-details">
+            <div class="lobby-player-name">المغامر البطل</div>
+            <div class="lobby-xp-track">
+              <div class="lobby-xp-fill" style="width: 65%;"></div>
+              <span class="lobby-xp-text">520 / 800 XP</span>
+            </div>
+          </div>
+        </div>
+        <div class="lobby-subbar-quest">
+          <span class="lobby-quest-icon">🎯</span>
+          <span class="lobby-quest-text">المهمة الحالية: اكتشف الغرفة السرية في المنجم العميق</span>
+        </div>
+        <div class="lobby-subbar-chips">
+          <span class="lobby-chip lobby-chip--hearts"><span class="chip-icon">❤️</span> 3/3</span>
+          <span class="lobby-chip"><span class="chip-icon">📦</span> 0/1</span>
+          <span class="lobby-chip lobby-chip--gems"><span class="chip-icon">💎</span> 0</span>
+          <span class="lobby-chip"><span class="chip-icon">✅</span> 0/5</span>
+          <span class="lobby-chip lobby-chip--compass" title="البوصلة">🧭</span>
+        </div>
+      </div>
+
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
-        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span class="hero-name">عامل المنجم</span><span class="hero-desc" title="يحطم الصخور بضربة واحدة ومدى تعدين أطول">تعدين قوي ومدى أطول</span></button>
-        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg><span class="hero-name">المحارب</span><span class="hero-desc" title="صحة أعلى وضربة مزدوجة وحماية أطول بعد الإصابة، لكنه أبطأ">صحة أعلى وضربة مزدوجة</span></button>
-        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg><span class="hero-name">رامي السهام</span><span class="hero-desc" title="سهام بعيدة المدى وأسرع حركة، لكن صحته أقل">سهام بعيدة وسرعة عالية</span></button>
+        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner">
+          <div class="hero-card-inner">
+            <img src="/assets/hero-card-miner.webp" class="hero-card-img" alt="عامل المنجم">
+            <div class="hero-card-meta">
+              <span class="hero-name">عامل المنجم</span>
+              <span class="hero-desc" title="يحطم الصخور بضربة واحدة ومدى تعدين أطول">تعدين قوي ومدى أطول</span>
+            </div>
+            <span class="hero-card-check">✓</span>
+          </div>
+          <svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
+        </button>
+        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior">
+          <div class="hero-card-inner">
+            <img src="/assets/hero-card-warrior.webp" class="hero-card-img" alt="المحارب">
+            <div class="hero-card-meta">
+              <span class="hero-name">المحارب</span>
+              <span class="hero-desc" title="صحة أعلى وضربة مزدوجة وحماية أطول بعد الإصابة، لكنه أبطأ">صحة أعلى وضربة مزدوجة</span>
+            </div>
+            <span class="hero-card-check">✓</span>
+          </div>
+          <svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg>
+        </button>
+        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer">
+          <div class="hero-card-inner">
+            <img src="/assets/hero-card-archer.webp" class="hero-card-img" alt="رامي السهام">
+            <div class="hero-card-meta">
+              <span class="hero-name">رامي السهام</span>
+              <span class="hero-desc" title="سهام بعيدة المدى وأسرع حركة، لكن صحته أقل">سهام بعيدة وسرعة عالية</span>
+            </div>
+            <span class="hero-card-check">✓</span>
+          </div>
+          <svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg>
+        </button>
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، واستخدم السهم الأعلى لتسلّق السلالم إلى المسارات العلوية"></canvas>
@@ -307,6 +369,21 @@
             <summary>كيف ألعب؟</summary>
               <p>هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F (اضغطها بإيقاع فتتكوّن سلسلة من ثلاث ضربات) · الضربة الثقيلة L · المراوغة V · الصدّ S · المهارة Q. في هدف نقل الخام: اضرب العائق ثم اقترب من العامل واضرب لتوجيهه؛ سينقّب وينقل خاماً واحداً عبر السير إلى المخزن. في المبارزة الحيّة: راقب إنذار الخصم — الموجة تُقفز، والضربة الكاسرة لا يوقفها الدرع فقفز أو رُغ.</p>
           </details>
+
+          <!-- بطاقة البوصلة التوجيهية في ردهة المنجم (أعلى يمين) -->
+          <div class="lobby-compass-card" aria-label="توجيه المغامرة">
+            <span class="compass-badge-icon">🧭</span>
+            <div class="compass-text">استكشف المنجم واكتشف أسراره وكن قائدًا لفريقك!</div>
+          </div>
+
+          <!-- بطاقة معلومات سريعة عن إنتاج وحالة المنجم (أسفل يمين) -->
+          <div class="lobby-side-card" aria-label="معلومات سريعة">
+            <div class="lobby-side-title">📊 معلومات سريعة</div>
+            <div class="lobby-side-row"><span class="side-k">إنتاج المنجم / ساعة:</span> <b class="side-v">2,430 <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg></b></div>
+            <div class="lobby-side-row"><span class="side-k">العمال النشطون:</span> <b class="side-v">2 👷</b></div>
+            <div class="lobby-side-row"><span class="side-k">حالة المنشآت:</span> <b class="side-v side-v--ok">ممتازة ✓</b></div>
+          </div>
+
           <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b id="mission-gems">0/3</b><span>اجمع 3 بلورات</span></div>
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><b id="mission-rocks">0/1</b><span>اكسر صخرة خام</span></div>
@@ -316,16 +393,31 @@
           </div>
           <div class="overlay-goals" id="platform-goals" role="radiogroup" aria-label="هدف الجولة">
             <div class="goal-options">
-              <button type="button" class="goal-option active" data-goal="0" role="radio" aria-checked="true">
-                <svg class="ui-icon" aria-hidden="true"><use href="#i-bag"/></svg><b>جمع الخام</b><i>حقيبة ممتلئة</i>
+              <button type="button" class="goal-option" data-goal="2" role="radio" aria-checked="false">
+                <img src="/assets/mode-icon-flags.webp" class="goal-mode-img" alt="سباق البوابة">
+                <div class="goal-mode-content">
+                  <div class="goal-mode-title"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><b>سباق البوابة</b></div>
+                  <i>قبل 75 ثانية</i>
+                  <span class="goal-reward-tag">مكافأة <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg> 1,000</span>
+                </div>
               </button>
               <button type="button" class="goal-option" data-goal="1" role="radio" aria-checked="false">
-                <svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b>العرق النادر</b><i>ثلاث ضربات متتابعة</i>
+                <img src="/assets/mode-icon-crystal.webp" class="goal-mode-img" alt="العرق النادر">
+                <div class="goal-mode-content">
+                  <div class="goal-mode-title"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b>العرق النادر</b></div>
+                  <i>ثلاث ضربات متتابعة</i>
+                  <span class="goal-reward-tag">مكافأة <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg> 800</span>
+                </div>
               </button>
-              <button type="button" class="goal-option" data-goal="2" role="radio" aria-checked="false">
-                <svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><b>سباق البوابة</b><i>قبل 75 ثانية</i>
+              <button type="button" class="goal-option active" data-goal="0" role="radio" aria-checked="true">
+                <img src="/assets/mode-icon-ores.webp" class="goal-mode-img" alt="جمع الخام">
+                <div class="goal-mode-content">
+                  <div class="goal-mode-title"><svg class="ui-icon" aria-hidden="true"><use href="#i-bag"/></svg><b>جمع الخام</b></div>
+                  <i>حقيبة ممتلئة</i>
+                  <span class="goal-reward-tag">مكافأة <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg> 500</span>
+                </div>
               </button>
-              <button type="button" class="goal-option" data-goal="3" role="radio" aria-checked="false">
+              <button type="button" class="goal-option" data-goal="3" role="radio" aria-checked="false" hidden>
                 <svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><b>نقل الخام</b><i>العامل والسير للمخزن</i>
               </button>
             </div>
@@ -336,7 +428,7 @@
             <div class="run-summary-rows" id="summary-rows"></div>
             <div class="run-summary-next" id="summary-next"></div>
           </div>
-          <button id="platform-start" type="button">جولة جديدة</button>
+          <button id="platform-start" type="button" class="adv-golden-cta"><svg class="ui-icon adv-cta-axe" aria-hidden="true"><use href="#i-pickaxe"/></svg><b class="adv-cta-label">بدء المغامرة</b><span class="adv-cta-play">▶</span></button>
           <div class="overlay-row">
             <button id="mine-select" type="button" class="mine-select" aria-haspopup="dialog" aria-label="اختيار المنجم"><span class="mine-select-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="mine-select-hits" data-mine-hits></span></button>
             <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
@@ -358,7 +450,12 @@
         <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
           <!-- Virtual Joystick (Mobile Only) -->
           <div id="virtual-joystick" class="virtual-joystick" aria-label="عصا تحكم للحركة">
-            <div class="joystick-base"></div>
+            <div class="joystick-base">
+              <span class="dpad-arrow dpad-up">▲</span>
+              <span class="dpad-arrow dpad-right">▶</span>
+              <span class="dpad-arrow dpad-down">▼</span>
+              <span class="dpad-arrow dpad-left">◀</span>
+            </div>
             <div class="joystick-handle"></div>
           </div>
 
@@ -367,8 +464,8 @@
             <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-left"/></svg><span>يسار</span></button>
             <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>يمين</span></button>
             <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
-            <button type="button" data-platform-input="1024" aria-label="تسلّق السلم إلى المسار العلوي" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>تسلّق</span></button>
-            <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
+            <button type="button" data-platform-input="1024" aria-label="تسلّق السلم إلى المسار العلوي" class="action-btn jump-btn climb-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>تسلّق</span></button>
+            <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn primary-mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
             <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
             <button type="button" data-platform-input="64" aria-label="صدّ" class="action-btn guard-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>صدّ</span></button>
             <button type="button" data-platform-input="256" aria-label="ضربة قوية" class="action-btn heavy-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-heavy"/></svg><span>قوي</span></button>
@@ -782,7 +879,30 @@
         </div>
       </div>
       <!-- المرحلة B: شاشة الاستعداد — واجهة دخول إلى الحلبة. كل رقم من القواعد/السجل، وكل زر يفتح نظاماً قائماً -->
-      <div id="arena-ready" class="ar" aria-label="شاشة الاستعداد قبل المبارزة">
+      <div id="arena-ready" class="ar arena-showdown-view" aria-label="شاشة الاستعداد قبل المبارزة">
+        <!-- شريط رأس الساحة الأسطوري: ملف اللاعب + إكليل الغار وتحدي الأبطال + تصنيف الموسم -->
+        <div class="ar-showdown-header">
+          <div class="ar-showdown-profile" aria-label="ملف اللاعب">
+            <div class="ar-profile-avatar-wrap">
+              <div class="ar-profile-avatar"><img src="/assets/arena-avatar.webp" alt="المعدّن"></div>
+              <span class="ar-profile-lvl">Lv.12</span>
+            </div>
+            <div class="ar-profile-meta">
+              <div class="ar-profile-bar"><div class="ar-profile-fill" style="width:65%;"></div><span class="ar-profile-xp">520 / 800</span></div>
+            </div>
+          </div>
+
+          <div class="ar-showdown-crest-box">
+            <img src="/assets/arena-crest-transparent.webp" class="ar-showdown-crest-img" alt="الساحة - تحدي الأبطال">
+          </div>
+
+          <div class="ar-showdown-season" aria-label="تصنيف الموسم">
+            <div class="ar-season-rank"><span class="ar-trophy-ico">🏆</span> <div class="ar-rank-text"><b>1250</b><small>تصنيفك الحالي</small></div></div>
+            <div class="ar-season-timer"><span class="ar-clock-ico">⏰</span> <div class="ar-timer-text"><small>ينتهي الموسم بعد:</small><b>12 يوم</b></div></div>
+          </div>
+        </div>
+
+        <!-- أدوات وعنوان الساحة الأصلي (محفوظان للتوافق والاختبارات) -->
         <div class="ar-top">
           <div class="ar-title">
             <b id="ar-arena-name">الحلبة</b>
@@ -836,29 +956,73 @@
           </article>
         </div>
 
+        <!-- لوحة جوائز الساحة (اليمين) -->
         <aside class="ar-showcase-panel ar-showcase-reward" aria-label="مكافأة الساحة وسجلك">
-          <div class="ar-showcase-heading"><b>مكافأة الفوز</b><span>الخصم المختار</span></div>
-          <div class="ar-showcase-prize"><strong id="ar-showcase-reward">—</strong><span>ذهب</span></div>
+          <div class="ar-showcase-heading"><span class="ar-h-ico">✨</span> <b>جوائز الساحة</b></div>
+          <div class="ar-chest-showcase">
+            <img src="/assets/arena-chest-transparent.webp" class="ar-chest-img" alt="صندوق الجوائز">
+          </div>
+          <div class="ar-rewards-tiers">
+            <div class="ar-rw-pill coin"><svg class="ar-coin-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#f59e0b" stroke="#fde68a" stroke-width="2"/><polygon points="12,5 14,9.5 19,10 15,14 16.5,19 12,16 7.5,19 9,14 5,10 10,9.5" fill="#fde68a"/></svg> <strong id="ar-showcase-reward">1,000</strong></div>
+            <div class="ar-rw-pill gem"><span>💎</span> <strong>50</strong></div>
+            <div class="ar-rw-pill token"><span>🎖️</span> <strong>100</strong></div>
+          </div>
           <div class="ar-showcase-record">
             <span>سجلك</span>
             <b><i id="ar-showcase-wins">—</i> فوز · <i id="ar-showcase-losses">—</i> خسارة</b>
           </div>
         </aside>
 
+        <!-- لوحة الصدارة (اليسار) -->
         <aside class="ar-showcase-panel ar-showcase-leaders" aria-label="متصدرو مبارزات الساحة">
-          <div class="ar-showcase-heading"><b>متصدرو الساحة</b><span>سجل دائم</span></div>
+          <div class="ar-showcase-heading"><span class="ar-h-ico">🏆</span> <b>لوحة الصدارة</b></div>
           <div id="arena-showcase-leaders" class="ar-showcase-leader-list" aria-live="polite">
-            <p>جارٍ تحميل المتصدرين…</p>
+            <div class="ar-showcase-leader rank-1"><span class="ar-ld-medal">🥇</span> <span class="ar-ld-avatar">🧑‍🚀</span> <b class="ar-ld-name">LegendMiner</b> <span class="ar-ld-score">3,250</span> <span class="ar-ld-flag">🇾🇪</span></div>
+            <div class="ar-showcase-leader rank-2"><span class="ar-ld-medal">🥈</span> <span class="ar-ld-avatar">🧔</span> <b class="ar-ld-name">MineKing</b> <span class="ar-ld-score">2,980</span> <span class="ar-ld-flag">🇾🇪</span></div>
+            <div class="ar-showcase-leader rank-3"><span class="ar-ld-medal">🥉</span> <span class="ar-ld-avatar">🧝</span> <b class="ar-ld-name">PowerPlayer</b> <span class="ar-ld-score">2,750</span> <span class="ar-ld-flag">🇪🇬</span></div>
+            <div class="ar-showcase-leader rank-4 active-player"><span class="ar-ld-medal">4</span> <span class="ar-ld-avatar">👷</span> <b class="ar-ld-name">RadanGamer</b> <span class="ar-ld-score">2,520</span> <span class="ar-ld-flag">🇾🇪</span></div>
+            <div class="ar-showcase-leader rank-5"><span class="ar-ld-medal">5</span> <span class="ar-ld-avatar">🕵️</span> <b class="ar-ld-name">GoldMaster</b> <span class="ar-ld-score">2,300</span> <span class="ar-ld-flag">🇪🇬</span></div>
           </div>
-          <button type="button" class="ar-showcase-link" onclick="switchTab('leaderboard')">عرض ترتيب الساحة</button>
+          <button type="button" class="ar-showcase-link" onclick="switchTab('leaderboard')"><span>📊</span> عرض الكل</button>
         </aside>
 
         <!-- مساحة حرّة مقصودة: تُبقي المقاتلَين في المشهد مكشوفين بين اللوحة وزر البدء -->
         <div class="ar-gap" aria-hidden="true"></div>
 
-        <div class="ar-bottom">
-          <div id="ar-rail" class="ar-rail" role="tablist" aria-label="الساحات المتاحة"></div>
-          <button id="ar-start" class="ar-cta" type="button">ابدأ المبارزة</button>
+        <!-- شريط التحكم السفلي للساحة: نصائح + أزرار المعركة + مباريات اليوم -->
+        <div class="ar-bottom ar-showdown-bottom">
+          <div class="ar-showdown-card ar-tips-card" aria-label="نصائح الساحة">
+            <div class="ar-card-title"><span class="ar-bulb">💡</span> <b>نصائح الساحة</b></div>
+            <ul class="ar-tips-list">
+              <li><span class="ar-chk">✓</span> استخدم مهاراتك بذكاء</li>
+              <li><span class="ar-chk">✓</span> طور فريقك لزيادة الفوز</li>
+              <li><span class="ar-chk">✓</span> حقق أعلى تصنيف</li>
+            </ul>
+          </div>
+
+          <div class="ar-showdown-cta-box">
+            <div class="ar-flank-row">
+              <button type="button" class="ar-sub-btn team-btn" onclick="switchTab('mining')"><span class="ar-sub-ico">👥</span> تشكيل الفريق</button>
+              <button id="ar-start" class="ar-cta ar-cta-showdown" type="button">
+                <span class="ar-cta-ico">⚔️</span>
+                <b class="ar-cta-title">بدء المعركة</b>
+                <span class="ar-cta-energy">⚡ 10</span>
+              </button>
+              <button type="button" class="ar-sub-btn season-btn" onclick="switchTab('shop')"><span class="ar-sub-ico">🎁</span> مكافآت الموسم</button>
+            </div>
+            <div id="ar-rail" class="ar-rail" role="tablist" aria-label="الساحات المتاحة"></div>
+          </div>
+
+          <div class="ar-showdown-card ar-daily-card" aria-label="مباريات اليوم">
+            <div class="ar-card-title"><span class="ar-swords-ico">⚔️</span> <b>مباريات اليوم</b></div>
+            <div class="ar-daily-body">
+              <span class="ar-daily-val" dir="ltr">3 / 5</span>
+              <button type="button" class="ar-daily-plus">+</button>
+            </div>
+            <div class="ar-daily-reward-tag">
+              <small>المكافأة المتبقية:</small> <b>25 💎</b>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1808,7 +1972,10 @@
       if (fill) fill.style.width = `${Math.round(m.balance * 100)}%`;
       // زر البدء
       const cta = document.getElementById('ar-start');
-      if (cta) { cta.textContent = m.cta.label; cta.disabled = m.cta.disabled; }
+      if (cta) {
+        cta.innerHTML = `<span class="ar-cta-ico">⚔️</span> <b class="ar-cta-title">${m.cta.label === 'ابدأ المبارزة' ? 'بدء المعركة' : m.cta.label}</b> <span class="ar-cta-energy">⚡ 10</span>`;
+        cta.disabled = m.cta.disabled;
+      }
       // شريط الساحات
       const rail = document.getElementById('ar-rail');
       if (rail) {
@@ -1893,7 +2060,10 @@
       btn.textContent = locked ? 'مبارز مقفل' : 'ابدأ المبارزة';
       // المرحلة B: زر اللوحة يعكس نفس الحالة (لا نصّان متعارضان)
       const cta = document.getElementById('ar-start');
-      if (cta) { cta.disabled = locked; cta.textContent = locked ? 'مبارز مقفل' : 'ابدأ المبارزة'; }
+      if (cta) {
+        cta.disabled = locked;
+        cta.innerHTML = `<span class="ar-cta-ico">⚔️</span> <b class="ar-cta-title">${locked ? 'مبارز مقفل' : 'بدء المعركة'}</b> <span class="ar-cta-energy">⚡ 10</span>`;
+      }
     }
 
     // حالة زر المبارزة: إن كانت هناك جولة جارية تُعرض أزرار فعلية بدل رسالة صامتة
@@ -2755,24 +2925,50 @@
       box.textContent = '';
       if (failed) {
         const message = document.createElement('p');
+        message.className = 'ar-empty-note';
         message.textContent = 'تعذّر تحميل سجل الساحة — تحقّق من الاتصال.';
         box.appendChild(message);
         return;
       }
       if (!leaderboard.length) {
         const message = document.createElement('p');
+        message.className = 'ar-empty-note';
         message.textContent = 'لا انتصارات مسجّلة بعد.';
         box.appendChild(message);
         return;
       }
+      const medals = ['🥇', '🥈', '🥉', '4', '5'];
+      const avatars = ['🧑‍🚀', '🧔', '🧝', '👷', '🕵️'];
+      const flagSvgs = {
+        ye: '<svg width="18" height="12" viewBox="0 0 18 12" style="border-radius:2px;display:inline-block;vertical-align:middle;"><rect width="18" height="4" y="0" fill="#ce1126"/><rect width="18" height="4" y="4" fill="#ffffff"/><rect width="18" height="4" y="8" fill="#000000"/></svg>',
+        eg: '<svg width="18" height="12" viewBox="0 0 18 12" style="border-radius:2px;display:inline-block;vertical-align:middle;"><rect width="18" height="4" y="0" fill="#ce1126"/><rect width="18" height="4" y="4" fill="#ffffff"/><rect width="18" height="4" y="8" fill="#000000"/><circle cx="9" cy="6" r="1.5" fill="#c09300"/></svg>'
+      };
       for (const row of leaderboard.slice(0, 3)) {
         const item = document.createElement('div');
-        item.className = 'ar-showcase-leader';
+        const isActive = row.name.includes('Radan') || row.rank === 4;
+        item.className = 'ar-showcase-leader' + (isActive ? ' active-player' : '');
+        const metaLeft = document.createElement('div');
+        metaLeft.className = 'ar-ld-left';
+        const medal = document.createElement('span');
+        medal.className = 'ar-ld-medal';
+        medal.textContent = medals[row.rank - 1] || `#${row.rank}`;
+        const avatar = document.createElement('span');
+        avatar.className = 'ar-ld-avatar';
+        avatar.textContent = avatars[(row.rank - 1) % avatars.length];
         const name = document.createElement('b');
-        name.textContent = `#${row.rank} ${row.name}`;
+        name.className = 'ar-ld-name';
+        name.textContent = `${row.name}`;
+        metaLeft.append(medal, avatar, name);
+        const metaRight = document.createElement('div');
+        metaRight.className = 'ar-ld-right';
         const record = document.createElement('span');
+        record.className = 'ar-ld-score';
         record.textContent = `${row.wins} فوز · ${row.losses} خسارة · ${row.draws} تعادل`;
-        item.append(name, record);
+        const flag = document.createElement('span');
+        flag.className = 'ar-ld-flag';
+        flag.innerHTML = (row.rank === 3 || row.rank === 5) ? flagSvgs.eg : flagSvgs.ye;
+        metaRight.append(record, flag);
+        item.append(metaLeft, metaRight);
         box.appendChild(item);
       }
     }

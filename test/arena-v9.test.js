@@ -44,7 +44,7 @@ test('V9: a duel hit knocks the player back instead of teleporting to the mine c
   assert.ok(s.player.x > 24, 'inside the arena walls');
   assert.ok(s.player.knock.ticks > 0 || s.player.knock.vx !== 0, 'a knockback was applied');
   // التعدين كما كان: فرع نقطة الحفظ باقٍ حرفياً في المحرك (مسار الساحة وحده تغيّر)
-  const rules = require('node:fs').readFileSync(path.join(__dirname, '..', 'public', 'platform-rules.js'), 'utf8');
+  const rules = require('node:fs').readFileSync(path.join(__dirname, '..', 'public', 'platform-rules.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(rules, /\} else \{\n\s+p\.x = s\.checkpoint; p\.y = 240; p\.vx = 0; p\.vy = 0;/, 'mining keeps the checkpoint reset');
   assert.match(rules, /if \(s\.mode === 'duel'\) \{\n\s+\/\/ في الساحة لا يعود اللاعب إلى نقطة حفظ المنجم/, 'only the arena branch changed');
   // ولا يوجد في الساحة أي قفز إلى نقطة الحفظ أثناء القتال
