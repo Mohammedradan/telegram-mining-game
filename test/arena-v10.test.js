@@ -230,11 +230,13 @@ test('V10 server: a forged loadout in the request body is ignored — the saved 
 });
 
 test('arena leaderboard ranks real persistent records and excludes players without wins', async () => {
+  // The test database is shared by the CI suites. Use unique names and assert our
+  // records in leaderboard order, without assuming no other player has a real win.
   const players = [
-    { key: 'top-clean', name: 'Top Clean', record: { wins: 5, losses: 0, draws: 1 } },
-    { key: 'top-rough', name: 'Top Rough', record: { wins: 5, losses: 2, draws: 0 } },
-    { key: 'bronze', name: 'Bronze', record: { wins: 2, losses: 0, draws: 0 } },
-    { key: 'no-wins', name: 'No Wins', record: { wins: 0, losses: 7, draws: 0 } },
+    { key: 'top-clean', name: `Top Clean ${runId}`, record: { wins: 5, losses: 0, draws: 1 } },
+    { key: 'top-rough', name: `Top Rough ${runId}`, record: { wins: 5, losses: 2, draws: 0 } },
+    { key: 'bronze', name: `Bronze ${runId}`, record: { wins: 2, losses: 0, draws: 0 } },
+    { key: 'no-wins', name: `No Wins ${runId}`, record: { wins: 0, losses: 7, draws: 0 } },
   ];
   for (const player of players) {
     const guestId = `board_${runId}_${player.key}`;
@@ -252,11 +254,13 @@ test('arena leaderboard ranks real persistent records and excludes players witho
   const response = await fetch(`http://127.0.0.1:${port}/api/arena-leaderboard`);
   assert.equal(response.status, 200);
   const { leaderboard } = await response.json();
-  assert.deepEqual(leaderboard, [
-    { rank: 1, name: 'Top Clean', wins: 5, losses: 0, draws: 1 },
-    { rank: 2, name: 'Top Rough', wins: 5, losses: 2, draws: 0 },
-    { rank: 3, name: 'Bronze', wins: 2, losses: 0, draws: 0 },
-  ]);
+  const ranked = leaderboard.filter((row) => players.slice(0, 3).some((player) => player.name === row.name));
+  assert.deepEqual(ranked.map(({ name, wins, losses, draws }) => ({ name, wins, losses, draws })), players.slice(0, 3).map(({ name, record }) => ({
+    name, wins: record.wins, losses: record.losses, draws: record.draws,
+  })), 'the three persistent winners are ranked by wins, losses, then name');
+  assert.ok(ranked[0].rank < ranked[1].rank && ranked[1].rank < ranked[2].rank, 'the seeded winners keep their relative leaderboard order');
+  assert.equal(leaderboard.some((row) => row.name === players[3].name), false, 'a player with zero wins is excluded');
+  assert.ok(leaderboard.every((row, index) => row.rank === index + 1), 'ranks remain contiguous even when unrelated winners are present');
 });
 
 // ---------- 7) الرحلة الكاملة عبر الخادم: معدات ← مبارزة ← خسارة/فوز ← مكافأة ← عودة ← تعدين ----------
