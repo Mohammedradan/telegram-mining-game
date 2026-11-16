@@ -1,0 +1,479 @@
+
+
+/* ==========================================================================
+   ===== ⚔️ Fantasy Adventure Live (المشهد الحي أثناء اللعب الفعلي) =====
+   ========================================================================== */
+#platform-scene.scene-live {
+  position: relative !important;
+  background: #080d16;
+  width: 100%;
+}
+
+/* 1. الشريط العلوي الكامل */
+#platform-scene.scene-live .mine-topbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 8px 24px !important;
+  min-height: 68px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98)) !important;
+  direction: ltr !important;
+}
+#platform-scene.scene-live .adv-topbar-brand { display: none !important; }
+#platform-scene.scene-live .lobby-subbar { display: none !important; }
+
+/* عنوان المنجم على أقصى اليمين (عربياً) */
+body #platform-scene.scene-live .mine-title {
+  display: flex !important;
+  order: 1 !important;
+  direction: rtl !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+body #platform-scene.scene-live .mine-badge {
+  display: flex !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 14px !important;
+  border: 2px solid #ffd36b !important;
+  background: radial-gradient(circle at 35% 35%, #92400e, #451a03 70%, #1f0a00 100%) !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+body #platform-scene.scene-live .mine-badge .badge-icon {
+  width: 28px !important;
+  height: 28px !important;
+  color: #ffd36b !important;
+}
+body #platform-scene.scene-live .mine-title-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+body #platform-scene.scene-live .mine-title-text h2 {
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7) !important;
+}
+body #platform-scene.scene-live .mine-kicker {
+  display: block !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: #fbbf24 !important;
+}
+
+/* كبسولات العملات (الذهب والطاقة مع زر + الأخضر) */
+body #platform-scene.scene-live .mine-economy {
+  display: flex !important;
+  order: 2 !important;
+  direction: rtl !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+body #platform-scene.scene-live .mine-gold,
+body #platform-scene.scene-live .mine-energy {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 6px 14px 6px 8px !important;
+  border-radius: 999px !important;
+  background: rgba(10, 22, 46, 0.95) !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  color: #fef08a !important;
+}
+body #platform-scene.scene-live .mine-gold::after,
+body #platform-scene.scene-live .mine-energy::after {
+  content: "+" !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 6px !important;
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6) !important;
+  margin-inline-start: 8px !important;
+  cursor: pointer !important;
+}
+body #platform-scene.scene-live .mine-gold .econ-icon {
+  width: 22px !important;
+  height: 22px !important;
+  color: #f59e0b !important;
+}
+body #platform-scene.scene-live .mine-energy {
+  border-color: rgba(56, 189, 248, 0.55) !important;
+  color: #bae6fd !important;
+}
+body #platform-scene.scene-live .mine-energy .econ-icon {
+  width: 22px !important;
+  height: 22px !important;
+  color: #38bdf8 !important;
+}
+
+/* أزرار الإجراءات العلوية */
+body #platform-scene.scene-live .mine-heading-actions {
+  display: flex !important;
+  order: 3 !important;
+  direction: rtl !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+body #platform-scene.scene-live .mine-heading-actions button {
+  min-height: 40px !important;
+  padding: 6px 16px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid rgba(135, 174, 231, 0.3) !important;
+  background: linear-gradient(180deg, rgba(20, 42, 80, 0.9), rgba(12, 26, 52, 0.95)) !important;
+  color: #f8fafc !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+}
+body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
+  width: 18px !important;
+  height: 18px !important;
+  color: #38bdf8 !important;
+}
+
+/* 2. مسرح اللعبة */
+#platform-scene.scene-live .mine-stage {
+  position: relative !important;
+  flex: 1 1 770px !important;
+  min-height: 700px !important;
+  height: 770px !important;
+  border: 2px solid rgba(245, 158, 11, 0.45) !important;
+  border-radius: 18px !important;
+  background:
+    url('/assets/fantasy-adventure-bg.webp') center 50% / 1672px 770px no-repeat,
+    radial-gradient(ellipse at 50% 50%, #17243c, #050a14) !important;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.75),
+    0 0 35px rgba(245, 158, 11, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  overflow: hidden !important;
+}
+#platform-scene.scene-live .mine-stage::after,
+#platform-scene.scene-lobby .mine-stage::after {
+  display: none !important;
+}
+#platform-scene.scene-live #platform-canvas {
+  position: relative;
+  z-index: 2;
+  background: transparent !important;
+}
+
+/* 3. شريط HUD العائم داخل الكانفاس */
+#platform-scene.scene-live .mine-hud--overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .mine-hud--overlay > * {
+  pointer-events: auto !important;
+}
+
+/* قلوب الصحة المتطابقة بدقة فوق الكبسولة */
+#platform-scene.scene-live #platform-hearts {
+  position: absolute !important;
+  top: 15px !important;
+  left: 20px !important;
+  width: 185px !important;
+  height: 54px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 32px !important;
+  color: #ef4444 !important;
+  text-shadow: 0 0 14px rgba(239, 68, 68, 0.95), 0 0 24px rgba(220, 38, 38, 0.8) !important;
+  font-weight: 900 !important;
+  letter-spacing: 8px !important;
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+/* رقائق الموارد العلوية تتطابق مع الكبسولات المرسومة بالخلفية */
+#platform-scene.scene-live .hud-right {
+  position: static !important;
+}
+#platform-scene.scene-live .mine-resources {
+  display: none !important;
+}
+#platform-scene.scene-live .res-chip {
+  display: none !important;
+}
+
+/* بطاقة تقدم المنجم والهدف أعلى يمين */
+#platform-scene.scene-live .hud-center {
+  position: absolute !important;
+  top: 15px !important;
+  right: 115px !important;
+  width: 350px !important;
+  height: 95px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 18px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+#platform-scene.scene-live #platform-progress {
+  display: none !important;
+}
+#platform-scene.scene-live #goal-chip {
+  display: none !important;
+}
+
+/* زر الإيقاف المؤقت فوق الزر الدائري أعلى يمين */
+#platform-scene.scene-live .hud-pause {
+  position: absolute !important;
+  top: 24px !important;
+  right: 20px !important;
+  width: 74px !important;
+  height: 74px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+#platform-scene.scene-live .hud-pause .ui-icon {
+  display: none !important;
+}
+
+/* 4. عناصر التحكم السفلية */
+#platform-scene.scene-live .mine-controls {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  pointer-events: none !important;
+  display: block !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .mine-controls * {
+  pointer-events: auto !important;
+}
+
+/* عصا التحكم الافتراضية فوق الرسمة أسفل يسار */
+#platform-scene.scene-live .virtual-joystick {
+  display: block !important;
+  position: absolute !important;
+  top: 480px !important;
+  left: 37px !important;
+  width: 210px !important;
+  height: 210px !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .joystick-base {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  position: relative !important;
+}
+#platform-scene.scene-live .joystick-base .dpad-arrow {
+  display: none !important;
+}
+#platform-scene.scene-live .joystick-handle {
+  width: 86px !important;
+  height: 86px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* شريط تبديل الشخصيات وسط أسفل */
+#platform-scene.scene-live .mine-hero-bar {
+  display: flex !important;
+  position: absolute !important;
+  bottom: 16px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  gap: 14px !important;
+  padding: 6px 14px !important;
+  border-radius: 18px !important;
+  background: rgba(8, 16, 32, 0.95) !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  z-index: 10 !important;
+  direction: rtl !important;
+  backdrop-filter: blur(8px) !important;
+}
+#platform-scene.scene-live .mine-hero-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 14px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid rgba(135, 174, 231, 0.3) !important;
+  background: rgba(12, 24, 48, 0.8) !important;
+  color: #f8fafc !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  transition: all 0.2s ease !important;
+}
+#platform-scene.scene-live .mine-hero-btn.active {
+  background: linear-gradient(180deg, #9a3412, #451a03) !important;
+  border-color: #ffd36b !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+#platform-scene.scene-live .hero-card-img {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 204, 77, 0.6) !important;
+  display: block !important;
+}
+#platform-scene.scene-live .hero-desc,
+#platform-scene.scene-live .hero-card-check,
+#platform-scene.scene-live .mine-hero-btn > .ui-icon {
+  display: none !important;
+}
+#platform-scene.scene-live .hero-name {
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  color: #f8fafc !important;
+  display: block !important;
+}
+#platform-scene.scene-live .mine-hero-btn.active .hero-name {
+  color: #fff0a7 !important;
+}
+
+/* مجموعة أزرار الإجراءات أسفل يمين */
+#platform-scene.scene-live .mine-controls-actions {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  pointer-events: none !important;
+  z-index: 10 !important;
+}
+#platform-scene.scene-live .mine-controls-actions .action-btn {
+  pointer-events: auto !important;
+  position: absolute !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+#platform-scene.scene-live .mine-controls-actions .action-btn span,
+#platform-scene.scene-live .mine-controls-actions .action-btn .ui-icon {
+  display: none !important;
+}
+#platform-scene.scene-live .mine-controls-actions .action-btn.move-btn,
+#platform-scene.scene-live .mine-controls-actions .climb-btn {
+  display: none !important;
+}
+
+/* زر الحفر والتعدين الذهبي الرئيسي */
+#platform-scene.scene-live .mine-controls-actions .primary-mine-btn,
+#platform-scene.scene-live .mine-controls-actions .mine-btn {
+  left: 1285px !important;
+  top: 635px !important;
+  width: 120px !important;
+  height: 120px !important;
+}
+
+/* زر القفز (سهم لأعلى) */
+#platform-scene.scene-live .mine-controls-actions .jump-btn:not(.climb-btn) {
+  left: 1450px !important;
+  top: 640px !important;
+  width: 88px !important;
+  height: 88px !important;
+}
+
+/* زر الضربة / الهجوم (سهم لأسفل) */
+#platform-scene.scene-live .mine-controls-actions .heavy-btn,
+#platform-scene.scene-live .mine-controls-actions .attack-btn {
+  left: 1530px !important;
+  top: 640px !important;
+  width: 88px !important;
+  height: 88px !important;
+}
+
+/* زر المراوغة / الجري */
+#platform-scene.scene-live .mine-controls-actions .dodge-btn {
+  left: 1555px !important;
+  top: 525px !important;
+  width: 95px !important;
+  height: 95px !important;
+}
+
+/* زر المهارة / التصويب (الهدف) */
+#platform-scene.scene-live .mine-controls-actions .skill-btn,
+#platform-scene.scene-live .mine-controls-actions .guard-btn {
+  left: 1555px !important;
+  top: 410px !important;
+  width: 95px !important;
+  height: 95px !important;
+}
+
+/* شريط الحالة والرسائل أسفل يسار بجانب العصا */
+#platform-scene.scene-live #platform-status {
+  position: absolute !important;
+  bottom: 20px !important;
+  left: 260px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 18px !important;
+  border-radius: 999px !important;
+  background: rgba(10, 20, 40, 0.9) !important;
+  border: 1.5px solid rgba(135, 174, 231, 0.3) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  color: #f8fafc !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  direction: rtl !important;
+  z-index: 10 !important;
+  opacity: 1 !important;
+  max-width: 240px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+#platform-scene.scene-live #platform-status::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
+  flex-shrink: 0;
+}

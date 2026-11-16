@@ -11,6 +11,7 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const G = require('../public/guide.js');
 const R = require('../public/platform-rules.js');
 const html = read('public', 'index.html');
+const workshop = read('public', 'mine-workshop.js');
 const EMOJI = /\p{Extended_Pictographic}/u;
 
 const ALL = R.EQUIPMENT_ORDER;
@@ -261,7 +262,7 @@ test('codex: gear — all eight items in workshop order, with the real effect no
 });
 
 test('codex: the danger lines are the same words the mines map uses', () => {
-  const m = /const WORLD_DANGER = (\{[^}]*\});/.exec(html);
+  const m = /const WORLD_DANGER = (\{[^}]*\});/.exec(workshop);
   assert.ok(m, 'the map still defines WORLD_DANGER');
   assert.deepEqual({ ...vm.runInNewContext(`(${m[1]})`) }, { ...G.DANGER }, 'one wording in both places');
   assert.deepEqual(Object.keys(G.DANGER), R.MINES.map((x) => x.id), 'every mine has a danger line');

@@ -158,7 +158,8 @@ test('V10 skill: mashing the key cannot exceed the cooldown rate', () => {
 
 // ---------- 5) واجهة الساحة تعرض المعدات ----------
 test('V10 UI: the arena shows the gear card and fills it from the shared rules', () => {
-  const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+  const html = (fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') +
+    fs.readFileSync(path.join(ROOT, 'public', 'arena-client.js'), 'utf8')).replace(/\r\n/g, '\n');
   assert.match(html, /id="arena-gear"[^>]*aria-label="معداتك في المبارزة"/, 'the arena tab has a gear card');
   assert.ok(html.indexOf('id="arena-gear"') < html.indexOf('id="arena-ladder"'), 'it sits before the rival ladder, i.e. before the duel starts');
   assert.match(html, /function renderArenaGear\(\)/, 'and it is rendered by a real function');

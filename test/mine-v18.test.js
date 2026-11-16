@@ -51,8 +51,8 @@ test('الأرض المنظورية مرتبطة بكتل الأرض فقط وا
 test('عرض فقط: الأرض لا تلمس حالة المحاكاة ولا تُغيّر أي رقم في القواعد', () => {
   assert.doesNotMatch(helper, /s\.(player|enemies|vein|fork|tick)\b/, 'the helper never reads or writes simulation state');
   assert.doesNotMatch(helper, /PlatformRules|R\.(step|create|LEVEL)/, 'and never touches the rules module');
-  const rules = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
-  assert.match(rules, /\{ x: 0, y: 300, w: 720, h: 80 \}/, 'the physics ground boxes are unchanged');
+  const worlds = fs.readFileSync(path.join(ROOT, 'public', 'platform-worlds.js'), 'utf8');
+  assert.match(worlds, /\{ x: 0, y: 300, w: 720, h: 80 \}/, 'the physics ground boxes are unchanged');
 });
 
 test('V18.1: ضباب أرضي وظل تلامس للديكور — قبل طبقة المقدمة فقط', () => {

@@ -222,16 +222,16 @@ test('boss attacks: the new moves never touch the armour rule or the old event c
 test('client wiring: drag-to-move controls, default restore, and per-device storage only', () => {
   const fs = require('node:fs'), path = require('node:path');
   const read = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
-  const html = read('public/index.html'), game = read('public/platform-game.js'), css = read('public/platform.css');
+  const html = read('public/index.html'), game = read('public/platform-game.js'), controls = read('public/platform-control-settings.js'), css = read('public/platform.css');
   assert.match(html, /id="ctl-edit"[^>]*aria-pressed="false"/, 'a toggle starts the move mode');
   assert.match(html, /id="ctl-reset"[^>]*>استعادة الوضع الافتراضي</, 'and a button restores the default layout');
   assert.match(html, /id="ctl-layout-hint"[^>]*hidden/, 'the hint is hidden until move mode is on');
-  assert.match(game, /platform-control-layout/, 'the layout lives in localStorage, per device');
-  assert.match(game, /localStorage\.removeItem\(LAYOUT_KEY\)/, 'restore really clears the saved layout');
-  assert.match(game, /style\.translate = off/, 'moving is purely visual (CSS translate), never an input change');
+  assert.match(controls, /platform-control-layout/, 'the layout lives in localStorage, per device');
+  assert.match(controls, /localStorage\.removeItem\(LAYOUT_KEY\)/, 'restore really clears the saved layout');
+  assert.match(controls, /node\.style\.translate = offset/, 'moving is purely visual (CSS translate), never an input change');
   // السحب لا يسجّل إدخال لعب: الحارسان يمنعان تسريب الإصبع إلى المحاكاة
-  assert.match(game, /if \(layoutEditing \|\| !running \|\| paused\) return;/, 'a drag never presses a button');
-  assert.match(game, /setLayoutEditing\(false\); start\(\)/, 'starting a run always leaves move mode');
+  assert.match(game, /if \(controlUi\.layoutEditing\(\) \|\| !running \|\| paused\) return;/, 'a drag never presses a button');
+  assert.match(game, /controlUi\.setLayoutEditing\(false\); start\(\)/, 'starting a run always leaves move mode');
   assert.match(css, /\.mine-controls\.ctl-editing \.action-btn/, 'move mode is visible on the pad');
   // ولا يعرف الخادم شيئاً عنها: لا تُرسل في التذكرة ولا في المدخلات
   assert.doesNotMatch(game, /layout[^;]*ticket/, 'the layout is never sent with the run ticket');

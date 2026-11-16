@@ -6,6 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const adventure = fs.readFileSync(path.join(__dirname, '..', 'public', 'adventure-game.js'), 'utf8');
+const arenaClient = fs.readFileSync(path.join(__dirname, '..', 'public', 'arena-client.js'), 'utf8');
+const workshop = fs.readFileSync(path.join(__dirname, '..', 'public', 'mine-workshop.js'), 'utf8');
 const shellLink = /<link[^>]+href="(\/app-shell\.css(?:\?[^"]*)?)"/.exec(html);
 const style = shellLink
   ? fs.readFileSync(path.join(__dirname, '..', 'public', shellLink[1].replace(/^\//, '').replace(/[?#].*$/, '')), 'utf8')
@@ -64,30 +67,31 @@ test('adventure canvas fills the remaining game panel and the backing store foll
   assert.match(style, /\.adventure-stage #game-canvas \{[^}]*height:\s*100%;/s);
   assert.match(style, /\.adventure-stage\s*\{\s*min-height:\s*150px;/);
   assert.doesNotMatch(html, /id="game-canvas"[^>]*h-\[330px\]/);
-  assert.match(html, /advCanvas\.height = Math\.max\(200, rect\.height\) \* dpr;/);
+  assert.match(adventure, /advCanvas\.height = Math\.max\(200, rect\.height\) \* dpr;/);
 });
 
 test('arena shows illustrated sword fighters and action animations, not clipped emoji cards', () => {
-  assert.match(html, /id="arena-player-fighter"[^>]*arena-fighter player/);
-  assert.match(html, /id="arena-enemy-fighter"[^>]*arena-fighter enemy/);
-  assert.match(html, /src="\/assets\/arena-player\.png\?v=3"[^>]*alt="محارب المنجم يحمل سيفاً"/);
-  assert.match(html, /src="\/assets\/arena-enemy\.png\?v=3"[^>]*alt="مبارز يحمل سيفاً"/);
-  assert.match(html, /class="arena-battle-stage"/);
+  const page = html + arenaClient;
+  assert.match(page, /id="arena-player-fighter"[^>]*arena-fighter player/);
+  assert.match(page, /id="arena-enemy-fighter"[^>]*arena-fighter enemy/);
+  assert.match(page, /src="\/assets\/arena-player\.png\?v=3"[^>]*alt="محارب المنجم يحمل سيفاً"/);
+  assert.match(page, /src="\/assets\/arena-enemy\.png\?v=3"[^>]*alt="مبارز يحمل سيفاً"/);
+  assert.match(page, /class="arena-battle-stage"/);
   assert.match(style, /\.arena-battle-stage\s*\{[^}]*overflow:\s*hidden;/s);
   assert.match(style, /\.arena-fighter-body\s*\{[^}]*object-fit:\s*contain;/s);
   assert.match(style, /@keyframes arenaLungePlayer/);
   assert.match(style, /@keyframes arenaHit/);
   assert.match(style, /@keyframes arenaDamageFloat/);
-  assert.match(html, /id="arena-stage-banner"/);
-  assert.match(html, /id="arena-damage-enemy"/);
-  assert.match(html, /function animateArenaFighter\(actor, action, event = \{\}\)/);
-  assert.match(html, /id="arena-move-left"[^>]*startArenaMove\(-1\)/);
-  assert.match(html, /id="arena-move-right"[^>]*startArenaMove\(1\)/);
-  assert.match(html, /const arenaInSwordRange = \(\) => arenaDistance\(\) <= 38/);
-  assert.match(html, /action === 'ATTACK' && !arenaInSwordRange\(\)/);
-  assert.match(html, /if \(battle\?\.active\) return;/);
-  assert.match(html, /startBtn\.disabled = Boolean\(battle\?\.active\)/);
-  assert.match(html, /⚔️ المعركة جارية/);
+  assert.match(page, /id="arena-stage-banner"/);
+  assert.match(page, /id="arena-damage-enemy"/);
+  assert.match(page, /function animateArenaFighter\(actor, action, event = \{\}\)/);
+  assert.match(page, /id="arena-move-left"[^>]*startArenaMove\(-1\)/);
+  assert.match(page, /id="arena-move-right"[^>]*startArenaMove\(1\)/);
+  assert.match(page, /const arenaInSwordRange = \(\) => arenaDistance\(\) <= 38/);
+  assert.match(page, /action === 'ATTACK' && !arenaInSwordRange\(\)/);
+  assert.match(page, /if \(battle\?\.active\) return;/);
+  assert.match(page, /startBtn\.disabled = Boolean\(battle\?\.active\)/);
+  assert.match(page, /⚔️ المعركة جارية/);
   // الساحة التفاعلية: نيّة معلنة + حكم فوق المسرح + حالة «قبل المباراة» بلا أزرار معطّلة
   assert.match(html, /id="arena-intent"/);
   assert.match(html, /id="arena-verdict"/);
@@ -95,8 +99,8 @@ test('arena shows illustrated sword fighters and action animations, not clipped 
   assert.match(style, /\.arena-idle #arena-controls \{ display: none; \}/);
   assert.match(style, /\.arena-fighting #arena-start-btn \{ display: none; \}/);
   assert.match(style, /\.arena-verdict\[hidden\] \{ display: none; \}/);
-  assert.match(html, /function renderArenaIntent\(\)/);
-  assert.match(html, /ArenaRules\.enemyIntent\(battle\)/);
+  assert.match(page, /function renderArenaIntent\(\)/);
+  assert.match(page, /ArenaRules\.enemyIntent\(battle\)/);
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-player.png')));
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'arena-enemy.png')));
 });
@@ -238,6 +242,7 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
   const renderer = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-renderer.js'), 'utf8');
+  const characters = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-characters.js'), 'utf8');
   assert.equal(require('../public/platform-rules').VERSION, 15, 'V22 logistics replay: older tickets are rejected');
   for (const id of ['ws-overlay', 'ws-hero', 'ws-nodes', 'ws-cta', 'ws-modal', 'ws-upgrade', 'ws-note', 'ws-ore-row', 'ws-mine',
     'ws-card-now', 'ws-card-next', 'ws-cost-gold', 'ws-cost-ore', 'open-workshop-heading', 'open-workshop-overlay', 'open-workshop-shop',
@@ -254,12 +259,12 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   }
   assert.match(css, /\.mine-overlay::before,\.mine-overlay::after\{content:'';flex:1 0 0/, 'the start overlay centres short content without clipping tall content');
   // الورشة تقرأ الأسعار والتأثيرات من القواعد المشتركة وترسل عملية خادمية، لا مستويات محلية
-  assert.match(html, /WORKSHOP_ITEMS = WS_RULES \? WS_RULES\.EQUIPMENT_ORDER/, 'items come from the shared rules; a missing rules file only disables the workshop');
-  assert.match(html, /enqueueOp\(\{ type: 'buy_equip', key: id \}\)/);
-  assert.match(html, /function noteEquipResults\(/);
-  assert.doesNotMatch(html, /workshop-preview-levels|wsLevels/, 'no client-only levels remain');
-  assert.doesNotMatch(html, /معاينة بصرية/, 'the screen is no longer a preview');
-  assert.doesNotMatch(html, /\/api\/workshop/, 'equipment goes through the existing ops endpoint');
+  assert.match(workshop, /WORKSHOP_ITEMS = WS_RULES \? WS_RULES\.EQUIPMENT_ORDER/, 'items come from the shared rules; a missing rules file only disables the workshop');
+  assert.match(workshop, /enqueueOp\(\{ type: 'buy_equip', key: id \}\)/);
+  assert.match(workshop, /function noteEquipResults\(/);
+  assert.doesNotMatch(workshop, /workshop-preview-levels|wsLevels/, 'no client-only levels remain');
+  assert.doesNotMatch(workshop, /معاينة بصرية/, 'the screen is no longer a preview');
+  assert.doesNotMatch(workshop, /\/api\/workshop/, 'equipment goes through the existing ops endpoint');
   assert.match(html, /window\.openWorkshop = wsOpen/);
   assert.match(html, /window\.openMines = minesOpen/);
   assert.ok(html.indexOf('id="mine-select"') > html.indexOf('id="platform-overlay"'), 'the selector lives in the start overlay');
@@ -276,10 +281,10 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(renderer, /rock\.maxHp/);
   assert.match(renderer, /s\.hazards \|\| L\.hazards/);
   assert.doesNotMatch(renderer, /R\.LEVEL\./, 'the renderer reads the level of the run, never the global first level');
-  assert.match(renderer, /drawDrone\(c, s\.player/);
+  assert.match(characters, /function drawDrone\(c, p, tick, reduced\)/);
   // أصول معدّلة تحمل رقم نسخة جديد حتى لا يخلط متصفح مخزَّن بين محرك V3 وخادم V4
   assert.match(html, /platform-rules\.js\?v=22/);
-  assert.match(html, /platform-game\.js\?v=49/);
+  assert.match(html, /platform-game\.js\?v=50/);
   assert.match(html, /platform-renderer\.js\?v=25/);
   assert.match(html, /platform-scenery\.js\?v=3/);
   assert.match(html, /platform-bosses\.js\?v=6/);

@@ -141,8 +141,9 @@ test('V7 duel rewards: a win pays its own small pool and a loss pays nothing', (
 });
 
 test('V7 client wiring: the arena can launch a real duel and the pad has a guard button', () => {
-  const html = read('public/index.html');
+  const html = read('public/index.html') + read('public/arena-client.js');
   const game = read('public/platform-game.js');
+  const duel = read('public/platform-duel.js');
   assert.match(html, /data-platform-input="64"[^>]*aria-label="صدّ"/, 'the touch pad ships a guard button');
   assert.match(html, /onclick="startArenaDuel\(\)"/, 'the arena tab can start the action duel');
   assert.match(html, /function startArenaDuel\(zone = null\)/, 'the depth defaults to the deepest unlocked mine');
@@ -152,11 +153,11 @@ test('V7 client wiring: the arena can launch a real duel and the pad has a guard
   assert.ok(launcher.length > 100, 'the launcher exists');
   assert.doesNotMatch(launcher, /switchTab\('play'\)/, 'starting a duel never jumps to the play tab');
   assert.match(launcher, /game\.startDuel\(tier\)/, 'the arena asks the engine to start the duel');
-  assert.match(game, /startDuel\(zone = 0\)/);
-  assert.match(game, /function startArenaRun\(zone\)/, 'the arena duel has its own controller');
-  assert.match(game, /mode: 'duel', loadout: liveLoadout\(\)/, 'the duel ticket asks the server for a duel run');
-  assert.match(game, /R\.seedFromId\(duelTicket\.id\)/, 'and replays with the server-issued seed');
+  assert.match(duel, /startDuel\(zone = 0\)/);
+  assert.match(duel, /async function startArenaRun\(zone\)/, 'the arena duel has its own controller');
+  assert.match(duel, /mode: 'duel', loadout: liveLoadout\(\)/, 'the duel ticket asks the server for a duel run');
+  assert.match(duel, /R\.seedFromId\(duelTicket\.id\)/, 'and replays with the server-issued seed');
   assert.doesNotMatch(game, /selectedMode = 'duel'/, 'the mining mode selection is never flipped by a duel');
-  assert.match(game, /KeyS: 64/, 'S guards on desktop');
+  assert.match(duel, /KeyS: 64/, 'S guards on desktop');
   assert.match(game, /sim\.mode === 'duel'/, 'the HUD knows it is a duel');
 });

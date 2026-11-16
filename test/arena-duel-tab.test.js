@@ -14,7 +14,7 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 // ---------- 1) مسار زر «ابدأ المبارزة» ----------
 test('«ابدأ المبارزة» لا يغادر تبويب الساحة: لا switchTab ولا showPlatform في المسار', () => {
-  const html = read('public/index.html');
+  const html = read('public/index.html') + read('public/arena-client.js');
   const body = html.slice(html.indexOf('function startArenaDuel'), html.indexOf('function resumeActiveRun'));
   assert.ok(body.includes('game.startDuel'), 'the button starts the arena duel controller');
   assert.doesNotMatch(body, /switchTab\s*\(/, 'no tab switch');
@@ -26,9 +26,11 @@ test('«ابدأ المبارزة» لا يغادر تبويب الساحة: ل�
 
 test('a duel may start while a mining run is open — the mining run is never a precondition', () => {
   const game = read('public/platform-game.js');
-  const start = game.slice(game.indexOf('startDuel(zone = 0)'), game.indexOf('busy:', game.indexOf('startDuel(zone = 0)')));
+  const duel = read('public/platform-duel.js');
+  assert.match(game, /startDuel: duelController\.startDuel/);
+  const start = duel.slice(duel.indexOf('startDuel(zone = 0)'), duel.indexOf('      },\n    };', duel.indexOf('startDuel(zone = 0)')));
   assert.doesNotMatch(start, /running \|\| pending/, 'the mining run no longer blocks the arena duel');
-  const runner = game.slice(game.indexOf('async function startArenaRun'), game.indexOf('async function duelFinish'));
+  const runner = duel.slice(duel.indexOf('async function startArenaRun'), duel.indexOf('async function duelFinish'));
   assert.doesNotMatch(runner, /if \(running \|\| pending\) return false;/, 'and the runner does not refuse either');
 });
 
@@ -38,10 +40,11 @@ test('the play canvas stays a mine: the arena art is opt-in through opts.arena o
   assert.match(renderer, /const arenaMode = !!opts\.arena;/, 'no implicit arena when a duel simulation is drawn');
   assert.doesNotMatch(renderer, /arenaMode = !!opts\.arena \|\|/, 'the run mode is not part of the decision');
   const game = read('public/platform-game.js');
+  const duel = read('public/platform-duel.js');
   // مسرح الساحة وحده هو من يطلب الحلبة
-  const arenaCalls = game.match(/renderer\.draw\((arenaCanvas|canvas)[^;]*/g) || [];
+  const arenaCalls = duel.match(/renderer\.draw\((arenaCanvas|canvas)[^;]*/g) || [];
   assert.ok(arenaCalls.some((c) => /arenaCanvas[\s\S]*arena: true/.test(c)), 'the arena stage asks for the arena art');
-  const playDraw = arenaCalls.filter((c) => !c.includes('arenaCanvas'));
+  const playDraw = game.match(/renderer\.draw\((arenaCanvas|canvas)[^;]*/g) || [];
   assert.ok(playDraw.every((c) => !c.includes('arena: true')), 'the play canvas never asks for it');
 });
 

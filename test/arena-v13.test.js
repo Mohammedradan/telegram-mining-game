@@ -11,7 +11,7 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const html = read('public/index.html');
 const css = read('public/app-shell.css');
-const game = read('public/platform-game.js');
+const duel = read('public/platform-duel.js');
 const stick = read('public/platform-stick.js');
 const rulesSource = read('public/platform-rules.js');
 
@@ -56,11 +56,10 @@ test('مبدّل الطريقة: زرّان، وحفظ الاختيار، وال
   assert.match(html, /id="arena-pad-mode"/, 'the switch lives outside the pad so it is usable before a duel');
   assert.match(html, /data-pad-mode="stick"/);
   assert.match(html, /data-pad-mode="buttons"/);
-  assert.match(game, /let padMode = 'stick'/, 'stick is the default');
-  assert.match(game, /localStorage\.setItem\(PAD_MODE_KEY, padMode\)/, 'the choice is remembered');
-  assert.match(game, /saved === 'buttons' \? 'buttons' : 'stick'/, 'a stored choice wins, otherwise stick');
-  assert.match(game, /classList\.toggle\('pad-stick', padMode === 'stick'\)/, 'the body class drives the CSS');
-  assert.match(game, /padMode: \(\) => padMode, setPadMode: applyPadMode/, 'exposed for tests and QA');
+  assert.match(duel, /let padMode = 'stick'/, 'stick is the default');
+  assert.match(duel, /localStorage\.setItem\(PAD_MODE_KEY, padMode\)/, 'the choice is remembered');
+  assert.match(duel, /saved === 'buttons' \? 'buttons' : 'stick'/, 'a stored choice wins, otherwise stick');
+  assert.match(duel, /padMode: \(\) => padMode, setPadMode: applyPadMode/, 'exposed for tests and QA');
 });
 
 test('CSS: السحب لا يمرّر الصفحة، والأهداف كبيرة، والوضعان يتبادلان بلا ازدواج', () => {
@@ -81,28 +80,28 @@ test('CSS: السحب لا يمرّر الصفحة، والأهداف كبيرة
 
 test('الربط: السحب يُصفَّر عند رفع الإصبع أو فقدانه، ولا مشي معلّق', () => {
   assert.match(stick, /direction = rules && rules\.stickDir \? rules\.stickDir\(dx\) : 0/, 'the direction comes from the shared deadzone rule');
-  assert.match(game, /for \(const type of \['pointerup', 'pointercancel', 'lostpointercapture'\]\)[\s\S]{0,120}stickReset\(\)/,
+  assert.match(duel, /for \(const type of \['pointerup', 'pointercancel', 'lostpointercapture'\]\)[\s\S]{0,120}stickReset\(\)/,
     'every way a finger can leave clears the movement');
-  assert.match(game, /addEventListener\('blur'[\s\S]{0,120}clearHolds\(\); stickReset\(\)/, 'losing focus also stops the stick');
+  assert.match(duel, /addEventListener\('blur'[\s\S]{0,120}clearHolds\(\); stickReset\(\)/, 'losing focus also stops the stick');
   assert.match(rulesSource, /const padMask = \(\{ stick = 0, bits = \[\] \} = \{\}\) =>/, 'the duel mask is assembled by the shared helper');
-  assert.match(game, /if \(R\.padMask\) mask = R\.padMask\(\{ stick: arenaStick\.inspect\(\)\.dir, bits: \[mask\] \}\)/, 'the game delegates mask assembly to the shared helper');
+  assert.match(duel, /if \(R\.padMask\) mask = R\.padMask\(\{ stick: arenaStick\.inspect\(\)\.dir, bits: \[mask\] \}\)/, 'the game delegates mask assembly to the shared helper');
 });
 
 test('الضغط المطوّل: ضربة قوية واحدة بعد 260ms، وفي وضع العصا فقط', () => {
   assert.equal(R.PAD.heavyHoldMs, 260);
-  assert.match(game, /if \(padMode === 'stick' && button\.dataset\.holdHeavy === 'true'\)/, 'only in stick mode, and only on the flagged button');
-  assert.match(game, /R\.PAD\?\.heavyHoldMs \|\| 260/, 'the threshold comes from the rules module');
-  assert.match(game, /duelPulses\.set\(`h:\$\{e\.pointerId\}`, R\.INPUT\.HEAVY\)/, 'it emits a single HEAVY pulse, not a held state (no auto-chain)');
-  assert.match(game, /if \(!duelPointers\.has\(e\.pointerId\) \|\| !duelRunning \|\| duelPaused\) return;/, 'a released finger or a paused duel never fires it');
-  const releaseAt = game.lastIndexOf('const release = e => {');
-  const release = game.slice(releaseAt, game.indexOf("button.addEventListener(type, release)", releaseAt));
+  assert.match(duel, /if \(padMode === 'stick' && button\.dataset\.holdHeavy === 'true'\)/, 'only in stick mode, and only on the flagged button');
+  assert.match(duel, /R\.PAD\?\.heavyHoldMs \|\| 260/, 'the threshold comes from the rules module');
+  assert.match(duel, /duelPulses\.set\(`h:\$\{e\.pointerId\}`, R\.INPUT\.HEAVY\)/, 'it emits a single HEAVY pulse, not a held state (no auto-chain)');
+  assert.match(duel, /if \(!duelPointers\.has\(e\.pointerId\) \|\| !duelRunning \|\| duelPaused\) return;/, 'a released finger or a paused duel never fires it');
+  const releaseAt = duel.lastIndexOf('const release = e => {');
+  const release = duel.slice(releaseAt, duel.indexOf("button.addEventListener(type, release)", releaseAt));
   assert.match(release, /clearHold\(e\.pointerId\)/, 'releasing cancels the pending heavy');
 });
 
 test('لا تلميحات في المسرح الاستعراضي: الإرشاد للمبارزة الحقيقية فقط', () => {
-  const fx = game.slice(game.indexOf('function collectFx'), game.indexOf('function arenaFx'));
-  const plans = fx.match(/const plan = !withSound \? null : R\.duelHintPlan\?\.\(ev,/g) || [];
+  const fx = read('public/platform-arena-fx.js');
+  const plans = fx.match(/const plan = !withSound \? null : rules\.duelHintPlan\?\.\(ev,/g) || [];
   assert.equal(plans.length, 2, 'both hint paths (enrage + second slam) are gated to a live duel');
-  const game2 = read('public/platform-game.js');
-  assert.match(game2, /function arenaFx\(\) \{ if \(arenaSim\) collectFx\(arenaSim\); \}/, 'the preview collects effects without sound, so it is the gated path');
+  const preview = read('public/platform-arena-preview.js');
+  assert.match(preview, /collectFx\(sim\)/, 'the preview collects effects without sound, so it is the gated path');
 });

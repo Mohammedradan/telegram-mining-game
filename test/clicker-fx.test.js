@@ -12,6 +12,7 @@ const FX = require('../public/clicker-fx');
 const html = read('public', 'index.html');
 const css = read('public', 'clicker.css');
 const fxSource = read('public', 'clicker-fx.js');
+const workshop = read('public', 'mine-workshop.js');
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);
 
 // ============================== سلسلة النقرات والحرارة ==============================
@@ -365,7 +366,9 @@ test('index.html loads the stylesheets and the scripts (scripts first, so the pa
   assert.ok(dive[3] < gameScript || gameScript > scriptAt, 'loaded before the inline game script');
   assert.ok(html.indexOf('window.DeepDigUI?.init(') > 0 && html.indexOf('window.DeepDigUI?.init(') < html.indexOf('window.ClickerFX?.init('), 'the dive initialises first so its medal can be offered to the hub');
   const init = html.indexOf('window.ClickerFX?.init(');
-  assert.ok(init > html.indexOf('const UPGRADES = {') && init > html.indexOf('function buyUpgrade(') && init > html.indexOf('function goToMine('), 'init runs after the helpers it receives');
+  assert.ok(init > html.indexOf('const UPGRADES = {') && init > html.indexOf('function buyUpgrade('), 'init runs after the app helpers it receives');
+  const workshopScript = html.indexOf('<script src="/mine-workshop.js?v=');
+  assert.ok(workshopScript > 0 && workshopScript < gameScript && /function goToMine\(/.test(workshop), 'the workshop helpers load before the app initializes ClickerFX');
   // the cave scene layer exists and is the first thing in the body (it paints behind everything)
   assert.match(html, /<body[^>]*>\s*<!--[^>]*-->\s*<div class="ck-scene" aria-hidden="true"><\/div>/);
 });
@@ -596,14 +599,14 @@ test('CaveArt resolves painted art, vector fallbacks and aliases, and builds med
 });
 
 test('the workshop and the hub share one medal builder: nodes keep their test hooks and gain painted art', () => {
-  const wsRender = html.slice(html.indexOf('function wsMedal('), html.indexOf('function wsRenderTop()'));
+  const wsRender = workshop.slice(workshop.indexOf('function wsMedal('), workshop.indexOf('function wsRenderTop()'));
   assert.match(wsRender, /window\.CaveArt/);
   assert.match(wsRender, /medalHTML\(\{ id, icon, level: lvl, progress, state: mstate \}\)/);
   assert.match(wsRender, /class="\$\{cls\}" type="button" data-ws-item="\$\{it\.id\}"/, 'data-ws-item and the ws-node/can-buy/is-max classes stay (E2E hooks)');
   assert.doesNotMatch(wsRender, /state: state\b/, 'the local medal state never shadows the game state');
   assert.match(html, /id="ws-hero" class="ws-hero-canvas" src="\/assets\/cave\/hero\.webp/);
   assert.match(html, /id="ws-drone"/);
-  assert.match(html, /drone\.hidden = !\(WS_RULES && wsLevel\('robot'\) >= 1\)/, 'the drone shows once the robot is upgraded, like the old canvas companion');
+  assert.match(workshop, /drone\.hidden = !\(WS_RULES && wsLevel\('robot'\) >= 1\)/, 'the drone shows once the robot is upgraded, like the old canvas companion');
   const ws = read('public', 'platform.css');
   assert.match(ws, /\.ws-node\{--sz:58px;/);
   assert.match(ws, /\.ws-cave\{[^}]*cave-portrait\.jpg/);
