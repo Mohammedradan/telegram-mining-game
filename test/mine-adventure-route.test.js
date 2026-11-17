@@ -63,9 +63,9 @@ test('the mountain obstacle unlocks only through mining progress, with responsiv
   assert.match(styles, /\.ck-rockslide\{/);
   assert.match(styles, /@media\(max-width:520px\).*ck-expedition-route/);
   assert.match(styles, /@media\(prefers-reduced-motion:reduce\).*ck-mobile-rig-bit/);
-  assert.match(page, /clicker\.css\?v=18/);
+  assert.match(page, /clicker\.css\?v=21/);
   assert.match(page, /mine-world\.js\?v=5/);
   assert.match(page, /mine-route-store\.js\?v=2/);
-  assert.match(page, /dig-site\.js\?v=15/);
+  assert.match(page, /dig-site\.js\?v=16/);
   assert.ok(page.indexOf('<script src="/mine-route-store.js') < page.indexOf('<script src="/dig-site.js'), 'the local route store loads before DigSite');
 });

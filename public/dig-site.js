@@ -199,6 +199,17 @@
     worldState.routeProgress = saved.routeProgress;
     return worldState;
   }
+  let initialMinerPlaced = false;
+  function placeInitialMinerForPhone() {
+    if (initialMinerPlaced || !measured || W > 390 || routePositionRestored || !rock || (mineWorld && mineWorld.mode === 'overland')) return;
+    // Keep the established desktop/start position; on narrow phones use the rendered dimensions to avoid a dead gap.
+    const minerHalf = 0.5 * Math.max(1, num(els.miner.offsetWidth, W * 0.35)) * depthScale(miner.y) / W;
+    const rockHalf = 0.5 * rockW * depthScale(rock.y) / W;
+    miner.x = clamp(rock.x - minerHalf - rockHalf - 0.025, band.x0, band.x1);
+    miner.face = 1;
+    initialMinerPlaced = true;
+  }
+
   function restoreMinePosition() {
     if (routePositionRestored || !measured || !mineWorld || mineWorld.mode !== 'overland') return;
     const direction = mineWorld.travelDirection < 0 ? -1 : 1;
@@ -1008,7 +1019,7 @@
     try { const mq = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)'); reduced = !!(mq && mq.matches); if (mq && mq.addEventListener) mq.addEventListener('change', (e) => { reduced = !!e.matches; }); } catch (e) { reduced = false; }
     fx = root.ClickerFX && root.ClickerFX.active ? root.ClickerFX : null;
     rock = createRock(oreSite(mineWorld ? mineWorld.index : 0));
-    const relayout = safe(() => { measure(); restoreMinePosition(); render(last.pose || 'idle'); });
+    const relayout = safe(() => { measure(); placeInitialMinerForPhone(); restoreMinePosition(); render(last.pose || 'idle'); });
     els.pad.addEventListener('pointerdown', safe(onPadDown));
     els.dig.addEventListener('pointerdown', safe(onDigDown));
     els.dig.addEventListener('click', safe(onDigClick));
@@ -1026,6 +1037,7 @@
     els.root.dataset.dig = '1';           // يُظهر العصا وزر الحفر (clicker.css) ويُسكت وثبة المعدّن القديمة في ClickerFX
     paintRock();
     measure();
+    placeInitialMinerForPhone();
     restoreMinePosition();
     positionFieldUnits(0);
     render('idle');

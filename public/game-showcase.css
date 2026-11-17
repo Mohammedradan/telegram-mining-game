@@ -593,7 +593,38 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   color: #fff0a7;
 }
 
-/* --- زر بدء المغامرة العملاق الذهبي 3D (وسط أسفل المسرح) --- */
+/* Phone layout: the desktop showcase uses fixed 450px coordinates and hides
+   the map/workshop row. Restore the real controls in a compact, reachable lane. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-topbar {
+    height: auto !important;
+    min-height: 68px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    position: absolute !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    z-index: 13 !important;
+  }
+  #platform-scene.scene-lobby .overlay-row button {
+    min-width: 0 !important;
+    min-height: 42px !important;
+  }
+  #platform-scene.scene-lobby .lobby-compass-card,
+  #platform-scene.scene-lobby .lobby-side-card {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-goals {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
 #platform-scene.scene-lobby #platform-start,
 #platform-scene.scene-lobby .adv-golden-cta {
   position: absolute !important;
@@ -642,18 +673,257 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   display: none !important;
 }
 
-
 /* Informational lobby cards must never intercept the primary run controls. */
 #platform-scene.scene-lobby .lobby-compass-card,
 #platform-scene.scene-lobby .lobby-side-card {
   pointer-events: none !important;
 }
 
-/* The goals panel spans the resume button in some lobby layouts.
-   Let only its actual goal buttons receive pointer input. */
-#platform-scene.scene-lobby #platform-goals {
+/* Re-apply the phone lobby controls after the desktop showcase's hide rules.
+   Keep the topbar in two compact rows so mute/workshop/settings stay on-screen. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-topbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas: "title economy" "actions actions" !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: auto !important;
+    min-height: 68px !important;
+    padding: 5px 7px !important;
+  }
+  #platform-scene.scene-lobby .mine-title {
+    grid-area: title !important;
+    min-width: 0 !important;
+    flex: initial !important;
+  }
+  #platform-scene.scene-lobby .mine-economy {
+    grid-area: economy !important;
+    justify-self: end !important;
+    gap: 5px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  #platform-scene.scene-lobby .mine-heading-actions {
+    grid-area: actions !important;
+    justify-self: center !important;
+    display: flex !important;
+    gap: 4px !important;
+  }
+  #platform-scene.scene-lobby .mine-heading-actions button {
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+  }
+  #platform-scene.scene-lobby .mine-heading-actions .mute-label,
+  #platform-scene.scene-lobby .mine-heading-actions .topbar-btn-label {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    position: absolute !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    z-index: 13 !important;
+  }
+  #platform-scene.scene-lobby .overlay-row button {
+    min-width: 0 !important;
+    min-height: 42px !important;
+  }
+  #platform-scene.scene-lobby .lobby-compass-card,
+  #platform-scene.scene-lobby .lobby-side-card {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-goals {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
+
+/* 2026-11-17: final mobile lobby and active-header hit-target fixes */
+/* Decorative information and empty goal-panel space must not cover real controls. */
+#platform-scene.scene-lobby .lobby-compass-card,
+#platform-scene.scene-lobby .lobby-side-card,
+#platform-scene.scene-lobby .lobby-compass-card * {
   pointer-events: none !important;
 }
-#platform-scene.scene-lobby #platform-goals .goal-option {
+/* The empty goal group must not cover the resume/start actions in either
+   lobby or a restored live round; individual goal choices remain clickable. */
+#platform-scene #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene #platform-goals .goal-option {
   pointer-events: auto !important;
+}
+
+@media (max-width: 600px) {
+  /* Give the mine picker and workshop equal, usable touch areas. */
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row > button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 90px !important;
+  }
+  /* Keep mine selection available when a saved run is paused; resume remains the primary action. */
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) .overlay-row {
+    display: flex !important;
+    pointer-events: auto !important;
+  }
+
+  /* Keep active-round sound/workshop/settings controls inside the phone viewport. */
+  body #platform-scene.scene-live .mine-topbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding: 4px 6px !important;
+    overflow: visible !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    margin: 0 auto !important;
+    gap: 4px !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    display: inline-flex !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
+
+/* Mobile/short-screen correction: the desktop showcase reserves a 660px stage.
+   Let the lobby stage use the actual space left by the top bar and navigation. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+}
+
+/* The compact 320x568 opening keeps its deliberately short playfield and
+   anchors the primary action inside it instead of at the desktop 465px offset. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 0 0 145px !important;
+    min-height: 145px !important;
+    height: 145px !important;
+  }
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 7px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(220px, 94%) !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px 12px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Short landscape phones/tablets need the same responsive stage; the
+   660px desktop frame otherwise clips the map picker below the viewport. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 6px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(260px, 92%) !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
+
+/* Keep the primary start action above the mine/workshop row on every phone.
+   The old desktop top:465px position could be clipped by the flexible stage,
+   making Playwright scroll the tab and hiding the live sound control. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 64px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(260px, 92%) !important;
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short phones have a 145px stage: reserve a smaller action row above the
+   two 42px mine/workshop buttons instead of overlapping them. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 60px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    font-size: 11px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short landscape keeps the action and picker in separate visible rows. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 52px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 6px !important;
+  }
 }
