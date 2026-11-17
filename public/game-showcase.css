@@ -593,7 +593,38 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   color: #fff0a7;
 }
 
-/* --- زر بدء المغامرة العملاق الذهبي 3D (وسط أسفل المسرح) --- */
+/* Phone layout: the desktop showcase uses fixed 450px coordinates and hides
+   the map/workshop row. Restore the real controls in a compact, reachable lane. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-topbar {
+    height: auto !important;
+    min-height: 68px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    position: absolute !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    z-index: 13 !important;
+  }
+  #platform-scene.scene-lobby .overlay-row button {
+    min-width: 0 !important;
+    min-height: 42px !important;
+  }
+  #platform-scene.scene-lobby .lobby-compass-card,
+  #platform-scene.scene-lobby .lobby-side-card {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-goals {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
 #platform-scene.scene-lobby #platform-start,
 #platform-scene.scene-lobby .adv-golden-cta {
   position: absolute !important;
