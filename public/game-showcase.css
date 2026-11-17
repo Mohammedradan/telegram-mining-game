@@ -641,3 +641,10 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 #platform-scene.scene-lobby .overlay-mission {
   display: none !important;
 }
+
+
+/* Informational lobby cards must never intercept the primary run controls. */
+#platform-scene.scene-lobby .lobby-compass-card,
+#platform-scene.scene-lobby .lobby-side-card {
+  pointer-events: none !important;
+}
