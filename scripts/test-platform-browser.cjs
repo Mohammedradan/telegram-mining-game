@@ -90,6 +90,17 @@ async function main() {
       assert.equal(await page.locator('#mission-rocks').textContent(), '0/1');
       assert.equal(await page.locator('#ore-storage').count(), 1, 'ore storage panel is shipped');
       if (viewport.width === 390) {
+        const muteBox = await page.locator('#platform-mute').boundingBox();
+        const muteLayout = await page.evaluate(() => {
+          const rect = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height }; };
+          return { viewport: [innerWidth, innerHeight], scrollY, bodyScrollTop: document.body.scrollTop,
+            tabScrollTop: document.getElementById('tab-play').scrollTop,
+            scene: rect(document.getElementById('platform-scene')),
+            topbar: rect(document.querySelector('#platform-scene .mine-topbar')),
+            stage: rect(document.querySelector('#platform-scene .mine-stage')) };
+        });
+        assert.ok(muteBox && muteBox.y >= 0 && muteBox.y + muteBox.height <= viewport.height,
+          `the live sound control remains inside the viewport after start (${JSON.stringify({ muteBox, muteLayout })})`);
         await page.locator('#platform-mute').click();
         assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
         await page.keyboard.down('d'); await page.keyboard.down('ArrowRight');
