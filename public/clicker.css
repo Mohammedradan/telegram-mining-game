@@ -198,7 +198,7 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-node[data-state="ready"] .ck-node-tag { color: #d8ffe5; border-color: rgba(74, 222, 128, .85); box-shadow: 0 2px 6px rgba(0, 0, 0, .55), 0 0 10px rgba(74, 222, 128, .35); }
 .ck-node-tag.is-label { color: #c8e9ff; border-color: rgba(125, 211, 252, .55); }
 /* خمس ميداليات (مع «الأعماق»): تُصغَّر قليلاً لتتسع في الصف على أضيق الشاشات (يضبط ClickerFX الخاصية data-count) */
-.ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(40px, min(12.6vw, calc(var(--app-height, 100vh) * .068)), 62px); gap: 7px; }
+.ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(40px, min(12.6vw, calc(var(--app-height, 100vh) * .068)), 62px); gap: 7px; min-width: 44px; }
 .ck-nodes[data-count="5"] .ck-node-tag { min-width: 40px; padding-inline: 5px 6px; font-size: 10.5px; }
 .ck-nodes[data-count="5"] .ck-node-tag svg { width: 11px; height: 11px; }
 /* شارة «جديد» على ميدالية الحفر العميق: تختفي بعد أول فتح (ClickerFX يضبط data-fresh) */
@@ -253,6 +253,11 @@ body.ck-cave .ck-sound { display: grid; }
 /* ---------- ساحة التعدين: موقع حفر صغير يمشي فيه المعدّن ----------
    public/dig-site.js يضع المعدّن (#ck-miner) والصخرة (#mine-btn) بـtransform بالبكسل داخل .ck-world؛ القيم هنا هي الافتراضية قبل التشغيل وبدونه.
    الأحجام بوحدات الحاوية (الساحة تتقلص بحسب الشاشة) والعصا وزر الحفر يطفوان على زاويتيها السفليتين. */
+/* Tall phone: preserve a readable miner silhouette instead of shrinking it
+   with the short container's cqh measurement. */
+@media (min-width: 360px) and (min-height: 700px) and (orientation: portrait) {
+  .ck-area { --miner-h: max(120px, min(46cqh, 42cqw)); }
+}
 .ck-area {
   --miner-h: min(38vw, 150px);
   --rock-w: min(36vw, 150px);
