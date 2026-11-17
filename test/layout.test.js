@@ -290,3 +290,27 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
   assert.match(html, /platform-bosses\.js\?v=6/);
   assert.match(html, /platform\.css\?v=25/);
 });
+
+
+test('showcase lobby and live stages yield to phone and short-landscape viewports', () => {
+  const lobby = fs.readFileSync(path.join(__dirname, '..', 'public', 'game-showcase.css'), 'utf8');
+  const live = fs.readFileSync(path.join(__dirname, '..', 'public', 'game-showcase-live.css'), 'utf8');
+  const lobbyMobileAt = lobby.lastIndexOf('@media (max-width: 600px)');
+  const liveMobileAt = live.lastIndexOf('@media (max-width: 600px)');
+  assert.ok(lobbyMobileAt > lobby.indexOf('height: 660px'), 'the mobile lobby override follows the fixed desktop stage');
+  assert.match(lobby.slice(lobbyMobileAt), /#platform-scene\.scene-lobby \.mine-stage \{\s*flex: 1 1 0 !important;\s*min-height: 0 !important;\s*height: auto !important;/,
+    'the lobby stage consumes only the space left by the mobile shell');
+  assert.match(lobby, /@media \(max-width: 380px\) and \(max-height: 600px\)[\s\S]*#platform-scene\.scene-lobby #platform-start[\s\S]*bottom: 7px !important;/,
+    'the 320x568 primary action is anchored inside its compact stage');
+  assert.match(lobby, /@media \(min-width: 600px\) and \(max-height: 520px\) and \(orientation: landscape\)[\s\S]*#platform-scene\.scene-lobby \.mine-stage \{\s*flex: 1 1 0 !important;/,
+    'short landscape lobby stages do not retain the desktop 660px height');
+  assert.ok(liveMobileAt > live.indexOf('height: 770px'), 'the live mobile override follows the fixed desktop stage');
+  assert.match(live.slice(liveMobileAt), /#platform-scene\.scene-live \.mine-topbar \{[\s\S]*?min-height: 44px !important;/,
+    'the live phone action bar stays compact and reachable');
+  assert.match(live.slice(liveMobileAt), /#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;\s*min-height: 0 !important;\s*height: auto !important;/,
+    'the live stage fits the remaining phone viewport');
+  assert.match(live, /@media \(min-width: 600px\) and \(max-height: 520px\) and \(orientation: landscape\)[\s\S]*#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;/,
+    'short landscape live stages also relinquish the desktop height');
+  assert.match(html, /game-showcase\.css\?v=6/);
+  assert.match(html, /game-showcase-live\.css\?v=2/);
+});
