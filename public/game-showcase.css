@@ -741,3 +741,68 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     pointer-events: none !important;
   }
 }
+
+
+/* 2026-11-17: final mobile lobby and active-header hit-target fixes */
+/* Decorative information and empty goal-panel space must not cover real controls. */
+#platform-scene.scene-lobby .lobby-compass-card,
+#platform-scene.scene-lobby .lobby-side-card,
+#platform-scene.scene-lobby #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby #platform-goals .goal-option {
+  pointer-events: auto !important;
+}
+
+@media (max-width: 600px) {
+  /* Give the mine picker and workshop equal, usable touch areas. */
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row > button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 90px !important;
+  }
+  /* A paused run has one primary action; hide the map/workshop lane until resume. */
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) .overlay-row {
+    display: none !important;
+    pointer-events: none !important;
+  }
+
+  /* Keep active-round sound/workshop/settings controls inside the phone viewport. */
+  body #platform-scene.scene-live .mine-topbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding: 4px 6px !important;
+    overflow: visible !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    margin: 0 auto !important;
+    gap: 4px !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    display: inline-flex !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
