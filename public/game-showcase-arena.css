@@ -1291,8 +1291,20 @@
     align-items: center;
     justify-content: center;
   }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-goals,
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) > .overlay-row { display: none !important; }
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-goals { display: none !important; }
+  /* A paused run must still let players open the mine map (e.g. to resume a classic round). */
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) > .overlay-row {
+    display: flex !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 60px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    gap: 6px !important;
+    z-index: 12 !important;
+  }
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) > .overlay-row #open-workshop-overlay { display: none !important; }
   #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-start {
     width: calc(50% - 12px) !important;
   }

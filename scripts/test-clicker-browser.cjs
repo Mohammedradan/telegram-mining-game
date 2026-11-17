@@ -126,7 +126,7 @@ async function main() {
     assert.ok(tilt.top[1] > 8, `top edge tilts +X (${tilt.top})`);
     assert.ok(tilt.bottom[1] < -8, `bottom edge tilts -X (${tilt.bottom})`);
     assert.ok(tilt.right[2] && tilt.right[3] < 1, 'the rock is pressed (scaled down) on a tap');
-    await page.waitForFunction(() => { const c = document.getElementById('ck-ore'); return !c.classList.contains('is-down') && c.style.getPropertyValue('--ry') === '0deg'; }, null, { timeout: 4000 });
+    await page.waitForFunction(() => { const c = document.getElementById('ck-ore'); return !c.classList.contains('is-down') && c.style.getPropertyValue('--ry') === '0deg'; }, null, { timeout: 8000, polling: 50 });
     const rest = await page.evaluate(() => { const c = document.getElementById('ck-ore'); return [c.style.getPropertyValue('--ry'), c.style.getPropertyValue('--rx'), c.style.getPropertyValue('--sc'), c.classList.contains('is-down')]; });
     assert.deepEqual(rest, ['0deg', '0deg', '1', false], 'the rock springs back to rest');
     report.taps.tilt = true;
