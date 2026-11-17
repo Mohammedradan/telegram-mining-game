@@ -40,6 +40,7 @@ function paint(sim, opts = {}) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-scenery.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-bosses.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-scene.js'), 'utf8'), sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-characters.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8'), sandbox);
   assert.ok(sandbox.PlatformRenderer, 'the renderer registers itself');
   sandbox.PlatformRenderer.draw(canvas, sim, { reduced: true, ...opts });
@@ -132,9 +133,9 @@ test('the arena heats up as the rival weakens and fighters flash when hit', () =
   assert.match(scene, /const hurtFlash = isPlayer \? \(ent\.invulnerable > 0/, 'a hit flashes the fighter');
   const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
   assert.match(renderer, /ArenaScene\.backdrop\(c, w, s\.tick, reduced, camera, arenaId, \$?\{?[^)]*arenaHeat/, 'the heat reaches the scene from the renderer');
-  const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /function duelHeat\(\)/, 'the duel computes heat from the rival health');
-  assert.match(game, /arenaHeat: duelHeat\(\)/, 'and passes it while drawing');
+  const duel = fs.readFileSync(path.join(ROOT, 'public', 'platform-duel.js'), 'utf8');
+  assert.match(duel, /function duelHeat\(\)/, 'the duel computes heat from the rival health');
+  assert.match(duel, /arenaHeat: duelHeat\(\)/, 'and passes it while drawing');
 });
 
 test('the play canvas never paints the ninja arena — even if a duel simulation is drawn there', () => {
@@ -146,9 +147,9 @@ test('the play canvas never paints the ninja arena — even if a duel simulation
 });
 
 test('the arena tab asks the renderer for the arena scene explicitly', () => {
-  const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
+  const preview = fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-preview.js'), 'utf8');
   // المرحلة B: قد يرسم المسرح «نسخة عرض» أثناء شاشة الاستعداد، لكن الطلب يبقى صريحاً: arena: true
-  assert.match(game, /renderer\.draw\(arenaCanvas, (?:arenaSim|drawState), \{\s*arena: true/, 'the preview stage passes arena: true');
+  assert.match(preview, /renderer\.draw\(canvas, drawState, \{\s*arena: true/, 'the preview stage passes arena: true');
 });
 
 test('the arena floor sits exactly on the physics ground so nobody floats', () => {

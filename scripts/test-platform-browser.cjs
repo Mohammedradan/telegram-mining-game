@@ -102,6 +102,10 @@ async function main() {
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
       assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}: ${JSON.stringify({ bounds, viewport, scene: await page.locator('#platform-scene').boundingBox(), nav: await page.locator('.bottom-nav').boundingBox() })}`);
+      if (viewport.width <= 360 && viewport.height <= 600) {
+        const stage = await page.locator('.mine-stage').boundingBox();
+        assert.ok(stage.height > viewport.height * 0.5, `small phone gameplay stage fills its lane: ${JSON.stringify({ stage, viewport })}`);
+      }
       // قرار التصميم: أزرار اللمس تلقائيًا على الجوال/التابلت، ومخفية على الكمبيوتر (لوحة المفاتيح)
       const padState = await page.evaluate(() => ({
         stick: getComputedStyle(document.getElementById('virtual-joystick')).display,

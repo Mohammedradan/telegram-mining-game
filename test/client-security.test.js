@@ -5,19 +5,20 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const adventure = fs.readFileSync(path.join(__dirname, '..', 'public', 'adventure-game.js'), 'utf8');
 
 test('in cloud mode the achievements UI is driven by the server list, never by local stats', () => {
   // الصفوف تُبنى من profile.achievements (الخادم) عند الاتصال، ومن القائمة المحلية فقط دون خادم
-  assert.match(html, /const rows = cloud\s*\? cloud\.items\.map\(/);
-  assert.match(html, /: ADV_ACHIEVEMENTS\.map\(\(a\) => \(\{ id: a\.id/);
-  assert.match(html, /btn\.disabled = a\.claimed \|\| !a\.met;/);
+  assert.match(adventure, /const rows = cloud\s*\? cloud\.items\.map\(/);
+  assert.match(adventure, /: ADV_ACHIEVEMENTS\.map\(\(a\) => \(\{ id: a\.id/);
+  assert.match(adventure, /btn\.disabled = a\.claimed \|\| !a\.met;/);
 });
 
 test('claimAchievement never grants cloud gold from local stats: the server path claims through the ops queue and returns before the local branch', () => {
-  const start = html.indexOf('function claimAchievement(id)');
-  const end = html.indexOf('// 🛠️ ترقيات المغامرة الدائمة', start);
+  const start = adventure.indexOf('function claimAchievement(id)');
+  const end = adventure.indexOf('// 🛠️ ترقيات المغامرة الدائمة', start);
   assert.ok(start >= 0 && end > start, 'achievement claim function should exist');
-  const fn = html.slice(start, end);
+  const fn = adventure.slice(start, end);
   const cloud = fn.indexOf('const cloud = serverAchievements();');
   const queue = fn.indexOf("enqueueOp({ type: 'achievement', id, expected: a.gold })");
   const localAward = fn.indexOf('state.gold += a.reward');

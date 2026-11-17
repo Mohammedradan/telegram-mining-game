@@ -8,10 +8,12 @@ const R = require('../public/platform-rules');
 globalThis.PlatformRules = R;
 require('../public/platform-scenery.js');
 require('../public/platform-bosses.js');
+require('../public/platform-characters.js');
 require('../public/platform-renderer.js');
 const { PlatformScenery: Scenery, PlatformBosses: Bosses, PlatformRenderer: Renderer } = globalThis;
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'public', file), 'utf8');
 const rules = read('platform-rules.js'), game = read('platform-game.js'), audio = read('platform-audio.js'), html = read('index.html');
+const workshop = read('mine-workshop.js');
 const css = read('platform.css');
 const sceneryJs = read('platform-scenery.js'), bossesJs = read('platform-bosses.js'), rendererJs = read('platform-renderer.js');
 
@@ -257,12 +259,12 @@ test('worlds UI: every event the boss engine emits is heard and seen by the game
 });
 
 test('worlds UI: the page ships the new scripts in dependency order, the boss icon and row, and a danger line per world', () => {
-  const order = ['platform-rules.js', 'platform-scenery.js', 'platform-bosses.js', 'platform-renderer.js'].map(f => html.indexOf(`/${f}?v=`));
+  const order = ['platform-worlds.js', 'platform-equipment.js', 'platform-rewards.js', 'platform-capture.js', 'platform-rules.js', 'platform-scenery.js', 'platform-bosses.js', 'platform-characters.js', 'platform-renderer.js'].map(f => html.indexOf(`/${f}?v=`));
   assert.ok(order.every(i => i > 0) && order.every((i, k) => k === 0 || i > order[k - 1]), `script order ${order}`);
   assert.match(html, /id="i-boss"/);
   assert.match(html, /<div class="mission-row" hidden>[^]*?#i-boss[^]*?id="mission-boss"/, 'a boss row in the mission card, hidden until the mine has one');
-  for (const level of R.LEVELS) assert.match(html, new RegExp(`${level.id}: '[^']+'`), `${level.id} has a danger line on the mines map`);
-  assert.match(html, /WS_RULES\.levelFor\(i\)\.boss/, 'the mines map reads the boss from the level');
+  for (const level of R.LEVELS) assert.match(workshop, new RegExp(`${level.id}: '[^']+'`), `${level.id} has a danger line on the mines map`);
+  assert.match(workshop, /WS_RULES\.levelFor\(i\)\.boss/, 'the mines map reads the boss from the level');
   assert.ok((game.match(/R\.levelFor\(sim\.zone\)\.exit\.x/g) || []).length >= 2, 'progress % and the locked-exit hint both use the level of the run');
   assert.doesNotMatch(game, /R\.LEVEL\b/);
   assert.match(game, /R\.MAX_SEGMENTS/);

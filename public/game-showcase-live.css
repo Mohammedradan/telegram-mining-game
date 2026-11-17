@@ -1,0 +1,170 @@
+/* ==========================================================================
+   Responsive live platform scene
+   ========================================================================== */
+#platform-scene.scene-live {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #080d16;
+}
+
+#platform-scene.scene-live .mine-topbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1.2vw, 16px);
+  min-height: 58px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 204, 77, .38);
+  border-radius: 14px;
+  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98));
+  direction: ltr;
+}
+#platform-scene.scene-live .adv-topbar-brand,
+#platform-scene.scene-live .lobby-subbar,
+#platform-scene.scene-live .mine-hero-bar { display: none; }
+
+body #platform-scene.scene-live .mine-title {
+  display: flex;
+  order: 1;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1 1 auto;
+  direction: rtl;
+}
+body #platform-scene.scene-live .mine-badge {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 211, 107, .82);
+  border-radius: 12px;
+  background: radial-gradient(circle at 35% 35%, #92400e, #451a03 70%, #1f0a00);
+  box-shadow: 0 0 14px rgba(245, 158, 11, .32), inset 0 1px 0 rgba(255, 255, 255, .3);
+}
+body #platform-scene.scene-live .mine-badge .badge-icon { width: 24px; height: 24px; color: #ffd36b; }
+body #platform-scene.scene-live .mine-title-text { min-width: 0; }
+body #platform-scene.scene-live .mine-title-text h2 {
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(13px, 1.4vw, 17px);
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .55);
+}
+body #platform-scene.scene-live .mine-kicker { color: #fbbf24; font-size: 9px; font-weight: 800; }
+
+body #platform-scene.scene-live .mine-economy {
+  display: flex;
+  order: 2;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  direction: rtl;
+}
+body #platform-scene.scene-live .mine-gold,
+body #platform-scene.scene-live .mine-energy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 204, 77, .4);
+  border-radius: 999px;
+  background: rgba(10, 22, 46, .9);
+  color: #fef08a;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+body #platform-scene.scene-live .mine-energy { border-color: rgba(56, 189, 248, .42); color: #bae6fd; }
+body #platform-scene.scene-live .mine-gold .econ-icon,
+body #platform-scene.scene-live .mine-energy .econ-icon { width: 17px; height: 17px; }
+body #platform-scene.scene-live .mine-gold .econ-icon { color: #f59e0b; }
+body #platform-scene.scene-live .mine-energy .econ-icon { color: #38bdf8; }
+
+body #platform-scene.scene-live .mine-heading-actions {
+  display: flex;
+  order: 3;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  direction: rtl;
+}
+body #platform-scene.scene-live .mine-heading-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 5px 8px;
+  border: 1px solid rgba(135, 174, 231, .28);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(20, 42, 80, .9), rgba(12, 26, 52, .95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+body #platform-scene.scene-live .mine-heading-actions button .ui-icon { width: 16px; height: 16px; color: #7ddcf2; }
+#platform-scene.scene-live .mine-heading-actions button[hidden] { display: none !important; }
+
+#platform-scene.scene-live .mine-stage {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+  height: auto;
+  overflow: hidden;
+  border: 1px solid rgba(245, 158, 11, .34);
+  border-radius: 16px;
+  background:
+    url('/assets/fantasy-adventure-bg.webp') center / cover no-repeat,
+    radial-gradient(ellipse at 50% 50%, #17243c, #050a14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .58), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+#platform-scene.scene-live .mine-stage::after { display: none; }
+#platform-scene.scene-live #platform-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+/* On small screens the HUD and touch controls use the platform-layout.css
+   responsive grid rather than fixed artwork coordinates. */
+@media (max-width: 900px), (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-live .mine-topbar {
+    justify-content: center;
+    gap: 4px;
+    min-height: 40px;
+    padding: 3px 6px;
+  }
+  #platform-scene.scene-live .mine-title,
+  #platform-scene.scene-live .mine-economy { display: none; }
+  body #platform-scene.scene-live .mine-heading-actions {
+    flex: 0 1 auto;
+    justify-content: center;
+    gap: 4px;
+    margin-inline: auto;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    padding: 0;
+    border-radius: 50%;
+  }
+  body #platform-scene.scene-live .mine-heading-actions .mute-label,
+  body #platform-scene.scene-live .mine-heading-actions .topbar-btn-label { display: none; }
+}
