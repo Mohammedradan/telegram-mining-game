@@ -1058,3 +1058,25 @@ body.arena-live:not(.duel-live) .arena-x-bar {
     z-index: 14 !important;
   }
 }
+
+
+/* A fresh lobby needs the full-width mine/workshop row. The compact 55% lane
+   is reserved only for a visible Resume button, where it must share the bottom
+   edge without covering Resume. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby:not(:has(#platform-resume:not([hidden]))) .overlay-row {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 8px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby:not(:has(#platform-resume:not([hidden]))) .overlay-row > button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 90px !important;
+    min-height: 42px !important;
+  }
+}
