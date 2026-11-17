@@ -1026,6 +1026,16 @@
     els.root.dataset.dig = '1';           // يُظهر العصا وزر الحفر (clicker.css) ويُسكت وثبة المعدّن القديمة في ClickerFX
     paintRock();
     measure();
+    // On a fresh visit, place the miner beside the initial ore deposit using
+    // the rendered sprite/rock dimensions. The old fixed x=.26 left a large
+    // dead gap on narrow phones (the world-depth transform made it worse).
+    if (!routePositionRestored && rock && (!mineWorld || mineWorld.mode !== 'overland')) {
+      miner.y = clamp(rock.y + 0.025, band.y0, band.y1);
+      const minerHalf = 0.5 * Math.max(1, num(els.miner.offsetWidth, W * 0.35)) * depthScale(miner.y) / W;
+      const rockHalf = 0.5 * rockW * depthScale(rock.y) / W;
+      miner.x = clamp(rock.x - minerHalf - rockHalf - 0.025, band.x0, band.x1);
+      miner.face = 1;
+    }
     restoreMinePosition();
     positionFieldUnits(0);
     render('idle');
