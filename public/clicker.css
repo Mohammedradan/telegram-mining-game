@@ -253,11 +253,6 @@ body.ck-cave .ck-sound { display: grid; }
 /* ---------- ساحة التعدين: موقع حفر صغير يمشي فيه المعدّن ----------
    public/dig-site.js يضع المعدّن (#ck-miner) والصخرة (#mine-btn) بـtransform بالبكسل داخل .ck-world؛ القيم هنا هي الافتراضية قبل التشغيل وبدونه.
    الأحجام بوحدات الحاوية (الساحة تتقلص بحسب الشاشة) والعصا وزر الحفر يطفوان على زاويتيها السفليتين. */
-/* Tall phone: preserve a readable miner silhouette instead of shrinking it
-   with the short container's cqh measurement. */
-@media (min-width: 360px) and (min-height: 700px) and (orientation: portrait) {
-  .ck-area { --miner-h: max(120px, min(46cqh, 42cqw)); }
-}
 .ck-area {
   --miner-h: min(38vw, 150px);
   --rock-w: min(36vw, 150px);
@@ -279,6 +274,11 @@ body.ck-cave .ck-sound { display: grid; }
     --pad: clamp(68px, min(27cqw, 38cqh), 96px);
     --dig: clamp(58px, min(22cqw, 31cqh), 78px);
   }
+}
+
+/* Apply the tall-phone override after container-unit defaults so it wins in Chromium too. */
+@media (min-width: 360px) and (min-height: 700px) and (orientation: portrait) {
+  .ck-area { --miner-h: max(120px, min(46cqh, 42cqw)); }
 }
 /* العالم: طبقة معزولة (أولوية الرسم بين المعدّن والصخرة بحسب العمق y) تحت اللُصيقات والتحكم */
 .ck-world { position: absolute; inset: 0; z-index: 1; isolation: isolate; pointer-events: none; }
