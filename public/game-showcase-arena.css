@@ -1037,3 +1037,24 @@ body.arena-live:not(.duel-live) .arena-x-bar {
   #platform-scene.scene-lobby #platform-start,
   #tab-arena .ar-balance u { transition: none !important; }
 }
+
+
+/* A restored round places Resume on the lower-left lane. Keep the mine/workshop
+   row in the lower-right lane so its workshop button cannot intercept Resume. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) .overlay-row {
+    left: auto !important;
+    right: 8px !important;
+    bottom: 7px !important;
+    width: min(55%, 230px) !important;
+    max-width: 230px !important;
+    z-index: 13 !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-resume {
+    left: 8px !important;
+    right: auto !important;
+    bottom: 7px !important;
+    width: min(38%, 150px) !important;
+    z-index: 14 !important;
+  }
+}
