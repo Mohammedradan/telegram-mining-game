@@ -648,3 +648,12 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 #platform-scene.scene-lobby .lobby-side-card {
   pointer-events: none !important;
 }
+
+/* The goals panel spans the resume button in some lobby layouts.
+   Let only its actual goal buttons receive pointer input. */
+#platform-scene.scene-lobby #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby #platform-goals .goal-option {
+  pointer-events: auto !important;
+}
