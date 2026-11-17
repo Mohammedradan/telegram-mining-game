@@ -867,3 +867,51 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     font-size: 12px !important;
   }
 }
+
+
+/* Keep the primary start action above the mine/workshop row on every phone.
+   The old desktop top:465px position could be clipped by the flexible stage,
+   making Playwright scroll the tab and hiding the live sound control. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 64px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(260px, 92%) !important;
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short phones have a 145px stage: reserve a smaller action row above the
+   two 42px mine/workshop buttons instead of overlapping them. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 60px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    font-size: 11px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short landscape keeps the action and picker in separate visible rows. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 52px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 6px !important;
+  }
+}
