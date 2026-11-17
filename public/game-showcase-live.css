@@ -489,6 +489,10 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     overflow: hidden !important;
   }
   #platform-scene.scene-live .mine-topbar {
+    position: sticky !important;
+    top: 0 !important;
+    align-self: stretch !important;
+    z-index: 80 !important;
     flex: 0 0 44px !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -513,6 +517,13 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     height: 36px !important;
     min-height: 36px !important;
     padding: 4px !important;
+  }
+  /* The sound toggle must remain stationary while Playwright/player taps it;
+     the desktop button transition/active transform caused a moving hit target. */
+  #platform-scene.scene-live .mine-heading-actions button {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
   }
   #platform-scene.scene-live .mine-stage {
     flex: 1 1 0 !important;
