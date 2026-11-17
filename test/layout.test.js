@@ -315,6 +315,6 @@ test('showcase lobby and live stages yield to phone and short-landscape viewport
     'individual goal choices remain interactive');
   assert.match(live, /@media \(min-width: 600px\) and \(max-height: 520px\) and \(orientation: landscape\)[\s\S]*#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;/,
     'short landscape live stages also relinquish the desktop height');
-  assert.match(html, /game-showcase\.css\?v=6/);
+  assert.match(html, /game-showcase\.css\?v=7/);
   assert.match(html, /game-showcase-live\.css\?v=2/);
 });
