@@ -276,13 +276,6 @@ body.ck-cave .ck-sound { display: grid; }
   }
 }
 
-/* The hero's world-depth transform scales its rendered box. Use a viewport-based
-   floor on tall phones so the visible sprite, not just its unscaled CSS box,
-   remains at least 120px high even when container-query units resolve narrowly. */
-@media (max-width: 430px) and (min-height: 700px) {
-  .ck-area { --miner-h: max(144px, min(42vh, 36vw)); }
-  .ck-miner { min-height: 148px !important; pointer-events: none; }
-}
 /* العالم: طبقة معزولة (أولوية الرسم بين المعدّن والصخرة بحسب العمق y) تحت اللُصيقات والتحكم */
 .ck-world { position: absolute; inset: 0; z-index: 1; isolation: isolate; pointer-events: none; }
 
@@ -296,6 +289,13 @@ body.ck-cave .ck-sound { display: grid; }
   transform-origin: 50% 100%;
   will-change: transform;
   pointer-events: none;
+}
+/* The hero's world-depth transform scales its rendered box. Use a viewport-based
+   floor on tall phones so the visible sprite, not just its unscaled CSS box,
+   remains at least 120px high even when container-query units resolve narrowly. */
+@media (max-width: 430px) and (min-height: 700px) {
+  .ck-area { --miner-h: max(144px, min(42vh, 36vw)); }
+  .ck-miner { min-height: 148px !important; }
 }
 /* ظل تحت القدمين (إهليلج متدرج: أرخص من drop-shadow ولا يتبع الإطار) */
 .ck-miner::before, .ck-btn::before {
