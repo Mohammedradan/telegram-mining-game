@@ -309,7 +309,13 @@ async function main() {
     assert.equal(await zonePage.evaluate(() => window.PlatformGame.getZone()), 0, 'the client falls back to the first mine');
     report.lockedMine = { status: 403, fallbackZone: 0 };
     report.cosmeticZones = { zone: zoneState.zone, name: await zonePage.evaluate(i => window.PlatformRules.ZONES[i].name, zoneState.zone) };
-    await zonePage.locator('#platform-pause').click();
+    const lockedState = await read(zonePage);
+    assert.deepEqual([lockedState.running, lockedState.paused, lockedState.scheduled], [true, true, false],
+      'a rejected locked-mine start leaves the existing round paused');
+    assert.equal(await zonePage.locator('#platform-pause').isVisible(), false, 'the pause action is not shown while the round is paused');
+    assert.equal(await zonePage.locator('#platform-resume').isVisible(), true, 'the paused round keeps its visible resume control');
+    await wait(100);
+    assert.equal((await read(zonePage)).tick, lockedState.tick, 'the rejected start does not advance the paused round');
     assert.deepEqual(errors, []);
     await zoneContext.ctx.close();
     // ورشة المعدّن — معاينة بصرية تفاعلية على العميل فقط.

@@ -252,11 +252,18 @@ test('arena leaderboard ranks real persistent records and excludes players witho
   const response = await fetch(`http://127.0.0.1:${port}/api/arena-leaderboard`);
   assert.equal(response.status, 200);
   const { leaderboard } = await response.json();
-  assert.deepEqual(leaderboard, [
+  // The PostgreSQL CI run shares one database across the test suite. Other
+  // tests may legitimately leave winning guest records in the global board,
+  // so assert this fixture's deterministic leading ranks instead of assuming
+  // it is the only data in the database.
+  assert.deepEqual(leaderboard.slice(0, 3), [
     { rank: 1, name: 'Top Clean', wins: 5, losses: 0, draws: 1 },
     { rank: 2, name: 'Top Rough', wins: 5, losses: 2, draws: 0 },
     { rank: 3, name: 'Bronze', wins: 2, losses: 0, draws: 0 },
   ]);
+  assert.equal(leaderboard.some((player) => player.name === 'No Wins'), false,
+    'players without wins are excluded even when unrelated winners share the database');
+  assert.deepEqual(leaderboard.slice(0, 3).map((player) => player.rank), [1, 2, 3]);
 });
 
 // ---------- 7) الرحلة الكاملة عبر الخادم: معدات ← مبارزة ← خسارة/فوز ← مكافأة ← عودة ← تعدين ----------
