@@ -295,8 +295,8 @@ test('phase 3 UI: the workshop is server-backed, the mines map is wired in and t
 test('showcase lobby and live stages yield to phone and short-landscape viewports', () => {
   const lobby = fs.readFileSync(path.join(__dirname, '..', 'public', 'game-showcase.css'), 'utf8');
   const live = fs.readFileSync(path.join(__dirname, '..', 'public', 'game-showcase-live.css'), 'utf8');
-  const lobbyMobileAt = lobby.lastIndexOf('@media (max-width: 600px)');
-  const liveMobileAt = live.lastIndexOf('@media (max-width: 600px)');
+  const lobbyMobileAt = lobby.indexOf('/* Mobile/short-screen correction:');
+  const liveMobileAt = live.indexOf('/* Mobile/short-screen correction:');
   assert.ok(lobbyMobileAt > lobby.indexOf('height: 660px'), 'the mobile lobby override follows the fixed desktop stage');
   assert.match(lobby.slice(lobbyMobileAt), /#platform-scene\.scene-lobby \.mine-stage \{\s*flex: 1 1 0 !important;\s*min-height: 0 !important;\s*height: auto !important;/,
     'the lobby stage consumes only the space left by the mobile shell');
