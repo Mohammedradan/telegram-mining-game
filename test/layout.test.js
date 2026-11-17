@@ -300,8 +300,8 @@ test('showcase lobby and live stages yield to phone and short-landscape viewport
   assert.ok(lobbyMobileAt > lobby.indexOf('height: 660px'), 'the mobile lobby override follows the fixed desktop stage');
   assert.match(lobby.slice(lobbyMobileAt), /#platform-scene\.scene-lobby \.mine-stage \{\s*flex: 1 1 0 !important;\s*min-height: 0 !important;\s*height: auto !important;/,
     'the lobby stage consumes only the space left by the mobile shell');
-  assert.match(lobby, /@media \(max-width: 600px\)[\s\S]*#platform-scene\.scene-lobby #platform-start,[\s\S]*bottom: 64px !important;/,
-    'the phone start action sits above the mine/workshop row without scrolling the page');
+  assert.match(lobby, /@media \(max-width: 600px\)[\s\S]*#platform-scene\.scene-lobby #platform-start,[\s\S]*#platform-scene\.scene-lobby #platform-resume,[\s\S]*bottom: 64px !important;/,
+    'the phone start/resume action sits above the mine/workshop row without scrolling the page');
   assert.match(lobby, /@media \(max-width: 380px\) and \(max-height: 600px\)[\s\S]*#platform-scene\.scene-lobby #platform-start,[\s\S]*bottom: 60px !important;/,
     'the compact 320x568 start action has its own row above the picker');
   assert.match(lobby, /#platform-scene\.scene-lobby \.overlay-row \{\s*bottom: 8px !important;/,
@@ -317,8 +317,10 @@ test('showcase lobby and live stages yield to phone and short-landscape viewport
     'empty goal-panel space cannot intercept resume/start controls in lobby or live state');
   assert.match(lobby, /#platform-scene #platform-goals \.goal-option \{\s*pointer-events: auto !important;\s*\}/,
     'individual goal choices remain interactive');
+  assert.match(lobby, /#platform-scene\.scene-lobby \.lobby-compass-card \* \{\s*pointer-events: none !important;\s*\}/,
+    'decorative compass text cannot intercept the mine picker');
   assert.match(live, /@media \(min-width: 600px\) and \(max-height: 520px\) and \(orientation: landscape\)[\s\S]*#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;/,
     'short landscape live stages also relinquish the desktop height');
-  assert.match(html, /game-showcase\.css\?v=8/);
+  assert.match(html, /game-showcase\.css\?v=9/);
   assert.match(html, /game-showcase-live\.css\?v=2/);
 });
