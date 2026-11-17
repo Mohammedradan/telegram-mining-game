@@ -276,9 +276,12 @@ body.ck-cave .ck-sound { display: grid; }
   }
 }
 
-/* Apply the tall-phone override after container-unit defaults so it wins in Chromium too. */
-@media (min-width: 360px) and (min-height: 700px) and (orientation: portrait) {
-  .ck-area { --miner-h: max(132px, min(50cqh, 44cqw)); }
+/* The hero's world-depth transform scales its rendered box. Use a viewport-based
+   floor on tall phones so the visible sprite, not just its unscaled CSS box,
+   remains at least 120px high even when container-query units resolve narrowly. */
+@media (max-width: 430px) and (min-height: 700px) {
+  .ck-area { --miner-h: max(144px, min(42vh, 36vw)); }
+  .ck-miner { height: max(var(--miner-h), 144px) !important; }
 }
 /* العالم: طبقة معزولة (أولوية الرسم بين المعدّن والصخرة بحسب العمق y) تحت اللُصيقات والتحكم */
 .ck-world { position: absolute; inset: 0; z-index: 1; isolation: isolate; pointer-events: none; }
