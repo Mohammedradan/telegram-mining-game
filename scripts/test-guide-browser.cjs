@@ -306,7 +306,7 @@ async function main() {
         return {
           display: cs.display, h: Math.round(b.height), clipped: el.scrollWidth > el.clientWidth + 1,
           stage: stage.className, overlay: overlay.className,
-          hiddenByDesign: stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-2'),
+          hiddenByDesign: stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-2') || document.getElementById('platform-scene').classList.contains('scene-lobby'),
         };
       });
       const pillHidden = pill.display === 'none';
