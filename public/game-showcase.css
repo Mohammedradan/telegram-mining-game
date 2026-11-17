@@ -765,6 +765,13 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   pointer-events: auto !important;
 }
 
+#platform-scene.scene-lobby #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby #platform-goals .goal-option {
+  pointer-events: auto !important;
+}
+
 @media (max-width: 600px) {
   /* Give the mine picker and workshop equal, usable touch areas. */
   #platform-scene.scene-lobby .overlay-row {
