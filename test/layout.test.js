@@ -309,6 +309,10 @@ test('showcase lobby and live stages yield to phone and short-landscape viewport
     'the live phone action bar stays compact and reachable');
   assert.match(live.slice(liveMobileAt), /#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;\s*min-height: 0 !important;\s*height: auto !important;/,
     'the live stage fits the remaining phone viewport');
+  assert.match(lobby, /#platform-scene #platform-goals \{\s*pointer-events: none !important;\s*\}/,
+    'empty goal-panel space cannot intercept resume/start controls in lobby or live state');
+  assert.match(lobby, /#platform-scene #platform-goals \.goal-option \{\s*pointer-events: auto !important;\s*\}/,
+    'individual goal choices remain interactive');
   assert.match(live, /@media \(min-width: 600px\) and \(max-height: 520px\) and \(orientation: landscape\)[\s\S]*#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;/,
     'short landscape live stages also relinquish the desktop height');
   assert.match(html, /game-showcase\.css\?v=6/);
