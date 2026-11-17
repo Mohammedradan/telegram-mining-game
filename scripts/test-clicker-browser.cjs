@@ -78,13 +78,20 @@ async function main() {
       return { ore: r('#ck-ore'), hero: r('#ck-hero'), nodes: r('#ck-nodes'), area: r('#click-area'), actions: r('.ck-actions'), go: r('#ck-go'), boost: r('#boost-btn'), energy: r('#energy-container'), nav: r('nav'), balance: r('.balance-strip'),
         scrollFits: tab.scrollHeight <= tab.clientHeight + 1, hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         medals: [...document.querySelectorAll('#ck-nodes .ck-node')].map((n) => n.dataset.ckItem),
+        minerCss: (() => {
+          const miner = document.getElementById('ck-miner'), area = document.getElementById('click-area');
+          const style = getComputedStyle(miner), areaStyle = getComputedStyle(area), rect = miner.getBoundingClientRect();
+          return { viewport: [innerWidth, innerHeight], phoneRule: matchMedia('(max-width: 430px) and (min-height: 700px)').matches,
+            areaMinerHeight: areaStyle.getPropertyValue('--miner-h').trim(), computedHeight: style.height,
+            transform: style.transform, renderedHeight: Math.round(rect.height) };
+        })(),
         // #sync-status is a screen-reader-only line (never painted), so it is not part of "what the screen shows"
         text: [...document.querySelectorAll('#tab-mining, .app-header, .balance-strip, #energy-container')].map((e) => { const c = e.cloneNode(true); c.querySelector('#sync-status')?.remove(); return c.textContent; }).join(' ') };
     });
     assert.equal(geo.scrollFits, true, 'the mining tab needs no scrolling on a phone');
     assert.equal(geo.hScroll, false, 'no horizontal overflow');
     assert.ok(geo.ore.w >= 110 && geo.ore.l >= 0 && geo.ore.r <= 390, `the rock is big and inside the viewport (${Math.round(geo.ore.w)}px)`);
-    assert.ok(geo.hero.h >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${Math.round(geo.hero.h)}px)`);
+    assert.ok(geo.hero.h >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${Math.round(geo.hero.h)}px; ${JSON.stringify(geo.minerCss)})`);
     assert.deepEqual(geo.medals, ['click', 'bot', 'rig', 'workshop', 'deepdive'], 'three upgrade medals, the workshop medal and the deep-dive medal');
     assert.ok(geo.balance.b <= geo.nodes.t + 1, 'the gold counter sits above the medals');
     assert.ok(geo.nodes.b <= geo.area.t + 1 && geo.area.b <= geo.actions.t + 1 && geo.actions.b <= geo.energy.t + 1 && geo.energy.b <= geo.nav.t + 1, 'medals, field, buttons, energy and nav stack without overlap');
