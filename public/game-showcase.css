@@ -746,7 +746,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 /* 2026-11-17: final mobile lobby and active-header hit-target fixes */
 /* Decorative information and empty goal-panel space must not cover real controls. */
 #platform-scene.scene-lobby .lobby-compass-card,
-#platform-scene.scene-lobby .lobby-side-card {
+#platform-scene.scene-lobby .lobby-side-card,
+#platform-scene.scene-lobby .lobby-compass-card * {
   pointer-events: none !important;
 }
 /* The empty goal group must not cover the resume/start actions in either
@@ -832,6 +833,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     height: 145px !important;
   }
   #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
   #platform-scene.scene-lobby .adv-golden-cta {
     top: auto !important;
     bottom: 7px !important;
@@ -855,6 +857,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     max-height: none !important;
   }
   #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
   #platform-scene.scene-lobby .adv-golden-cta {
     top: auto !important;
     bottom: 6px !important;
