@@ -40,9 +40,11 @@ body.ck-cave #ck-stage .ck-machine-console button {
   body.ck-cave #ck-stage .ck-machine-console { width: min(280px, 32%); }
 }
 @media (max-width: 520px) {
-  body.ck-cave #ck-stage { max-width: 100%; }
+  body.ck-cave #ck-stage { max-width: 100%; min-height: 0; }
   body.ck-cave #ck-stage .ck-area {
-    min-height: clamp(290px, 46dvh, 520px);
+    flex: 1 1 auto;
+    min-height: 0;
+    height: clamp(220px, 43dvh, 420px);
     border-radius: 12px;
   }
   body.ck-cave #ck-stage .ck-machine-console {
