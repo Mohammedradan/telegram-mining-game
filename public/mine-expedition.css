@@ -1074,3 +1074,38 @@ body.ck-cave #tap-hint { display: none !important; }
 @media (min-width: 360px) and (max-width: 520px) and (min-height: 700px) {
   body.ck-cave #ck-stage .ck-hero { scale: .82; }
 }
+
+
+/* Phone cave flow: reserve space for medals and actions instead of overlaying the mining field. */
+@media (max-width: 520px) {
+  body.ck-cave #ck-stage {
+    padding-top: 48px !important;
+  }
+  body.ck-cave #ck-stage .ck-nodes {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    width: calc(100% - 16px) !important;
+    max-width: calc(100% - 16px) !important;
+    margin: 0 auto !important;
+    flex: 0 0 auto !important;
+  }
+  body.ck-cave #ck-stage .ck-area {
+    flex: 1 1 0 !important;
+    min-height: 96px !important;
+  }
+  body.ck-cave #ck-stage .ck-actions {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    width: min(340px, calc(100% - 8px)) !important;
+    max-width: calc(100% - 8px) !important;
+    margin: 0 auto !important;
+    flex: 0 0 auto !important;
+  }
+}
