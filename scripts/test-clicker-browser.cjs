@@ -94,7 +94,7 @@ async function main() {
     assert.ok(geo.hero.h >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${Math.round(geo.hero.h)}px; ${JSON.stringify(geo.minerCss)})`);
     assert.deepEqual(geo.medals, ['click', 'bot', 'rig', 'workshop', 'deepdive'], 'three upgrade medals, the workshop medal and the deep-dive medal');
     assert.ok(geo.balance.b <= geo.nodes.t + 1, 'the gold counter sits above the medals');
-    assert.ok(geo.nodes.b <= geo.area.t + 1 && geo.area.b <= geo.actions.t + 1 && geo.actions.b <= geo.energy.t + 1 && geo.energy.b <= geo.nav.t + 1, 'medals, field, buttons, energy and nav stack without overlap');
+    assert.ok(geo.nodes.b <= geo.area.t + 1 && geo.area.b <= geo.actions.t + 1 && geo.actions.b <= geo.energy.t + 1 && geo.energy.b <= geo.nav.t + 1, `medals, field, buttons, energy and nav stack without overlap (${JSON.stringify({ nodes: geo.nodes, area: geo.area, actions: geo.actions, energy: geo.energy, nav: geo.nav })})`);
     assert.ok(geo.go.l >= geo.boost.r - 1 || geo.boost.l >= geo.go.r - 1, 'the two buttons sit side by side');
     assert.ok(geo.go.w > geo.boost.w, 'the "to the mine" button is the bigger one');
     assert.equal(EMOJI.test(geo.text), false, 'the mining screen is emoji-free');
