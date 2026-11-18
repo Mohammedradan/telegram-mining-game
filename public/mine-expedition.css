@@ -1068,3 +1068,9 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave #ck-stage .ck-dig { --dig: 54px; }
   body.ck-cave .ck-cache { width: 34px; height: 34px; }
 }
+
+
+/* Tall-phone character scale: keep the miner visibly full-sized beside the ore. */
+@media (min-width: 360px) and (max-width: 520px) and (min-height: 700px) {
+  body.ck-cave #ck-stage .ck-hero { scale: .82; }
+}
