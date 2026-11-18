@@ -503,6 +503,9 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     gap: 4px !important;
     box-sizing: border-box !important;
   }
+  /* The desktop title/economy consume the narrow live toolbar; keep the sound and utility actions in-bounds. */
+  #platform-scene.scene-live .mine-title,
+  #platform-scene.scene-live .mine-economy { display: none !important; }
   #platform-scene.scene-live .mine-heading-actions {
     width: 100% !important;
     justify-content: center !important;
