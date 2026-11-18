@@ -123,6 +123,9 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /data-conveyor="on"\]\s*\.ck-ore-cart/);
   assert.match(css, /data-drill="off"\]\s*\.ck-drill-cart/);
   assert.match(css, /data-secret-open="true"\]\s*\.ck-treasure-vault/);
+  assert.match(css, /Phone cave flow: reserve space for medals and actions/);
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-nodes \{[^}]*position: relative !important;[^}]*top: auto !important;/s);
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-actions \{[^}]*position: relative !important;[^}]*bottom: auto !important;/s);
 });
 
 test('expedition layer grants no economy or server rewards from the client', () => {
