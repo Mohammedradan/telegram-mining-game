@@ -489,8 +489,8 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     overflow: hidden !important;
   }
   #platform-scene.scene-live .mine-topbar {
-    position: sticky !important;
-    top: 0 !important;
+    position: relative !important;
+    top: auto !important;
     align-self: stretch !important;
     z-index: 80 !important;
     flex: 0 0 44px !important;
@@ -507,9 +507,13 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
   #platform-scene.scene-live .mine-title,
   #platform-scene.scene-live .mine-economy { display: none !important; }
   #platform-scene.scene-live .mine-heading-actions {
-    width: 100% !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
     justify-content: center !important;
-    margin: 0 !important;
+    margin-inline: auto !important;
     gap: 4px !important;
   }
   #platform-scene.scene-live .mine-heading-actions button {
