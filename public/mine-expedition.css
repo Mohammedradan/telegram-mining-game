@@ -1053,7 +1053,9 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave .ck-goal-copy b { font-size: 8px; }
   body.ck-cave .ck-goal-detail { font-size: 7px; }
   body.ck-cave #ck-stage .ck-machine-console {
-    bottom: calc(116px + env(safe-area-inset-bottom, 0px)) !important;
+    top: 5px !important;
+    bottom: auto !important;
+    right: 5px !important;
     width: min(168px, 44vw) !important;
     padding: 4px !important;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1064,7 +1066,7 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave #ck-stage .ck-actions { width: min(190px, calc(100% - 142px)); }
   body.ck-cave .ck-go-text b { font-size: 10px !important; }
   body.ck-cave .ck-boost-label { font-size: 8px !important; }
-  body.ck-cave #ck-stage .ck-pad { --pad: 58px; }
+  body.ck-cave #ck-stage .ck-pad { --pad: 64px; }
   body.ck-cave #ck-stage .ck-dig { --dig: 54px; }
   body.ck-cave .ck-cache { width: 34px; height: 34px; }
 }

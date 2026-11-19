@@ -41,17 +41,28 @@ body.ck-cave #ck-stage .ck-machine-console button {
 }
 @media (max-width: 520px) {
   body.ck-cave #ck-stage { max-width: 100%; min-height: 0; }
+  body.ck-cave #ck-stage .ck-nodes { order: 1; }
   body.ck-cave #ck-stage .ck-area {
-    flex: 1 1 auto;
+    order: 2;
+    flex: 0 0 clamp(220px, 43dvh, 420px);
     min-height: 0;
     height: clamp(220px, 43dvh, 420px);
+    max-height: 420px;
+    margin-top: 128px;
     border-radius: 12px;
   }
+  body.ck-cave #ck-stage .ck-actions { order: 3; }
+  body.ck-cave #ck-stage .ck-actions .ck-go { min-width: 96px; }
+  body.ck-cave #ck-stage .ck-energy { order: 4; }
   body.ck-cave #ck-stage .ck-machine-console {
     width: min(210px, 48%);
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    top: 5px !important;
+    right: 5px !important;
+    bottom: auto !important;
   }
   body.ck-cave #ck-stage .ck-machine-console button { min-height: 31px; }
+  body.ck-cave #ck-stage .ck-pad { --pad: 64px; }
 }
 @media (orientation: landscape) and (max-height: 520px) {
   body.ck-cave #ck-stage {

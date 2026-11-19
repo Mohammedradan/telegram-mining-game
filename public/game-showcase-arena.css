@@ -12,7 +12,7 @@
     linear-gradient(180deg, #071328, #090e1e 74%, #050913);
 }
 
-/* Show app header and bottom nav in arena showdown view (matching screenshot) */
+/* Keep arena controls and navigation reachable in the showdown view. */
 body.arena-live:not(.duel-live) .app-header {
   display: flex !important;
 }
@@ -20,7 +20,7 @@ body.arena-live:not(.duel-live) .bottom-nav {
   display: flex !important;
 }
 body.arena-live:not(.duel-live) .arena-x-bar {
-  display: none !important;
+  display: flex !important;
 }
 
 #tab-arena:not(.arena-fighting) .arena-stage {

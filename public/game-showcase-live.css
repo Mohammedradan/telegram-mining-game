@@ -294,6 +294,9 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
   height: 210px !important;
   z-index: 10 !important;
 }
+#platform-scene.scene-live .mine-controls.touch-hidden .virtual-joystick {
+  display: none !important;
+}
 #platform-scene.scene-live .joystick-base {
   width: 100% !important;
   height: 100% !important;
@@ -488,10 +491,15 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     max-height: 100dvh !important;
     overflow: hidden !important;
   }
+  body #platform-scene.scene-live .mine-title,
+  body #platform-scene.scene-live .mine-economy {
+    display: none !important;
+  }
   #platform-scene.scene-live .mine-topbar {
     position: sticky !important;
     top: 0 !important;
     align-self: stretch !important;
+    justify-content: center !important;
     z-index: 80 !important;
     flex: 0 0 44px !important;
     width: 100% !important;
@@ -504,12 +512,16 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     box-sizing: border-box !important;
   }
   #platform-scene.scene-live .mine-heading-actions {
-    width: 100% !important;
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: fit-content !important;
+    max-width: 100% !important;
     justify-content: center !important;
     margin: 0 !important;
     gap: 4px !important;
   }
-  #platform-scene.scene-live .mine-heading-actions button {
+  body #platform-scene.scene-live .mine-heading-actions button {
     flex: 0 0 36px !important;
     width: 36px !important;
     min-width: 36px !important;
@@ -517,10 +529,11 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     height: 36px !important;
     min-height: 36px !important;
     padding: 4px !important;
+    box-sizing: border-box !important;
   }
   /* The sound toggle must remain stationary while Playwright/player taps it;
      the desktop button transition/active transform caused a moving hit target. */
-  #platform-scene.scene-live .mine-heading-actions button {
+  body #platform-scene.scene-live .mine-heading-actions button {
     transition: none !important;
     animation: none !important;
     transform: none !important;

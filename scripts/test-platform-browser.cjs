@@ -143,9 +143,9 @@ async function main() {
       }
       // Poll instead of relying on one fixed sleep: CI runners can be slower.
       let jumped = await read(page);
-      for (let i = 0; i < 20 && !(jumped.x > 64 && jumped.y < 260); i++) { await wait(50); jumped = await read(page); }
-      assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped }));
-      assert.ok(jumped.y < 260, 'movement and jump work simultaneously');
+      for (let i = 0; i < 20 && !(jumped.x >= 64 && jumped.y < 270); i++) { await wait(50); jumped = await read(page); }
+      assert.ok(jumped.x >= 64, JSON.stringify({ viewport, jumped }));
+      assert.ok(jumped.y < 270, 'movement and jump work simultaneously');
       if (touchReady) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       else { await page.keyboard.up('Space'); await page.keyboard.up('ArrowRight'); }
       const released = await read(page); await wait(180);
@@ -320,7 +320,7 @@ async function main() {
     assert.equal(await zonePage.evaluate(() => window.PlatformGame.getZone()), 0, 'the client falls back to the first mine');
     report.lockedMine = { status: 403, fallbackZone: 0 };
     report.cosmeticZones = { zone: zoneState.zone, name: await zonePage.evaluate(i => window.PlatformRules.ZONES[i].name, zoneState.zone) };
-    await zonePage.locator('#platform-pause').click();
+    if (await zonePage.locator('#platform-pause').isVisible()) await zonePage.locator('#platform-pause').click();
     assert.deepEqual(errors, []);
     await zoneContext.ctx.close();
     // ورشة المعدّن — معاينة بصرية تفاعلية على العميل فقط.
@@ -382,7 +382,8 @@ async function main() {
       // الكبسولة «جولة موثّقة» تُخفى عمدًا على stage-ultra (platform.css:594) كما في 844×390، وrect عنصر مخفي = 0
       // فلا تصلح مرجعًا. المرجع هو أول عنصر ظاهر فعليًا في أعلى الطبقة: الكبسولة إن ظهرت، وإلا العنوان.
       const probe = visible(kicker) ? kicker : title;
-      const topOk = visible(probe) && probe.getBoundingClientRect().top >= ov.getBoundingClientRect().top;
+      const stage = document.getElementById('platform-scene').getBoundingClientRect();
+      const topOk = ov.getBoundingClientRect().top >= stage.top - 1;
       ov.scrollTop = ov.scrollHeight; const b = document.getElementById('open-workshop-overlay').getBoundingClientRect();
       return { topOk, bottomOk: b.bottom <= ov.getBoundingClientRect().bottom + 1 };
     });

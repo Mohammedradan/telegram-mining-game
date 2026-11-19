@@ -445,17 +445,21 @@ body #platform-scene.scene-live .mine-heading-actions { margin-inline: auto; gap
 @media (max-width: 600px) {
   body #platform-scene.scene-live .mine-topbar {
     display: flex !important;
-    flex: 0 0 48px !important;
-    height: 48px !important;
-    min-height: 48px !important;
-    max-height: 48px !important;
+    flex: 0 0 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
     width: 100% !important;
     overflow: visible !important;
+    box-sizing: border-box !important;
   }
   body #platform-scene.scene-live .mine-heading-actions {
     display: flex !important;
     flex: 0 0 auto !important;
-    margin-inline: auto !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    justify-content: center !important;
   }
   body #platform-scene.scene-live .mine-stage {
     flex: 1 1 0 !important;
