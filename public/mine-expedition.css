@@ -1064,8 +1064,8 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave #ck-stage .ck-actions { width: min(190px, calc(100% - 142px)); }
   body.ck-cave .ck-go-text b { font-size: 10px !important; }
   body.ck-cave .ck-boost-label { font-size: 8px !important; }
-  body.ck-cave #ck-stage .ck-pad { --pad: 58px; }
-  body.ck-cave #ck-stage .ck-dig { --dig: 54px; }
+  body.ck-cave #ck-stage .ck-pad { --pad: 64px; }
+  body.ck-cave #ck-stage .ck-dig { --dig: 56px; }
   body.ck-cave .ck-cache { width: 34px; height: 34px; }
 }
 
@@ -1122,6 +1122,13 @@ body.ck-cave #tap-hint { display: none !important; }
     max-width: calc(100% - 8px) !important;
     margin: 0 auto !important;
     z-index: 19 !important;
+    pointer-events: auto !important;
+  }
+  body.ck-cave #ck-stage .ck-actions > button {
+    position: relative !important;
+    z-index: 20 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation;
   }
   body.ck-cave #energy-container {
     position: static !important;

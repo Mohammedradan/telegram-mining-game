@@ -96,6 +96,17 @@ body.ck-cave .ck-sound { display: grid; }
 
 /* ---------- الهيكل ---------- */
 .ck-tab { justify-content: flex-start; padding: 0 2px; }
+.ck-actions,
+.ck-actions > button {
+  z-index: 30 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+.ck-nodes,
+.ck-node {
+  z-index: 32 !important;
+  pointer-events: auto !important;
+}
 .ck-stage {
   position: relative;
   flex: 1 1 0;
