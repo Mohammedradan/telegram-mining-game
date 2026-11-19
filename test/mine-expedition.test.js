@@ -105,7 +105,7 @@ test('each cave places caches in distinct reachable locations and checks the dis
 });
 
 test('expanded mining shell is wired, responsive and focusable', () => {
-  assert.match(html, /href="\/mine-expedition\.css\?v=5"/);
+  assert.match(html, /href="\/mine-expedition\.css\?v=6"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   assert.match(html, /id="i-fullscreen"/);
   assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
