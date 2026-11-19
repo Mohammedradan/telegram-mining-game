@@ -424,6 +424,7 @@
     el('platform-title').textContent = title;
     el('platform-message').textContent = text;
     el('platform-resume').hidden = !resume;
+    el('platform-start').hidden = resume;
     el('platform-start').textContent = running ? 'إعادة من البداية' : 'جولة جديدة';
     syncSceneState();
     scheduleOverlayFit();

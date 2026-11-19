@@ -659,6 +659,7 @@
       // الصخرة المعدّن من التقدم، وإلا تظهر دورة مشي وهو عالق مكانه.
       // حدّ تبديل تضاريس الكهف والطريق ليس مسافة حركة إضافية في دورة اللعب.
       moved = traversal.transition ? 0 : Math.hypot(miner.x - ox, (miner.y - oy) / Math.max(0.2, aspect));
+      if (Math.abs(miner.x - ox) > 1e-5) miner.face = miner.x > ox ? 1 : -1;
     }
     miner.moving = moved > 1e-5;
     miner.step += moved / CFG.STEP_LEN;
