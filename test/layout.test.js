@@ -321,6 +321,6 @@ test('showcase lobby and live stages yield to phone and short-landscape viewport
     'decorative compass text cannot intercept the mine picker');
   assert.match(live, /@media \(min-width: 600px\) and \(max-height: 520px\) and \(orientation: landscape\)[\s\S]*#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;/,
     'short landscape live stages also relinquish the desktop height');
-  assert.match(html, /game-showcase\.css\?v=10/);
+  assert.match(html, /game-showcase\.css\?v=11/);
   assert.match(html, /game-showcase-live\.css\?v=4/);
 });
