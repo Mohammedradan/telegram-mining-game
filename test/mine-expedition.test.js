@@ -127,6 +127,8 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /body\.ck-cave #ck-stage \{[^}]*display: flex !important;[^}]*flex-direction: column !important;/s);
   assert.match(css, /body\.ck-cave #ck-stage \.ck-area \{[^}]*position: relative !important;[^}]*inset: auto !important;/s);
   assert.match(css, /body\.ck-cave #energy-container \{[^}]*position: static !important;[^}]*pointer-events: none !important;/s);
+  assert.match(css, /body\.ck-cave \.bottom-nav \{[^}]*position: relative !important;[^}]*inset: auto !important;[^}]*order: 2 !important;/s,
+    'mobile cave navigation must return to normal flow after the energy row instead of covering it');
 });
 
 test('expedition layer grants no economy or server rewards from the client', () => {
