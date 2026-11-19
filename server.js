@@ -1,21 +1,20 @@
 const express = require('express');
 const { Telegraf, Markup } = require('telegraf');
-// مكتبة السباقات اختيارية التشغيل: غيابها يعطّل السباقات فقط ولا يُسقط اللعبة
-let WebSocketServer = null;
-try { ({ WebSocketServer } = require('ws')); } catch (_) { console.warn('⚠️  مكتبة ws غير مثبّتة — السباقات المباشرة معطّلة (شغّل: npm install)'); }
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 const { createStore } = require('./db');
-const { raceRulesFromEnv, raceCap: raceCapRule, raceDeadline, forfeitAllowed, decideWinner } = require('./race-rules');
 // محرك الساحة مشترك مع المتصفح (يُقدَّم ثابتاً من public/) حتى تكون محاكاة الخادم مطابقة لما عرضه العميل
 const ArenaRules = require('./public/arena-rules');
 // منجم المنصّة (اللعبة الجانبية): مسارات API تُركَّب أدناه بنفس المصادقة والتحقق والمعاملات
 const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./platform-api');
 const { mountDeepDig } = require('./deep-dig-api');
 const { mountMineMachinery } = require('./mine-machinery-api');
+const { mountStation } = require('./station-api');
+const { createMultiplayer } = require('./multiplayer');
 const Quests = require('./quests');
+const { createProgression } = require('./progression');
 const Prestige = require('./public/prestige-rules');
 // قواعد المنصّة المشتركة: أسعار المعدات ومناجم الفتح تُقرأ منها خادمياً (لا يُرسلها العميل)
 const PlatformRules = require('./public/platform-rules');
@@ -26,7 +25,6 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const { loadConfig, productionConfigErrors, configWarnings } = require('./config');
 const { createRateLimiter } = require('./rate-limit');
-const { clientIpDetailsFromRequest } = require('./ws-client-ip');
 const { securityHeaders } = require('./security-headers');
 const CONFIG = loadConfig();
 const BOT_TOKEN = CONFIG.botToken;
@@ -333,227 +331,6 @@ function applyRun(user, op, now, timeline) {
 // المهام اليومية — يولّدها الخادم لكل لاعب/يوم (UTC) من مجموعة ثابتة، ويتقدّم عدّادها من
 // العمليات الموثوقة نفسها (تعدين، شراء، تعزيز، جولات، ساحة). الاستلام عملية مرقّمة تُسجَّل في الدفتر.
 // ---------------------------------------------------------------------------
-const MISSION_POOL = [
-  { key: 'mine_energy', icon: '⚡', title: 'أنفق {n} طاقة في التعدين', target: 600, gold: 150, xp: 40, mode: 'sum' },
-  { key: 'mine_gold', icon: '⛏️', title: 'عدّن {n} ذهب بالنقر', target: 800, gold: 150, xp: 40, mode: 'sum' },
-  { key: 'runs', icon: '🎮', title: 'أكمل {n} جولات مغامرة', target: 3, gold: 200, xp: 50, mode: 'sum' },
-  { key: 'gems', icon: '💎', title: 'التقط {n} جوهرة في المغامرة', target: 60, gold: 200, xp: 50, mode: 'sum' },
-  { key: 'score', icon: '🏅', title: 'حقق {n} نقطة في جولة واحدة', target: 400, gold: 250, xp: 60, mode: 'max' },
-  { key: 'boss', icon: '👹', title: 'اهزم زعيماً (الكلاسيكي أو منجم الزعيم)', target: 1, gold: 300, xp: 80, mode: 'sum' },
-  { key: 'boost', icon: '🚀', title: 'فعّل التعزيز {n} مرات', target: 2, gold: 100, xp: 30, mode: 'sum' },
-  { key: 'buy', icon: '🛒', title: 'اشترِ {n} ترقيات', target: 2, gold: 150, xp: 40, mode: 'sum' },
-  { key: 'play_time', icon: '⏱️', title: 'العب {n} ثانية في المغامرة', target: 180, gold: 200, xp: 50, mode: 'sum' },
-  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء الكلاسيكي', target: 250, gold: 250, xp: 60, mode: 'max' },
-  { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة', target: 2, gold: 100, xp: 30, mode: 'sum' },
-];
-const MISSION_BY_KEY = Object.fromEntries(MISSION_POOL.map((m) => [m.key, m]));
-// كل مهام المجموعتين قابلة للإنجاز من اللعب الظاهر: «اهزم زعيم المنجم» تغذّيها جولات المنصّات (زعيما منجمي الذهب والقلب) ووضع الزعيم
-// الكلاسيكي، و«نقاط في وضع البقاء» يغذّيها وضع البقاء الكلاسيكي. كانت المهمتان مستبعدتين من السحب ما دام الوضع الكلاسيكي مخفياً
-// (كانتا تظهران مستحيلتين في ~49% من الأيام وتضيع معهما مكافأة «أنجز الثلاث»)، وعادتا إليه حين ظهر في خريطة المناجم (الدفعة 3أ′).
-const MISSIONS_PER_DAY = 3;
-const MISSION_BONUS = { gold: 300, xp: 100 };
-
-function hash32(str) {
-  let h = 2166136261;
-  for (const ch of String(str)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
-  return h >>> 0;
-}
-// اختيار حتمي لمهام اليوم: نفس اللاعب ونفس اليوم ⇒ نفس المهام على أي خادم/جهاز
-function pickMissions(userId, day) {
-  let seed = hash32(`${userId}:${day}`) || 1;
-  const next = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
-  const pool = MISSION_POOL.map((_, i) => i);
-  const chosen = [];
-  while (chosen.length < MISSIONS_PER_DAY && pool.length) chosen.push(pool.splice(Math.floor(next() * pool.length), 1)[0]);
-  return chosen.map((i) => ({ key: MISSION_POOL[i].key, progress: 0, claimed: false }));
-}
-function ensureMissions(user, now) {
-  const day = dayStr(new Date(now));
-  const m = user.sync.missions;
-  const valid = m && m.day === day && Array.isArray(m.items) && m.items.every((it) => it && MISSION_BY_KEY[it.key]);
-  if (!valid) user.sync.missions = { day, items: pickMissions(user.id, day), bonusClaimed: false };
-  return user.sync.missions;
-}
-function trackMissionList(items, byKey, key, value) {
-  const def = byKey[key];
-  if (!def || value <= 0) return;
-  for (const item of items) {
-    if (item.key !== key || item.claimed) continue;
-    item.progress = def.mode === 'max' ? Math.max(item.progress || 0, value) : Math.min(def.target, (item.progress || 0) + value);
-  }
-}
-function trackMission(user, key, amount, now) {
-  const value = Math.max(0, Number(amount) || 0);
-  if (value <= 0) return;
-  trackMissionList(ensureMissions(user, now).items, MISSION_BY_KEY, key, value);
-  trackMissionList(ensureWeeklyMissions(user, now).items, WEEKLY_MISSION_BY_KEY, key, value);
-}
-function missionsView(user, now) {
-  const m = ensureMissions(user, now);
-  const items = m.items.map((item) => {
-    const def = MISSION_BY_KEY[item.key];
-    const progress = Math.min(def.target, Math.floor(item.progress || 0));
-    return { key: def.key, icon: def.icon, title: def.title.replace('{n}', String(def.target)), target: def.target, progress, done: progress >= def.target, claimed: Boolean(item.claimed), gold: def.gold, xp: def.xp };
-  });
-  const d = new Date(now);
-  const resetsIn = Math.max(0, Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1) - now) / 1000));
-  const allClaimed = items.length > 0 && items.every((i) => i.claimed);
-  return { day: m.day, resetsIn, items, bonus: { ...MISSION_BONUS, ready: allClaimed && !m.bonusClaimed, claimed: Boolean(m.bonusClaimed) } };
-}
-// استلام مكافأة مهمة (أو مكافأة إكمال اليوم) — داخل applyOps
-function claimMission(user, key, now) {
-  const s = user.state; const m = ensureMissions(user, now);
-  if (key === 'bonus') {
-    if (m.bonusClaimed) return { status: 'rejected', reason: 'claimed' };
-    if (!m.items.every((i) => i.claimed)) return { status: 'rejected', reason: 'incomplete' };
-    m.bonusClaimed = true;
-    s.gold += MISSION_BONUS.gold; s.totalEarned += MISSION_BONUS.gold;
-    return { status: 'ok', key, gold: MISSION_BONUS.gold, xp: grantXp(s, MISSION_BONUS.xp), day: m.day };
-  }
-  const def = MISSION_BY_KEY[key]; const item = m.items.find((i) => i.key === key);
-  if (!def || !item) return { status: 'invalid' };
-  if (item.claimed) return { status: 'rejected', reason: 'claimed' };
-  if ((item.progress || 0) < def.target) return { status: 'rejected', reason: 'incomplete', progress: Math.floor(item.progress || 0), target: def.target };
-  item.claimed = true;
-  user.sync.missionsClaimed = (Number(user.sync.missionsClaimed) || 0) + 1; // يغذّي إنجاز «مثابر»
-  s.gold += def.gold; s.totalEarned += def.gold;
-  return { status: 'ok', key, gold: def.gold, xp: grantXp(s, def.xp), day: m.day };
-}
-
-// ---------------------------------------------------------------------------
-// المهام الأسبوعية — يولّدها الخادم لكل لاعب/أسبوع ISO (UTC) من مجموعة ثابتة بنفس نمط
-// المهام اليومية، ويتقدّم عدّادها من العمليات الموثوقة نفسها، والاستلام عبر weekly_mission في الدفتر.
-// ---------------------------------------------------------------------------
-const WEEKLY_MISSION_POOL = [
-  { key: 'mine_energy', icon: '⚡', title: 'أنفق {n} طاقة في التعدين هذا الأسبوع', target: 3000, gold: 500, xp: 120, mode: 'sum' },
-  { key: 'mine_gold', icon: '⛏️', title: 'عدّن {n} ذهب بالنقر هذا الأسبوع', target: 4000, gold: 500, xp: 120, mode: 'sum' },
-  { key: 'runs', icon: '🎮', title: 'أكمل {n} جولات مغامرة هذا الأسبوع', target: 15, gold: 600, xp: 150, mode: 'sum' },
-  { key: 'gems', icon: '💎', title: 'التقط {n} جوهرة في المغامرة هذا الأسبوع', target: 300, gold: 600, xp: 150, mode: 'sum' },
-  { key: 'score', icon: '🏅', title: 'حقق {n} نقطة في جولة واحدة هذا الأسبوع', target: 650, gold: 700, xp: 180, mode: 'max' },
-  { key: 'boss', icon: '👹', title: 'اهزم زعيماً {n} مرات هذا الأسبوع (الكلاسيكي أو منجم الزعيم)', target: 3, gold: 900, xp: 220, mode: 'sum' },
-  { key: 'boost', icon: '🚀', title: 'فعّل التعزيز {n} مرات هذا الأسبوع', target: 8, gold: 400, xp: 100, mode: 'sum' },
-  { key: 'buy', icon: '🛒', title: 'اشترِ {n} ترقيات هذا الأسبوع', target: 6, gold: 500, xp: 120, mode: 'sum' },
-  { key: 'play_time', icon: '⏱️', title: 'العب {n} ثانية في المغامرة هذا الأسبوع', target: 900, gold: 600, xp: 150, mode: 'sum' },
-  { key: 'survival', icon: '💀', title: 'حقق {n} نقطة في وضع البقاء الكلاسيكي هذا الأسبوع', target: 400, gold: 700, xp: 180, mode: 'max' },
-  { key: 'arena', icon: '⚔️', title: 'افُز بـ{n} مباريات في الساحة هذا الأسبوع', target: 8, gold: 500, xp: 120, mode: 'sum' },
-];
-const WEEKLY_MISSION_BY_KEY = Object.fromEntries(WEEKLY_MISSION_POOL.map((m) => [m.key, m]));
-const WEEKLY_MISSIONS_PER_WEEK = 3;
-const WEEKLY_MISSION_BONUS = { gold: 1000, xp: 300 };
-
-function pickWeeklyMissions(userId, week) {
-  let seed = hash32(`weekly:${userId}:${week}`) || 1;
-  const next = () => { seed ^= seed << 13; seed >>>= 0; seed ^= seed >>> 17; seed ^= seed << 5; seed >>>= 0; return seed / 4294967296; };
-  const pool = WEEKLY_MISSION_POOL.map((_, i) => i);
-  const chosen = [];
-  while (chosen.length < WEEKLY_MISSIONS_PER_WEEK && pool.length) chosen.push(pool.splice(Math.floor(next() * pool.length), 1)[0]);
-  return chosen.map((i) => ({ key: WEEKLY_MISSION_POOL[i].key, progress: 0, claimed: false }));
-}
-function ensureWeeklyMissions(user, now) {
-  const week = currentWeekKey(new Date(now));
-  const w = user.sync.weeklyMissions;
-  const valid = w && w.week === week && Array.isArray(w.items) && w.items.length > 0 && w.items.every((it) => it && WEEKLY_MISSION_BY_KEY[it.key]);
-  if (!valid) user.sync.weeklyMissions = { week, items: pickWeeklyMissions(user.id, week), bonusClaimed: false };
-  return user.sync.weeklyMissions;
-}
-function weeklyMissionsView(user, now) {
-  const w = ensureWeeklyMissions(user, now);
-  const items = w.items.map((item) => {
-    const def = WEEKLY_MISSION_BY_KEY[item.key];
-    const progress = Math.min(def.target, Math.floor(item.progress || 0));
-    return { key: def.key, icon: def.icon, title: def.title.replace('{n}', String(def.target)), target: def.target, progress, done: progress >= def.target, claimed: Boolean(item.claimed), gold: def.gold, xp: def.xp };
-  });
-  const d = new Date(now);
-  const daysUntilMonday = 8 - (d.getUTCDay() || 7);
-  const resetsIn = Math.max(0, Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + daysUntilMonday) - now) / 1000));
-  const allClaimed = items.length > 0 && items.every((i) => i.claimed);
-  return { week: w.week, resetsIn, items, bonus: { ...WEEKLY_MISSION_BONUS, ready: allClaimed && !w.bonusClaimed, claimed: Boolean(w.bonusClaimed) } };
-}
-function claimWeeklyMission(user, key, now) {
-  const s = user.state; const w = ensureWeeklyMissions(user, now);
-  if (key === 'bonus') {
-    if (w.bonusClaimed) return { status: 'rejected', reason: 'claimed' };
-    if (!w.items.every((i) => i.claimed)) return { status: 'rejected', reason: 'incomplete' };
-    w.bonusClaimed = true;
-    s.gold += WEEKLY_MISSION_BONUS.gold; s.totalEarned += WEEKLY_MISSION_BONUS.gold;
-    return { status: 'ok', key, gold: WEEKLY_MISSION_BONUS.gold, xp: grantXp(s, WEEKLY_MISSION_BONUS.xp), week: w.week };
-  }
-  const def = WEEKLY_MISSION_BY_KEY[key]; const item = w.items.find((i) => i.key === key);
-  if (!def || !item) return { status: 'invalid' };
-  if (item.claimed) return { status: 'rejected', reason: 'claimed' };
-  if ((item.progress || 0) < def.target) return { status: 'rejected', reason: 'incomplete', progress: Math.floor(item.progress || 0), target: def.target };
-  item.claimed = true;
-  user.sync.weeklyClaimed = (Number(user.sync.weeklyClaimed) || 0) + 1;
-  s.gold += def.gold; s.totalEarned += def.gold;
-  return { status: 'ok', key, gold: def.gold, xp: grantXp(s, def.xp), week: w.week };
-}
-
-// ---------------------------------------------------------------------------
-// الإنجازات — تُحتسب من بيانات لا يملكها إلا الخادم (إحصاءات جولات تحقق منها، سباقات مختومة،
-// خبرة، مهام مستلمة، سلسلة يومية، دعوات، مشتريات). المعرّفات الثمانية الأولى مطابقة لواجهة اللعبة القديمة.
-// ---------------------------------------------------------------------------
-const advOf = (u) => (u.state.adventure && typeof u.state.adventure === 'object') ? u.state.adventure : {};
-const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const ACHIEVEMENTS = [
-  // V19.3 (R3): العدّاد `runs` يحصي المحاولات المنتهية (فوزاً أو خسارة)، فالاسم والوصف صارا يطابقانه.
-  // المكافأة (25 ذهباً) بقيت كما هي: ترحيب أوّلي، لا تتطلب فوزاً.
-  { id: 'first_run', icon: '🎬', name: 'أول محاولة', desc: 'أنهِ محاولة واحدة في المنجم', target: 1, gold: 25, xp: 10, value: (u) => num(advOf(u).runs) },
-  { id: 'score500', icon: '💎', name: 'نتيجة 500', desc: 'حقق أفضل نتيجة 500+', target: 500, gold: 75, xp: 20, value: (u) => num(advOf(u).bestScore) },
-  { id: 'combo20', icon: '🔥', name: 'سلسلة 20', desc: 'حقق أعلى سلسلة ×20', target: 20, gold: 75, xp: 20, value: (u) => num(advOf(u).maxCombo) },
-  { id: 'collector', icon: '🧲', name: 'جامع الكنوز', desc: 'التقط 300 جوهرة إجمالاً', target: 300, gold: 100, xp: 30, value: (u) => num(advOf(u).gems) },
-  { id: 'survivor', icon: '💀', name: 'الناجي', desc: 'حقق 300 نقطة في وضع البقاء', target: 300, gold: 100, xp: 30, value: (u) => num(advOf(u).bestSurvival) },
-  { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', target: 1, gold: 100, xp: 30, value: (u) => num(advOf(u).bossWins) },
-  { id: 'racer', icon: '⚔️', name: 'بطل السباقات', desc: 'افُز بسباق مباشر واحد', target: 1, gold: 50, xp: 20, value: (u, ctx) => num(ctx.raceWins) },
-  { id: 'earner', icon: '🪙', name: 'صانع الذهب', desc: 'اكسب 500 ذهب من المغامرات', target: 500, gold: 100, xp: 30, value: (u) => num(advOf(u).rewardEarned) },
-  { id: 'upgrades10', icon: '🛠️', name: 'مهندس المنجم', desc: 'اشترِ 10 ترقيات إجمالاً', target: 10, gold: 150, xp: 40, value: (u) => Object.values(u.state.owned || {}).reduce((a, v) => a + num(v), 0) + Object.values(u.state.adventureUpgrades || {}).reduce((a, v) => a + num(v), 0) + Prestige.spentBy(u.state.prestige) },
-  { id: 'missions10', icon: '📅', name: 'مثابر', desc: 'استلم 10 مهام يومية', target: 10, gold: 200, xp: 50, value: (u) => num(u.sync.missionsClaimed) },
-  { id: 'streak7', icon: '🗓️', name: 'أسبوع كامل', desc: 'سلسلة مكافأة يومية 7 أيام', target: 7, gold: 300, xp: 60, value: (u) => num(u.dailyStreak) },
-  { id: 'inviter', icon: '👥', name: 'صاحب الدعوة', desc: 'ادعُ صديقاً واحداً', target: 1, gold: 100, xp: 30, value: (u) => num(u.referralCount) },
-  { id: 'level5', icon: '⭐', name: 'معدّن متمرس', desc: 'ابلغ المستوى 5', target: 5, gold: 150, xp: 0, value: (u) => levelFromXp(u.state.xp) },
-  { id: 'level10', icon: '🌟', name: 'معدّن أسطوري', desc: 'ابلغ المستوى 10', target: 10, gold: 400, xp: 0, value: (u) => levelFromXp(u.state.xp) },
-  { id: 'tycoon', icon: '🏦', name: 'قطب الذهب', desc: 'اكسب 50,000 ذهب إجمالاً', target: 50_000, gold: 500, xp: 100, value: (u) => num(u.state.totalEarned) },
-];
-const ACHIEVEMENT_BY_ID = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
-function claimedAchievements(user) {
-  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
-  if (!isObj(user.sync.achievements)) user.sync.achievements = {};
-  const rec = user.sync.achievements;
-  if (!isObj(rec.claimed)) rec.claimed = {};
-  return rec.claimed;
-}
-function achievementsView(user, ctx = {}) {
-  const claimed = claimedAchievements(user);
-  const items = ACHIEVEMENTS.map((a) => {
-    const value = Math.min(a.target, Math.floor(a.value(user, ctx)));
-    return { id: a.id, icon: a.icon, name: a.name, desc: a.desc, target: a.target, value, done: value >= a.target, claimed: Boolean(claimed[a.id]), gold: a.gold, xp: a.xp };
-  });
-  return { items, claimedCount: items.filter((i) => i.claimed).length, total: items.length };
-}
-// مهام المغامرة (quests.js): العدّادات في user.sync.quests تغذّيها جولات المنصّات المُعاد تشغيلها فقط، والانتصارات من state.mines.wins
-const questsView = (user) => Quests.view(user.sync.quests, user.state.mines?.wins);
-function claimQuest(user, id, now) {
-  const r = Quests.claim(user.sync.quests, user.state.mines?.wins, id, now);
-  if (r.status !== 'ok') return r;
-  const s = user.state;
-  s.gold += r.gold; s.totalEarned += r.gold;
-  return { ...r, xp: grantXp(s, r.xp) };
-}
-function claimAchievement(user, id, ctx, now) {
-  const a = ACHIEVEMENT_BY_ID[id];
-  if (!a) return { status: 'invalid' };
-  const claimed = claimedAchievements(user);
-  if (claimed[a.id]) return { status: 'rejected', reason: 'claimed' };
-  const value = Math.floor(a.value(user, ctx));
-  if (value < a.target) return { status: 'rejected', reason: 'locked', value: Math.min(a.target, value), target: a.target };
-  claimed[a.id] = now;
-  const s = user.state;
-  s.gold += a.gold; s.totalEarned += a.gold;
-  return { status: 'ok', id: a.id, gold: a.gold, xp: a.xp ? grantXp(s, a.xp) : 0 };
-}
-
-// ---------------------------------------------------------------------------
-// ⚔️ الساحة: تذكرة مباراة (رقم، بذرة، مستوى الخصم) يصدرها الخادم، والعميل يعيد الحركات فقط
-// ---------------------------------------------------------------------------
 const freshArena = () => ({ record: { wins: 0, losses: 0, draws: 0 }, ticket: null });
 function normalizeArena(raw) {
   const o = (v) => ((v && typeof v === 'object' && !Array.isArray(v)) ? v : {});
@@ -622,7 +399,27 @@ function applyArena(user, op, now) {
 }
 
 const overlapSec = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) / 1000;
-const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, duelDay: '', duelGold: 0, quests: Quests.normalize() });
+// حالة وردية الآلات تأتي من مسارات /api/mine-machinery وحدها؛ normalize يحافظ عليها
+// عند كل تطبيع ملف بدل إسقاطها مع الحقول المجهولة (كان هذا يُلغي أي وردية محفوظة).
+function normalizeMineMachinery(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const status = ['active', 'stopped', 'expired'].includes(value.status) ? value.status : null;
+  const zone = Math.floor(Number(value.zone));
+  const startedAt = Number(value.startedAt);
+  const lastClaimAt = Number(value.lastClaimAt);
+  const ore = String(value.ore || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 24);
+  if (!status || !Number.isInteger(zone) || zone < 0 || zone >= PlatformRules.MINES.length) return null;
+  if (!Number.isFinite(startedAt) || startedAt <= 0 || !Number.isFinite(lastClaimAt) || lastClaimAt <= 0) return null;
+  if (!ore) return null;
+  const id = String(value.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'mine-machinery';
+  const job = {
+    id, status, zone, ore, startedAt, lastClaimAt,
+    claimSeq: Math.max(0, Math.floor(Number(value.claimSeq) || 0)),
+  };
+  if (status === 'stopped' && Number.isFinite(Number(value.stoppedAt))) job.stoppedAt = Number(value.stoppedAt);
+  return job;
+}
+const freshSync = (now = Date.now()) => ({ settledAt: now, energyAt: now, sessions: {}, lastRewardAt: {}, lastRunAt: 0, xpCarry: 0, missions: {}, missionsClaimed: 0, weeklyMissions: {}, weeklyClaimed: 0, achievements: {}, arena: freshArena(), platformDay: '', platformGold: 0, duelDay: '', duelGold: 0, quests: Quests.normalize(), platformLogistics: { deliveries: 0, completed: 0, oreStored: 0 }, mineMachinery: null, mineMachineryDay: '', mineMachineryProduced: 0 });
 
 // تطبيع ملف لاعب (قديم أو جديد) دون تغيير أرصدته: دفتر مزامنة بقيم افتراضية، وقدرات مشتقة من المشتريات
 function ensureSync(user) {
@@ -647,6 +444,18 @@ function ensureSync(user) {
     duelDay: typeof sync.duelDay === 'string' ? sync.duelDay : '',
     duelGold: Math.max(0, Math.floor(Number(sync.duelGold) || 0)),
     quests: Quests.normalize(sync.quests),
+    station: obj(sync.station),
+    platformLogistics: (() => {
+      const progress = obj(sync.platformLogistics);
+      return {
+        deliveries: Math.max(0, Math.min(1_000_000, Math.floor(Number(progress.deliveries) || 0))),
+        completed: Math.max(0, Math.min(1_000_000, Math.floor(Number(progress.completed) || 0))),
+        oreStored: Math.max(0, Math.min(1_000_000, Math.floor(Number(progress.oreStored) || 0))),
+      };
+    })(),
+    mineMachinery: normalizeMineMachinery(sync.mineMachinery),
+    mineMachineryDay: typeof sync.mineMachineryDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sync.mineMachineryDay) ? sync.mineMachineryDay : '',
+    mineMachineryProduced: Math.max(0, Math.floor(Number(sync.mineMachineryProduced) || 0)),
   };
   user.revision = Number.isFinite(user.revision) ? user.revision : 0;
   user.state = deriveStats(sanitizeState(user.state, defaultState()));
@@ -939,6 +748,11 @@ function currentWeekKey(d = new Date()) {
   return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
+const {
+  trackMission, missionsView, weeklyMissionsView, achievementsView, questsView,
+  claimMission, claimWeeklyMission, claimQuest, claimAchievement,
+} = createProgression({ Quests, Prestige, dayStr, currentWeekKey, levelFromXp, grantXp });
+
 function dailyInfo(user) {
   const today = dayStr();
   const yesterday = dayStr(new Date(Date.now() - 86400e3));
@@ -996,6 +810,7 @@ function profileOf(user, isNew = false, extra = {}) {
     daily: dailyInfo(user),
     dailyGold: dailyGoldView(user.sync, now),
     quests: questsView(user),
+    platformLogistics: { ...user.sync.platformLogistics },
     isNew,
     serverTime: now,
     ...extra,
@@ -1309,6 +1124,11 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
   });
 }));
 
+app.get('/api/arena-leaderboard', rateLimit('arena-board', 120), asyncRoute(async (req, res) => {
+  const top = await store.arenaLeaderboard(10);
+  res.json({ leaderboard: top.map((row, i) => ({ rank: i + 1, ...row })) });
+}));
+
 // ---------------------------------------------------------------------------
 // 🧭 منجم المنصّة (اللعبة الجانبية الحتمية): بداية الجولة وإنهاؤها بإعادة تشغيل
 // الخادم للحركات المسجّلة مع مكافأة افتراضية واحدة مضمونة المعاملة — نفس المصادقة
@@ -1317,336 +1137,15 @@ app.get('/api/leaderboard', rateLimit('board', 120), asyncRoute(async (req, res)
 mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, grantXp, trackMission, trackQuests: (user, facts) => Quests.addRun(user.sync.quests, facts), now: Date.now });
 mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, now: Date.now });
 mountMineMachinery({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
+mountStation({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
 
-// ---------------------------------------------------------------------------
-// ⚔️ سباقات لاعب ضد لاعب مباشرة (WebSocket) — غرف سريعة أو برمز خاص
-// الخادم يقرّن اللاعبين ويبث التقدم والنتائج؛ محاكاة اللعبة نفسها عند العميل
-// بنفس بذرة عشوائية للطرفين، والنتيجة تُختم بسقف نقاط معقول لمدة السباق.
-// ---------------------------------------------------------------------------
-// قواعد السباق (race-rules.js): الخادم يقرر المدة ويبلّغها، ويختم النتيجة بنفسه عند اكتمال الطرفين أو انتهاء المهلة أو انسحاب طرف.
-const RACE_RULES = raceRulesFromEnv();
-const raceRooms = new Map();
-let raceQueue = [];
-const sendWs = (ws, obj) => { try { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj)); } catch (_) {} };
-// سقف نتيجة لاعب لحظة الإبلاغ: لا يتجاوز ما يسمح به زمن السباق ولا يقفز فوق آخر تقدّم أبلغه هو
-const raceCap = (room, playerId, rawScore, now) => raceCapRule(RACE_RULES, { startAt: room.startAt || now, last: room.track.get(playerId) || null }, rawScore, now);
-function beginRaceRound(room, players) {
-  room.state = 'racing';
-  room.seed = Math.floor(Math.random() * 2 ** 31);
-  room.startAt = Date.now() + 2500;
-  room.startedAt = Date.now();
-  room.results = new Map();
-  room.track = new Map();
-  clearTimeout(room.timer);
-  // الخادم ينهي السباق بنفسه إن لم يصل إنهاء طرف قبل المهلة: آخر تقدّم مُبلَّغ هو نتيجته
-  room.timer = setTimeout(() => {
-    settleRace(room, 'timeout').then((outcome) => announceRace(room, outcome)).catch((e) => console.error('تعذّر ختم سباق منتهي الوقت:', e.message));
-  }, raceDeadline(RACE_RULES, room.startAt) - Date.now());
-  room.timer.unref?.();
-  for (const p of players) {
-    p.player.ready = false;
-    const opp = players.find((q) => q !== p);
-    sendWs(p, { type: 'start', seed: room.seed, startAt: room.startAt, duration: RACE_RULES.durationSec, opponent: { id: opp.player.id, name: opp.player.name } });
-  }
-}
-// إعلان نتيجة مختومة لطرفي غرفة ما زالت قائمة (قد تُحذف الغرفة أثناء التخزين بانقطاع/انتقال)
-function announceRace(room, outcome) {
-  if (!outcome || raceRooms.get(room.id) !== room || room.players.size !== 2) return;
-  room.state = 'finished';
-  for (const p of room.players) sendWs(p, { type: 'result', reason: outcome.reason, winnerId: outcome.winnerId, results: outcome.results });
-}
-// ختم السباق: اكتمال النتيجتين، أو انتهاء المهلة (آخر تقدّم لمن لم يُنهِ)، أو انسحاب (الباقي يفوز مهما كانت النقاط)
-async function settleRace(room, reason, { forfeitBy = null, players = null } = {}) {
-  if (room.state !== 'racing') return null;
-  clearTimeout(room.timer); room.timer = null;
-  const now = Date.now();
-  const list = players || [...room.players];
-  for (const p of list) {
-    if (room.results.has(p.player.id)) continue;
-    const last = room.track.get(p.player.id);
-    room.results.set(p.player.id, { id: p.player.id, name: p.player.name, score: last ? last.score : 0, timedOut: reason === 'timeout', flagged: false });
-  }
-  const results = [...room.results.values()].map((r) => ({ ...r, forfeited: r.id === forfeitBy })).sort((a, b) => b.score - a.score);
-  if (results.length < 2) { room.state = 'finished'; return null; }
-  const winnerId = decideWinner(results, forfeitBy);
-  room.state = 'settling';
-  room.outcome = { reason, winnerId, results };
-  // 🏆 تسجيل البطولة الأسبوعية قبل إعلان النتيجة — السطران في معاملة واحدة (فشل التخزين لا يعطّل السباق)
-  try {
-    await store.recordRaceResults(currentWeekKey(), results.map((r) => ({ ...r, won: winnerId === r.id })));
-  } catch (e) { console.error('تعذّر تسجيل نتيجة سباق:', e.message); }
-  return room.outcome;
-}
-const raceCode = () => {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return raceRooms.has(code) ? raceCode() : code;
-};
-
-// حدود اتصالات السباق: سقف للاتصالات غير الموثّقة لكل عنوان، ومهلة مصادقة قصيرة،
-// ونافذة معدّل للرسائل. السقف يخصّ ما قبل المصادقة فقط: شبكات الهاتف تُخفي آلاف
-// المستخدمين خلف عنوان واحد، فسقف صارم على الاتصالات الموثّقة يقطع لاعبين أبرياء.
-// المصادقة تأتي في أول رسالة لا في رابط الاتصال: initData توقيع صالح 24 ساعة، ووضعه
-// في URL يعرّضه لسجلات الوكيل/الخادم وأي أداة تسجيل. الرابط الآن بلا أي سر.
-const WS_MAX_PENDING_PER_IP = Number(process.env.WS_MAX_PENDING_PER_IP || 24);
-const WS_AUTH_TIMEOUT_MS = Number(process.env.WS_AUTH_TIMEOUT_MS || 8000);
-const WS_MSG_WINDOW_MS = 2000;
-const WS_MSG_MAX_PER_WINDOW = 80;
-const wsPendingByIp = new Map();
-let wsRejectLogAt = 0;
-
-function releasePendingSocket(ip) {
-  const left = (wsPendingByIp.get(ip) || 1) - 1;
-  if (left > 0) wsPendingByIp.set(ip, left); else wsPendingByIp.delete(ip);
-}
-
-function wsClientIp(req) {
-  // العنوان يُقرأ من يمين السلسلة بعدد القفزات الموثوقة — لا من أول عنصر (انظر ws-client-ip.js).
-  return clientIpDetailsFromRequest(req, CONFIG.trustProxyHops);
-}
-
-// معرّف مؤقت للدلو يتيح مقارنة الاتصالات في السجل **بلا كتابة عنوان أي لاعب**:
-// HMAC بمفتاح عشوائي لكل عملية ⇒ لا يمكن عكس المعرّف إلى عنوان، ويتغيّر مع كل تشغيل.
-const WS_REJECT_ID_KEY = crypto.randomBytes(16);
-const wsRejectionId = (ip) => crypto.createHmac('sha256', WS_REJECT_ID_KEY).update(String(ip)).digest('hex').slice(0, 8);
-
-function setupMultiplayer(httpServer) {
-  if (!WebSocketServer) return; // السباقات معطّلة فقط — بقية اللعبة تعمل
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 4096 });
-
-  wss.on('connection', (ws, req) => {
-    const clientInfo = wsClientIp(req);
-    const ip = clientInfo.ip;
-    const pending = wsPendingByIp.get(ip) || 0;
-    if (pending >= WS_MAX_PENDING_PER_IP) {
-      // سجل تشخيصي عند الرفض فقط، **بلا أي عنوان IP**: يكفي لمعرفة إن كان عدد القفزات
-      // مضبوطًا (دلو مشترك لعنوان وسيط) أو مفتوحًا، عبر عدد عناصر الترويسة ومصدر القيمة.
-      // معرّف مؤقت (HMAC) يتيح مقارنة الاتصالات المرفوضة دون كشف عناوين اللاعبين.
-      // سطر واحد كل 10 ثوانٍ كحد أقصى: الرفض نفسه قد يتكرر آلاف المرات أثناء هجوم.
-      try {
-        if (Date.now() - wsRejectLogAt > 10000) {
-          wsRejectLogAt = Date.now();
-          const source = clientInfo.source === 'forwarded'
-            ? 'ترويسة الوكيل'
-            : `عنوان المقبس (${clientInfo.reason})`;
-          console.warn(`⚠️ رفض اتصال WebSocket — السقف ${WS_MAX_PENDING_PER_IP}، عناصر X-Forwarded-For: ${clientInfo.chainLength}، القفزات الموثوقة: ${clientInfo.hops}، المصدر: ${source}، معرّف مؤقت: ${wsRejectionId(ip)}`);
-        }
-      } catch (_) {}
-      try { ws.close(4003, 'too many connections'); } catch (_) {}
-      return;
-    }
-    wsPendingByIp.set(ip, pending + 1);
-    let pendingReleased = false;
-    const releasePending = () => {
-      if (pendingReleased) return;
-      pendingReleased = true;
-      releasePendingSocket(ip);
-    };
-    ws.once('close', releasePending);
-
-    const authTimer = setTimeout(() => {
-      if (!ws.player && ws.readyState === ws.OPEN) { try { ws.close(4001, 'auth required'); } catch (_) {} }
-    }, WS_AUTH_TIMEOUT_MS);
-    if (typeof authTimer.unref === 'function') authTimer.unref();
-
-    // أول رسالة فقط: { type: 'auth', initData } أو { type: 'auth', guest } في وضع التطوير.
-    const onHandshake = (raw) => {
-      let msg = null;
-      try { msg = JSON.parse(raw.toString()); } catch (_) { msg = null; }
-      if (!msg || typeof msg !== 'object' || msg.type !== 'auth') { try { ws.close(4001, 'auth required'); } catch (_) {} return; }
-      const auth = authenticate(typeof msg.initData === 'string' ? msg.initData : '', typeof msg.guest === 'string' ? msg.guest : '');
-      if (!auth.player) { clearTimeout(authTimer); try { ws.close(4001, 'auth required'); } catch (_) {} return; }
-      clearTimeout(authTimer);
-      releasePending();
-      ws.off('message', onHandshake);
-      startRaceSession(ws, auth.player);
-    };
-    ws.on('message', onHandshake);
-  });
-
-  async function startRaceSession(ws, player) {
-    try { const dbUser = await store.getUser(player.id); if (dbUser?.name && dbUser.name !== 'ضيف') player.name = dbUser.name; } catch (_) {}
-
-    if (ws.readyState !== ws.OPEN) return;
-    ws.player = { ...player, roomId: null, ready: false, lastProgress: 0 };
-    ws.msgWindow = { start: Date.now(), count: 0 };
-    sendWs(ws, { type: 'welcome', id: player.id, name: player.name });
-
-    const leaveRoom = (notify = true) => {
-      raceQueue = raceQueue.filter((q) => q !== ws);
-      const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-      ws.player.roomId = null;
-      ws.player.ready = false;
-      if (!room) return;
-      // أغلق الغرفة بالكامل عند مغادرة أحد اللاعبين؛ لا تترك خصماً عالقاً في غرفة سباق منتهية.
-      raceRooms.delete(room.id);
-      clearTimeout(room.timer); room.timer = null;
-      const racingState = ['racing', 'settling'].includes(room.state);
-      // انسحاب بعد بداية السباق فعلياً = خسارة للمنسحب وفوز مسجّل للباقي (يُعلَن فوراً ويُحفظ خلفياً)
-      const forfeit = room.state === 'racing' && room.players.size === 2 && forfeitAllowed(RACE_RULES, room.startAt || Infinity, Date.now());
-      const others = [...room.players].filter((o) => o !== ws);
-      let outcome = null;
-      if (forfeit) {
-        const snapshot = [...room.players];
-        const settled = settleRace(room, 'forfeit', { forfeitBy: ws.player.id, players: snapshot });
-        settled.catch(() => {});
-        outcome = room.outcome;
-      }
-      for (const other of others) {
-        other.player.roomId = null;
-        other.player.ready = false;
-        if (notify) sendWs(other, {
-          type: racingState ? 'opponent_left' : 'room_closed',
-          message: racingState ? (outcome ? 'انسحب الخصم — سُجّل الفوز لك' : 'غادر الخصم — يمكنك بدء سباق جديد') : 'أُغلقت الغرفة — أنشئ غرفة جديدة',
-          ...(outcome ? { forfeit: true, winnerId: outcome.winnerId, results: outcome.results } : {}),
-        });
-      }
-      room.players.clear();
-    };
-    ws.leaveRaceRoom = leaveRoom;
-
-    const pairInto = (room, other) => {
-      room.players.add(ws); room.players.add(other);
-      ws.player.roomId = room.id; other.player.roomId = room.id;
-      sendWs(ws, { type: 'matched', code: room.code, opponent: { id: other.player.id, name: other.player.name } });
-      sendWs(other, { type: 'matched', code: room.code, opponent: { id: ws.player.id, name: ws.player.name } });
-    };
-
-    ws.on('message', async (raw) => {
-      if (raw.length > 4096) return;
-      // نافذة معدّل بسيطة لكل اتصال: رسائل السباق قليلة أصلاً، وما يتجاوزها سلوك آلي.
-      const nowMs = Date.now();
-      if (nowMs - ws.msgWindow.start > WS_MSG_WINDOW_MS) ws.msgWindow = { start: nowMs, count: 0 };
-      ws.msgWindow.count += 1;
-      if (ws.msgWindow.count > WS_MSG_MAX_PER_WINDOW) { try { ws.close(4008, 'too many messages'); } catch (_) {} return; }
-      let msg;
-      try { msg = JSON.parse(raw.toString()); } catch { return; }
-      if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
-
-      try {
-        if (msg.type === 'quick') {
-          leaveRoom(true);
-          raceQueue = raceQueue.filter((q) => q.readyState === q.OPEN && q !== ws);
-          const otherIndex = raceQueue.findIndex((q) => q.player.id !== ws.player.id);
-          const other = otherIndex >= 0 ? raceQueue.splice(otherIndex, 1)[0] : null;
-          if (other) {
-            const room = { id: raceCode(), code: 'سريع', players: new Set(), state: 'lobby', results: new Map(), rematchRequests: new Set() };
-            raceRooms.set(room.id, room);
-            pairInto(room, other);
-          }
-          else { raceQueue.push(ws); sendWs(ws, { type: 'waiting', message: 'بانتظار خصم…' }); }
-        }
-
-        if (msg.type === 'create') {
-          leaveRoom(true);
-          const code = raceCode();
-          const room = { id: code, code, players: new Set([ws]), state: 'lobby', results: new Map(), rematchRequests: new Set() };
-          raceRooms.set(code, room);
-          ws.player.roomId = code;
-          sendWs(ws, { type: 'room_created', code, message: `شارك الرمز ${code} مع صديقك` });
-        }
-
-        if (msg.type === 'join') {
-          const room = raceRooms.get(String(msg.code || '').toUpperCase().trim());
-          if (!room || room.state !== 'lobby' || room.players.size >= 2) { sendWs(ws, { type: 'error', message: 'الغرفة غير موجودة أو ممتلئة' }); return; }
-          const [host] = [...room.players];
-          if (host === ws) return;
-          if (host.player.id === ws.player.id) {
-            sendWs(ws, { type: 'error', message: 'لا يمكنك التسابق مع حسابك نفسه' });
-            return;
-          }
-          // Validate the destination first, then detach from any previous room.
-          leaveRoom(true);
-          pairInto(room, host);
-        }
-
-        if (msg.type === 'ready') {
-          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-          if (!room || room.state !== 'lobby' || room.players.size !== 2 || !room.players.has(ws)) return;
-          ws.player.ready = true;
-          const players = [...room.players];
-          if (players.every((p) => p.player.ready)) beginRaceRound(room, players);
-        }
-
-        if (msg.type === 'progress') {
-          if (![msg.score, msg.lives, msg.xRatio].every(Number.isFinite)) return;
-          const now = Date.now();
-          if (now - ws.player.lastProgress < 100) return;
-          ws.player.lastProgress = now;
-          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-          if (!room || room.state !== 'racing' || !room.players.has(ws)) return;
-          // التقدّم يُقصّ بنفس سقوف النتيجة ويُحفظ كآخر نقاط معروفة (نتيجة اللاعب إن انتهى الوقت أو انسحب)
-          const tracked = now >= (room.startAt || 0) && !room.results.has(ws.player.id) ? raceCap(room, ws.player.id, msg.score, now) : null;
-          if (tracked) room.track.set(ws.player.id, { score: tracked.score, at: now });
-          const payload = {
-            type: 'opponent_progress',
-            score: tracked ? tracked.score : Math.max(0, Math.min(RACE_RULES.scoreBase, Number(msg.score) || 0)),
-            lives: Math.max(0, Math.min(5, Number(msg.lives) || 0)),
-            xRatio: Math.max(0, Math.min(1, Number(msg.xRatio) || 0.5)),
-            finished: Boolean(msg.finished),
-          };
-          for (const other of room.players) if (other !== ws) sendWs(other, payload);
-        }
-
-        if (msg.type === 'finish') {
-          if (!Number.isFinite(msg.score) || msg.score < 0) return;
-          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-          if (!room || room.state !== 'racing' || !room.players.has(ws)) return;
-          // لا نقبل إنهاء قبل وقت البداية، ولا نسمح بتغيير نتيجة اللاعب بعد ختمها.
-          const nowFinish = Date.now();
-          if (nowFinish < (room.startAt || 0) || room.results.has(ws.player.id)) return;
-          // سقفان: زمن السباق (45/ث + 100 حتى مدته) وآخر تقدّم مُبلَّغ (+ قفزة واحدة)
-          const { score, flagged } = raceCap(room, ws.player.id, msg.score, nowFinish);
-          room.results.set(ws.player.id, { id: ws.player.id, name: ws.player.name, score, flagged, timedOut: false });
-          room.track.set(ws.player.id, { score, at: nowFinish });
-          for (const other of room.players) if (other !== ws) sendWs(other, { type: 'opponent_finished', score });
-          if (room.results.size >= 2) {
-            // Keep rematch/ready blocked until asynchronous persistence completes.
-            const outcome = await settleRace(room, 'finished');
-            announceRace(room, outcome); // A disconnect/switch can delete this room while storage is in flight.
-          }
-        }
-
-        if (msg.type === 'rematch') {
-          const room = ws.player.roomId && raceRooms.get(ws.player.roomId);
-          if (!room || room.state !== 'finished' || room.players.size !== 2) return;
-          room.rematchRequests = room.rematchRequests || new Set();
-          room.rematchRequests.add(ws.player.id);
-          const players = [...room.players];
-          for (const other of players) if (other !== ws) sendWs(other, { type: 'rematch_requested' });
-          if (room.rematchRequests.size >= 2) {
-            room.rematchRequests.clear();
-            beginRaceRound(room, players);
-          }
-        }
-
-        if (msg.type === 'leave') leaveRoom(true);
-      } catch (error) {
-        // Avoid unhandled rejections and never log player messages or auth data.
-        console.error('خطأ معالجة رسالة سباق:', error.code || 'internal');
-        sendWs(ws, { type: 'error', message: 'تعذّر تنفيذ طلب السباق — حاول مجددًا' });
-      }
-    });
-
-    ws.on('close', leaveRoom);
-    ws.on('error', () => leaveRoom());
-  }
-
-  const heartbeat = setInterval(() => {
-    for (const ws of wss.clients) {
-      if (ws.isAlive === false) { ws.terminate(); continue; }
-      ws.isAlive = false;
-      try { ws.ping(); } catch (_) {}
-    }
-  }, 30000);
-  wss.on('connection', (ws) => { ws.isAlive = true; ws.on('pong', () => { ws.isAlive = true; }); });
-  wss.on('close', () => clearInterval(heartbeat));
-  console.log('⚔️  خادم سباقات WebSocket جاهز على /ws');
-}
-
-// ---------------------------------------------------------------------------
-// بوت تيليجرام
+// Multiplayer WebSocket rooms are implemented in multiplayer.js.
+const setupMultiplayer = createMultiplayer({
+  store,
+  authenticate,
+  currentWeekKey,
+  trustProxyHops: CONFIG.trustProxyHops,
+});
 // ---------------------------------------------------------------------------
 let bot = null;
 let httpServer = null;

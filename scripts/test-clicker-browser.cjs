@@ -78,13 +78,20 @@ async function main() {
       return { ore: r('#ck-ore'), hero: r('#ck-hero'), nodes: r('#ck-nodes'), area: r('#click-area'), actions: r('.ck-actions'), go: r('#ck-go'), boost: r('#boost-btn'), energy: r('#energy-container'), nav: r('nav'), balance: r('.balance-strip'),
         scrollFits: tab.scrollHeight <= tab.clientHeight + 1, hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         medals: [...document.querySelectorAll('#ck-nodes .ck-node')].map((n) => n.dataset.ckItem),
+        minerCss: (() => {
+          const miner = document.getElementById('ck-miner'), area = document.getElementById('click-area');
+          const style = getComputedStyle(miner), areaStyle = getComputedStyle(area), rect = miner.getBoundingClientRect();
+          return { viewport: [innerWidth, innerHeight], phoneRule: matchMedia('(max-width: 430px) and (min-height: 700px)').matches,
+            areaMinerHeight: areaStyle.getPropertyValue('--miner-h').trim(), computedHeight: style.height,
+            transform: style.transform, renderedHeight: Math.round(rect.height) };
+        })(),
         // #sync-status is a screen-reader-only line (never painted), so it is not part of "what the screen shows"
         text: [...document.querySelectorAll('#tab-mining, .app-header, .balance-strip, #energy-container')].map((e) => { const c = e.cloneNode(true); c.querySelector('#sync-status')?.remove(); return c.textContent; }).join(' ') };
     });
     assert.equal(geo.scrollFits, true, 'the mining tab needs no scrolling on a phone');
     assert.equal(geo.hScroll, false, 'no horizontal overflow');
     assert.ok(geo.ore.w >= 110 && geo.ore.l >= 0 && geo.ore.r <= 390, `the rock is big and inside the viewport (${Math.round(geo.ore.w)}px)`);
-    assert.ok(geo.hero.h >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${Math.round(geo.hero.h)}px)`);
+    assert.ok(geo.hero.h >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${Math.round(geo.hero.h)}px; ${JSON.stringify(geo.minerCss)})`);
     assert.deepEqual(geo.medals, ['click', 'bot', 'rig', 'workshop', 'deepdive'], 'three upgrade medals, the workshop medal and the deep-dive medal');
     assert.ok(geo.balance.b <= geo.nodes.t + 1, 'the gold counter sits above the medals');
     assert.ok(geo.nodes.b <= geo.area.t + 1 && geo.area.b <= geo.actions.t + 1 && geo.actions.b <= geo.energy.t + 1 && geo.energy.b <= geo.nav.t + 1, 'medals, field, buttons, energy and nav stack without overlap');
@@ -460,10 +467,16 @@ async function main() {
     const touch = (type, ...points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([x, y], i) => ({ x, y, id: i + 1 })) });
     const pc = [padB.l + padB.w / 2, padB.t + padB.h / 2];
     const m0 = await page.evaluate(() => DigSite.inspect());
+    // The cave wall is only a few hundredths past the distance this step asks for, and a slow runner covers that in one or
+    // two frames. A sampler inside the page therefore keeps the first frame in which he is past the mark, so the pose is
+    // read while he is still walking (a read from outside could land after he had already stopped at the wall).
+    await page.evaluate((x) => { window.__ckLeft = null; const sample = () => { const i = DigSite.inspect();
+      if (i.miner.x < x - 0.05) { window.__ckLeft = { i, sx: parseFloat(document.getElementById('ck-stick').style.getPropertyValue('--sx')), on: document.getElementById('ck-pad').classList.contains('is-on'), act: document.getElementById('ck-miner').dataset.act, face: document.getElementById('ck-miner').dataset.face, y: scrollY }; return; }
+      requestAnimationFrame(sample); }; requestAnimationFrame(sample); }, m0.miner.x);
     await touch('touchStart', pc);
     for (const dx of [-10, -22, -34]) await touch('touchMove', [pc[0] + dx, pc[1]]);
-    await page.waitForFunction((x) => DigSite.inspect().miner.x < x - 0.05, m0.miner.x, { timeout: 15000 });
-    const left = await page.evaluate(() => ({ i: DigSite.inspect(), sx: parseFloat(document.getElementById('ck-stick').style.getPropertyValue('--sx')), on: document.getElementById('ck-pad').classList.contains('is-on'), act: document.getElementById('ck-miner').dataset.act, face: document.getElementById('ck-miner').dataset.face, y: scrollY }));
+    await page.waitForFunction(() => window.__ckLeft, null, { timeout: 15000 });
+    const left = await page.evaluate(() => window.__ckLeft);
     assert.equal(left.i.miner.face, -1, 'he turned left');
     assert.equal(left.face, '-1', 'the picture is mirrored');
     assert.equal(left.act, 'walk');
@@ -818,6 +831,8 @@ async function main() {
         return { ringBottom: ring.bottom, ctaTop: cta.top, ctaBottom: cta.bottom, vh: innerHeight, nodesOn: nodes.every((n) => n.left >= 0 && n.right <= innerWidth && n.top >= 0 && n.bottom <= innerHeight), count: nodes.length, hero: document.getElementById('ws-hero').naturalWidth > 0 }; });
       assert.ok(ws.count === 8 && ws.nodesOn && ws.hero && ws.ringBottom <= ws.ctaTop + 1 && ws.ctaBottom <= ws.vh + 0.5, `${tag}: the workshop fits (${JSON.stringify(ws)})`);
       await v.page.evaluate(() => window.closeWorkshop());
+      await require('./mine-traversal-browser.cjs')(v.page, tag);
+      if ([320,844,1280].includes(viewport.width)) await require('./station-browser.cjs')(v.page, tag);
       report.viewports.push(tag);
       await v.ctx.close();
     }

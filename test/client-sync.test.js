@@ -10,6 +10,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const adventure = fs.readFileSync(path.join(__dirname, '..', 'public', 'adventure-game.js'), 'utf8');
+const arenaClient = fs.readFileSync(path.join(__dirname, '..', 'public', 'arena-client.js'), 'utf8');
 
 function engineSource() {
   const start = html.indexOf('    // ==== SYNC ENGINE START');
@@ -243,7 +245,7 @@ test('server progress (xp/level) is adopted into the profile and a level-up is a
 
 test('the level badge follows the server progress when connected and the old local formula offline', () => {
   assert.match(html, /const prog = serverMode && profile\?\.progress \? profile\.progress : null;\s+const level = prog \? prog\.level : Math\.floor\(state\.totalEarned \/ 5000\) \+ 1;/);
-  assert.match(html, /function playerLevel\(\) \{ return \(serverMode && profile\?\.progress\?\.level\) \|\| Math\.floor\(state\.totalEarned \/ 5000\) \+ 1; \}/);
+  assert.match(arenaClient, /function playerLevel\(\) \{ return \(serverMode && profile\?\.progress\?\.level\) \|\| Math\.floor\(state\.totalEarned \/ 5000\) \+ 1; \}/);
   assert.match(html, /id="xp-bar"/);
   assert.match(html, /id="xp-fill"/);
 });
@@ -251,12 +253,12 @@ test('the level badge follows the server progress when connected and the old loc
 test('mining clicks and purchases are routed through the ops queue in the game code', () => {
   assert.match(html, /SYNC\.clicks \+= 1;\s+if \(boostActive\(\)\) SYNC\.boostedClicks \+= 1;/);
   assert.match(html, /enqueueOp\(\{ type: 'buy', item: type \}\)/);
-  assert.match(html, /enqueueOp\(\{ type: 'buy_adv', key \}\)/);
+  assert.match(adventure, /enqueueOp\(\{ type: 'buy_adv', key \}\)/);
   assert.match(html, /enqueueOp\(\{ type: 'boost' \}\)/);
-  assert.match(html, /enqueueOp\(\{\s*type: 'run', mode: adv\.gameMode, difficulty: adv\.gameDifficulty, score: finalScore, gems: adv\.gemsCaught/);
-  assert.doesNotMatch(html, /type: 'reward', game: 'adventure'/, 'adventure rounds are reported as runs, not self-declared rewards');
-  assert.doesNotMatch(html, /type: 'reward'/, 'no self-declared rewards remain in the game code');
-  assert.match(html, /enqueueOp\(\{ type: 'arena', matchNo: battle\.ticket\.matchNo, moves: battle\.moves\.slice\(\), expected: won \? ARENA\.winReward : 0 \}\)/, 'arena matches are reported as move lists, the server replays them');
+  assert.match(adventure, /enqueueOp\(\{\s*type: 'run', mode: adv\.gameMode, difficulty: adv\.gameDifficulty, score: finalScore, gems: adv\.gemsCaught/);
+  assert.doesNotMatch(adventure, /type: 'reward', game: 'adventure'/, 'adventure rounds are reported as runs, not self-declared rewards');
+  assert.doesNotMatch(adventure, /type: 'reward'/, 'no self-declared rewards remain in the adventure game code');
+  assert.match(arenaClient, /enqueueOp\(\{ type: 'arena', matchNo: battle\.ticket\.matchNo, moves: battle\.moves\.slice\(\), expected: won \? ARENA\.winReward : 0 \}\)/, 'arena matches are reported as move lists, the server replays them');
   assert.doesNotMatch(html, /api\('\/api\/save'/, 'the browser must not push full state to the legacy endpoint');
   assert.match(html, /const gain = clickGain\(\);/, 'boost must actually double clicks as the button advertises');
 });
@@ -356,18 +358,18 @@ test('server achievements are adopted into the profile; a claim is optimistic, a
 });
 
 test('achievement rewards are no longer blocked in cloud mode: the claim goes through the ops queue, never from local stats', () => {
-  assert.match(html, /enqueueOp\(\{ type: 'achievement', id, expected: a\.gold \}\)/);
-  assert.doesNotMatch(html, /يتطلب تحققًا/, 'the old "requires verification" lock is gone');
-  assert.doesNotMatch(html, /مكافآت الإنجازات السحابية قيد التطوير/);
-  assert.match(html, /const serverAchievements = \(\) => \(serverMode && profile\?\.achievements && Array\.isArray\(profile\.achievements\.items\)\) \? profile\.achievements : null;/);
+  assert.match(adventure, /enqueueOp\(\{ type: 'achievement', id, expected: a\.gold \}\)/);
+  assert.doesNotMatch(adventure, /يتطلب تحققًا/, 'the old "requires verification" lock is gone');
+  assert.doesNotMatch(adventure, /مكافآت الإنجازات السحابية قيد التطوير/);
+  assert.match(adventure, /const serverAchievements = \(\) => \(serverMode && profile\?\.achievements && Array\.isArray\(profile\.achievements\.items\)\) \? profile\.achievements : null;/);
   // لا ذهب سحابي من advStats/advClaimed المحليين: المسار المحلي يبقى خلف فحص الخادم فقط
-  const claimFn = html.slice(html.indexOf('function claimAchievement(id)'), html.indexOf('// 🛠️ ترقيات المغامرة الدائمة'));
+  const claimFn = adventure.slice(adventure.indexOf('function claimAchievement(id)'), adventure.indexOf('// 🛠️ ترقيات المغامرة الدائمة'));
   assert.ok(claimFn.indexOf('const cloud = serverAchievements();') < claimFn.indexOf('advClaimed[id] = true;'));
 });
 
 test('the race client follows the server clock and sealed forfeits instead of deciding outcomes itself', () => {
   assert.match(html, /startAdventure\('race', msg\.seed, msg\.duration\)/, 'race duration comes from the start message');
-  assert.match(html, /timeLeft: raceDuration \|\| advModeCfg\(\)\.duration/);
+  assert.match(adventure, /timeLeft: raceDuration \|\| advModeCfg\(\)\.duration/);
   assert.match(html, /if \(adv\.running && adv\.mode === 'race'\) endAdventure\(\); \/\/ ختم الخادم السباق/, 'a server-settled result closes a still-running round as a race round first');
   assert.match(html, /if \(adv\.running && adv\.mode === 'race'\) endAdventureByForfeit\(msg\);\s+else if \(msg\.forfeit\) showForfeitWin\(msg\);/);
   const fn = html.slice(html.indexOf('function showForfeitWin('), html.indexOf('// تبديل تبويب بلا إيقاف المغامرة'));
@@ -376,7 +378,7 @@ test('the race client follows the server clock and sealed forfeits instead of de
 });
 
 test('the arena client only plays the shared engine with the server ticket and never decides the reward itself', () => {
-  const arena = html.slice(html.indexOf('// ================= ⚔️ ساحة القتال'), html.indexOf('// --- التعزيز والمكافأة اليومية ---'));
+  const arena = arenaClient;
   assert.match(html, /<script src="\/arena-rules\.js\?v=\d+"><\/script>/, 'the engine file is the same one the server requires');
   assert.match(arena, /const ARENA = ArenaRules\.CONFIG;/);
   assert.doesNotMatch(arena, /function (applyMove|enemyDecide|judgeBattle)\(/, 'no private copy of the rules');

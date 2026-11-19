@@ -151,6 +151,17 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       // سقوط زعيم المنجم أعاد المحرك تشغيله بنفس المسار؛ يُحتسب حتى لو خسر اللاعب بعده في طريق الخروج. هذا ما يُحيي إنجاز «قاتل الزعماء».
       const bossKill = state.bossDefeated === true;
       const score = state.collected * 25 + state.mined * 50 + (state.status === 'won' ? 200 : 0);
+      const logistics = state.logistics?.delivered === true ? {
+        delivered: true, ore: state.logistics.ore,
+      } : null;
+      if (logistics) {
+        const progress = user.sync.platformLogistics;
+        progress.deliveries = Math.min(1_000_000, progress.deliveries + 1);
+        progress.oreStored = Math.min(1_000_000, progress.oreStored + 1);
+        if (config.goal === Rules.GOALS.findIndex(g => g.id === 'logistics')) {
+          progress.completed = Math.min(1_000_000, progress.completed + 1);
+        }
+      }
       // V19.3 (R4): مبارزة الساحة تجربة مستقلة — لا تُغذّي إحصاءات «المغامرة» ولا مهامها ولا مغامراتها.
       // للساحة مسارها الخاص أعلاه: سجل المبارزة، ذهب المبارزة المستقل، ومهمة «arena».
       if (!duelMode) {
@@ -174,14 +185,14 @@ function mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare
       const receipt = { id: run.id, won: state.status === 'won', mode: config.mode, zone: config.zone, mineWins: mines.wins[config.zone], gold, xp, score, gems: state.collected, mined: state.mined, duration, boss: bossKill,
         ...(config.mode === 'duel' ? { duel: { rivalHp: goal.rivalHp, rivalMaxHp: goal.rivalMaxHp, hearts: goal.hearts, blocks: goal.blocks }, arena: { ...arenaRec } } : {}),
         goal: { id: goal.id, name: goal.name, done: goal.done, now: goal.now, target: goal.target },
-        choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true,
+        choice, veinBroken: state.veinBroken === true, oreWind: state.oreWind === true, logistics,
         ores: awarded, oresGathered: ores, milestones: state.milestones || [], milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold, salvage: breakdown.salvage,
         dailyRemaining: quota.remaining, ...(duelMode ? { duelCap: quota.cap } : {}), ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) };
       run.status = 'finished'; run.result_json = JSON.stringify(receipt);
       await store.savePlatformRun(run);
       // سجل تدقيق دائم داخل معاملة اللاعب نفسها؛ (user, session, seq) فريد فلا يتكرر القيد
       await store.appendLedger(user.id, [{ session: `platform:${run.id}`, seq: 1, kind: 'platform_finish', goldDelta: gold,
-        detail: { won: receipt.won, zone: config.zone, goal: receipt.goal, choice, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
+        detail: { won: receipt.won, zone: config.zone, goal: receipt.goal, choice, logistics, loadout: config.loadout, gems: receipt.gems, mined: receipt.mined, defeated: state.defeated || 0, boss: bossKill, ticks: state.tick, hero: state.player.hero,
           dailyRemaining: quota.remaining, ores: awarded, oresGathered: ores, milestones: state.milestones || [], salvage: breakdown.salvage,
           milestoneGold: breakdown.milestoneGold, finalGold: breakdown.finalGold,
           ...(tooSoon ? { reason: 'cooldown' } : quota.capped ? { reason: 'daily_cap' } : {}) }, at: now() }]);

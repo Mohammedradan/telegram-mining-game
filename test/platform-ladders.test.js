@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const R = require('../public/platform-rules.js');
 
 test('V21: upper mine ladders are climbable and landings remain solid after release', () => {
-  assert.equal(R.VERSION, 14);
+  assert.equal(R.VERSION, 15);
   for (let zone = 1; zone < R.MINES.length; zone++) {
     const level = R.levelFor(zone);
     const ladder = level.platforms.find(box => box.route === 'upper');

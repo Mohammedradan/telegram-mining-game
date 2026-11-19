@@ -11,6 +11,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const html = read('public', 'index.html');
+const adventure = read('public', 'adventure-game.js');
 const css = read('public', 'platform.css');
 const EMOJI = /\p{Extended_Pictographic}/u;
 const section = (from, to) => { const a = html.indexOf(from), b = html.indexOf(to, a); assert.ok(a >= 0 && b > a, `${from} … ${to}`); return html.slice(a, b); };
@@ -59,7 +60,7 @@ test('behaviour in the page script: enter closes the map and reveals the panel, 
   // the map shows a fresh purse every time it opens
   assert.match(html, /minesOpenFlag = true; overlay\.hidden = false; minesRender\(\); updateClassicDaily\(\);/);
   // and the way back disappears while racing
-  assert.match(html, /legacyBack\.hidden = Boolean\(adv\.mode === 'race' && typeof race !== 'undefined' && race\.inRace\);/);
+  assert.match(adventure, /legacyBack\.hidden = Boolean\(adv\.mode === 'race' && typeof race !== 'undefined' && race\.inRace\);/);
 });
 
 test('the purse: adopted from every server reply, shown, and used to show what a round will really pay', () => {
@@ -76,9 +77,9 @@ test('the purse: adopted from every server reply, shown, and used to show what a
   assert.match(purse, /if \(!d \|\| !Number\.isFinite\(d\.remaining\)\) return null;/);
   assert.match(purse, /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/, 'the day is UTC, like the server\'s');
   assert.match(purse, /return d\.day === day \? d : \{ day, used: 0, cap: d\.cap, remaining: d\.cap \};/, 'yesterday\'s purse is a full purse today');
-  assert.match(html, /profile\.dailyGold = \{ day: d\.day, cap: d\.cap, used: d\.used \+ reward, remaining: Math\.max\(0, d\.remaining - reward\) \};/);
+  assert.match(adventure, /profile\.dailyGold = \{ day: d\.day, cap: d\.cap, used: d\.used \+ reward, remaining: Math\.max\(0, d\.remaining - reward\) \};/);
   assert.match(upd, /const d = classicPurse\(\);/, 'the bar and the card read the same normalised purse');
-  assert.match(html, /\(cut \? `<span class="text-sky-300">سقف الذهب اليوم مشترك مع المناجم وبيع الخامات: \$\{reward \? `دُفع لك الباقي فقط \(\$\{reward\} من \$\{claimed\}\)` : `لا ذهب إضافي اليوم \(كان \$\{claimed\}\)`\} — يتجدّد \$\{classicResetTime\(\)\}<\/span><br>` : ''\)/);
+  assert.match(adventure, /\(cut \? `<span class="text-sky-300">سقف الذهب اليوم مشترك مع المناجم وبيع الخامات: \$\{reward \? `دُفع لك الباقي فقط \(\$\{reward\} من \$\{claimed\}\)` : `لا ذهب إضافي اليوم \(كان \$\{claimed\}\)`\} — يتجدّد \$\{classicResetTime\(\)\}<\/span><br>` : ''\)/);
   // the reset time is shown in the player's own clock: the purse refills at 00:00 UTC
   const reset = /function classicResetTime\(\) \{([\s\S]*?)\n    \}/.exec(html)[1];
   assert.match(reset, /Date\.UTC\(d\.getUTCFullYear\(\), d\.getUTCMonth\(\), d\.getUTCDate\(\) \+ 1\)/);
@@ -89,7 +90,7 @@ test('sync message: a capped round is explained, ahead of the generic "too soon"
   const capped = html.indexOf("r.reason === 'daily_cap'"), tooSoon = html.indexOf("r.reason === 'too_soon'))");
   assert.ok(capped > 0 && tooSoon > capped, 'the cap message comes first');
   assert.match(html, /بلغت سقف الذهب اليومي المشترك \(\$\{fmt\(profile\?\.dailyGold\?\.cap \|\| 10000\)\}\): حُفظت الجولة وإحصاؤها \$\{runs\.some\(\(r\) => r\.gold > 0\) \? 'ودُفع الباقي فقط' : 'دون ذهب إضافي'\}/);
-  assert.match(html, /haptic\(claimed > 0 \? 'success' : 'error'\);/, 'a round that the cap paid nothing for is still a round that was played');
+  assert.match(adventure, /haptic\(claimed > 0 \? 'success' : 'error'\);/, 'a round that the cap paid nothing for is still a round that was played');
 });
 
 test('styles: the footer card is its own thing (not .mine-card) and adapts to short and narrow screens', () => {
@@ -105,5 +106,6 @@ test('what stays untouched: the classic game keeps its own code and its original
   assert.match(panel, /data-adv-mode="classic"[\s\S]*data-adv-mode="blitz"[\s\S]*data-adv-mode="survival"[\s\S]*data-adv-mode="boss"/, 'the four modes are all there');
   assert.match(panel, /<canvas id="game-canvas"/);
   assert.match(panel, EMOJI, 'the classic game still draws its own emoji UI; converting it to SVG is a separate, optional job');
-  assert.match(html, /function startAdventure\(mode = 'solo', seed = null, duration = null\)/, 'the entry point races use is unchanged');
+  assert.match(adventure, /function startAdventure\(mode = 'solo', seed = null, duration = null\)/, 'the entry point races use is unchanged');
+  assert.ok(html.indexOf('/adventure-game.js?v=1') < html.indexOf('const race = { ws: null'), 'the adventure game loads before the race controller that calls it');
 });

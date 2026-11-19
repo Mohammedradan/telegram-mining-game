@@ -295,9 +295,8 @@ async function main() {
       await page.locator('#open-guide').scrollIntoViewIfNeeded();
       const btn = await box(page, '#open-guide');
       assert.ok(btn.l >= 0 && btn.r <= vp.width && btn.t >= 0 && btn.h >= 34, `${tag}: the button is on screen and tappable (${btn.w}x${btn.h})`);
-      // كبسولة العنوان تتقلّص عمدًا على stage-short (19px) وتُخفى عمدًا على stage-ultra (platform.css:594)
-      // أو عندما يقيس syncOverlayFit فيضًا فيضيف fit-2 (platform.css:608). الشرط يحرس العقد: تظهر دائمًا
-      // إلا حين يفرض التصميم إخفاءها، وحين تظهر لا يُقصّ نصّها ولا تنكمش إلى 12px.
+      // كبسولة العنوان تُخفى عمداً في ردهة العرض (game-showcase.css)، وكذلك على stage-ultra
+      // أو fit-2؛ في اللعب الفعلي تبقى ظاهرة ما لم يفرض قياس المساحة إخفاءها.
       const pill = await page.evaluate(() => {
         const el = document.querySelector('#platform-overlay .overlay-kicker');
         const stage = document.querySelector('.mine-stage');
@@ -306,7 +305,7 @@ async function main() {
         return {
           display: cs.display, h: Math.round(b.height), clipped: el.scrollWidth > el.clientWidth + 1,
           stage: stage.className, overlay: overlay.className,
-          hiddenByDesign: stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-2'),
+          hiddenByDesign: stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-2') || document.getElementById('platform-scene').classList.contains('scene-lobby'),
         };
       });
       const pillHidden = pill.display === 'none';

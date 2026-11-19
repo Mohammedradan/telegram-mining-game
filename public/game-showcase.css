@@ -1,0 +1,936 @@
+/* Reference-inspired lobby and arena presentation. Game state and rewards stay in their existing systems. */
+
+/* ==========================================================================
+   ===== 🧭 Widescreen App Layout for Adventure (مطابقة كاملة للشاشات العريضة) =====
+   ========================================================================== */
+@media (min-width: 800px) {
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) {
+    width: min(1672px, 100vw) !important;
+    max-width: 1672px !important;
+    margin: 0 auto !important;
+  }
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #tab-play,
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #play-panel-adventure,
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #platform-scene {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* Hide duplicate subnav tabs in adventure mode to let the stage shine like the reference screenshots */
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav {
+  display: none !important;
+}
+
+#platform-scene {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+/* ==========================================================================
+   ===== 🧭 Adventure Lobby (مشهد ردهة المغامرة مطابق للصورة المرجعية) =====
+   ========================================================================== */
+#platform-scene.scene-lobby {
+  background: radial-gradient(circle at 50% 10%, #152542 0%, #070d18 80%);
+}
+
+/* --- الشريط العلوي --- */
+#platform-scene.scene-lobby .mine-topbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 16px !important;
+  height: 68px !important;
+  min-height: 68px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+  direction: ltr !important;
+}
+
+.adv-topbar-brand {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+.adv-logo-img {
+  height: 48px !important;
+  width: auto !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 8px rgba(255, 180, 50, 0.45)) !important;
+}
+
+#platform-scene.scene-lobby .mine-title {
+  order: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
+  text-align: right !important;
+}
+#platform-scene.scene-lobby .mine-badge {
+  color: #17213a;
+  background: linear-gradient(145deg, #ffe58f, #f3aa35 72%, #d97922);
+  box-shadow: 0 0 18px rgba(255, 184, 67, .35), inset 0 1px 0 rgba(255, 255, 255, .65);
+}
+#platform-scene.scene-lobby .mine-title-text h2 {
+  color: #fff0bc;
+  font-size: 14px;
+  font-weight: 900;
+  text-shadow: 0 2px 9px rgba(0, 0, 0, .62), 0 0 18px rgba(255, 192, 74, .25);
+}
+#platform-scene.scene-lobby .mine-kicker {
+  color: #9dc9ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+#platform-scene.scene-lobby .mine-economy {
+  order: 3 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  direction: rtl !important;
+}
+#platform-scene.scene-lobby .mine-topbar .mine-gold,
+#platform-scene.scene-lobby .mine-topbar .mine-energy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 204, 77, .35);
+  border-radius: 999px;
+  background: rgba(6, 15, 33, .85);
+  font-weight: 800;
+  color: #fff0c1;
+  font-size: 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+#platform-scene.scene-lobby .mine-topbar .mine-gold .econ-icon { color: #f59e0b; width: 16px; height: 16px; }
+#platform-scene.scene-lobby .mine-topbar .mine-energy .econ-icon { color: #38bdf8; width: 16px; height: 16px; }
+
+#platform-scene.scene-lobby .mine-heading-actions {
+  order: 4 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
+}
+#platform-scene.scene-lobby .mine-heading-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border: 1px solid rgba(135, 174, 231, .3);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(20, 38, 70, 0.85), rgba(10, 20, 40, 0.95));
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+#platform-scene.scene-lobby .mine-heading-actions button:hover {
+  border-color: #ffd36b;
+  transform: translateY(-1px);
+}
+
+/* --- شريط الملف الشخصي والمهمة والمؤشرات (Sub-header) --- */
+.lobby-subbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 16px !important;
+  height: 60px !important;
+  min-height: 60px !important;
+  border: 1px solid rgba(119, 169, 225, .25) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(90deg, rgba(9, 21, 45, 0.95), rgba(15, 31, 62, 0.9), rgba(9, 21, 45, 0.95)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  direction: ltr !important;
+}
+#platform-scene.scene-live .lobby-subbar {
+  display: none !important;
+}
+
+.lobby-subbar-profile {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  direction: rtl !important;
+}
+.lobby-avatar-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.lobby-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #ffca54;
+  box-shadow: 0 0 12px rgba(255, 202, 84, 0.4);
+  object-fit: cover;
+}
+.lobby-level-badge {
+  position: absolute;
+  bottom: -3px;
+  left: -3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: 1px solid #fef08a;
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 900;
+}
+.lobby-profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lobby-player-name {
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+.lobby-xp-track {
+  position: relative;
+  width: 120px;
+  height: 15px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 204, 77, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lobby-xp-fill {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  border-radius: 999px;
+}
+.lobby-xp-text {
+  position: relative;
+  z-index: 1;
+  font-size: 8px;
+  font-weight: 800;
+  color: #f8fafc;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.lobby-subbar-quest {
+  order: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 7px 18px !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, rgba(69, 39, 13, 0.65), rgba(26, 33, 54, 0.85)) !important;
+  color: #fef08a;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  direction: rtl !important;
+}
+
+.lobby-subbar-chips {
+  order: 3 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
+}
+.lobby-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 800;
+}
+.lobby-chip--compass {
+  color: #38bdf8;
+  cursor: pointer;
+}
+
+/* --- مسرح المغامرة في وضع الاستعداد --- */
+#platform-scene.scene-lobby .mine-stage {
+  position: relative !important;
+  flex: 1 1 660px !important;
+  min-height: 660px !important;
+  height: 660px !important;
+  border: 2px solid rgba(255, 204, 77, .65) !important;
+  border-radius: 20px !important;
+  background:
+    url('/assets/lobby-adventure-stage.webp') center center / 100% 100% no-repeat,
+    #070d18 !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .6), 0 0 35px rgba(245, 158, 11, .25), inset 0 1px 0 rgba(255, 255, 255, .1) !important;
+  overflow: hidden !important;
+}
+#platform-scene.scene-lobby #platform-canvas {
+  opacity: 0.05 !important;
+}
+
+/* بطاقات الشخصيات: تطابق تام مع موضع ومقاس الصورة المرجعية */
+@media (min-width: 800px) {
+  #platform-scene.scene-lobby .mine-hero-bar {
+    position: absolute !important;
+    top: 265px !important;
+    left: 20px !important;
+    width: 250px !important;
+    height: 350px !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 12px 10px !important;
+    background: linear-gradient(160deg, rgba(12, 26, 52, 0.98), rgba(8, 17, 34, 0.98)) !important;
+    border: 2px solid rgba(255, 204, 77, 0.5) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    z-index: 10 !important;
+    backdrop-filter: blur(8px) !important;
+  }
+  #platform-scene.scene-lobby .mine-hero-bar::before {
+    content: "اختر شخصيتك";
+    display: block;
+    color: #ffd36b;
+    font-size: 14px;
+    font-weight: 900;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 211, 107, 0.25);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  }
+  #platform-scene.scene-lobby .mine-hero-btn {
+    width: 100% !important;
+    min-height: 80px !important;
+    padding: 8px 12px !important;
+    border-radius: 14px !important;
+    border: 1.5px solid rgba(135, 174, 231, 0.25) !important;
+    background: rgba(15, 25, 48, 0.8) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+  }
+  #platform-scene.scene-lobby .mine-hero-btn.active {
+    border-color: #ffd36b !important;
+    background: linear-gradient(145deg, rgba(160, 105, 24, 0.96), rgba(100, 60, 15, 0.98)) !important;
+    box-shadow: 0 0 18px rgba(245, 169, 42, 0.45) !important;
+  }
+}
+
+#platform-scene.scene-lobby .mine-hero-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+.hero-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.hero-card-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 204, 77, 0.6);
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.hero-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+#platform-scene.scene-lobby .hero-name {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+}
+#platform-scene.scene-lobby .hero-desc {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.25;
+}
+.hero-card-check {
+  display: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+#platform-scene.scene-lobby .mine-hero-btn.active .hero-card-check {
+  display: inline-flex;
+}
+#platform-scene.scene-lobby .mine-hero-btn.active .hero-name {
+  color: #fff0a7;
+}
+#platform-scene.scene-lobby .mine-hero-btn > .hero-icon {
+  display: none;
+}
+
+/* --- الغلاف التفاعلي فوق المسرح --- */
+#platform-scene.scene-lobby .mine-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  background: transparent !important;
+  display: block !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby .mine-overlay > * {
+  pointer-events: auto !important;
+}
+#platform-scene.scene-lobby .mine-overlay::before,
+#platform-scene.scene-lobby .mine-overlay::after { display: none !important; }
+#platform-scene.scene-lobby .overlay-kicker,
+#platform-scene.scene-lobby .mine-overlay h3,
+#platform-scene.scene-lobby .overlay-lead,
+#platform-scene.scene-lobby .overlay-help { display: none !important; }
+
+/* بطاقة البوصلة التوجيهية في ردهة المنجم (أعلى يمين داخل المسرح) */
+.lobby-compass-card {
+  position: absolute !important;
+  top: 15px !important;
+  right: 20px !important;
+  width: 395px !important;
+  height: 90px !important;
+  padding: 10px 18px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(12, 26, 52, 0.98), rgba(7, 16, 34, 0.98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  z-index: 10 !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  direction: rtl !important;
+}
+.compass-badge-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #38bdf8, #0369a1 70%, #082f49 100%);
+  border: 2.5px solid #ffd36b;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+.compass-text {
+  color: #fff0c1;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  text-align: right;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* بطاقة حالة المنجم الجانبية (معلومات سريعة أسفل يمين) */
+.lobby-side-card {
+  position: absolute !important;
+  top: 465px !important;
+  right: 20px !important;
+  width: 315px !important;
+  height: 185px !important;
+  padding: 14px 18px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(12, 26, 52, 0.98), rgba(7, 16, 34, 0.98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  z-index: 10 !important;
+  backdrop-filter: blur(8px) !important;
+  direction: rtl !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-around !important;
+}
+.lobby-side-title {
+  color: #ffd36b;
+  font-size: 14px;
+  font-weight: 900;
+  border-bottom: 1px solid rgba(255, 211, 107, 0.25);
+  padding-bottom: 6px;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lobby-side-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.side-k { color: #cbd5e1; font-weight: 700; }
+.side-v { color: #f8fafc; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; }
+.side-v--ok { color: #4ade80; }
+.side-v .inline-coin { width: 14px; height: 14px; color: #f59e0b; }
+
+/* بطاقات أوضاع اللعب / أنماط اللعب (أسفل يسار) */
+#platform-scene.scene-lobby #platform-goals {
+  position: absolute !important;
+  top: 450px !important;
+  left: 20px !important;
+  width: 500px !important;
+  height: 185px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 10 !important;
+  direction: rtl !important;
+}
+#platform-scene.scene-lobby #platform-goals::before {
+  content: "أنماط اللعب";
+  display: block;
+  color: #ffd36b;
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 10px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+#platform-scene.scene-lobby .goal-options {
+  display: flex !important;
+  gap: 12px !important;
+}
+#platform-scene.scene-lobby .goal-option {
+  flex: 1 !important;
+  height: 135px !important;
+  padding: 10px 8px !important;
+  border: 1.5px solid rgba(119, 167, 224, .37) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(145deg, rgba(14, 30, 58, 0.98), rgba(8, 17, 34, 0.98)) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.goal-mode-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 204, 77, 0.45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.goal-mode-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.goal-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+.goal-mode-title .ui-icon {
+  display: none;
+}
+#platform-scene.scene-lobby .goal-option i {
+  display: none;
+}
+.goal-reward-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #ffd36b;
+  font-size: 11px;
+  font-weight: 800;
+}
+.goal-reward-tag .inline-coin {
+  width: 13px;
+  height: 13px;
+  color: #f59e0b;
+}
+#platform-scene.scene-lobby .goal-option.active {
+  border-color: #ffd36b !important;
+  background: linear-gradient(145deg, rgba(160, 105, 24, 0.98), rgba(100, 60, 15, 0.98)) !important;
+  box-shadow: 0 0 0 1px rgba(255, 211, 107, 0.4), 0 0 20px rgba(245, 169, 42, 0.45) !important;
+  transform: translateY(-2px) !important;
+}
+#platform-scene.scene-lobby .goal-option.active .goal-mode-title {
+  color: #fff0a7;
+}
+
+/* Phone layout: the desktop showcase uses fixed 450px coordinates and hides
+   the map/workshop row. Restore the real controls in a compact, reachable lane. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-topbar {
+    height: auto !important;
+    min-height: 68px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    position: absolute !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    z-index: 13 !important;
+  }
+  #platform-scene.scene-lobby .overlay-row button {
+    min-width: 0 !important;
+    min-height: 42px !important;
+  }
+  #platform-scene.scene-lobby .lobby-compass-card,
+  #platform-scene.scene-lobby .lobby-side-card {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-goals {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
+#platform-scene.scene-lobby #platform-start,
+#platform-scene.scene-lobby .adv-golden-cta {
+  position: absolute !important;
+  top: 465px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 11 !important;
+  height: 155px !important;
+  width: 420px !important;
+  padding: 12px 32px !important;
+  border: 3px solid #fff3b8 !important;
+  border-radius: 999px !important;
+  color: #2e1704 !important;
+  font-size: 26px !important;
+  font-weight: 900 !important;
+  background: linear-gradient(180deg, #ffe58f 0%, #f59e0b 52%, #b45309 100%) !important;
+  box-shadow: 0 12px 32px rgba(245, 158, 11, 0.65), 0 0 35px rgba(255, 215, 0, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.85) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+#platform-scene.scene-lobby #platform-start:hover,
+#platform-scene.scene-lobby .adv-golden-cta:hover {
+  transform: translateX(-50%) scale(1.03) !important;
+  box-shadow: 0 16px 40px rgba(245, 158, 11, 0.75), 0 0 45px rgba(255, 215, 0, 0.55) !important;
+}
+#platform-scene.scene-lobby #platform-start:active,
+#platform-scene.scene-lobby .adv-golden-cta:active {
+  transform: translateX(-50%) scale(0.97) !important;
+}
+.adv-cta-axe {
+  width: 40px !important;
+  height: 40px !important;
+  color: #451a03 !important;
+}
+.adv-cta-play {
+  font-size: 24px !important;
+  color: #78350f !important;
+}
+
+#platform-scene.scene-lobby .overlay-row,
+#platform-scene.scene-lobby .overlay-mission {
+  display: none !important;
+}
+
+/* Informational lobby cards must never intercept the primary run controls. */
+#platform-scene.scene-lobby .lobby-compass-card,
+#platform-scene.scene-lobby .lobby-side-card {
+  pointer-events: none !important;
+}
+
+/* Re-apply the phone lobby controls after the desktop showcase's hide rules.
+   Keep the topbar in two compact rows so mute/workshop/settings stay on-screen. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-topbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas: "title economy" "actions actions" !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: auto !important;
+    min-height: 68px !important;
+    padding: 5px 7px !important;
+  }
+  #platform-scene.scene-lobby .mine-title {
+    grid-area: title !important;
+    min-width: 0 !important;
+    flex: initial !important;
+  }
+  #platform-scene.scene-lobby .mine-economy {
+    grid-area: economy !important;
+    justify-self: end !important;
+    gap: 5px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  #platform-scene.scene-lobby .mine-heading-actions {
+    grid-area: actions !important;
+    justify-self: center !important;
+    display: flex !important;
+    gap: 4px !important;
+  }
+  #platform-scene.scene-lobby .mine-heading-actions button {
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+  }
+  #platform-scene.scene-lobby .mine-heading-actions .mute-label,
+  #platform-scene.scene-lobby .mine-heading-actions .topbar-btn-label {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    position: absolute !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    z-index: 13 !important;
+  }
+  #platform-scene.scene-lobby .overlay-row button {
+    min-width: 0 !important;
+    min-height: 42px !important;
+  }
+  #platform-scene.scene-lobby .lobby-compass-card,
+  #platform-scene.scene-lobby .lobby-side-card {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-goals {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
+
+/* 2026-11-17: final mobile lobby and active-header hit-target fixes */
+/* Decorative information and empty goal-panel space must not cover real controls. */
+#platform-scene.scene-lobby .lobby-compass-card,
+#platform-scene.scene-lobby .lobby-side-card,
+#platform-scene.scene-lobby .lobby-compass-card * {
+  pointer-events: none !important;
+}
+/* The empty goal group must not cover the resume/start actions in either
+   lobby or a restored live round; individual goal choices remain clickable. */
+#platform-scene #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene #platform-goals .goal-option {
+  pointer-events: auto !important;
+}
+
+#platform-scene.scene-lobby #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby #platform-goals .goal-option {
+  pointer-events: auto !important;
+}
+
+@media (max-width: 600px) {
+  /* Give the mine picker and workshop equal, usable touch areas. */
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row > button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 90px !important;
+  }
+  /* Keep mine selection available when a saved run is paused; resume remains the primary action. */
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) .overlay-row {
+    display: flex !important;
+    pointer-events: auto !important;
+  }
+
+  /* Keep active-round sound/workshop/settings controls inside the phone viewport. */
+  body #platform-scene.scene-live .mine-topbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding: 4px 6px !important;
+    overflow: visible !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    margin: 0 auto !important;
+    gap: 4px !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    display: inline-flex !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
+
+/* Mobile/short-screen correction: the desktop showcase reserves a 660px stage.
+   Let the lobby stage use the actual space left by the top bar and navigation. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+}
+
+/* The compact 320x568 opening keeps its deliberately short playfield and
+   anchors the primary action inside it instead of at the desktop 465px offset. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 0 0 145px !important;
+    min-height: 145px !important;
+    height: 145px !important;
+  }
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 7px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(220px, 94%) !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px 12px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Short landscape phones/tablets need the same responsive stage; the
+   660px desktop frame otherwise clips the map picker below the viewport. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 6px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(260px, 92%) !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
+
+/* Keep the primary start action above the mine/workshop row on every phone.
+   The old desktop top:465px position could be clipped by the flexible stage,
+   making Playwright scroll the tab and hiding the live sound control. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 64px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(260px, 92%) !important;
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short phones have a 145px stage: reserve a smaller action row above the
+   two 42px mine/workshop buttons instead of overlapping them. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 60px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    font-size: 11px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short landscape keeps the action and picker in separate visible rows. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 52px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 6px !important;
+  }
+}

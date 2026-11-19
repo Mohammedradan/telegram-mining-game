@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: station checkpoints replay movement and persist only reached rooms, duplicates do not repeat ledger
+ok 1 - station checkpoints replay movement and persist only reached rooms, duplicates do not repeat ledger
+  ---
+  duration_ms: 8.4624
+  type: 'test'
+  ...
+# Subtest: station rejects foreign sessions, changed retries, skipped sequences and forged time or input
+ok 2 - station rejects foreign sessions, changed retries, skipped sequences and forged time or input
+  ---
+  duration_ms: 4.117628
+  type: 'test'
+  ...
+# Subtest: real authenticated station save survives server restart, isolates accounts and ignores forged progress
+ok 3 - real authenticated station save survives server restart, isolates accounts and ignores forged progress
+  ---
+  duration_ms: 3719.759168
+  type: 'test'
+  ...
+# Subtest: station uses the shared platform jump/gravity/collision kernel, walk and run differ
+ok 4 - station uses the shared platform jump/gravity/collision kernel, walk and run differ
+  ---
+  duration_ms: 5.438273
+  type: 'test'
+  ...
+# Subtest: station ladder carries the body down and up, then supports release
+ok 5 - station ladder carries the body down and up, then supports release
+  ---
+  duration_ms: 3.998347
+  type: 'test'
+  ...
+# Subtest: station solids block walking but can be jumped, gaps fall onto the next floor
+ok 6 - station solids block walking but can be jumped, gaps fall onto the next floor
+  ---
+  duration_ms: 2.423962
+  type: 'test'
+  ...
+# Subtest: all three floors and lower markers are reachable with input only
+ok 7 - all three floors and lower markers are reachable with input only
+  ---
+  duration_ms: 7.177444
+  type: 'test'
+  ...
+# Subtest: replay is deterministic, bounded and rejects hostile masks without mutating state
+ok 8 - replay is deterministic, bounded and rejects hostile masks without mutating state
+  ---
+  duration_ms: 4.720898
+  type: 'test'
+  ...
+# Subtest: camera stays bounded, follows both axes and never affects physics
+ok 9 - camera stays bounded, follows both axes and never affects physics
+  ---
+  duration_ms: 1.485711
+  type: 'test'
+  ...
+# Subtest: restore normalizes unknown rooms and refuses an undiscovered anchor
+ok 10 - restore normalizes unknown rooms and refuses an undiscovered anchor
+  ---
+  duration_ms: 0.481053
+  type: 'test'
+  ...
+# Subtest: extracted motion preserves the baseline complete legacy simulation fingerprint (21600 frames)
+ok 11 - extracted motion preserves the baseline complete legacy simulation fingerprint (21600 frames)
+  ---
+  duration_ms: 750.069509
+  type: 'test'
+  ...
+# Subtest: upper balcony is reachable by timed jumps over the wall and gap without teleporting
+ok 12 - upper balcony is reachable by timed jumps over the wall and gap without teleporting
+  ---
+  duration_ms: 1.731002
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4700.323522

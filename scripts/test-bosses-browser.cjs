@@ -115,7 +115,8 @@ async function main() {
           rowHidden: row.hidden, cardDisplay: getComputedStyle(card).display,
           stage: stage.className, overlay: overlay.className,
           hiddenByDesign: window.matchMedia('(max-height: 470px)').matches
-            || stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-3'),
+            || stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-3')
+            || document.getElementById('platform-scene').classList.contains('scene-lobby'),
         };
       });
       assert.equal(mission.rowHidden, false, 'بيانات الزعيم موجودة في الجولة دائمًا');

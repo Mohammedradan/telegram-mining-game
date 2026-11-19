@@ -2,6 +2,8 @@
 (function (root) {
   'use strict';
   const R = root.PlatformRules;
+  const Characters = root.PlatformCharacters || (typeof module === 'object' && module.exports ? require('./platform-characters') : null);
+  if (!Characters) throw new Error('Platform characters must load before the renderer');
   // B5: علامات الإنذار الأرضية. الوحدة تُحمَّل قبله في الصفحة؛ وإن غاب (نسخة قديمة في الكاش)
   // تبقى العلامة تعمل بقيم افتراضية مطابقة فلا يسقط الرسم أبداً.
   const T = root.PlatformTelegraphs || Object.freeze({
@@ -18,6 +20,8 @@
 
   // لون عرق الخام داخل الصخرة: يتعرّف اللاعب على نوع الغنيمة قبل كسرها (المحرك يحدد الخام من البذرة والمنجم والحظ)
   const ORE_TINT = { copper: '#d68a5a', iron: '#b3bec6', gold: '#ffd166', crystal: '#56ebd3', lava: '#ff7a45' };
+  const caveBackdrop = typeof root.Image === 'function' ? new root.Image() : null;
+  if (caveBackdrop) caveBackdrop.src = '/assets/fantasy-adventure-bg.webp';
 
   const round = (c, x, y, w, h, r, color) => {
     c.fillStyle = color;
@@ -134,421 +138,6 @@
     c.fillStyle = '#e8f0f2';
     c.beginPath(); c.moveTo(-7, -4); c.lineTo(-4, 0); c.lineTo(-8, 0); c.closePath(); c.fill();
     c.beginPath(); c.moveTo(-7, 4); c.lineTo(-4, 0); c.lineTo(-8, 0); c.closePath(); c.fill();
-    c.restore();
-  }
-
-  // ---- Enemies ----
-  // دورية المساعد الآلي: يحوم خلف البطل ولا يدخل في أي حساب فيزيائي (رسم فقط)
-  function dronePos(p, tick, reduced) {
-    const bob = reduced ? 0 : Math.sin(tick * 0.09) * 3;
-    return { x: p.x + p.w / 2 - (p.facing || 1) * 24, y: p.y - 8 + bob };
-  }
-  function drawDrone(c, p, tick, reduced) {
-    const d = dronePos(p, tick, reduced);
-    c.save(); c.translate(d.x, d.y);
-    round(c, -8, -5, 16, 10, 4, '#9fb3b8');
-    round(c, -6, -3, 12, 4, 2, '#cfe0e3');
-    c.fillStyle = '#56ebd3'; c.beginPath(); c.arc((p.facing || 1) * 3, 1, 2.2, 0, Math.PI * 2); c.fill();
-    // rotor
-    c.strokeStyle = '#6b7a80'; c.lineWidth = 2; c.lineCap = 'round';
-    const spin = reduced ? 0 : Math.sin(tick * 1.4) * 7;
-    c.beginPath(); c.moveTo(-spin, -8); c.lineTo(spin, -8); c.stroke();
-    c.beginPath(); c.moveTo(0, -8); c.lineTo(0, -5); c.stroke();
-    c.restore();
-  }
-
-  function drawEnemy(c, enemy, tick, reduced) {
-    if (enemy.dead) return;
-    c.save();
-    c.translate(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2);
-    c.scale(enemy.facing, 1);
-    if (enemy.hurtCooldown > 0 && Math.floor(tick / 3) % 2 === 0) c.globalAlpha = 0.45;
-
-    if (enemy.type === 'goblin') {
-      const walk = !reduced && Math.abs(enemy.vx) > 5 ? Math.sin(tick * 0.32) * 4 : 0;
-      const breath = !reduced ? Math.sin(tick * 0.09) * 0.5 : 0;
-      c.fillStyle = '#00000044';
-      c.beginPath(); c.ellipse(0, 15, 14, 4, 0, 0, Math.PI * 2); c.fill();
-      // legs with walk cycle
-      round(c, -8, 7 + walk, 6, 9, 2, '#483526');
-      round(c, 2, 7 - walk, 6, 9, 2, '#483526');
-      // ragged tunic
-      round(c, -9, -5 + breath, 18, 14, 4, '#5b7553');
-      round(c, -9, -2 + breath, 18, 3, 1, '#4a6644'); // seam
-      round(c, -4, 3, 8, 4, 1, '#866442');
-      // head
-      round(c, -11, -19, 22, 16, 7, '#6f9264');
-      c.fillStyle = '#6f9264';
-      c.beginPath(); c.moveTo(-11, -13); c.lineTo(-19, -16); c.lineTo(-11, -8); c.closePath(); c.fill();
-      c.beginPath(); c.moveTo(11, -13); c.lineTo(19, -16); c.lineTo(11, -8); c.closePath(); c.fill();
-      // horned helmet
-      round(c, -11, -21, 22, 6, 3, '#74563a');
-      c.fillStyle = '#dfcf98';
-      c.beginPath(); c.moveTo(-7, -21); c.lineTo(-9, -27); c.lineTo(-3, -21); c.fill();
-      c.beginPath(); c.moveTo(7, -21); c.lineTo(9, -27); c.lineTo(3, -21); c.fill();
-      // eyes glow when alert
-      c.fillStyle = enemy.alert ? '#ff3b30' : '#ffe14a';
-      if (!reduced && enemy.alert) { c.shadowColor = '#ff3b30'; c.shadowBlur = 6; }
-      c.beginPath(); c.arc(3, -13, 3, 0, Math.PI * 2); c.fill();
-      c.shadowBlur = 0;
-      c.fillStyle = '#1e241c';
-      c.beginPath(); c.arc(4, -13, 1.2, 0, Math.PI * 2); c.fill();
-      // spiked club
-      c.save();
-      c.translate(8, -1);
-      c.rotate(enemy.alert ? -0.55 : 0.28 + walk * 0.06);
-      round(c, -2, -14, 5, 20, 2, '#5d4128');
-      round(c, -4, -18, 9, 8, 3, '#433120');
-      c.fillStyle = '#b6bec2';
-      c.beginPath(); c.moveTo(-4, -15); c.lineTo(-8, -15); c.lineTo(-4, -12); c.fill();
-      c.beginPath(); c.moveTo(5, -15); c.lineTo(9, -15); c.lineTo(5, -12); c.fill();
-      c.restore();
-      if (enemy.alert) {
-        c.fillStyle = '#ff3b30';
-        c.font = 'bold 12px sans-serif'; c.textAlign = 'center';
-        c.fillText('!', 0, -27);
-      }
-    } else if (enemy.type === 'beetle') {
-      const scurry = !reduced ? Math.sin(tick * 0.45) * 3 : 0;
-      c.fillStyle = '#00000044';
-      c.beginPath(); c.ellipse(0, 11, 16, 4, 0, 0, Math.PI * 2); c.fill();
-      // legs
-      c.strokeStyle = '#2b2118'; c.lineWidth = 2;
-      for (const lx of [-9, 0, 9]) {
-        c.beginPath(); c.moveTo(lx, 4); c.lineTo(lx - 4, 11 + (lx === 0 ? scurry : -scurry)); c.stroke();
-      }
-      // iridescent carapace
-      round(c, -13, -8, 26, 17, 8, '#3d281e');
-      round(c, -12, -7, 24, 15, 7, '#6a4731');
-      round(c, -11, -6, 22, 13, 6, '#8e5e3f');
-      // highlight stripe
-      c.fillStyle = '#c49a6c55';
-      c.beginPath(); c.ellipse(0, -2, 9, 3, 0, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = '#432c1b'; c.beginPath(); c.moveTo(-11, 0); c.lineTo(11, 0); c.stroke();
-      c.fillStyle = '#2d1e13';
-      c.beginPath(); c.moveTo(-4, -8); c.lineTo(-2, -13); c.lineTo(0, -8); c.fill();
-      c.beginPath(); c.moveTo(4, -8); c.lineTo(6, -13); c.lineTo(8, -8); c.fill();
-      round(c, 8, -4, 8, 10, 3, '#432c1b');
-      c.fillStyle = '#e5ab52';
-      c.beginPath(); c.arc(12, -2, 2, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = '#2d1e13'; c.lineWidth = 2;
-      c.beginPath(); c.moveTo(15, -2); c.lineTo(19, -5); c.stroke();
-      c.beginPath(); c.moveTo(15, 2); c.lineTo(19, 5); c.stroke();
-    } else if (enemy.type === 'bat') {
-      const flap = !reduced ? Math.sin(tick * 0.30) : 0;
-      const hover = !reduced ? Math.sin(tick * 0.12) * 1.5 : 0;
-      c.translate(0, hover);
-      round(c, -6, -6, 12, 14, 5, '#3b2f4a');
-      // ears
-      c.fillStyle = '#544369';
-      c.beginPath(); c.moveTo(-5, -6); c.lineTo(-8, -14); c.lineTo(-2, -6); c.fill();
-      c.beginPath(); c.moveTo(5, -6); c.lineTo(8, -14); c.lineTo(2, -6); c.fill();
-      // inner ear pink
-      c.fillStyle = '#7a5a8a';
-      c.beginPath(); c.moveTo(-5, -7); c.lineTo(-6, -11); c.lineTo(-3, -7); c.fill();
-      c.beginPath(); c.moveTo(5, -7); c.lineTo(6, -11); c.lineTo(3, -7); c.fill();
-      c.fillStyle = '#ff3344';
-      if (!reduced) { c.shadowColor = '#ff3344'; c.shadowBlur = 8; }
-      c.beginPath(); c.arc(-2, -2, 2, 0, Math.PI * 2); c.fill();
-      c.beginPath(); c.arc(2, -2, 2, 0, Math.PI * 2); c.fill();
-      c.shadowBlur = 0;
-      c.fillStyle = '#ffffff';
-      c.beginPath(); c.moveTo(-2, 3); c.lineTo(-1, 6); c.lineTo(0, 3); c.fill();
-      c.beginPath(); c.moveTo(1, 3); c.lineTo(2, 6); c.lineTo(3, 3); c.fill();
-      // wings with membrane detail
-      c.fillStyle = '#4f3e63';
-      c.beginPath(); c.moveTo(-5, -2); c.lineTo(-20, -10 + flap * 8); c.lineTo(-14, 4 + flap * 4); c.lineTo(-6, 2); c.closePath(); c.fill();
-      c.beginPath(); c.moveTo(5, -2); c.lineTo(20, -10 + flap * 8); c.lineTo(14, 4 + flap * 4); c.lineTo(6, 2); c.closePath(); c.fill();
-      // wing veins
-      c.strokeStyle = '#6b5a80'; c.lineWidth = 0.8;
-      c.beginPath(); c.moveTo(-5, -2); c.lineTo(-16, -6 + flap * 4); c.stroke();
-      c.beginPath(); c.moveTo(5, -2); c.lineTo(16, -6 + flap * 4); c.stroke();
-    }
-
-    // HP bar
-    if (enemy.hp < enemy.maxHp) {
-      const barW = 26, barH = 4;
-      round(c, -barW / 2, -enemy.h / 2 - 9, barW, barH, 2, '#1a1f24');
-      const hw = Math.max(0, (enemy.hp / enemy.maxHp) * barW);
-      const col = enemy.hp === 1 ? '#ff4d4d' : enemy.hp / enemy.maxHp < 0.5 ? '#f5a623' : '#55dd66';
-      round(c, -barW / 2, -enemy.h / 2 - 9, hw, barH, 2, col);
-    }
-    c.restore();
-  }
-
-  // ---- Heroes with detailed animation states ----
-  // أثر المراوغة: نسختان شفافتان خلف اللاعب. عرض فقط، ولا يُدخل شيئاً في المحاكاة.
-  function drawHeroGhost(c, p, tick, reduced) {
-    if (reduced || !p.dodge || p.dodge.ticks <= 0) return;
-    for (let i = 2; i >= 1; i--) {
-      c.save();
-      c.globalAlpha = 0.16 / i;
-      c.translate(-(p.dodge.dir || 1) * i * 11, i * 2);
-      drawHero(c, { ...p, invulnerable: 0, dodge: { ...p.dodge, ticks: 0 } }, tick, true);
-      c.restore();
-    }
-  }
-
-  function drawHero(c, p, tick, reduced) {
-    const heroId = p.hero || 'miner';
-    const isRun = p.pose === 'run' && !reduced;
-    const phase = isRun ? Math.sin(tick * 0.34) * 6 : 0;
-    const breath = !reduced && p.pose === 'idle' ? Math.sin(tick * 0.07) * 0.8 : 0;
-    c.save();
-    c.translate(p.x + 12, p.y + 20);
-    c.scale(p.facing, 1);
-
-    // hurt flash
-    if (p.invulnerable && Math.floor(tick / 4) % 2 === 0) c.globalAlpha = 0.35;
-    // pose transforms
-    if (p.pose === 'hurt') { c.rotate(-0.18); c.translate(0, -1); }
-    if (p.pose === 'dead') { c.rotate(1.57); c.translate(0, 12); }
-    if (p.pose === 'land') c.scale(1.14, 0.88);
-    if (p.pose === 'jump') c.translate(0, -1);
-    if (p.pose === 'fall') c.rotate(p.facing * 0.06);
-    if (p.pose === 'victory') { c.translate(0, Math.sin(tick * 0.12) * 1.5); }
-    // V8: أوضاع القتال الجديدة — انخفاض الضربة الثقيلة، ميل المراوغة، وثبات الصدّ
-    if (p.pose === 'heavy') { c.rotate(0.16); c.translate(1, 2); }
-    if (p.pose === 'dodge') { c.rotate(0.42); c.scale(0.94, 0.9); }
-    if (p.pose === 'guard') { c.translate(-1, 0); c.rotate(-0.05); }
-
-    // ground shadow
-    if (p.grounded && p.pose !== 'dead') {
-      const shadowScale = p.pose === 'jump' || p.pose === 'fall' ? 0.7 : 1;
-      c.fillStyle = '#00000055';
-      c.beginPath(); c.ellipse(0, 19, 18 * shadowScale, 5 * shadowScale, 0, 0, Math.PI * 2); c.fill();
-    }
-
-    if (heroId === 'miner') {
-      // legs / boots with run animation
-      const legSwing = phase;
-      round(c, -11, 4 + legSwing / 3, 9, 15, 3, '#2a3c4f');
-      round(c, 3, 4 - legSwing / 3, 9, 15, 3, '#2a3c4f');
-      // boots
-      round(c, -13 + legSwing / 3, 15, 13, 6, 3, '#3b2f2d');
-      round(c, 2 - legSwing / 3, 15, 14, 6, 3, '#3b2f2d');
-      // highlight on boots
-      c.fillStyle = '#5a4a42'; c.fillRect(-12 + legSwing / 3, 15, 6, 1.5); c.fillRect(3 - legSwing / 3, 15, 6, 1.5);
-      // overalls
-      round(c, -13, -7 + breath, 26, 19, 6, '#3e7f9e');
-      round(c, -10, -8 + breath, 5, 19, 2, '#7ec2ce');
-      round(c, 5, -8 + breath, 5, 19, 2, '#7ec2ce');
-      // stitching
-      c.fillStyle = '#5a9ab0'; c.fillRect(-10, -4 + breath, 5, 0.7); c.fillRect(5, -4 + breath, 5, 0.7);
-      // belt
-      round(c, -5, 1, 10, 6, 2, '#c9a44a');
-      round(c, -3, 2, 6, 4, 1, '#e8c765');
-      // head
-      round(c, -14, -27, 28, 25, 9, '#f2be94');
-      // cheek blush when victorious
-      if (p.pose === 'victory') { c.fillStyle = '#ff8a80aa'; c.beginPath(); c.arc(-6, -12, 3, 0, Math.PI * 2); c.fill(); }
-      round(c, -13, -8, 26, 8, 3, '#c96839');
-      // beard with texture
-      round(c, -6, -9, 20, 9, 4, '#8a4e28');
-      c.fillStyle = '#a66a3a'; c.fillRect(-4, -7, 7, 1); c.fillRect(6, -6, 4, 1);
-      round(c, 4, -8, 7, 3, 1, '#ffdcb0');
-      // helmet
-      round(c, -17, -34, 34, 14, 7, '#e8b248');
-      round(c, -19, -23, 40, 5, 2, '#ffd785');
-      // helmet highlight
-      c.fillStyle = '#ffe9a8'; c.fillRect(-14, -32, 12, 2);
-      // headlamp housing
-      round(c, -4, -34, 10, 11, 3, '#9d682b');
-      round(c, 1, -31, 9, 9, 4, '#fff7c7');
-      // lens reflection
-      c.fillStyle = '#ffffffcc'; c.beginPath(); c.arc(5, -28, 2, 0, Math.PI * 2); c.fill();
-      // headlamp beam
-      if (!reduced && p.pose !== 'dead') {
-        const pulse = 0.85 + Math.sin(tick * 0.13) * 0.12;
-        const beam = c.createRadialGradient(8, -27, 2, 110, -27, 125);
-        beam.addColorStop(0, `rgba(255,245,190,${0.42 * pulse})`);
-        beam.addColorStop(0.5, `rgba(255,228,120,${0.12 * pulse})`);
-        beam.addColorStop(1, 'rgba(255,210,80,0)');
-        c.fillStyle = beam;
-        c.beginPath(); c.moveTo(8, -27); c.lineTo(130, -68); c.lineTo(130, 24); c.closePath(); c.fill();
-        // beam dust motes
-        if (!reduced) {
-          c.fillStyle = `rgba(255,255,210,${0.18 * pulse})`;
-          for (const dx of [30, 65, 95]) c.beginPath(), c.arc(8 + dx, -18 + Math.sin(tick * 0.2 + dx) * 3, 1, 0, Math.PI * 2), c.fill();
-        }
-      }
-      // eyes
-      let eyeY = -17, eyeOpen = 3;
-      if (p.pose === 'hurt') eyeY = -16, eyeOpen = 1.5;
-      c.fillStyle = '#1e2328';
-      if (p.pose === 'dead') { c.strokeStyle = '#1e2328'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(1, -18); c.lineTo(7, -16); c.stroke(); c.beginPath(); c.moveTo(7, -18); c.lineTo(1, -16); c.stroke(); }
-      else { c.beginPath(); c.arc(4, eyeY, 1.9, 0, Math.PI * 2); c.fill(); }
-      // eyebrow when attacking
-      if (p.pose === 'attack' || p.pose === 'mine') { c.fillStyle = '#5a3520'; c.fillRect(1, -20, 7, 1.2); }
-      round(c, 11, -15, 6, 6, 3, '#f9d2aa');
-
-      // arm + pickaxe
-      c.save();
-      c.translate(12, -4);
-      let swingAngle = 0.32;
-      if (p.pose === 'mine') swingAngle = -1.75 + (14 - p.attack) * 0.23;
-      else if (p.pose === 'attack') swingAngle = -1.35 + (14 - p.attack) * 0.26;
-      else if (p.pose === 'victory') swingAngle = -2.05 + Math.sin(tick * 0.14) * 0.12;
-      else if (p.pose === 'run') swingAngle = 0.32 + phase * 0.04;
-      else if (p.pose === 'jump') swingAngle = -0.4;
-      else if (p.pose === 'hurt') swingAngle = 0.6;
-      c.rotate(swingAngle);
-      round(c, -2, -3, 7, 17, 3, '#f2be94');
-      round(c, 1, -17, 4, 30, 1, '#a6723f');
-      // handle wood grain
-      c.fillStyle = '#c49a5a'; c.fillRect(2, -10, 1.5, 18);
-      c.strokeStyle = '#c6ede5'; c.lineWidth = 6; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(-9, -15); c.quadraticCurveTo(2, -24, 17, -16); c.stroke();
-      // blade shine
-      c.strokeStyle = '#e0ffffaa'; c.lineWidth = 2;
-      c.beginPath(); c.moveTo(-6, -14); c.quadraticCurveTo(2, -22, 12, -16); c.stroke();
-      // attack arc
-      if (p.pose === 'attack' && p.attack > 5 && !reduced) {
-        c.strokeStyle = '#ffeaa7cc'; c.lineWidth = 3.5;
-        c.beginPath(); c.arc(2, -17, 26, -1.25, 0.85); c.stroke();
-        c.strokeStyle = '#ffffff44'; c.lineWidth = 1.5;
-        c.beginPath(); c.arc(2, -17, 22, -1.1, 0.7); c.stroke();
-      }
-      // mine sparks will be particles in game.js
-      c.restore();
-      // off-hand
-      round(c, -17, -5 - phase / 3, 7, 13, 3, '#f2be94');
-      if (p.pose === 'run') { c.save(); c.translate(-17, -5); c.rotate(phase * 0.02); round(c, 0, 0, 7, 13, 3, '#f2be94'); c.restore(); }
-
-    } else if (heroId === 'warrior') {
-      round(c, -11, 4 + phase / 3, 9, 15, 3, '#34495e');
-      round(c, 3, 4 - phase / 3, 9, 15, 3, '#34495e');
-      round(c, -13 + phase / 3, 15, 13, 6, 3, '#1c2833');
-      round(c, 2 - phase / 3, 15, 14, 6, 3, '#1c2833');
-      // greave shine
-      c.fillStyle = '#4a6278'; c.fillRect(-10 + phase / 3, 6, 3, 8); c.fillRect(4 - phase / 3, 6, 3, 8);
-      round(c, -13, -7 + breath, 26, 19, 6, '#5dade2');
-      round(c, -11, -8 + breath, 22, 16, 5, '#a6acaf');
-      // plate detail: rivets
-      c.fillStyle = '#7f8c8d';
-      for (const rx of [-7, 7]) for (const ry of [-5, 0]) { c.beginPath(); c.arc(rx, ry + breath, 1, 0, Math.PI * 2); c.fill(); }
-      round(c, -4, 1, 8, 6, 2, '#f4d03f');
-      round(c, -14, -27, 28, 25, 9, '#f2be94');
-      // face visible through visor when idle, fierce when attacking
-      round(c, -16, -34, 32, 18, 7, '#95a5a6');
-      round(c, -17, -22, 34, 5, 2, '#7f8c8d');
-      // crest / plume
-      c.fillStyle = '#e74c3c';
-      c.beginPath();
-      c.moveTo(-8, -34); c.quadraticCurveTo(-14, -46, -4, -44); c.quadraticCurveTo(8, -42, 6, -34); c.closePath(); c.fill();
-      c.fillStyle = '#c0392b';
-      c.beginPath(); c.moveTo(-6, -34); c.quadraticCurveTo(-10, -42, -2, -41); c.lineTo(4, -34); c.closePath(); c.fill();
-      // visor slit
-      round(c, 0, -21, 9, 4, 1, '#1b2631');
-      // eye glint
-      if (p.pose !== 'hurt' && p.pose !== 'dead') { c.fillStyle = '#85c1e9'; c.beginPath(); c.arc(2, -20, 0.8, 0, Math.PI * 2); c.fill(); }
-
-      // broadsword arm
-      c.save();
-      c.translate(12, -4);
-      let swingAngle = 0.22;
-      if (p.pose === 'attack') swingAngle = -1.55 + (14 - p.attack) * 0.27;
-      else if (p.pose === 'victory') swingAngle = -2.2;
-      else if (p.pose === 'run') swingAngle = 0.22 + phase * 0.04;
-      c.rotate(swingAngle);
-      round(c, -2, -3, 7, 17, 3, '#f2be94');
-      round(c, 1, -10, 4, 14, 1, '#784212');
-      round(c, -5, -11, 16, 4, 1, '#f1c40f');
-      // crossguard shine
-      c.fillStyle = '#f9e79f'; c.fillRect(-3, -11, 12, 1);
-      c.fillStyle = '#ecf0f1';
-      c.beginPath(); c.moveTo(1, -11); c.lineTo(1, -38); c.lineTo(3, -42); c.lineTo(5, -38); c.lineTo(5, -11); c.closePath(); c.fill();
-      // fuller line
-      c.strokeStyle = '#bdc3c7'; c.lineWidth = 0.7;
-      c.beginPath(); c.moveTo(3, -12); c.lineTo(3, -40); c.stroke();
-      if (p.pose === 'attack' && p.attack > 5 && !reduced) {
-        c.strokeStyle = '#5dade2cc'; c.lineWidth = 5; c.beginPath(); c.arc(3, -25, 32, -1.4, 0.9); c.stroke();
-        c.strokeStyle = '#aed6f1aa'; c.lineWidth = 2; c.beginPath(); c.arc(3, -25, 28, -1.3, 0.8); c.stroke();
-      }
-      c.restore();
-      // shield arm
-      c.save();
-      c.translate(-13, -4);
-      if (p.pose === 'run') c.rotate(phase * 0.02);
-      round(c, -3, -1, 10, 16, 5, '#2980b9');
-      strokeRound(c, -3, -1, 10, 16, 5, '#f4d03f', 1.5);
-      // shield emblem
-      c.fillStyle = '#f1c40f'; c.beginPath(); c.arc(2, 7, 2.5, 0, Math.PI * 2); c.fill();
-      c.restore();
-
-    } else if (heroId === 'archer') {
-      round(c, -11, 4 + phase / 3, 9, 15, 3, '#1e8449');
-      round(c, 3, 4 - phase / 3, 9, 15, 3, '#1e8449');
-      round(c, -13 + phase / 3, 15, 13, 6, 3, '#4a235a');
-      round(c, 2 - phase / 3, 15, 14, 6, 3, '#4a235a');
-      round(c, -13, -7 + breath, 26, 19, 6, '#2ecc71');
-      round(c, -11, -8 + breath, 22, 16, 5, '#27ae60');
-      round(c, -4, 1, 8, 6, 2, '#d4ac0d');
-      // lacing detail
-      c.strokeStyle = '#1a7431'; c.lineWidth = 0.7;
-      c.beginPath(); c.moveTo(-6, -6 + breath); c.lineTo(-6, 2 + breath); c.stroke();
-      c.beginPath(); c.moveTo(6, -6 + breath); c.lineTo(6, 2 + breath); c.stroke();
-      round(c, -14, -27, 28, 25, 9, '#f2be94');
-      round(c, -16, -34, 32, 18, 9, '#1e8449');
-      round(c, -17, -22, 34, 6, 3, '#196f3d');
-      // ear visible
-      c.fillStyle = '#e8b090'; c.beginPath(); c.ellipse(-11, -16, 2, 3, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = '#1e241c'; c.beginPath(); c.arc(4, -18, 1.9, 0, Math.PI * 2); c.fill();
-      if (p.pose === 'attack') { c.fillStyle = '#5a3520'; c.fillRect(1, -21, 6, 1); }
-      // wind in hood
-      if (isRun) { c.fillStyle = '#ffffff15'; c.beginPath(); c.ellipse(-12, -30, 6, 2, -0.3, 0, Math.PI * 2); c.fill(); }
-
-      c.save();
-      c.translate(14, -2);
-      let bowAngle = p.pose === 'attack' ? -0.18 : 0.32;
-      if (p.pose === 'run') bowAngle += phase * 0.03;
-      c.rotate(bowAngle);
-      round(c, -2, -3, 6, 15, 2, '#f2be94');
-      c.strokeStyle = '#784212'; c.lineWidth = 4; c.lineCap = 'round';
-      c.beginPath(); c.arc(5, 0, 18, -1.3, 1.3); c.stroke();
-      c.strokeStyle = '#a0522d'; c.lineWidth = 1;
-      c.beginPath(); c.arc(5, 0, 18, -1.3, 1.3); c.stroke();
-      c.strokeStyle = '#ecf0f1'; c.lineWidth = 1.5;
-      c.beginPath();
-      c.moveTo(5 + 18 * Math.cos(-1.3), 18 * Math.sin(-1.3));
-      c.lineTo(p.pose === 'attack' ? -2 : 5 + 18 * Math.cos(0), 0);
-      c.lineTo(5 + 18 * Math.cos(1.3), 18 * Math.sin(1.3));
-      c.stroke();
-      // nocked arrow when attacking
-      if (p.pose === 'attack' && p.attack > 8) {
-        round(c, -2, -1, 10, 1.5, 0.5, '#c49a6c');
-        c.fillStyle = '#d5e2e8'; c.beginPath(); c.moveTo(8, -1); c.lineTo(11, 0); c.lineTo(8, 1); c.fill();
-      }
-      c.restore();
-      // quiver
-      round(c, -17, -15, 6, 18, 2, '#784212');
-      c.fillStyle = '#a67c52'; c.fillRect(-16, -13, 1, 14);
-      c.fillStyle = '#ecf0f1'; c.fillRect(-17, -19, 2, 4); c.fillRect(-14, -20, 2, 5);
-    }
-
-    // ===== V8: قراءة الحالة من الرسم نفسه =====
-    // الدرع أمام الجسم عند الصدّ (ويتوهج عند نجاح صدّ حديث)، وسيف منحنٍ ذهبي عند الضربة الثقيلة.
-    if (p.pose === 'guard') {
-      const hot = (p.guard?.timer || 0) > 0;
-      c.save();
-      c.translate(15, -6);
-      c.rotate(-0.12);
-      const grad = c.createLinearGradient(-6, -16, 8, 16);
-      grad.addColorStop(0, hot ? '#dbeafe' : '#93a7bb'); grad.addColorStop(1, hot ? '#60a5fa' : '#4b5f74');
-      c.fillStyle = grad;
-      c.beginPath(); c.moveTo(0, -17); c.quadraticCurveTo(11, -13, 10, 2); c.quadraticCurveTo(8, 14, 0, 18); c.quadraticCurveTo(-8, 14, -10, 2); c.quadraticCurveTo(-11, -13, 0, -17); c.closePath(); c.fill();
-      c.strokeStyle = hot ? '#f8fafc' : '#cbd5e1'; c.lineWidth = 1.6; c.stroke();
-      c.fillStyle = hot ? '#fef3c7' : '#7c8da0';
-      c.beginPath(); c.arc(0, 0, 3.4, 0, Math.PI * 2); c.fill();
-      c.restore();
-    }
-    if (p.pose === 'heavy') {
-      c.strokeStyle = '#ffd166ee'; c.lineWidth = 5.5; c.lineCap = 'round';
-      c.beginPath(); c.arc(4, -14, 30, -1.5, 0.5); c.stroke();
-      c.strokeStyle = '#fff8dccc'; c.lineWidth = 2;
-      c.beginPath(); c.arc(4, -14, 25, -1.35, 0.35); c.stroke();
-    }
-
     c.restore();
   }
 
@@ -687,7 +276,39 @@
   // بحجم يتغيّر مع العمق + تعتيم مقدمة). عرض بصري فقط: صندوق الأرض في المحاكاة لا يتغيّر،
   // والإحداثيات هنا في فضاء العالم (الرسم داخل translate(-camera)) فنستخدم مركز الشاشة
   // كنقطة تلاشٍ عبر camera + w / 2.
-  function drawMineGround(c, box, camera, w, sk) {
+  function drawUpperRoute(c, box, tick, reduced) {
+    if (box.route !== 'upper') return;
+    const pulse = reduced ? 0.68 : 0.68 + Math.sin((tick || 0) * 0.08) * 0.18;
+    c.fillStyle = '#e5b85c';
+    c.fillRect(box.x + 5, box.y + 7, box.w - 10, 3);
+    c.fillStyle = '#72dfcf';
+    c.globalAlpha = pulse;
+    c.fillRect(box.x + 8, box.y + 2, box.w - 16, 2);
+    c.globalAlpha = 1;
+    const markerX = box.x + box.w / 2;
+    c.save();
+    c.translate(markerX, box.y - 13);
+    c.fillStyle = '#182c34';
+    c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#72dfcf'; c.lineWidth = 2.4; c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(-4, 2); c.lineTo(0, -3); c.lineTo(4, 2); c.stroke();
+    c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 5); c.stroke();
+    c.restore();
+    const ladderX = box.x + 14;
+    c.strokeStyle = '#26343a'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(ladderX - 6, box.y + 8); c.lineTo(ladderX - 6, 300); c.moveTo(ladderX + 6, box.y + 8); c.lineTo(ladderX + 6, 300); c.stroke();
+    c.strokeStyle = '#b68b52'; c.lineWidth = 2.5;
+    for (let ry = box.y + 16; ry < 298; ry += 10) {
+      c.beginPath(); c.moveTo(ladderX - 6, ry); c.lineTo(ladderX + 6, ry); c.stroke();
+    }
+    c.fillStyle = '#d5c08a';
+    for (const ry of [box.y + 12, 294]) {
+      c.beginPath(); c.arc(ladderX - 6, ry, 2, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(ladderX + 6, ry, 2, 0, Math.PI * 2); c.fill();
+    }
+  }
+
+  function drawMineGround(c, box, camera, w, sk, mineTrack = false) {
     const top = box.y, bottom = box.y + box.h, depth = bottom - top;
     const vpx = camera + w / 2, K = 0.16;
     const rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
@@ -740,6 +361,24 @@
     c.fillStyle = sk.moss;
     for (let mx = box.x + 10; mx < box.x + box.w - 10; mx += 38) {
       c.beginPath(); c.ellipse(mx, top + 5, 6, 2.5, 0, 0, Math.PI * 2); c.fill();
+    }
+
+    if (mineTrack) {
+      const railY = top + 22;
+      const start = Math.max(box.x, Math.floor((camera - 32) / 42) * 42);
+      const end = Math.min(box.x + box.w, camera + w + 42);
+      for (let x = start; x < end; x += 42) {
+        round(c, x, railY - 3, 26, 13, 2, '#503a29');
+        round(c, x + 2, railY - 1, 22, 3, 1, '#9b7447');
+      }
+      const railLeft = Math.max(box.x, camera - 4), railRight = Math.min(box.x + box.w, camera + w + 4);
+      if (railRight > railLeft) {
+        round(c, railLeft, railY, railRight - railLeft, 4, 1, '#38434a');
+        round(c, railLeft, railY + 10, railRight - railLeft, 4, 1, '#38434a');
+        c.fillStyle = '#b4c0c2';
+        c.fillRect(railLeft, railY, railRight - railLeft, 1);
+        c.fillRect(railLeft, railY + 10, railRight - railLeft, 1);
+      }
     }
 
     // تعتيم المقدمة: يقفل الحافة السفلية ويقرأ الأرض كسطح ممتد
@@ -817,6 +456,7 @@
     // ساحة المبارزة: تُرسم فقط عندما يطلبها مسرح تبويب الساحة (opts.arena).
     // قماش تبويب اللعب يبقى منجمًا دائمًا — لا مبارزة نينجا داخل تجربة اللعب الأصلية.
     const arenaMode = !!opts.arena;
+    const showcase = Boolean(opts.showcase && !arenaMode);
     // الساحة تُقرَّب (zoom) فتُقرأ كمبارزة: نافذة رأسية أقصر مثبّتة على أرض القتال (y=360 أسفل الشاشة)
     const zoom = Math.max(1, Math.min(2, Number(opts.zoom) || (arenaMode ? 1.34 : 1)));
     // V19: الساحة مواضع مقاتليها ثابتة في العالم (البطل ≈230 والخصم ≈380) وليست ملاحَقة بكاميرا،
@@ -828,6 +468,8 @@
     const arena = arenaMode ? arenaLayout(s, cssW, cssH) : null;
     const w = arena ? arena.w : Math.max(280, (360 / zoom) * aspect);
     const worldH = arena ? arena.worldH : Math.max(360 / zoom, w / aspect);
+    const displayPlayer = showcase ? { ...s.player, x: Math.max(s.player.x, w * 0.32) } : s.player;
+    const cameraState = showcase ? { ...s, player: displayPlayer } : s;
     const scale = pixelW / w, sy = pixelH / worldH;
     // الأرض عند 80% من ارتفاع المسرح في الحلبة (تُظهر أرضية أمامية للعمق)، وأسفل الشاشة في المنجم
     const yTop = arena ? ARENA_FRAME.groundAt * pixelH - 360 * sy : -(360 - worldH) * sy;
@@ -841,11 +483,12 @@
       c.translate(shakeX, shakeY);
     }
 
-    const camera = arena ? arenaCamera(s, arena) : R.cameraFor(s, w);
+    const camera = arena ? arenaCamera(s, arena) : (showcase ? R.cameraFor(cameraState, w) : R.cameraFor(s, w));
     const L = R.levelFor ? R.levelFor(s.zone) : R.LEVEL; // V5: كل منجم له مستواه (الأرض والأخطار والراية واللافتات والبوابة)
     const skin = (root.PlatformScenery ? root.PlatformScenery.skinFor(L.id) : null);
     // Cosmetic cave theme chosen from the run seed; physics and rewards ignore it.
     const zone = (R.ZONES || [])[s.zone || 0] || DEFAULT_ZONE;
+    const hasCaveArtwork = s.zone === 0 && caveBackdrop && caveBackdrop.complete && caveBackdrop.naturalWidth;
 
     const ArenaScene = root.PlatformArenaScene;
     const arenaId = Number.isInteger(opts.arenaId) ? opts.arenaId : (Number.isInteger(s.arenaId) ? s.arenaId : (s.zone || 0) % 4);
@@ -856,66 +499,81 @@
     } else {
     // ===== Background =====
     // Deep cavern gradient with vignette
-    const bg = c.createLinearGradient(0, 0, 0, 360);
+    const sceneTop = 360 - worldH;
+    const bg = c.createLinearGradient(0, sceneTop, 0, 360);
     bg.addColorStop(0, zone.sky[0]);
     bg.addColorStop(0.18, zone.sky[1]);
     bg.addColorStop(0.5, zone.sky[2]);
     bg.addColorStop(0.78, zone.sky[3]);
     bg.addColorStop(1, zone.sky[4]);
-    c.fillStyle = bg; c.fillRect(0, 0, w, 360);
-
+    c.fillStyle = bg; c.fillRect(0, sceneTop, w, worldH);
+    if (hasCaveArtwork) {
+      const sourceRatio = caveBackdrop.naturalWidth / caveBackdrop.naturalHeight;
+      const viewRatio = w / worldH;
+      const sourceW = sourceRatio > viewRatio ? caveBackdrop.naturalHeight * viewRatio : caveBackdrop.naturalWidth;
+      const sourceH = sourceRatio > viewRatio ? caveBackdrop.naturalHeight : caveBackdrop.naturalWidth / viewRatio;
+      const sourceX = (caveBackdrop.naturalWidth - sourceW) / 2;
+      const sourceY = (caveBackdrop.naturalHeight - sourceH) / 2;
+      c.save();
+      c.globalAlpha = 0.98;
+      c.drawImage(caveBackdrop, sourceX, sourceY, sourceW, sourceH, 0, sceneTop, w, worldH);
+      c.restore();
+    }
     // Vignette darkening at edges
-    const vignette = c.createRadialGradient(w / 2, 180, w * 0.4, w / 2, 180, w * 0.95);
+    const vignetteRadius = Math.max(w, worldH);
+    const vignette = c.createRadialGradient(w / 2, sceneTop + worldH / 2, vignetteRadius * 0.4, w / 2, sceneTop + worldH / 2, vignetteRadius * 0.95);
     vignette.addColorStop(0, 'transparent');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.55)');
-    c.fillStyle = vignette; c.fillRect(0, 0, w, 360);
+    vignette.addColorStop(1, `rgba(0,0,0,${hasCaveArtwork ? 0.22 : 0.55})`);
+    c.fillStyle = vignette; c.fillRect(0, sceneTop, w, worldH);
 
     // ---- Parallax layers ----
 
     // Layer -2: Far cavern wall silhouette with faint crystals
-    const shiftFar = camera * 0.07;
-    c.fillStyle = zone.far;
-    for (let i = Math.floor(shiftFar / 260) - 1; i < Math.ceil((shiftFar + w) / 260) + 1; i++) {
-      const x = i * 260 - shiftFar;
-      c.beginPath();
-      c.moveTo(x - 70, 0); c.lineTo(x + 20, 65 + (Math.abs(i * 7) % 30)); c.lineTo(x + 100, 0); c.fill();
-      // distant crystal glimmer
-      if (i % 3 === 0) {
-        c.fillStyle = '#2a6b7a22';
-        c.beginPath(); c.arc(x + 40, 45, 4, 0, Math.PI * 2); c.fill();
-        c.fillStyle = zone.far;
+    if (!hasCaveArtwork) {
+      const shiftFar = camera * 0.07;
+      c.fillStyle = zone.far;
+      for (let i = Math.floor(shiftFar / 260) - 1; i < Math.ceil((shiftFar + w) / 260) + 1; i++) {
+        const x = i * 260 - shiftFar;
+        c.beginPath();
+        c.moveTo(x - 70, 0); c.lineTo(x + 20, 65 + (Math.abs(i * 7) % 30)); c.lineTo(x + 100, 0); c.fill();
+        // distant crystal glimmer
+        if (i % 3 === 0) {
+          c.fillStyle = '#2a6b7a22';
+          c.beginPath(); c.arc(x + 40, 45, 4, 0, Math.PI * 2); c.fill();
+          c.fillStyle = zone.far;
+        }
       }
-    }
 
-    // Layer 0: Distant stalactites
-    const shift0 = camera * 0.14;
-    c.fillStyle = zone.mid;
-    for (let i = Math.floor(shift0 / 200) - 1; i < Math.ceil((shift0 + w) / 200) + 1; i++) {
-      const x = i * 200 - shift0;
-      const hgt = 55 + (Math.abs(i * 13) % 35);
-      c.beginPath(); c.moveTo(x - 45, 0); c.lineTo(x + 20, hgt); c.lineTo(x + 85, 0); c.fill();
-      // tiny drips
-      c.fillStyle = '#1a3a4a';
-      c.fillRect(x + 18, hgt - 2, 2, 6);
+      // Layer 0: Distant stalactites
+      const shift0 = camera * 0.14;
       c.fillStyle = zone.mid;
-    }
+      for (let i = Math.floor(shift0 / 200) - 1; i < Math.ceil((shift0 + w) / 200) + 1; i++) {
+        const x = i * 200 - shift0;
+        const hgt = 55 + (Math.abs(i * 13) % 35);
+        c.beginPath(); c.moveTo(x - 45, 0); c.lineTo(x + 20, hgt); c.lineTo(x + 85, 0); c.fill();
+        // tiny drips
+        c.fillStyle = '#1a3a4a';
+        c.fillRect(x + 18, hgt - 2, 2, 6);
+        c.fillStyle = zone.mid;
+      }
 
-    // Layer 1: Mid rock columns & arches
-    const shift1 = camera * 0.30;
-    c.fillStyle = zone.columns;
-    for (let i = Math.floor(shift1 / 180) - 1; i < Math.ceil((shift1 + w) / 180) + 1; i++) {
-      const x = i * 180 - shift1;
-      c.beginPath();
-      c.moveTo(x - 60, 340); c.lineTo(x - 20, 105 + (Math.abs(i * 5) % 30)); c.lineTo(x + 35, 70 + (i % 2) * 30); c.lineTo(x + 90, 170); c.lineTo(x + 155, 340); c.fill();
-      // arch highlights
-      c.fillStyle = '#1e4458';
-      c.fillRect(x + 10, 120, 2, 40);
+      // Layer 1: Mid rock columns & arches
+      const shift1 = camera * 0.30;
       c.fillStyle = zone.columns;
+      for (let i = Math.floor(shift1 / 180) - 1; i < Math.ceil((shift1 + w) / 180) + 1; i++) {
+        const x = i * 180 - shift1;
+        c.beginPath();
+        c.moveTo(x - 60, 340); c.lineTo(x - 20, 105 + (Math.abs(i * 5) % 30)); c.lineTo(x + 35, 70 + (i % 2) * 30); c.lineTo(x + 90, 170); c.lineTo(x + 155, 340); c.fill();
+        // arch highlights
+        c.fillStyle = '#1e4458';
+        c.fillRect(x + 10, 120, 2, 40);
+        c.fillStyle = zone.columns;
+      }
     }
 
     // Layer 2: Near supports, rails, mushrooms
     const shift2 = camera * 0.54;
-    for (let i = Math.floor(shift2 / 240) - 1; i < Math.ceil((shift2 + w) / 240) + 1; i++) {
+    if (!hasCaveArtwork) for (let i = Math.floor(shift2 / 240) - 1; i < Math.ceil((shift2 + w) / 240) + 1; i++) {
       const x = i * 240 - shift2;
       // timber beam
       round(c, x + 15, 50, 12, 260, 3, '#2d241e');
@@ -937,6 +595,7 @@
       c.beginPath(); c.arc(x + 55, 298, 3.5, Math.PI, 0); c.fill();
       round(c, x + 54, 298, 1.5, 5, 1, '#8deed2');
     }
+    if (s.zone === 0) Characters.drawMineLift(c, w * 0.54 - camera * 0.2, s.tick, reduced);
 
     // ---- Atmospheric particles: dust motes ----
     if (!reduced) {
@@ -1112,7 +771,31 @@
       if (box.x + box.w < camera - 20 || box.x > camera + w + 20) continue;
       if (arenaMode && box.y >= 290) continue; // أرض الساحة يرسمها مشهد الحلبة (منصّة حجرية) لا كتل المنجم
       // V18: أرض المنجم تُرسم بمنظور (كتلة عريضة عند خط الأرض) بدل الكتلة المسطّحة
-      if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk); continue; }
+      if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk, !!hasCaveArtwork); continue; }
+      if (!arenaMode && hasCaveArtwork && box.h < 25) {
+        round(c, box.x - 3, box.y + 4, box.w + 6, box.h - 1, 4, '#24343c');
+        round(c, box.x, box.y, box.w, 7, 2, '#4b3828');
+        round(c, box.x + 2, box.y + 1, box.w - 4, 3, 1, '#bc8d4e');
+        for (let plankX = box.x + 8; plankX < box.x + box.w - 4; plankX += 18) {
+          c.fillStyle = '#5c432e';
+          c.fillRect(plankX, box.y + 7, 15, 2);
+          c.fillStyle = '#d3a953';
+          c.fillRect(plankX, box.y + 6, 2, 1.5);
+        }
+        c.fillStyle = '#e1b458';
+        c.fillRect(box.x + 4, box.y + 10, box.w - 8, 2);
+        round(c, box.x + 8, box.y + 17, 7, 28, 2, '#463527');
+        round(c, box.x + 9, box.y + 18, 3, 25, 1, '#b38a50');
+        round(c, box.x + box.w - 15, box.y + 17, 7, 28, 2, '#463527');
+        round(c, box.x + box.w - 13, box.y + 18, 3, 25, 1, '#b38a50');
+        c.strokeStyle = '#543e2d'; c.lineWidth = 3;
+        c.beginPath();
+        c.moveTo(box.x + 12, box.y + 23); c.lineTo(box.x + 28, box.y + 42);
+        c.moveTo(box.x + box.w - 12, box.y + 23); c.lineTo(box.x + box.w - 28, box.y + 42);
+        c.stroke();
+        drawUpperRoute(c, box, s.tick, reduced);
+        continue;
+      }
       // base rock
       round(c, box.x, box.y, box.w, box.h, 4, sk.rock[0]);
       // inner shading
@@ -1128,37 +811,7 @@
       }
       // V21: upper branch ledges use a distinct industrial safety trim and a readable
       // upward chevron. This is visual guidance only; collision and route input stay in rules.
-      if (box.route === 'upper') {
-        const pulse = reduced ? 0.68 : 0.68 + Math.sin((s.tick || 0) * 0.08) * 0.18;
-        c.fillStyle = '#e5b85c';
-        c.fillRect(box.x + 5, box.y + 7, box.w - 10, 3);
-        c.fillStyle = '#72dfcf';
-        c.globalAlpha = pulse;
-        c.fillRect(box.x + 8, box.y + 2, box.w - 16, 2);
-        c.globalAlpha = 1;
-        const markerX = box.x + box.w / 2;
-        c.save();
-        c.translate(markerX, box.y - 13);
-        c.fillStyle = '#182c34';
-        c.beginPath(); c.arc(0, 0, 10, 0, Math.PI * 2); c.fill();
-        c.strokeStyle = '#72dfcf'; c.lineWidth = 2.4; c.lineCap = 'round'; c.lineJoin = 'round';
-        c.beginPath(); c.moveTo(-4, 2); c.lineTo(0, -3); c.lineTo(4, 2); c.stroke();
-        c.beginPath(); c.moveTo(0, -3); c.lineTo(0, 5); c.stroke();
-        c.restore();
-        // V22: bolted access ladder visually connects the lower tunnel to this upper branch.
-        const ladderX = box.x + 14;
-        c.strokeStyle = '#26343a'; c.lineWidth = 4;
-        c.beginPath(); c.moveTo(ladderX - 6, box.y + 8); c.lineTo(ladderX - 6, 300); c.moveTo(ladderX + 6, box.y + 8); c.lineTo(ladderX + 6, 300); c.stroke();
-        c.strokeStyle = '#b68b52'; c.lineWidth = 2.5;
-        for (let ry = box.y + 16; ry < 298; ry += 10) {
-          c.beginPath(); c.moveTo(ladderX - 6, ry); c.lineTo(ladderX + 6, ry); c.stroke();
-        }
-        c.fillStyle = '#d5c08a';
-        for (const ry of [box.y + 12, 294]) {
-          c.beginPath(); c.arc(ladderX - 6, ry, 2, 0, Math.PI * 2); c.fill();
-          c.beginPath(); c.arc(ladderX + 6, ry, 2, 0, Math.PI * 2); c.fill();
-        }
-      }
+      drawUpperRoute(c, box, s.tick, reduced);
       // stone cracks & strata
       c.strokeStyle = sk.crack; c.lineWidth = 1.2;
       for (let x = Math.max(box.x + 8, Math.floor(camera / 36) * 36); x < Math.min(box.x + box.w - 8, camera + w); x += 36) {
@@ -1321,6 +974,52 @@
       }
     }
 
+    if (s.logistics) {
+      const l = s.logistics;
+      if (l.storage.x + l.storage.w >= camera - 40 && l.jam.x <= camera + w + 40) {
+        const beltStart = l.worker.x + 18, beltEnd = l.storage.x + 4;
+        c.strokeStyle = '#6f5940'; c.lineWidth = 5; c.beginPath(); c.moveTo(beltStart, 291); c.lineTo(beltEnd, 291); c.stroke();
+        c.strokeStyle = '#d1a35d'; c.lineWidth = 2; c.beginPath(); c.moveTo(beltStart, 289); c.lineTo(beltEnd, 289); c.stroke();
+        for (let x = beltStart + 4; x < beltEnd; x += 10) {
+          const offset = l.workerAssigned && !l.delivered ? (s.tick % 10) : 0;
+          c.fillStyle = '#30271f'; c.fillRect(x - offset, 287, 2, 8);
+        }
+        round(c, l.jam.x + 2, 272, 21, 28, 4, l.jammed ? '#755236' : '#383b39');
+        strokeRound(c, l.jam.x + 2, 272, 21, 28, 4, l.jammed ? '#e5a84e' : '#64716d', 1.5);
+        if (l.jammed) {
+          c.strokeStyle = '#e65f4d'; c.lineWidth = 3; c.beginPath();
+          c.moveTo(l.jam.x + 5, 277); c.lineTo(l.jam.x + 19, 294);
+          c.moveTo(l.jam.x + 19, 277); c.lineTo(l.jam.x + 5, 294); c.stroke();
+        }
+        const haulProgress = l.phase === 'hauling' ? 1 - l.timer / 60 : 0;
+        const workerX = l.worker.x + haulProgress * 24;
+        c.fillStyle = '#c99550'; c.beginPath(); c.arc(workerX + 12, 269, 7, 0, Math.PI * 2); c.fill();
+        round(c, workerX + 5, 276, 14, 17, 4, l.workerAssigned ? '#4e9a83' : '#647b83');
+        c.strokeStyle = '#b7c8c0'; c.lineWidth = 2; c.beginPath();
+        const step = l.workerAssigned && l.phase === 'mining' ? Math.sin(s.tick * .32) * 3 : 0;
+        c.moveTo(workerX + 7, 292); c.lineTo(workerX + 5 + step, 299);
+        c.moveTo(workerX + 17, 292); c.lineTo(workerX + 19 - step, 299); c.stroke();
+        if (l.phase === 'mining') {
+          c.strokeStyle = '#e4c078'; c.lineWidth = 2; c.beginPath();
+          c.moveTo(workerX + 17, 278); c.lineTo(workerX + 23, 285 + Math.sin(s.tick * .32) * 2);
+          c.lineTo(workerX + 27, 278 + Math.sin(s.tick * .32) * 2); c.stroke();
+        }
+        round(c, l.machine.x, 277, 29, 20, 4, '#42545a');
+        strokeRound(c, l.machine.x, 277, 29, 20, 4, '#8ba3a0', 1.5);
+        c.fillStyle = l.delivered ? '#58e1bd' : '#d1a35d';
+        c.beginPath(); c.arc(l.machine.x + 14, 287, 6, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = '#243339'; c.lineWidth = 2; c.beginPath();
+        c.moveTo(l.machine.x + 14, 281); c.lineTo(l.machine.x + 14, 293);
+        c.moveTo(l.machine.x + 8, 287); c.lineTo(l.machine.x + 20, 287); c.stroke();
+        if (l.phase === 'hauling') {
+          crystal(c, beltStart + (beltEnd - beltStart) * haulProgress, 280, 0.34, '#9fe8ff', false);
+        }
+        round(c, l.storage.x, 276, 28, 24, 3, '#76583a');
+        strokeRound(c, l.storage.x, 276, 28, 24, 3, '#c19a5e', 1.5);
+        if (l.delivered) crystal(c, l.storage.x + 14, 278, 0.48, '#5cf3d2', false);
+      }
+    }
+
     // ---- Gems ----
     for (const gem of s.gems) {
       if (gem.taken || gem.x < camera - 20 || gem.x > camera + w + 20) continue;
@@ -1477,16 +1176,17 @@
     if (s.enemies) for (const enemy of s.enemies) {
       if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, enemy, false, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale);
       else if (enemy.boss) { if (bosses) bosses.drawBoss(c, enemy, s, reduced); }
-      else drawEnemy(c, enemy, s.tick, reduced);
+      else Characters.drawEnemy(c, enemy, s.tick, reduced);
     }
     if (bosses && s.waves && s.waves.length) bosses.drawWaves(c, s.waves, s.tick, reduced, arenaMode ? 'arena' : 'mine');
 
     // ---- Hero ----
-    drawHeroGhost(c, s.player, s.tick, reduced);
-    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale);
-    else drawHero(c, s.player, s.tick, reduced);
+    Characters.drawHeroGhost(c, displayPlayer, s.tick, reduced);
+    if (arenaMode && ArenaScene && ArenaScene.fighter) ArenaScene.fighter(c, s.player, true, s.tick, reduced, arenaId, ARENA_FRAME.fighterScale, Characters.drawHero);
+    else Characters.drawHero(c, displayPlayer, s.tick, reduced, showcase ? 2.6 : 1);
     // ---- Mining robot companion (V4 equipment) ----
-    if (s.player.robot) drawDrone(c, s.player, s.tick, reduced);
+    if (showcase && displayPlayer.robot) Characters.drawDrone(c, displayPlayer, s.tick, reduced);
+    else if (s.player.robot) Characters.drawDrone(c, s.player, s.tick, reduced);
     for (const beam of (opts.beams || [])) {
       c.globalAlpha = Math.max(0, Math.min(1, beam.life / 8));
       c.strokeStyle = '#7dffd4'; c.lineWidth = 2.5; c.lineCap = 'round';
@@ -1565,5 +1265,5 @@
     if (root.PlatformBosses && s.bossId) { c.setTransform(scale, 0, 0, sy, 0, yTop); root.PlatformBosses.drawBossBar(c, s, w, reduced, camera); }
   }
 
-  root.PlatformRenderer = { draw, crystal, drawHero, drawEnemy, drawDrone, dronePos, drawGroundMarker, drawTelegraphs, arenaLayout, ARENA_FRAME, ARENA_WORLD_W };
+  root.PlatformRenderer = { draw, crystal, drawHero: Characters.drawHero, drawEnemy: Characters.drawEnemy, drawDrone: Characters.drawDrone, dronePos: Characters.dronePos, drawGroundMarker, drawTelegraphs, arenaLayout, ARENA_FRAME, ARENA_WORLD_W };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

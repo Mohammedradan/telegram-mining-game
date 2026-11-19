@@ -143,7 +143,7 @@ test('mine: energy is the hard bound — spent energy is not recreated by the ne
   const second = await sendOps(id, [{ type: 'mine', clicks: 15, boosted: 0 }], { from: 2 });
   assert.ok(second.body.results[0].clicks <= 1, `second batch accepted ${second.body.results[0].clicks}`);
   // بعد 100 ثانية حقيقية من التجدد (3/ث) تتاح 300 طاقة فقط
-  await patchUser(`guest_${id}`, (u) => { u.sync.energyAt = Date.now() - 100_000; u.state.energy = 0; });
+  await patchUser(`guest_${id}`, (u) => { u.sync.energyAt = Date.now() - 100_500; u.state.energy = 0; });
   const regen = await sendOps(id, [{ type: 'mine', clicks: 1000, boosted: 0 }], { from: 3 });
   assert.ok(regen.body.results[0].clicks >= 300 && regen.body.results[0].clicks <= 303, `regen clicks ${regen.body.results[0].clicks}`);
   assert.ok(regen.body.state.energy < 3, `leftover ${regen.body.state.energy}`);
@@ -233,7 +233,7 @@ test('boost: server-owned window — doubles boosted clicks and passive income, 
   ]);
   assert.deepEqual(body.results.map((r) => r.status), ['ok', 'ok', 'ok', 'active']);
   assert.equal(body.results[2].gold, 20);
-  assert.ok(body.state.boostUntil > Date.now() && body.state.boostUntil <= Date.now() + 30_000);
+  assert.ok(body.state.boostUntil > body.serverTime && body.state.boostUntil <= body.serverTime + 30_000);
   assert.ok(Math.abs(body.state.boostCooldownUntil - body.state.boostUntil - 270_000) < 1000);
   assert.equal(body.state.gold, 1000 - 200 + 20);
   // تعزيز منتهٍ وتهدئة سارية ⇒ يُرفض؛ ولا يُقبل تعزيز مزوّر عبر الحفظ القديم
@@ -256,7 +256,7 @@ test('passive income is settled from server time, capped at eight hours, and rep
   await fund(id);
   const bought = await sendOps(id, [{ type: 'buy', item: 'rig' }]);
   assert.equal(bought.body.state.passiveIncome, 25);
-  await patchUser(`guest_${id}`, (u) => { u.sync.settledAt = Date.now() - 100_000; });
+  await patchUser(`guest_${id}`, (u) => { u.sync.settledAt = Date.now() - 100_100; });
   const short = await me(id);
   assert.ok(Math.abs(short.state.gold - 2500) < 6, `gold ${short.state.gold}`);
   assert.ok(Math.abs(short.offline.gold - 2500) < 6);

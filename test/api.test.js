@@ -43,6 +43,14 @@ const ops = async (id, list, session = 'api-test') => {
   const res = await fetch(`${BASE}/api/ops`, { method: 'POST', headers: guest(id), body: JSON.stringify({ session, ops: list.map((op, i) => ({ seq: i + 1, ...op })) }) });
   return { status: res.status, body: await res.json() };
 };
+const machinery = async (id, path, method = 'GET', body = undefined) => {
+  const res = await fetch(`${BASE}/api/mine-machinery/${path}`, {
+    method,
+    headers: guest(id),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { status: res.status, body: await res.json() };
+};
 const baseState = (over = {}) => ({
   gold: 0, totalEarned: 0, clickPower: 1, passiveIncome: 0, energy: 1000, maxEnergy: 1000,
   owned: { click: 0, bot: 0, rig: 0 }, costs: { click: 50, bot: 200, rig: 1000 },
@@ -75,6 +83,21 @@ test('مكافأة يومية مرة واحدة فقط', async () => {
   assert.equal((await r1.json()).reward, 500);
   const r2 = await fetch(`${BASE}/api/claim-daily`, { method: 'POST', headers: guest('dailyuser'), body: '{}' });
   assert.equal(r2.status, 409);
+});
+
+test('وردية آلات المنجم تبقى بعد تطبيع ملف اللاعب عند الطلبات اللاحقة', async () => {
+  const id = 'machinery-persists-through-prepare';
+  await me(id);
+  assert.equal((await machinery(id, 'status')).body.job.active, false);
+  const started = await machinery(id, 'start', 'POST', { zone: 0 });
+  assert.equal(started.status, 200);
+  assert.equal(started.body.job.active, true);
+  const active = await machinery(id, 'status');
+  assert.equal(active.body.job.active, true);
+  assert.equal(active.body.job.zone, 0);
+  const stopped = await machinery(id, 'stop', 'POST', {});
+  assert.equal(stopped.status, 200);
+  assert.equal((await machinery(id, 'status')).body.job.active, false);
 });
 
 test('نقرات مشروعة تُحتسب عبر عملية تعدين خادمية', async () => {

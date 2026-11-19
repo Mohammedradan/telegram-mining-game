@@ -211,6 +211,6 @@ test('A: المنجم خارج الحلبة لا يمرّ بالمسار الج�
   const arenaUses = (body.match(/ARENA_FRAME\./g) || []).length;
   const guarded = (body.match(/arena(?:Mode)? ?\?|arena &&|if \(arena\)/g) || []).length;
   assert.ok(arenaUses > 0 && guarded > 0);
-  assert.match(body, /const camera = arena \? arenaCamera\(s, arena\) : R\.cameraFor\(s, w\);/, 'the mine keeps R.cameraFor');
+  assert.match(body, /const camera = arena \? arenaCamera\(s, arena\) : \(showcase \? R\.cameraFor\(cameraState, w\) : R\.cameraFor\(s, w\)\);/, 'the mine uses its original camera outside the display-only lobby showcase');
   assert.match(body, /arenaMode && ArenaScene && ArenaScene\.fighter/, 'fighter scaling only runs on the arena canvas');
 });
