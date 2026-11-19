@@ -934,3 +934,27 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     bottom: 6px !important;
   }
 }
+
+
+/* Phone lobby row sizing: keep mine and workshop actions equally finger-sized. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    align-items: stretch !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(360px, calc(100% - 24px)) !important;
+    max-width: calc(100% - 24px) !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row > button {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    width: calc(50% - 4px) !important;
+    max-width: calc(50% - 4px) !important;
+    min-width: 90px !important;
+    box-sizing: border-box !important;
+  }
+}
