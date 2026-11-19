@@ -123,6 +123,10 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /data-conveyor="on"\]\s*\.ck-ore-cart/);
   assert.match(css, /data-drill="off"\]\s*\.ck-drill-cart/);
   assert.match(css, /data-secret-open="true"\]\s*\.ck-treasure-vault/);
+  assert.match(css, /Mobile cave flow: keep the medals, mining field, actions and energy in separate rows/);
+  assert.match(css, /body\\.ck-cave #ck-stage \\{[^}]*display: flex !important;[^}]*flex-direction: column !important;/s);
+  assert.match(css, /body\\.ck-cave #ck-stage \\.ck-area \\{[^}]*position: relative !important;[^}]*inset: auto !important;/s);
+  assert.match(css, /body\\.ck-cave #energy-container \\{[^}]*position: static !important;[^}]*pointer-events: none !important;/s);
 });
 
 test('expedition layer grants no economy or server rewards from the client', () => {
