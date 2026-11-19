@@ -113,7 +113,36 @@ async function main() {
         await page.keyboard.up('d');
       }
       const bounds = await page.locator('.mine-controls').boundingBox();
-      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height, `controls visible at ${viewport.width}x${viewport.height}: ${JSON.stringify({ bounds, viewport, scene: await page.locator('#platform-scene').boundingBox(), nav: await page.locator('.bottom-nav').boundingBox() })}`);
+      const controlsLayout = await page.evaluate(() => {
+        const rect = (el) => {
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom };
+        };
+        const style = (el) => {
+          if (!el) return null;
+          const s = getComputedStyle(el);
+          return { position: s.position, display: s.display, left: s.left, right: s.right, top: s.top,
+            width: s.width, height: s.height, marginLeft: s.marginLeft, alignSelf: s.alignSelf, transform: s.transform };
+        };
+        const scene = document.getElementById('platform-scene');
+        const stage = scene?.querySelector('.mine-stage');
+        const controls = scene?.querySelector('.mine-controls');
+        return {
+          viewport: { width: innerWidth, height: innerHeight, scrollX, scrollY },
+          document: { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight },
+          scene: rect(scene), stage: rect(stage), controls: rect(controls),
+          stageStyle: style(stage), controlsStyle: style(controls),
+          joystick: rect(document.getElementById('virtual-joystick')),
+          actions: rect(scene?.querySelector('.mine-controls-actions')),
+          buttons: [...(scene?.querySelectorAll('.mine-controls-actions .action-btn') || [])]
+            .filter(el => getComputedStyle(el).display !== 'none')
+            .slice(0, 8).map(el => ({ label: el.getAttribute('aria-label'), rect: rect(el), style: style(el) })),
+        };
+      });
+      assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1 &&
+        bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+        `controls visible at ${viewport.width}x${viewport.height}: ${JSON.stringify({ bounds, viewport, controlsLayout })}`);
       // قرار التصميم: أزرار اللمس تلقائيًا على الجوال/التابلت، ومخفية على الكمبيوتر (لوحة المفاتيح)
       const padState = await page.evaluate(() => ({
         stick: getComputedStyle(document.getElementById('virtual-joystick')).display,
