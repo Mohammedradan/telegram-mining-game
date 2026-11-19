@@ -958,3 +958,32 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     box-sizing: border-box !important;
   }
 }
+
+
+/* Compact phone overlays keep both mine and workshop actions visible.
+   The fit-state rules hide the workshop shortcut to save space; on normal
+   portrait phones the equal-width row still fits, so preserve both entry points.
+   Very short phones (<=380px) keep their dedicated compact layout. */
+@media (min-width: 381px) and (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-summary[hidden]) .overlay-row {
+    display: flex !important;
+    width: min(360px, calc(100% - 24px)) !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-summary[hidden]) .overlay-row > #mine-select {
+    flex: 1 1 0 !important;
+    width: calc(50% - 4px) !important;
+    max-width: calc(50% - 4px) !important;
+    min-width: 90px !important;
+  }
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-summary[hidden]) .overlay-row > #open-workshop-overlay {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    width: calc(50% - 4px) !important;
+    max-width: calc(50% - 4px) !important;
+    min-width: 90px !important;
+    min-height: 42px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
