@@ -1068,3 +1068,75 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave #ck-stage .ck-dig { --dig: 54px; }
   body.ck-cave .ck-cache { width: 34px; height: 34px; }
 }
+
+
+/* Mobile cave flow: keep the medals, mining field, actions and energy in separate rows. */
+@media (max-width: 520px) {
+  body.ck-cave #tab-mining {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+  body.ck-cave #ck-stage {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    flex: 1 1 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 48px 0 0 !important;
+    gap: 0 !important;
+    box-sizing: border-box !important;
+  }
+  body.ck-cave #ck-stage .ck-nodes {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    order: 1 !important;
+    flex: 0 0 auto !important;
+    width: calc(100% - 16px) !important;
+    max-width: calc(100% - 16px) !important;
+    margin: 0 auto !important;
+    z-index: 18 !important;
+  }
+  body.ck-cave #ck-stage .ck-area {
+    position: relative !important;
+    inset: auto !important;
+    order: 2 !important;
+    flex: 1 1 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 96px !important;
+    z-index: 1 !important;
+  }
+  body.ck-cave #ck-stage .ck-actions {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    order: 3 !important;
+    flex: 0 0 auto !important;
+    width: min(340px, calc(100% - 8px)) !important;
+    max-width: calc(100% - 8px) !important;
+    margin: 0 auto !important;
+    z-index: 19 !important;
+  }
+  body.ck-cave #energy-container {
+    position: static !important;
+    inset: auto !important;
+    flex: 0 0 auto !important;
+    align-self: center !important;
+    width: min(430px, 74vw) !important;
+    margin: 0 auto !important;
+    pointer-events: none !important;
+    z-index: auto !important;
+  }
+  body.ck-cave #energy-container * { pointer-events: none !important; }
+}
+
+/* Tall phones should retain a readable, full miner silhouette. */
+@media (min-width: 360px) and (max-width: 520px) and (min-height: 700px) {
+  body.ck-cave #ck-stage .ck-hero { scale: .82; }
+}
