@@ -555,3 +555,56 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     max-height: none !important;
   }
 }
+
+
+/* Keep every live-round utility control inside the narrow viewport. */
+@media (max-width: 600px) {
+  body #platform-scene.scene-live .mine-topbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    justify-items: stretch !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    padding: 3px 6px !important;
+    box-sizing: border-box !important;
+  }
+  body #platform-scene.scene-live .mine-title,
+  body #platform-scene.scene-live .mine-economy { display: none !important; }
+  body #platform-scene.scene-live .mine-heading-actions {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    grid-column: 1 / -1 !important;
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    justify-self: stretch !important;
+    justify-content: center !important;
+    align-items: center !important;
+    direction: ltr !important;
+    gap: 4px !important;
+    box-sizing: border-box !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px !important;
+  }
+}
