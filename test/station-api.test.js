@@ -35,3 +35,25 @@ test('station rejects foreign sessions, changed retries, skipped sequences and f
   assert.equal((await h.call('checkpoint',{...body,seq:2,inputs:[[2,601]]})).status,400);
   h.advance(LIFETIME+1);assert.equal((await h.call('checkpoint',{...body,seq:2})).status,409);
 });
+
+test('lift state is server-replayed, duplicate receipts are stable and account economy stays unchanged',async()=>{
+  const h=harness(),s=(await h.call('start')).body;h.advance(12000);
+  const travel={id:s.id,seq:1,inputs:[[2,40],[Rules.DOWN,140],[2|Rules.RUN,333]],lift:{y:960,target:960}};
+  const boarded=await h.call('checkpoint',travel);assert.equal(boarded.status,200);
+  assert.equal(boarded.body.state.lift.y,640,'client lift field ignored');
+  const ride={id:s.id,seq:2,inputs:[[0,1],[Rules.Lift.ACTION,1],[0,121]],progress:{lift:{y:960}}};
+  const arrived=await h.call('checkpoint',ride);assert.equal(arrived.status,200);
+  assert.equal(arrived.body.state.lift.y,320);assert.equal(arrived.body.state.player.y+arrived.body.state.player.h,320);
+  const again=await h.call('checkpoint',ride);assert.equal(again.body.duplicate,true);
+  assert.deepEqual(again.body.state,arrived.body.state);
+  assert.deepEqual(h.users.get('one').state,{gold:77,ores:{copper:3}});
+  const reopened=(await h.call('start')).body;assert.equal(reopened.state.lift.y,320);
+});
+test('upgrade from phase-1 preserves visited rooms and anchor while replacing old simulation tickets',async()=>{
+  const h=harness();await h.call('start');
+  h.users.get('one').sync.station={version:1,progress:{visited:['arrival','face'],anchor:'face'},session:{id:'old',seq:0}};
+  const restored=(await h.call('start')).body;
+  assert.deepEqual(restored.progress.visited,['arrival','face']);assert.equal(restored.progress.anchor,'face');
+  assert.equal(restored.state.version,2);assert.equal(restored.state.lift.y,640);
+  assert.equal((await h.call('checkpoint',{id:'old',seq:1,inputs:[[0,1]]})).status,409);
+});

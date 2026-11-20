@@ -215,7 +215,7 @@
 #platform-scene.scene-live .mine-title-text h2 { font-size: clamp(11px, 3vw, 13px); }
 #platform-scene.scene-live .mine-badge { width: 26px; height: 26px; border-radius: 7px; }
 #platform-scene.scene-live .mine-heading-actions button { min-height: 32px; padding: 5px 8px; }
-body.scene-live .bottom-nav { padding: 2px; gap: 2px; }
+body.scene-live .bottom-nav { display: none !important; }
 body.scene-live .bottom-nav button {
   flex-direction: row !important; justify-content: center; gap: 3px;
   padding: 4px 2px !important; min-height: 32px;

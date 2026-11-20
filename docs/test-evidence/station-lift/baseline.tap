@@ -1,0 +1,76 @@
+TAP version 13
+# Subtest: station checkpoints replay movement and persist only reached rooms, duplicates do not repeat ledger
+ok 1 - station checkpoints replay movement and persist only reached rooms, duplicates do not repeat ledger
+  ---
+  duration_ms: 11.584576
+  type: 'test'
+  ...
+# Subtest: station rejects foreign sessions, changed retries, skipped sequences and forged time or input
+ok 2 - station rejects foreign sessions, changed retries, skipped sequences and forged time or input
+  ---
+  duration_ms: 14.356278
+  type: 'test'
+  ...
+# Subtest: station uses the shared platform jump/gravity/collision kernel, walk and run differ
+ok 3 - station uses the shared platform jump/gravity/collision kernel, walk and run differ
+  ---
+  duration_ms: 5.26512
+  type: 'test'
+  ...
+# Subtest: station ladder carries the body down and up, then supports release
+ok 4 - station ladder carries the body down and up, then supports release
+  ---
+  duration_ms: 3.484537
+  type: 'test'
+  ...
+# Subtest: station solids block walking but can be jumped, gaps fall onto the next floor
+ok 5 - station solids block walking but can be jumped, gaps fall onto the next floor
+  ---
+  duration_ms: 2.259542
+  type: 'test'
+  ...
+# Subtest: all three floors and lower markers are reachable with input only
+ok 6 - all three floors and lower markers are reachable with input only
+  ---
+  duration_ms: 10.831877
+  type: 'test'
+  ...
+# Subtest: replay is deterministic, bounded and rejects hostile masks without mutating state
+ok 7 - replay is deterministic, bounded and rejects hostile masks without mutating state
+  ---
+  duration_ms: 3.374606
+  type: 'test'
+  ...
+# Subtest: camera stays bounded, follows both axes and never affects physics
+ok 8 - camera stays bounded, follows both axes and never affects physics
+  ---
+  duration_ms: 1.41337
+  type: 'test'
+  ...
+# Subtest: restore normalizes unknown rooms and refuses an undiscovered anchor
+ok 9 - restore normalizes unknown rooms and refuses an undiscovered anchor
+  ---
+  duration_ms: 0.411523
+  type: 'test'
+  ...
+# Subtest: extracted motion preserves the baseline complete legacy simulation fingerprint (21600 frames)
+ok 10 - extracted motion preserves the baseline complete legacy simulation fingerprint (21600 frames)
+  ---
+  duration_ms: 769.130264
+  type: 'test'
+  ...
+# Subtest: upper balcony is reachable by timed jumps over the wall and gap without teleporting
+ok 11 - upper balcony is reachable by timed jumps over the wall and gap without teleporting
+  ---
+  duration_ms: 3.137845
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1026.247907
