@@ -163,7 +163,8 @@ async function main() {
       const liveNav = page.locator('.bottom-nav');
       assert.equal(await liveNav.isVisible(), true, 'active play keeps the compact global tab bar reachable');
       assert.equal(await liveNav.locator('button').first().isVisible(), true, 'active-play navigation icons remain reachable');
-      assert.equal(await liveNav.locator('button span').first().isVisible(), false, 'active play hides navigation labels to save vertical space');
+      const liveNavLabelDisplay = await liveNav.locator('button span').first().evaluate(el => getComputedStyle(el).display);
+      assert.equal(liveNavLabelDisplay, 'none', 'active play hides navigation labels to save vertical space');
       const liveNavButtonMinHeight = await liveNav.locator('button').first().evaluate(el => getComputedStyle(el).minHeight);
       assert.ok(parseFloat(liveNavButtonMinHeight) >= 32, `active-play navigation retains a 32px minimum target: ${liveNavButtonMinHeight}`);
       await page.locator('#platform-pause').click();
