@@ -551,7 +551,9 @@ test('wiring: markup, styles, script order and the hooks in the page', () => {
   const overlayHtml = /<div id="platform-overlay" class="mine-overlay">[\s\S]*?<button id="platform-resume"[^>]*>[^<]*<\/button>\s*<\/div>/.exec(html)[0];
   assert.ok(overlayHtml.indexOf('id="open-guide"') > 0 && overlayHtml.indexOf('id="open-guide"') < overlayHtml.indexOf('overlay-kicker'), 'the first child of the round overlay');
   assert.ok(!/<div class="overlay-row">[\s\S]*?<\/div>/.exec(html)[0].includes('open-guide'), 'and not a member of the button row');
-  assert.ok(JSON.parse(read('package.json')).scripts.build.includes('node --check public/guide.js'), 'the build syntax-checks it');
+  // الفحص الشامل في scripts/check-build.cjs يغطي public/guide.js (لم تعد package.json تُعدّد الملفات بالاسم)
+  assert.equal(JSON.parse(read('package.json')).scripts.build, 'node scripts/check-build.cjs', 'the build runs the full-tree syntax check');
+  assert.match(read('scripts', 'check-build.cjs'), /for \(const dir of \['', 'public', 'lib', 'scripts'\]\)/, 'the build syntax-checks it');
   const css = read('public', 'guide.css');
   for (const sel of ['.guide-overlay', '.gd-tab.active', '.gd-bubble', '.gd-chapter-row.fresh', '.guide-dot', '.guide-entry[data-news="1"]']) assert.ok(css.includes(sel), sel);
   const entry = /\.mine-overlay \.guide-entry \{[^}]*\}/.exec(css)[0];

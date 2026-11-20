@@ -221,8 +221,17 @@ test('R3: the first-run achievement is named as an attempt and no longer claims 
 test('R4: a duel moves the arena track only — never the adventure stats, quests or mining missions', async () => {
   const name = 'duel';
   await fixMissions(name, ['runs', 'arena'], ['runs', 'arena']);
-  const id = crypto.randomUUID();
-  const duel = duelTape(R.seedFromId(id), 0);
+  // بذرة ثابتة تُنتج فوزاً: كان المعرّف عشوائياً (crypto.randomUUID) والبذرة المشتقة منه تُنتج
+  // خسارة في ~0.3% من الحالات، فيسقط الاختبار بلا أي تغيير في الكود. نبحث عن بذرة رابحة مرة واحدة
+  // ونتحقق أنها فعلاً تربح، بدل الاعتماد على الحظ.
+  let id = null;
+  let duel = null;
+  for (let n = 0; n < 64 && !duel; n += 1) {
+    const candidate = crypto.createHash('sha256').update(`duel-win-seed:${n}`).digest('hex');
+    const tape = duelTape(R.seedFromId(candidate), 0);
+    if (tape.state.status === 'won') { id = candidate; duel = tape; }
+  }
+  assert.ok(duel, 'a deterministic seed that wins the duel must exist');
   assert.equal(duel.state.status, 'won', 'the duel tape wins');
   const seconds = duel.state.tick / R.FPS;
   await post(name, 'start', { zone: 0, goal: 0, mode: 'duel' });

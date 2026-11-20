@@ -18,11 +18,27 @@
 
 ```text
 telegram-mining-game/
-├── package.json
-├── server.js          # خادم Express + بوت تيليجرام (Telegraf)
-├── .env.example       # انسخه إلى .env وضع BOT_TOKEN و APP_URL
-└── public/
-    └── index.html     # واجهة اللعبة كاملة (تصميم + منطق + حفظ تلقائي)
+├── server.js              # خادم Express + بوت تيليجرام (Telegraf) + الاقتصاد الخادمي (/api/ops)
+├── db.js                  # طبقة التخزين: SQLite افتراضياً أو PostgreSQL عبر DATABASE_URL
+├── config.js              # تحميل متغيّرات البيئة ورفض إعداد إنتاج غير آمن
+├── progression.js         # المهام اليومية/الأسبوعية والإنجازات (قواعد خادمية)
+├── quests.js              # مهام المغامرة
+├── platform-api.js        # منجم المنصّة: تذكرة جولة + إعادة تشغيل حتمية للحركات
+├── deep-dig-api.js        # الحفر العميق (lib/deep-dig-replay.js للمحاكاة)
+├── mine-machinery-api.js  # ورشة/آلات التعدين (إنتاج خام بسقف يومي)
+├── station-api.js         # المحطة (بدء/نقاط حفظ)
+├── multiplayer.js         # سباقات WebSocket (/ws) وقواعدها في race-rules.js
+├── ws-client-ip.js        # استخراج عنوان العميل الحقيقي من X-Forwarded-For
+├── rate-limit.js          # محدِّد معدّل داخل العملية (لكل نسخة)
+├── security-headers.js    # CSP وبقية ترويسات الأمان
+├── public/                # الواجهة كاملة: index.html + أنماط + وحدات لعب مشتركة مع الخادم
+│   └── platform-rules.js  # محرك فيزياء حتمي يُستخدم في المتصفح وعلى الخادم
+├── lib/                   # محاكاة الحفر العميق (تُعاد على الخادم)
+├── scripts/               # أدوات تشغيل: نسخ احتياطي، تدخين، اختبارات متصفح، فحص البناء
+├── test/                  # 100+ ملف اختبار (node:test)
+├── docs/                  # الأدلة والتقارير (ابدأ من docs/AUDIT-2026-10-14.md)
+├── .env.example           # انسخه إلى .env وضع BOT_TOKEN و APP_URL
+└── render.yaml            # نشر Blueprint على Render
 ```
 
 ## 🚀 التشغيل محلياً
@@ -100,7 +116,7 @@ node scripts/trial-backup.cjs backup   # نسخة احتياطية من قاعد
 
 | الطريقة | المسار | الوصف |
 |---|---|---|
-| `GET` | `/health` | `{ ok, bot, users }` |
+| `GET` | `/health` | `{ ok, bot, botMode, db, users }` — خفيف: عدّاد اللاعبين مُخزَّن دقيقة كي لا يتحول فحص Render الدوري إلى `COUNT(*)` على كل طلب |
 | `GET` | `/api/me?ref=ref_<id>` | جلب/إنشاء ملف اللاعب ومعالجة الدعوة؛ يسوّي الدخل السلبي بوقت الخادم ويعيد `revision` و`offline` و`state.adventure` (إحصاءات/مناطق) و`progress` (المستوى/الخبرة) و`missions` (مهام اليوم وتقدّمها) و`weeklyMissions` (مهام الأسبوع وتقدّمها) و`achievements` (الإنجازات وتقدّمها) و`arena` (تذكرة المباراة التالية وسجل الساحة المختوم) و`race` (إجمالي السباقات المختومة) |
 | `POST` | `/api/ops` | **مصدر الحقيقة للاقتصاد والتقدّم**: دفعة عمليات مرقّمة `{session, revision, ops:[{seq,type,…}]}` (تعدين، شراء، تعزيز، تقارير جولات المغامرة `run`، مباريات الساحة `arena {matchNo, moves}`، استلام مهمة يومية `mission {key}` أو `key: "bonus"`، استلام مهمة أسبوعية `weekly_mission {key}` أو `key: "bonus"`، استلام إنجاز `achievement {id}`) يتحقق الخادم منها ويطبّقها هو |
 | `POST` | `/api/save` | **قديم**: لا يطبّق حالة العميل بعد الآن، يعيد الحالة الخادمية مع `legacy: true` (محتفظ به لتوافق العملاء القدامى) |
@@ -149,6 +165,12 @@ TEST_DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/mining_test npm test
 ```
 
 عند ضبط `TEST_DATABASE_URL` تُختبر API على PostgreSQL وتُختبر معاملات التخزين على المحركين. يستخدم CI خدمة PostgreSQL 16، بجانب الاختبار الافتراضي على SQLite. اختبارات التزامن تشمل عمليتي خادم مستقلتين، والتراجع عن كتابة جزئية، وإعادة التشغيل وإعادة المطالبة بالمكافأة.
+
+### التشغيل طويل المدى (تقليم البيانات وTLS)
+
+- **تقليم تلقائي**: `platform_runs` و`deep_dig_runs` و`op_ledger` و`race_stats` تنمو صفًا لكل جولة/عملية/سباق، فتصل قاعدة الطبقة المجانية إلى سعتها ويتوقف الحفظ. الخادم ينفّذ `pruneOldData` بعد الإقلاع وكل 6 ساعات:
+  `RETENTION_RUN_DAYS` (افتراضي 30 — الجولات المنتهية)، `RETENTION_LEDGER_DAYS` (90 — سجل العمليات)، `RETENTION_RACE_DAYS` (400 — إحصاءات السباقات). `0` يعطّل التقليم لذلك الجدول. الجولات الجارية لا تُحذف إلا إذا تجاوزت 7 أيام (تذكرة الجولة عمرها 30 دقيقة).
+- **TLS لـ PostgreSQL**: التحقق من الشهادة **مفعّل افتراضيًا**. لمزوّد بشهادة سلطة خاصة استخدم `PGSSLROOTCERT=/path/ca.pem`. `PGSSL=disable` لإيقاف TLS لقاعدة محلية، و`PGSSL=no-verify` تعطيل صريح للتحقق (طارئ فقط، ويُطبع تحذير في السجل). مسار شهادة غير موجود يُفشل الإقلاع بدل الاتصال بلا تحقق — نفس السياسة في `db.js` و`scripts/trial-backup.cjs`.
 
 ## موثوقية بروتوكول السباقات
 

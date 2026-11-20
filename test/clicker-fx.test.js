@@ -548,8 +548,11 @@ test('clicker.css honours reduced motion, never animates the size of a tap targe
 
 test('wiring: build script syntax-checks the module, a dedicated browser test exists and CI runs it', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.match(pkg.scripts.build, /node --check public\/clicker-fx\.js/);
-  assert.match(pkg.scripts.build, /node --check public\/cave-art\.js/);
+  // لم تعد package.json تُعدّد الملفات بالاسم (كانت تنسى lib/ وscripts/ كلما أُضيف ملف).
+  // check-build يفحص كل .js/.cjs في الجذور الأربعة، فالموديول مغطّى بالبناء لا بقائمة يدوية.
+  assert.equal(pkg.scripts.build, 'node scripts/check-build.cjs', 'البناء يشغّل الفحص الشامل');
+  assert.match(read('scripts', 'check-build.cjs'), /for \(const dir of \['', 'public', 'lib', 'scripts'\]\)/,
+    'كل الجذور تُفحص — ومنها public/clicker-fx.js وpublic/cave-art.js');
   // the build also verifies that every image a stylesheet paints exists (a typo there fails silently in the browser)
   assert.match(read('scripts', 'check-build.cjs'), /Missing asset referenced by public\/\$\{file\}/);
   assert.equal(pkg.scripts['test:clicker'], 'node scripts/test-clicker-browser.cjs');

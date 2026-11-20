@@ -950,8 +950,24 @@ const asyncRoute = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e)
   if (!res.headersSent) res.status(500).json({ error: 'خطأ داخلي في الخادم' });
 });
 
+// استجابات اللعبة الموثّقة لا تُخزَّن في أي وسيط أو ذاكرة مؤقتة (الاسم والمحفظة بيانات شخصية)
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'private, no-store');
+  next();
+});
+
+// فحص الصحة: Render يطلبه كل بضع ثوانٍ. كان يستدعي COUNT(*) على كل طلب (مسح كامل للجدول،
+// بلا تحديد معدّل وبلا مصادقة) فيصير مسار فحص بسيط حملًا على القاعدة. العدّاد الآن مُخزَّن دقيقة،
+// وفشل القاعدة لا يُسقط الخادم (Render سيعيد تشغيله بلا داعٍ).
+const HEALTH_USERS_TTL_MS = 60_000;
+let healthUsers = { at: 0, count: 0 };
 app.get('/health', asyncRoute(async (req, res) => {
-  res.json({ ok: true, bot: Boolean(BOT_TOKEN), botMode: CONFIG.botMode, db: store.driver, users: await store.countUsers() });
+  const now = Date.now();
+  if (now - healthUsers.at >= HEALTH_USERS_TTL_MS) {
+    try { healthUsers = { at: now, count: await store.countUsers() }; } catch (_) { /* القاعدة لم تجهز بعد */ }
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, bot: Boolean(BOT_TOKEN), botMode: CONFIG.botMode, db: store.driver, users: healthUsers.count });
 }));
 
 // إعدادات عامة للواجهة: اسم مستخدم البوت فقط (لروابط الدعوة) — لا أسرار ولا رابط Webhook
@@ -1139,6 +1155,19 @@ mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileO
 mountMineMachinery({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
 mountStation({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
 
+// ---------------------------------------------------------------------------
+// أخطاء ومسارات غير معروفة: كل ما يبدأ بـ /api يرد JSON دائماً. بلا هذين المعالجين
+// كان مسار مجهول أو جسم JSON مشوّه يُرجع صفحة HTML من Express، فينفجر العميل عند
+// res.json() برسالة SyntaxError بدل رسالة اللعبة العربية.
+// ---------------------------------------------------------------------------
+app.use('/api', (req, res) => res.status(404).json({ error: 'مسار غير موجود' }));
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = Number(err?.status) || 500;
+  if (status >= 500) console.error('خطأ غير معالج:', err?.message || err);
+  res.status(status).json({ error: status === 400 ? 'طلب غير صالح' : status === 413 ? 'الطلب أكبر من الحد المسموح' : 'خطأ داخلي في الخادم' });
+});
+
 // Multiplayer WebSocket rooms are implemented in multiplayer.js.
 const setupMultiplayer = createMultiplayer({
   store,
@@ -1234,9 +1263,40 @@ function shutdown(signal) {
 process.once('SIGINT', () => shutdown('SIGINT'));
 process.once('SIGTERM', () => shutdown('SIGTERM'));
 
+// ---------------------------------------------------------------------------
+// تقليم البيانات القديمة: platform_runs وdeep_dig_runs وop_ledger وrace_stats كانت تنمو
+// بلا حد (صف لكل جولة/عملية/سباق)، وقاعدة الطبقة المجانية تصل سعتها فيتوقف الحفظ.
+// القيم بالأيام عبر RETENTION_*_DAYS، و0 يعطّل التقليم. أول تقليم بعد الإقلاع ثم كل 6 ساعات.
+// ---------------------------------------------------------------------------
+const envDays = (name, fallback) => {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const n = Math.floor(Number(raw));
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+const RETENTION = {
+  runDays: envDays('RETENTION_RUN_DAYS', 30),
+  ledgerDays: envDays('RETENTION_LEDGER_DAYS', 90),
+  raceDays: envDays('RETENTION_RACE_DAYS', 400),
+};
+const RETENTION_INTERVAL_MS = 6 * 3600_000;
+async function pruneOldData() {
+  try {
+    const removed = await store.pruneOldData({ ...RETENTION });
+    const total = removed.platformRuns + removed.deepDigRuns + removed.ledger + removed.raceStats;
+    if (total > 0) console.log(`🧹 تقليم البيانات القديمة: ${JSON.stringify(removed)}`);
+    return removed;
+  } catch (e) {
+    console.error('تعذّر تقليم البيانات القديمة (سيُعاد في الدورة التالية):', e.message);
+    return null;
+  }
+}
+
 migrateLegacyJson().finally(() => {
   httpServer = app.listen(PORT, HOST, () => {
     console.log(`🎮 خادم اللعبة يعمل الآن على: http://localhost:${PORT}`);
+    pruneOldData();
   });
+  setInterval(pruneOldData, RETENTION_INTERVAL_MS).unref();
   setupMultiplayer(httpServer);
 });

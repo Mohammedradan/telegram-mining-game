@@ -1,11 +1,13 @@
-// ترويسات أمان بلا اعتماديات إضافية. السياسة مضبوطة على موارد اللعبة الفعلية:
-// سكربت Telegram WebApp، وTailwind/خطوط Google (حتى تُنقل محلياً)، ومعالجات onclick المضمّنة في index.html.
+// ترويسات أمان بلا اعتماديات إضافية. السياسة مضبوطة على موارد اللعبة الفعلية فقط:
+// سكربت Telegram WebApp ومعالجات onclick المضمّنة في index.html.
+// Tailwind وخطوط Google نُقلا محلياً منذ زمن (لا يوجد في public/ أي رابط خارجي غير telegram.org)،
+// فإبقاء أصولهما في السياسة كان يسمح بتنفيذ سكربت من CDN خارجي بلا أي حاجة — أُزيلا.
 // frame-ancestors يسمح بتضمين Telegram Web (web.telegram.org) للـ Mini App فقط.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://telegram.org https://cdn.tailwindcss.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com data:",
+  "script-src 'self' 'unsafe-inline' https://telegram.org",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
   "img-src 'self' data: blob:",
   "media-src 'self' data: blob:",
   "connect-src 'self' ws: wss:",
