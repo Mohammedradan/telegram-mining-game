@@ -7,6 +7,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'public/game-showcase.css'), 'utf8');
+const liveCss = fs.readFileSync(path.join(root, 'public/game-showcase-live.css'), 'utf8');
 
 test('the redesigned lobby keeps the mine picker and workshop entry reachable', () => {
   assert.match(html, /id="mine-select"/);
@@ -22,7 +23,7 @@ test('a restored paused run hides the goal chooser so it cannot intercept Resume
 });
 
 test('live mobile header compacts title, economy and actions into the phone viewport', () => {
-  assert.match(css, /@media \(max-width: 600px\)[\s\S]*?body #platform-scene\.scene-live \.mine-topbar \{[\s\S]*?padding: 4px 6px !important;/);
-  assert.match(css, /body #platform-scene\.scene-live \.mine-heading-actions button \{[\s\S]*?padding: 4px !important;/);
-  assert.match(css, /body #platform-scene\.scene-live \.mine-gold::after,[\s\S]*?display: none !important;/);
+  assert.match(liveCss, /@media \(max-width: 600px\)[\s\S]*?body #platform-scene\.scene-live \.mine-topbar \{[\s\S]*?height: 44px !important;[\s\S]*?padding: 3px 6px !important;/);
+  assert.match(liveCss, /body #platform-scene\.scene-live \.mine-title,\s*body #platform-scene\.scene-live \.mine-economy \{ display: none !important; \}/,
+    'the narrow live header hides nonessential title and economy content to keep controls reachable');
 });
