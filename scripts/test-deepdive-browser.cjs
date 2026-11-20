@@ -34,6 +34,7 @@ async function main() {
     await page.locator('#nav-mining').tap();
     await page.waitForFunction(() => document.getElementById('tab-mining').classList.contains('active'));
     await page.waitForFunction(() => [...document.querySelectorAll('#tab-mining img, #ck-nodes img')].every((i) => i.complete && i.naturalWidth > 0), null, { timeout: 20000 });
+    await page.waitForFunction(() => window.DigSite?.inspect?.().layoutReady === true, null, { timeout: 10000 });
     return { ctx, page };
   }
   const openDive = async (page) => {

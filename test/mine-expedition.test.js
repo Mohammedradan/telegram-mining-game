@@ -105,7 +105,7 @@ test('each cave places caches in distinct reachable locations and checks the dis
 });
 
 test('expanded mining shell is wired, responsive and focusable', () => {
-  assert.match(html, /href="\/mine-expedition\.css\?v=5"/);
+  assert.match(html, /href="\/mine-expedition\.css\?v=8"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   assert.match(html, /id="i-fullscreen"/);
   assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
@@ -123,6 +123,12 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /data-conveyor="on"\]\s*\.ck-ore-cart/);
   assert.match(css, /data-drill="off"\]\s*\.ck-drill-cart/);
   assert.match(css, /data-secret-open="true"\]\s*\.ck-treasure-vault/);
+  assert.match(css, /Mobile cave flow: keep the medals, mining field, actions and energy in separate rows/);
+  assert.match(css, /body\.ck-cave #ck-stage \{[^}]*display: flex !important;[^}]*flex-direction: column !important;/s);
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-area \{[^}]*position: relative !important;[^}]*inset: auto !important;/s);
+  assert.match(css, /body\.ck-cave #energy-container \{[^}]*position: static !important;[^}]*pointer-events: none !important;/s);
+  assert.match(css, /body\.ck-cave \.bottom-nav \{[^}]*position: relative !important;[^}]*inset: auto !important;[^}]*order: 2 !important;/s,
+    'mobile cave navigation must return to normal flow after the energy row instead of covering it');
 });
 
 test('expedition layer grants no economy or server rewards from the client', () => {

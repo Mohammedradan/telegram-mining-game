@@ -1048,7 +1048,7 @@
 
   function inspect() {
     return {
-      active: api.active, paused: api.active ? paused() : true, clock,
+      active: api.active, paused: api.active ? paused() : true, layoutReady: measured && (W > 390 || initialMinerPlaced || routePositionRestored), clock,
       mine: mineWorld && MineWorld ? { ...mineWorld, definition: MineWorld.MINES[mineWorld.index] } : null,
       machinery: { ...machinery },
       fieldUnits: { rig: { x: +fieldRig.x.toFixed(4), y: +fieldRig.y.toFixed(4) }, worker: { x: +fieldWorker.x.toFixed(4), y: +fieldWorker.y.toFixed(4) } },

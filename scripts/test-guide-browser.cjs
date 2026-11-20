@@ -111,7 +111,7 @@ async function main() {
       assert.ok(geo.guide.l >= geo.ov.l && geo.guide.r <= geo.ov.r && geo.guide.t >= geo.ov.t, 'the icon sits in a corner inside the round overlay');
       assert.ok(geo.guide.w >= 36 && geo.guide.h >= 36 && geo.guide.w <= 44, `a tappable round icon (${geo.guide.w}x${geo.guide.h})`);
       assert.ok(geo.guide.r - geo.ov.l <= 44 && geo.guide.b - geo.ov.t <= 44, 'inside the 44px corner square that only the capped caption pill may share a row with');
-      assert.ok(geo.mine.w >= 90 && geo.ws.w >= 90, 'the two big buttons keep their room');
+      assert.ok(geo.mine.w >= 90 && geo.ws.w >= 90, `the two big buttons keep their room (${JSON.stringify({ geo, scene: await page.locator('#platform-scene').getAttribute('class'), rowVisible: await page.locator('#platform-scene .overlay-row').isVisible() })})`);
       assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), 'the guide icon changes neither the overlay height nor the width of its buttons');
       assert.equal(await page.locator('#open-guide .guide-new').isHidden(), true, 'no "new" badge for the intro chapter');
       await coversNothing(page, '390x844');

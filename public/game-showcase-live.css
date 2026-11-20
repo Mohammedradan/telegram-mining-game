@@ -361,6 +361,12 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon { width: 1
 #platform-scene.scene-live .mine-controls-actions .climb-btn {
   display: none !important;
 }
+@media (min-width: 601px) {
+  #platform-scene.scene-live .mine-controls.touch-hidden .virtual-joystick,
+  #platform-scene.scene-live .mine-controls.touch-hidden .action-btn:not(.pause-btn) {
+    display: none !important;
+  }
+}
 
 /* زر الحفر والتعدين الذهبي الرئيسي */
 #platform-scene.scene-live .mine-controls-actions .primary-mine-btn,
@@ -498,11 +504,73 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon { width: 1
     transform: none !important;
   }
   #platform-scene.scene-live .mine-stage {
-    flex: 1 1 0 !important;
+    position: absolute !important;
+    inset: 52px 8px 8px 8px !important;
+    flex: none !important;
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
-    width: 100% !important;
+    width: auto !important;
+    max-width: none !important;
+    left: 8px !important;
+    right: 8px !important;
+    margin-inline: 0 !important;
+    transform: none !important;
+  }
+  #platform-scene.scene-live .mine-controls {
+    position: fixed !important;
+    inset: auto 8px 52px 8px !important;
+    width: auto !important;
+    height: 110px !important;
+    max-width: none !important;
+  }
+  #platform-scene.scene-live .mine-controls .virtual-joystick {
+    top: auto !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    width: clamp(84px, 24vw, 110px) !important;
+    height: clamp(84px, 24vw, 110px) !important;
+  }
+  #platform-scene.scene-live .mine-controls-actions {
+    left: 0 !important;
+    right: 0 !important;
+  }
+  #platform-scene.scene-live .mine-controls-actions .action-btn {
+    top: auto !important;
+    left: auto !important;
+  }
+  #platform-scene.scene-live .mine-controls-actions .primary-mine-btn,
+  #platform-scene.scene-live .mine-controls-actions .mine-btn {
+    top: auto !important;
+    left: auto !important;
+    right: 8px !important;
+    bottom: 8px !important;
+  }
+  #platform-scene.scene-live .mine-controls-actions .jump-btn:not(.climb-btn) {
+    top: auto !important;
+    left: auto !important;
+    right: 132px !important;
+    bottom: 8px !important;
+  }
+  #platform-scene.scene-live .mine-controls-actions .heavy-btn,
+  #platform-scene.scene-live .mine-controls-actions .attack-btn {
+    top: auto !important;
+    left: auto !important;
+    right: 132px !important;
+    bottom: 104px !important;
+  }
+  #platform-scene.scene-live .mine-controls-actions .dodge-btn {
+    top: auto !important;
+    left: auto !important;
+    right: 8px !important;
+    bottom: 104px !important;
+  }
+  #platform-scene.scene-live .mine-controls-actions .skill-btn,
+  #platform-scene.scene-live .mine-controls-actions .guard-btn {
+    top: auto !important;
+    left: auto !important;
+    right: 8px !important;
+    bottom: 204px !important;
   }
 }
 
@@ -525,5 +593,62 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon { width: 1
     min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
+  }
+}
+
+
+/* Keep every live-round utility control inside the narrow viewport. */
+@media (max-width: 600px) {
+  body #platform-scene.scene-live .mine-topbar {
+    position: relative !important;
+    top: auto !important;
+    align-self: stretch !important;
+    z-index: 80 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    justify-items: stretch !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    padding: 3px 6px !important;
+    box-sizing: border-box !important;
+  }
+  body #platform-scene.scene-live .mine-title,
+  body #platform-scene.scene-live .mine-economy { display: none !important; }
+  body #platform-scene.scene-live .mine-heading-actions {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    grid-column: 1 / -1 !important;
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    justify-self: stretch !important;
+    justify-content: center !important;
+    align-items: center !important;
+    direction: ltr !important;
+    gap: 4px !important;
+    box-sizing: border-box !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px !important;
   }
 }

@@ -1053,7 +1053,10 @@ body.arena-live:not(.duel-live) .arena-x-bar {
     right: auto !important;
     bottom: 7px !important;
     width: min(38%, 150px) !important;
-    z-index: 14 !important;
+    z-index: 30 !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-start {
+    display: none !important;
   }
 }
 

@@ -99,8 +99,9 @@ async function main() {
             topbar: rect(document.querySelector('#platform-scene .mine-topbar')),
             stage: rect(document.querySelector('#platform-scene .mine-stage')) };
         });
-        assert.ok(muteBox && muteBox.y >= 0 && muteBox.y + muteBox.height <= viewport.height,
-          `the live sound control remains inside the viewport after start (${JSON.stringify({ muteBox, muteLayout })})`);
+        assert.ok(muteBox && muteBox.x >= 0 && muteBox.x + muteBox.width <= viewport.width &&
+          muteBox.y >= 0 && muteBox.y + muteBox.height <= viewport.height,
+          `the live sound control remains fully inside the viewport after start (${JSON.stringify({ muteBox, muteLayout })})`);
         await page.locator('#platform-mute').click();
         assert.equal(await page.locator('#platform-mute').getAttribute('aria-pressed'), 'true');
         await page.keyboard.down('d'); await page.keyboard.down('ArrowRight');
