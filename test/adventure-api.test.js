@@ -261,6 +261,67 @@ test('collect is idempotent, capped, and zeroes the silo it paid for', async () 
   assert.equal(Number(profile.state?.ores?.copper) || 0, credited, 'the account holds exactly what was collected');
 });
 
+// Phase 2's exit gate names account isolation explicitly. `user.sync.adventureMine` is keyed
+// per user, but "keyed per user" is a property of the code, not of the system: only two
+// real guests hitting one server can show that one player's mine, session and ore never
+// leak into another's. This is the test that would catch a future refactor to a global
+// cache or a shared mutable default.
+test('one account never sees another account\'s mine, session or ore', async () => {
+  const a = await post('alice', 'start');
+  assert.equal(a.status, 200);
+  const sessionA = a.body.session.id;
+
+  // Bob has never played: he must see no session and no saved mine of Alice's.
+  const b = await post('bob', 'state');
+  assert.equal(b.status, 200);
+  assert.equal(b.body.session, null, 'Bob has no live session of his own');
+  assert.equal(b.body.snapshot, null, 'Bob has no checkpoint to restore, least of all Alice\'s');
+
+  // Starting fresh must put Bob at the spawn in a brand-new world — never in Alice's.
+  const bobFresh = await post('bob', 'start');
+  assert.equal(bobFresh.status, 200);
+  assert.equal(bobFresh.body.snapshot.tick, 0, 'Bob starts from a fresh world');
+  assert.equal(bobFresh.body.snapshot.player.x, M.MAP.spawn.x, 'Bob stands at the spawn, not where Alice is');
+
+  // Alice works: walk her miner east, then try to spend her session from Bob's account.
+  const vein = M.MAP.deposits.find((v) => !v.crewOnly);
+  const approach = walkToVein(a.body.snapshot, vein.x - 50);
+  const moved = await post('alice', 'checkpoint', { id: sessionA, seq: 1, ops: approach.ops });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.body.rejected, 0);
+  const aliceTick = moved.body.snapshot.tick;
+  assert.ok(aliceTick > 0 && moved.body.snapshot.player.x > M.MAP.spawn.x, 'Alice actually moved');
+
+  // Bob presenting Alice's session id must be treated as a foreign session (409), and it
+  // must not advance, rewrite or expose Alice's world.
+  const stolen = await post('bob', 'checkpoint', { id: sessionA, seq: 2, ops: [{ t: 'i', mask: 0, ticks: 10 }] });
+  assert.equal(stolen.status, 409, 'another account may not checkpoint into a foreign session');
+
+  // Alice's world is exactly where she left it.
+  const after = await post('alice', 'state');
+  assert.equal(after.body.session.id, sessionA);
+  assert.equal(after.body.snapshot.tick, aliceTick, 'the foreign attempt did not advance Alice');
+
+  // Ore is per-account too: Alice collecting must never appear in Bob's profile.
+  const collect = await post('alice', 'collect', { id: sessionA, seq: 2 });
+  assert.ok([200, 409].includes(collect.status), 'collect is answered on its own merits');
+  const aliceProfile = await (await fetch(`http://127.0.0.1:${port}/api/me`, { headers: headers('alice') })).json();
+  const bobProfile = await (await fetch(`http://127.0.0.1:${port}/api/me`, { headers: headers('bob') })).json();
+  const aliceOre = Number(aliceProfile.state?.ores?.copper) || 0;
+  const bobOre = Number(bobProfile.state?.ores?.copper) || 0;
+  assert.equal(bobOre, 0, 'Bob must not inherit a single piece of Alice\'s copper');
+  assert.ok(aliceOre >= bobOre, 'Alice keeps her own progress');
+
+  // Bob's own session is untouched by anything Alice did, and it is his own id.
+  const bobState = await post('bob', 'state');
+  assert.equal(bobState.status, 200);
+  assert.equal(bobState.body.session.id, bobFresh.body.session.id, 'Bob resumes only his own session');
+  assert.notEqual(bobState.body.session.id, sessionA, 'each account gets its own session id');
+  assert.equal(bobState.body.snapshot.tick, bobFresh.body.snapshot.tick,
+    'Bob\'s world did not advance while Alice played');
+  assert.equal(bobState.body.snapshot.player.x, M.MAP.spawn.x, 'Bob is still at the spawn');
+});
+
 test('a checkpoint from a foreign session id is refused', async () => {
   const a = await post('foreign', 'start');
   const b = await post('foreign2', 'start');
