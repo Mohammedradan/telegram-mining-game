@@ -137,12 +137,12 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /body\.ck-cave #ck-stage \.ck-nodes \{[^}]*position: absolute;[^}]*top: 67px;/s,
     'the medals are anchored below the toolbar rather than taking a flow row');
   const mobileField = css.slice(css.lastIndexOf('/* Restore a real portrait-phone flex field'));
-  assert.match(mobileField, /@media\\s*\\(max-width:\\s*520px\\)\\s*and\\s*\\(orientation:\\s*portrait\\)/);
-  assert.match(mobileField, /body\\.ck-cave #ck-stage \\.ck-area \\{[^}]*flex: 1 1 auto !important;[^}]*height: auto !important;[^}]*min-height: 220px !important;/s,
+  assert.match(mobileField, /@media\s*\(max-width:\s*520px\)\s*and\s*\(orientation:\s*portrait\)/);
+  assert.match(mobileField, /body\.ck-cave #ck-stage \.ck-area \{[^}]*flex: 1 1 auto !important;[^}]*height: auto !important;[^}]*min-height: 220px !important;/s,
     'the mobile field regains a measurable flex height after leaving absolute positioning');
-  assert.match(mobileField, /--rock-w: max\\(110px, min\\(36vw, 150px\\)\\) !important;/,
+  assert.match(mobileField, /--rock-w: max\(110px, min\(36vw, 150px\)\) !important;/,
     'the mining target keeps a non-zero touch width on portrait phones');
-  assert.match(mobileField, /--miner-h: max\\(120px, min\\(38vw, 150px\\)\\) !important;/,
+  assert.match(mobileField, /--miner-h: max\(120px, min\(38vw, 150px\)\) !important;/,
     'the miner keeps a visible portrait-phone height');
 });
 
