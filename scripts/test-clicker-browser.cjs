@@ -404,8 +404,11 @@ async function main() {
     await page.waitForFunction(() => document.getElementById('tab-play').classList.contains('active') && window.PlatformGame.inspect().running, null, { timeout: 20000 });
     const run1 = await page.evaluate(() => { const i = PlatformGame.inspect(); return { ticket: i.ticket, running: i.running, paused: i.paused }; });
     assert.ok(run1.ticket && run1.running && !run1.paused, 'the button started a verified round');
+    // Active rounds intentionally hide global tabs; pause through the in-game control first.
+    await page.locator('#platform-pause').tap();
+    await page.waitForFunction(() => window.PlatformGame.inspect().paused && !document.body.classList.contains('scene-live'));
     await page.locator('#nav-mining').tap();
-    await page.waitForFunction(() => document.getElementById('tab-mining').classList.contains('active') && window.PlatformGame.inspect().paused);
+    await page.waitForFunction(() => document.getElementById('tab-mining').classList.contains('active'));
     await page.locator('#ck-go').tap();
     await page.waitForFunction(() => document.getElementById('tab-play').classList.contains('active'));
     const run2 = await page.evaluate(() => { const i = PlatformGame.inspect(); return { ticket: i.ticket, paused: i.paused, resumeShown: !document.getElementById('platform-resume').hidden }; });
