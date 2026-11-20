@@ -1195,3 +1195,20 @@ body.ck-cave #tap-hint { display: none !important; }
     order: 2 !important;
   }
 }
+
+
+/* Restore a real portrait-phone flex field after the full-bleed stage switches to flow.
+   The earlier full-bleed rule sets flex:none and height:100%; without resetting both,
+   the size-contained world can measure as 0px while the tab is first revealed. */
+@media (max-width: 520px) and (orientation: portrait) {
+  body.ck-cave #ck-stage .ck-area {
+    position: relative !important;
+    inset: auto !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 220px !important;
+    --rock-w: max(110px, min(36vw, 150px)) !important;
+    --miner-h: max(120px, min(38vw, 150px)) !important;
+  }
+}
