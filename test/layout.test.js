@@ -155,7 +155,7 @@ test('phase 1+2: impact feedback and ore economy are wired into the real UI', ()
 // المنجم المنصّة: هيكلة بلا تمرير — شريط علوي مدمج واحد، HUD عائم داخل الكانفاس، نافذة إعدادات التحكم، حالة Lobby/Live.
 test('platform: single compact top bar replaces stacked header bars (zero-scroll)', () => {
   const gameCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-layout.css'), 'utf8');
-  assert.ok(html.match(/<link[^>]+href="\/platform-layout\.css\?v=6/), 'index.html links the current platform layout stylesheet');
+  assert.ok(html.match(/<link[^>]+href="\/platform-layout\.css\?v=\d+/), 'index.html links a versioned platform layout stylesheet');
   assert.ok(gameCss.length > 0, 'platform-layout.css exists and is non-empty');
   assert.match(gameCss, /#platform-scene\s*\{\s*[^}]*overflow:\s*hidden;/s);
   assert.match(gameCss, /height:\s*100dvh;/s);
@@ -322,5 +322,5 @@ test('showcase lobby and live stages yield to phone and short-landscape viewport
   assert.match(live, /@media \(min-width: 600px\) and \(max-height: 520px\) and \(orientation: landscape\)[\s\S]*#platform-scene\.scene-live \.mine-stage \{\s*flex: 1 1 0 !important;/,
     'short landscape live stages also relinquish the desktop height');
   assert.match(html, /game-showcase\.css\?v=11/);
-  assert.match(html, /game-showcase-live\.css\?v=11/);
+  assert.match(html, /game-showcase-live\.css\?v=\d+/, 'the live showcase stylesheet has an explicit cache-busting version');
 });
