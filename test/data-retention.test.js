@@ -102,9 +102,9 @@ test('التقليم التلقائي معطّل افتراضياً ويحافظ
   );
 
   const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-  assert.match(serverSource, /envDays\\('RETENTION_RUN_DAYS', 0\\)/);
-  assert.match(serverSource, /envDays\\('RETENTION_LEDGER_DAYS', 0\\)/);
-  assert.match(serverSource, /envDays\\('RETENTION_RACE_DAYS', 0\\)/);
+  assert.ok(serverSource.includes("envDays('RETENTION_RUN_DAYS', 0)"));
+  assert.ok(serverSource.includes("envDays('RETENTION_LEDGER_DAYS', 0)"));
+  assert.ok(serverSource.includes("envDays('RETENTION_RACE_DAYS', 0)"));
 
   const old = now - 500 * DAY;
   await store.savePlatformRun(platformRun('default-old-platform', 'finished', old));
