@@ -10,7 +10,7 @@
 
 ```bash
 git pull                     # أو git clone <رابط المستودع> ثم cd telegram-mining-game
-npm install                  # تثبيت التبعيات (Node 20 أو أحدث — انظر .nvmrc: نسخة 22)
+npm ci                       # تثبيت مطابق لملف القفل (Node 22 أو أحدث: engines و.nvmrc)
 cp .env.example .env         # على ويندوز: copy .env.example .env
 npm start
 ```
@@ -22,7 +22,8 @@ npm start
 ```bash
 curl http://localhost:3000/health
 # {"ok":true,"bot":false,"db":"sqlite","users":0}
-npm test                     # 8 اختبارات تكامل يجب أن تنجح كلها
+npm test                     # مجموعة الاختبارات كاملة (~900 اختبار، دقيقة تقريباً)
+npm run build                # فحص صيغة كل ملفات JS/CJS + سكربتات index.html المضمّنة + الأصول المحلية
 ```
 
 > بدون `BOT_TOKEN` يعمل وضع الضيف تلقائياً محلياً. **لا تفعّل `ALLOW_GUEST_AUTH` في الإنتاج أبداً.**

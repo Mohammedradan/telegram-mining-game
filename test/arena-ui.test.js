@@ -7,7 +7,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 const R = require('../public/arena-rules');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(__dirname, '..', 'public', 'arena-client.js'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
 const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
 const script = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map((m) => {
   const src = /\bsrc="([^"]+)"/.exec(m[1]);
@@ -86,6 +88,7 @@ function boot() {
     const u = String(url);
     if (u.startsWith('/api/me')) return { ok: true, status: 200, json: async () => me };
     if (u.startsWith('/api/ops')) return { ok: true, status: 200, json: async () => ({ ok: true, accepted: [], revision: 3, serverSeq: 0, state: me.state }) };
+    if (u.startsWith('/api/arena-leaderboard')) return { ok: true, status: 200, json: async () => ({ leaderboard: [{ rank: 1, name: 'Arena Champion', wins: 3, losses: 0, draws: 1 }] }) };
     // تذكرة جولة صالحة: تسمح باختبار حالة «جولة جارية» ومنطق التخلّي عنها
     if (u.startsWith('/api/platform/start')) return { ok: true, status: 200, json: async () => ({
       id: 'run-probe', version: require('../public/platform-rules').VERSION, seed: 4242,
@@ -162,6 +165,11 @@ test('arena lobby: showcase reward and record use arena data, and leaders come f
   assert.match(html, /txt\('ar-showcase-losses', String\(m\.record\.losses\)\)/);
   assert.match(html, /renderArenaShowcaseLeaders\(leaderboard\)/);
   assert.match(html, /for \(const row of leaderboard\.slice\(0, 3\)\)/);
+  assert.match(html, /api\('\/api\/arena-leaderboard'\)/, 'the arena panel uses its own persistent duel ranking');
+  assert.match(html, /id="arena-leaderboard-list"/, 'the full arena ranking has a dedicated leaderboard section');
+  assert.match(html, /row\.wins\} فوز · \$\{row\.losses\} خسارة · \$\{row\.draws\} تعادل/);
+  const showcaseRenderer = html.slice(html.indexOf('function renderArenaShowcaseLeaders'), html.indexOf('function renderArenaLeaderboardList'));
+  assert.doesNotMatch(showcaseRenderer, /row\.totalEarned|row\.level/, 'the arena showcase never presents gold rankings as duel results');
   assert.match(html, /renderArenaShowcaseLeaders\(\[\], true\)/, 'server failures are shown, not replaced with sample ranks');
 });
 
@@ -341,12 +349,12 @@ test('arena UI: abandoning a stale mining run is safe and never drops a result w
 
 test('controls: touch buttons follow the device — shown on phones/tablets, hidden on desktop, with a manual override', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform.css'), 'utf8');
-  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const controls = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-control-settings.js'), 'utf8');
   // الجهاز الخشن (لمس) يُظهر اللوحة، والمؤشر الدقيق (كمبيوتر) يُخفيها تلقائيًا
-  assert.match(game, /touchPad: 'auto'/, 'the default follows the device');
-  assert.match(game, /matchMedia\('\(pointer: coarse\)'\)/, 'coarse pointers (phones/tablets) are detected');
-  assert.match(game, /maxTouchPoints/, 'and touch-only devices are detected even without media queries');
-  assert.match(game, /const TOUCH_ORDER = \['auto', 'show', 'hide'\]/, 'the manual override is three-state');
+  assert.match(controls, /touchPad: 'auto'/, 'the default follows the device');
+  assert.match(controls, /matchMedia\('\(pointer: coarse\)'\)/, 'coarse pointers (phones/tablets) are detected');
+  assert.match(controls, /maxTouchPoints/, 'and touch-only devices are detected even without media queries');
+  assert.match(controls, /const TOUCH_ORDER = \['auto', 'show', 'hide'\]/, 'the manual override is three-state');
   assert.match(css, /\.mine-controls\.touch-hidden \.virtual-joystick\{display:none\}/);
   assert.match(css, /\.mine-controls\.touch-hidden \.action-btn:not\(\.pause-btn\)\{display:none\}/, 'the pause button stays reachable on desktop');
   // ولا قاعدة قديمة تُخفي العصا على الشاشات العريضة
@@ -365,20 +373,20 @@ test('boot: opening the app never starts a run or spends anything (no auto-play)
   assert.equal(game.busy().running, false, 'no run starts on boot');
   assert.equal(game.busy().pending, false, 'and nothing is submitted on boot');
   // المسرح الاستعراضي في الساحة هو الوحيد الذي يتحرك تلقائيًا
-  const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
-  assert.match(src, /function arenaFrame/, 'the arena preview has its own loop');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-arena-preview.js'), 'utf8');
+  assert.match(src, /function frame\(now\)/, 'the arena preview has its own loop');
   assert.doesNotMatch(src, /function startArenaPreviewTab|autoStart/, 'there is no auto-start path');
 });
 
 test('arena preview: the demo shows the real moveset — jump, guard and dodge — not just walking', () => {
-  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /rival\.attack === 'pound'\) mask \|= R\.INPUT\.JUMP/, 'jumps the unblockable ground slam');
-  assert.match(game, /rival\.attack === 'sweep'\) mask \|= R\.INPUT\.DEFEND/, 'guards the blockable sweep');
-  assert.match(game, /rival\.attack === 'charge'[\s\S]{0,80}R\.INPUT\.DODGE/, 'dodges the charge');
+  const preview = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-arena-preview.js'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(preview, /rival\.attack === 'pound'\) mask \|= rules\.INPUT\.JUMP/, 'jumps the unblockable ground slam');
+  assert.match(preview, /rival\.attack === 'sweep'\) mask \|= rules\.INPUT\.DEFEND/, 'guards the blockable sweep');
+  assert.match(preview, /rival\.attack === 'charge'[\s\S]{0,80}rules\.INPUT\.DODGE/, 'dodges the charge');
 });
 
 test('a duel ends with a duel summary: rival HP, hearts and blocks — not rocks, gems or the fork', () => {
-  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(game, /const duelRun = mode === 'duel'/, 'the summary branches on the run mode');
   assert.match(game, /titleEl\.textContent = duelRun \? 'ملخص المبارزة'/, 'the card is titled as a duel summary');
   assert.match(game, /summaryRow\('صحة الخصم'/, 'rival HP is the first real row');
@@ -405,38 +413,43 @@ test('finishing a duel speaks about the duel — its own title, lead and button 
 test('arena fight HUD: hearts, a trailing damage bar and a live combo popup', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
   const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
+  const fx = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-arena-fx.js'), 'utf8');
+  const hud = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-duel-hud.js'), 'utf8');
   assert.match(html, /<i class="as-hp"><s id="arena-ghost-hero"><\/s><b id="arena-hp-hero">/, 'the hero bar has a trailing ghost layer');
   assert.match(html, /<i class="as-hp rival"><s id="arena-ghost-rival"><\/s><b id="arena-hp-rival">/, 'and so does the rival bar');
   assert.match(html, /\.as-hp s \{[^}]*transition: width \.6s/, 'the ghost lags behind so the hit reads');
   assert.match(html, /id="arena-hearts-hero"/, 'the fighter hearts are shown on the stage');
-  assert.match(game, /ghostHero\.style\.width = `\$\{heroPct\}%`/, 'the ghost bar follows the same value');
+  assert.match(hud, /ghostHero\.style\.width = `\$\{heroPct\}%`/, 'the ghost bar follows the same value');
   // القلوب عناصر حقيقية تُبنى من المحاكاة (نقاط مصغّرة في الطابق C، لا نص ♥)
-  assert.match(game, /function duelHeartsPips\(box, hearts, max\)[\s\S]{0,220}?createElement\('span'\)[\s\S]{0,120}?classList\.add\('on'\)/, 'hearts are real elements driven by player.hearts');
-  assert.match(game, /duelHeartsPips\(heartsBox, p\.hearts, max\)/, 'the pips read the simulation hearts');
-  assert.match(game, /text: `×\$\{combo\}/, 'the combo is announced on the fighter');
+  assert.match(hud, /function heartsPips\(box, hearts, max\)[\s\S]{0,220}?createElement\('span'\)[\s\S]{0,120}?classList\.add\('on'\)/, 'hearts are real elements driven by player.hearts');
+  assert.match(hud, /heartsPips\(heartsBox, p\.hearts, max\)/, 'the pips read the simulation hearts');
+  assert.match(fx, /text: `×\$\{combo\}/, 'the combo is announced on the fighter');
 });
 
 test('a landing hit freezes the frame briefly and the verdict banner marks the finish', () => {
-  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /if \(duelFreeze > 0\) \{[\s\S]{0,400}?duelFreeze--; duelAcc -= R\.DT; continue;/, 'hit-stop skips simulation frames without shifting the clock');
-  assert.match(game, /duelFreeze = Math\.max\(duelFreeze, ev\.damage >= 2 \? 4 : 2\)/, 'heavier hits freeze longer');
-  assert.match(game, /function duelVerdict\(won, rival\)/, 'a verdict banner is drawn on the stage');
-  assert.match(game, /title\.textContent = won \? 'انتصار' : 'سقوط'/, 'it says win or loss');
-  assert.match(game, /duelVerdictHide\(\);[\s\S]{0,120}duelStatusLine/, 'and it is cleared when the fight ends');
+  const duel = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-duel.js'), 'utf8');
+  assert.match(duel, /if \(duelFreeze > 0\) \{[\s\S]{0,400}?duelFreeze--; duelAcc -= R\.DT; continue;/, 'hit-stop skips simulation frames without shifting the clock');
+  assert.match(duel, /duelFreeze = Math\.max\(duelFreeze, ev\.damage >= 2 \? 4 : 2\)/, 'heavier hits freeze longer');
+  assert.match(duel, /function duelVerdict\(won, rival\)/, 'a verdict banner is drawn on the stage');
+  assert.match(duel, /title\.textContent = won \? 'انتصار' : 'سقوط'/, 'it says win or loss');
+  assert.match(duel, /duelVerdictHide\(\);[\s\S]{0,120}duelStatusLine/, 'and it is cleared when the fight ends');
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '..', 'public', 'app-shell.css'), 'utf8');
   assert.match(html, /id="arena-ko"[^>]*aria-live="assertive"/, 'the banner is announced to screen readers');
   assert.match(html, /\.arena-ko\.loss b/, 'and turns red on a loss');
 });
 
 test('the arena stage shows real combat feedback: hit sparks, damage numbers and impact shake', () => {
-  const game = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /function arenaFx\(\)/, 'there is an effects pass over the simulation events');
-  assert.match(game, /arenaFloaters\.push\(\{[^}]*text: strong \? `-\$\{ev\.damage\}`/, 'landed hits print their damage');
-  assert.match(game, /color: strong \? \(i % 2 \? '#ffd166' : '#fff3c9'\)/, 'hits throw warm sparks');
-  assert.match(game, /'صدّ'/, 'a blocked hit reports a block instead of damage');
-  assert.match(game, /arenaShake = Math\.max\(arenaShake, 0\.7\)/, 'taking a hit shakes the stage');
-  assert.match(game, /particles: arenaParticles, floaters: arenaFloaters, shake: arenaShake/, 'effects reach the renderer');
-  assert.match(game, /arenaTick2\(\);\n\s*arenaDraw\(\);/, 'they are advanced before every drawn frame');
+  const duel = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-duel.js'), 'utf8').replace(/\r\n/g, '\n');
+  const fx = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-arena-fx.js'), 'utf8').replace(/\r\n/g, '\n');
+  const preview = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-arena-preview.js'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(fx, /function collectFx\(fromSim, withSound = false\)/, 'there is an effects pass over the simulation events');
+  assert.match(fx, /arenaFloaters\.push\(\{[^}]*text: strong \? `-\$\{ev\.damage\}`/, 'landed hits print their damage');
+  assert.match(fx, /color: strong \? \(i % 2 \? '#ffd166' : '#fff3c9'\)/, 'hits throw warm sparks');
+  assert.match(fx, /'صدّ'/, 'a blocked hit reports a block instead of damage');
+  assert.match(fx, /arenaShake = Math\.max\(arenaShake, 0\.7\)/, 'taking a hit shakes the stage');
+  assert.match(preview, /particles: fx\.particles, floaters: fx\.floaters, shake: fx\.shake/, 'preview effects reach the renderer');
+  assert.match(preview, /tickEffects\(\);\n\s*draw\(\);/, 'they are advanced before every drawn frame');
+  assert.match(duel, /\.\.\.arenaFx\.effects\(\)/, 'live duel effects reach the renderer');
 });
 
 test('arena stage HUD: both fighters get equal-width health bars and untruncated names', () => {

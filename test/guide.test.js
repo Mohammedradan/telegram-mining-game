@@ -11,6 +11,7 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const G = require('../public/guide.js');
 const R = require('../public/platform-rules.js');
 const html = read('public', 'index.html');
+const workshop = read('public', 'mine-workshop.js');
 const EMOJI = /\p{Extended_Pictographic}/u;
 
 const ALL = R.EQUIPMENT_ORDER;
@@ -261,7 +262,7 @@ test('codex: gear — all eight items in workshop order, with the real effect no
 });
 
 test('codex: the danger lines are the same words the mines map uses', () => {
-  const m = /const WORLD_DANGER = (\{[^}]*\});/.exec(html);
+  const m = /const WORLD_DANGER = (\{[^}]*\});/.exec(workshop);
   assert.ok(m, 'the map still defines WORLD_DANGER');
   assert.deepEqual({ ...vm.runInNewContext(`(${m[1]})`) }, { ...G.DANGER }, 'one wording in both places');
   assert.deepEqual(Object.keys(G.DANGER), R.MINES.map((x) => x.id), 'every mine has a danger line');
@@ -552,7 +553,9 @@ test('wiring: markup, styles, script order and the hooks in the page', () => {
   const overlayHtml = /<div id="platform-overlay" class="mine-overlay">[\s\S]*?<button id="platform-resume"[^>]*>[^<]*<\/button>\s*<\/div>/.exec(html)[0];
   assert.ok(overlayHtml.indexOf('id="open-guide"') > 0 && overlayHtml.indexOf('id="open-guide"') < overlayHtml.indexOf('overlay-kicker'), 'the first child of the round overlay');
   assert.ok(!/<div class="overlay-row">[\s\S]*?<\/div>/.exec(html)[0].includes('open-guide'), 'and not a member of the button row');
-  assert.ok(JSON.parse(read('package.json')).scripts.build.includes('node --check public/guide.js'), 'the build syntax-checks it');
+  // الفحص الشامل في scripts/check-build.cjs يغطي public/guide.js (لم تعد package.json تُعدّد الملفات بالاسم)
+  assert.equal(JSON.parse(read('package.json')).scripts.build, 'node scripts/check-build.cjs', 'the build runs the full-tree syntax check');
+  assert.match(read('scripts', 'check-build.cjs'), /for \(const dir of \['', 'public', 'lib', 'scripts'\]\)/, 'the build syntax-checks it');
   const css = read('public', 'guide.css');
   for (const sel of ['.guide-overlay', '.gd-tab.active', '.gd-bubble', '.gd-chapter-row.fresh', '.guide-dot', '.guide-entry[data-news="1"]']) assert.ok(css.includes(sel), sel);
   const entry = /\.mine-overlay \.guide-entry \{[^}]*\}/.exec(css)[0];

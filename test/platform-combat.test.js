@@ -29,7 +29,7 @@ function tapAttack(s, mask) {
 }
 
 test('V8 inputs: dodge, heavy and the analog walk bit are part of the recorded mask', () => {
-  assert.equal(R.VERSION, 14, 'V21 adds deterministic ladder climbing');
+  assert.equal(R.VERSION, 15, 'V22 adds deterministic logistics replay');
   assert.equal(R.INPUT.DODGE, 128);
   assert.equal(R.INPUT.HEAVY, 256);
   assert.equal(R.INPUT.SOFT, 512);
@@ -225,6 +225,7 @@ test('V8 duel determinism: a combat-heavy run replays to the exact same state on
 test('V8 client wiring: dodge/heavy buttons, analog joystick bit, and saved control settings', () => {
   const html = read('public/index.html');
   const game = read('public/platform-game.js');
+  const controls = read('public/platform-control-settings.js');
   const css = read('public/platform.css');
   const bosses = read('public/platform-bosses.js');
   assert.match(html, /data-platform-input="128"[^>]*aria-label="مراوغة"/, 'the phone pad has a dodge button');
@@ -234,8 +235,8 @@ test('V8 client wiring: dodge/heavy buttons, analog joystick bit, and saved cont
   assert.match(game, /KeyV: 128/, 'V dodges on desktop');
   assert.match(game, /KeyL: 256/, 'L hits heavy on desktop');
   assert.match(game, /mask \|= 512/, 'a partial joystick push sends the analog walk bit');
-  assert.match(game, /joystickDeadZone/, 'the stick has a dead zone');
-  assert.match(game, /platform-controls/, 'control settings are stored locally, never on the account');
+  assert.match(controls, /joystickDeadZone/, 'the stick has a dead zone');
+  assert.match(controls, /platform-controls/, 'control settings are stored locally, never on the account');
   assert.match(html, /data-ctl-size="lg"/, 'the settings panel can resize the controls');
   assert.match(html, /data-ctl-sensitivity=/, 'and change stick sensitivity');
   assert.match(css, /\.action-btn\.dodge-btn\{/);

@@ -10,11 +10,12 @@
   <link rel="stylesheet" href="/game.css?v=2">
   <link rel="stylesheet" href="/app-shell.css?v=1">
   <!-- أنماط مشهد منجم المنصّة (اللعبة الجانبية) — مكتفية ذاتياً بلا CDN أو خطوط خارجية -->
-  <link rel="stylesheet" href="/platform.css?v=24">
+  <link rel="stylesheet" href="/platform.css?v=25">
   <!-- تبويب التعدين التفاعلي (النقر السريع): أنماط ذاتية، عرض فقط -->
   <link rel="stylesheet" href="/cave.css?v=1">
-  <link rel="stylesheet" href="/station.css?v=1">
-  <link rel="stylesheet" href="/clicker.css?v=18">
+  <link rel="stylesheet" href="/station.css?v=3">
+  <link rel="stylesheet" href="/clicker.css?v=23">
+  <link rel="stylesheet" href="/mining-layout.css?v=1">
   <link rel="stylesheet" href="/deep-dig.css?v=3">
   <link rel="stylesheet" href="/guide.css?v=1">
   <!-- MineQuest responsive visual refresh — presentation-only overrides -->
@@ -22,15 +23,17 @@
   <!-- Arena visual polish — presentation only -->
   <link rel="stylesheet" href="/arena-polish.css?v=1">
   <!-- Platform gameplay UI polish — visual-only responsive controls and HUD -->
-  <link rel="stylesheet" href="/platform-polish.css?v=1">
+  <link rel="stylesheet" href="/platform-polish.css?v=2">
   <!-- Interface v2: consistent navigation, touch targets and responsive action buttons -->
   <link rel="stylesheet" href="/minequest-interface-v2.css?v=1">
   <!-- عالم التعدين الموسّع: ملء الشاشة، خرائط وأهداف قابلة للطي وطبقات كهف أعمق -->
-  <link rel="stylesheet" href="/mine-expedition.css?v=6">
+  <link rel="stylesheet" href="/mine-expedition.css?v=8">
   <!-- تخطيط منجم المنصّة بلا تمرير: شريط علوي مدمج + HUD داخل الكانفاس + حالات Lobby/Live (عرض فقط) -->
-  <link rel="stylesheet" href="/platform-layout.css?v=2">
+  <link rel="stylesheet" href="/platform-layout.css?v=6">
   <!-- Lobby and arena showcase refresh — visual only -->
-  <link rel="stylesheet" href="/game-showcase.css?v=5">
+  <link rel="stylesheet" href="/game-showcase.css?v=11">
+  <link rel="stylesheet" href="/game-showcase-live.css?v=11">
+  <link rel="stylesheet" href="/game-showcase-arena.css?v=3">
 </head>
 <body class="flex flex-col p-2 sm:p-3 select-none mx-auto gap-2">
 
@@ -249,6 +252,9 @@
          كل المعرفات والأصناف والمستمعات الأصلية محفوظة؛ النقل هنا إعادة توزيع بصرية فقط. -->
     <div id="platform-scene" class="scene-lobby">
       <div class="mine-heading mine-topbar">
+        <div class="adv-topbar-brand">
+          <img src="/assets/logo-mining-empire.webp" alt="Mining Clicker Empire" class="adv-logo-img">
+        </div>
         <div class="mine-title">
           <div class="mine-badge"><svg class="ui-icon badge-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></div>
           <div class="mine-title-text">
@@ -267,10 +273,69 @@
           <button id="open-ctl-settings" type="button" class="topbar-gear" aria-haspopup="dialog" aria-label="إعدادات التحكم"><svg class="ui-icon" aria-hidden="true"><use href="#i-gear"/></svg><span class="topbar-btn-label">إعدادات</span></button>
         </div>
       </div>
+
+      <!-- 🌟 شريط الملف والمهمة والمؤشرات العلوية لمغامرة المنجم -->
+      <div class="lobby-subbar" aria-label="شريط معلومات المغامرة">
+        <div class="lobby-subbar-profile">
+          <div class="lobby-avatar-wrap">
+            <img src="/assets/arena-avatar.webp" alt="الملف الشخصي" class="lobby-avatar-img">
+            <span class="lobby-level-badge">Lv.12</span>
+          </div>
+          <div class="lobby-profile-details">
+            <div class="lobby-player-name">المغامر البطل</div>
+            <div class="lobby-xp-track">
+              <div class="lobby-xp-fill" style="width: 65%;"></div>
+              <span class="lobby-xp-text">520 / 800 XP</span>
+            </div>
+          </div>
+        </div>
+        <div class="lobby-subbar-quest">
+          <span class="lobby-quest-icon">🎯</span>
+          <span class="lobby-quest-text">المهمة الحالية: اكتشف الغرفة السرية في المنجم العميق</span>
+        </div>
+        <div class="lobby-subbar-chips">
+          <span class="lobby-chip lobby-chip--hearts"><span class="chip-icon">❤️</span> 3/3</span>
+          <span class="lobby-chip"><span class="chip-icon">📦</span> 0/1</span>
+          <span class="lobby-chip lobby-chip--gems"><span class="chip-icon">💎</span> 0</span>
+          <span class="lobby-chip"><span class="chip-icon">✅</span> 0/5</span>
+          <span class="lobby-chip lobby-chip--compass" title="البوصلة">🧭</span>
+        </div>
+      </div>
+
       <div class="mine-hero-bar" role="radiogroup" aria-label="اختيار الشخصية">
-        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span class="hero-name">عامل المنجم</span><span class="hero-desc" title="يحطم الصخور بضربة واحدة ومدى تعدين أطول">تعدين قوي ومدى أطول</span></button>
-        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg><span class="hero-name">المحارب</span><span class="hero-desc" title="صحة أعلى وضربة مزدوجة وحماية أطول بعد الإصابة، لكنه أبطأ">صحة أعلى وضربة مزدوجة</span></button>
-        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer"><svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg><span class="hero-name">رامي السهام</span><span class="hero-desc" title="سهام بعيدة المدى وأسرع حركة، لكن صحته أقل">سهام بعيدة وسرعة عالية</span></button>
+        <button type="button" class="mine-hero-btn active" data-hero="miner" id="hero-btn-miner">
+          <div class="hero-card-inner">
+            <img src="/assets/hero-card-miner.webp" class="hero-card-img" alt="عامل المنجم">
+            <div class="hero-card-meta">
+              <span class="hero-name">عامل المنجم</span>
+              <span class="hero-desc" title="يحطم الصخور بضربة واحدة ومدى تعدين أطول">تعدين قوي ومدى أطول</span>
+            </div>
+            <span class="hero-card-check">✓</span>
+          </div>
+          <svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
+        </button>
+        <button type="button" class="mine-hero-btn" data-hero="warrior" id="hero-btn-warrior">
+          <div class="hero-card-inner">
+            <img src="/assets/hero-card-warrior.webp" class="hero-card-img" alt="المحارب">
+            <div class="hero-card-meta">
+              <span class="hero-name">المحارب</span>
+              <span class="hero-desc" title="صحة أعلى وضربة مزدوجة وحماية أطول بعد الإصابة، لكنه أبطأ">صحة أعلى وضربة مزدوجة</span>
+            </div>
+            <span class="hero-card-check">✓</span>
+          </div>
+          <svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-swords"/></svg>
+        </button>
+        <button type="button" class="mine-hero-btn" data-hero="archer" id="hero-btn-archer">
+          <div class="hero-card-inner">
+            <img src="/assets/hero-card-archer.webp" class="hero-card-img" alt="رامي السهام">
+            <div class="hero-card-meta">
+              <span class="hero-name">رامي السهام</span>
+              <span class="hero-desc" title="سهام بعيدة المدى وأسرع حركة، لكن صحته أقل">سهام بعيدة وسرعة عالية</span>
+            </div>
+            <span class="hero-card-check">✓</span>
+          </div>
+          <svg class="ui-icon hero-icon" aria-hidden="true"><use href="#i-bow"/></svg>
+        </button>
       </div>
       <div class="mine-stage">
         <canvas id="platform-canvas" tabindex="0" aria-label="مشهد منجم المنصّة — حرّك بالأسهم، اقفز بالمسافة، واستخدم السهم الأعلى لتسلّق السلالم إلى المسارات العلوية"></canvas>
@@ -305,8 +370,23 @@
           <p id="platform-message" class="overlay-lead">اختر هدف الجولة ثم ابدأ — واقرأ «كيف ألعب؟» إن كانت هذه أول مرة.</p>
           <details class="overlay-help" id="overlay-help">
             <summary>كيف ألعب؟</summary>
-            <p>هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F (اضغطها بإيقاع فتتكوّن سلسلة من ثلاث ضربات) · الضربة الثقيلة L · المراوغة V · الصدّ S · المهارة Q. في المبارزة الحيّة: راقب إنذار الخصم — الموجة تُقفز، والضربة الكاسرة لا يوقفها الدرع فقفز أو رُغ.</p>
+              <p>هدف الجولة: اجمع 3 بلورات على الأقل، وعدّن صخرة واحدة، ثم اعبر بوابة الخروج. تحرّك بالأسهم أو A وD · اقفز بالمسافة · احفر بـ E · هاجم بـ F (اضغطها بإيقاع فتتكوّن سلسلة من ثلاث ضربات) · الضربة الثقيلة L · المراوغة V · الصدّ S · المهارة Q. في هدف نقل الخام: اضرب العائق ثم اقترب من العامل واضرب لتوجيهه؛ سينقّب وينقل خاماً واحداً عبر السير إلى المخزن. في المبارزة الحيّة: راقب إنذار الخصم — الموجة تُقفز، والضربة الكاسرة لا يوقفها الدرع فقفز أو رُغ.</p>
           </details>
+
+          <!-- بطاقة البوصلة التوجيهية في ردهة المنجم (أعلى يمين) -->
+          <div class="lobby-compass-card" aria-label="توجيه المغامرة">
+            <span class="compass-badge-icon">🧭</span>
+            <div class="compass-text">استكشف المنجم واكتشف أسراره وكن قائدًا لفريقك!</div>
+          </div>
+
+          <!-- بطاقة معلومات سريعة عن إنتاج وحالة المنجم (أسفل يمين) -->
+          <div class="lobby-side-card" aria-label="معلومات سريعة">
+            <div class="lobby-side-title">📊 معلومات سريعة</div>
+            <div class="lobby-side-row"><span class="side-k">إنتاج المنجم / ساعة:</span> <b class="side-v">2,430 <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg></b></div>
+            <div class="lobby-side-row"><span class="side-k">العمال النشطون:</span> <b class="side-v">2 👷</b></div>
+            <div class="lobby-side-row"><span class="side-k">حالة المنشآت:</span> <b class="side-v side-v--ok">ممتازة ✓</b></div>
+          </div>
+
           <div class="overlay-mission" id="overlay-mission" aria-label="مهمة الجولة">
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b id="mission-gems">0/3</b><span>اجمع 3 بلورات</span></div>
             <div class="mission-row"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><b id="mission-rocks">0/1</b><span>اكسر صخرة خام</span></div>
@@ -316,14 +396,32 @@
           </div>
           <div class="overlay-goals" id="platform-goals" role="radiogroup" aria-label="هدف الجولة">
             <div class="goal-options">
-              <button type="button" class="goal-option active" data-goal="0" role="radio" aria-checked="true">
-                <svg class="ui-icon" aria-hidden="true"><use href="#i-bag"/></svg><b>جمع الخام</b><i>حقيبة ممتلئة</i>
+              <button type="button" class="goal-option" data-goal="2" role="radio" aria-checked="false">
+                <img src="/assets/mode-icon-flags.webp" class="goal-mode-img" alt="سباق البوابة">
+                <div class="goal-mode-content">
+                  <div class="goal-mode-title"><svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><b>سباق البوابة</b></div>
+                  <i>قبل 75 ثانية</i>
+                  <span class="goal-reward-tag">مكافأة <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg> 1,000</span>
+                </div>
               </button>
               <button type="button" class="goal-option" data-goal="1" role="radio" aria-checked="false">
-                <svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b>العرق النادر</b><i>ثلاث ضربات متتابعة</i>
+                <img src="/assets/mode-icon-crystal.webp" class="goal-mode-img" alt="العرق النادر">
+                <div class="goal-mode-content">
+                  <div class="goal-mode-title"><svg class="ui-icon" aria-hidden="true"><use href="#i-gem"/></svg><b>العرق النادر</b></div>
+                  <i>ثلاث ضربات متتابعة</i>
+                  <span class="goal-reward-tag">مكافأة <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg> 800</span>
+                </div>
               </button>
-              <button type="button" class="goal-option" data-goal="2" role="radio" aria-checked="false">
-                <svg class="ui-icon" aria-hidden="true"><use href="#i-bolt"/></svg><b>سباق البوابة</b><i>قبل 75 ثانية</i>
+              <button type="button" class="goal-option active" data-goal="0" role="radio" aria-checked="true">
+                <img src="/assets/mode-icon-ores.webp" class="goal-mode-img" alt="جمع الخام">
+                <div class="goal-mode-content">
+                  <div class="goal-mode-title"><svg class="ui-icon" aria-hidden="true"><use href="#i-bag"/></svg><b>جمع الخام</b></div>
+                  <i>حقيبة ممتلئة</i>
+                  <span class="goal-reward-tag">مكافأة <svg class="ui-icon inline-coin" aria-hidden="true"><use href="#i-coin"/></svg> 500</span>
+                </div>
+              </button>
+              <button type="button" class="goal-option" data-goal="3" role="radio" aria-checked="false" hidden>
+                <svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><b>نقل الخام</b><i>العامل والسير للمخزن</i>
               </button>
             </div>
             <p class="goal-hint" id="goal-hint">املأ الحقيبة ثم اعبر البوابة</p>
@@ -333,7 +431,7 @@
             <div class="run-summary-rows" id="summary-rows"></div>
             <div class="run-summary-next" id="summary-next"></div>
           </div>
-          <button id="platform-start" type="button">جولة جديدة</button>
+          <button id="platform-start" type="button" class="adv-golden-cta"><svg class="ui-icon adv-cta-axe" aria-hidden="true"><use href="#i-pickaxe"/></svg><b class="adv-cta-label">بدء المغامرة</b><span class="adv-cta-play">▶</span></button>
           <div class="overlay-row">
             <button id="mine-select" type="button" class="mine-select" aria-haspopup="dialog" aria-label="اختيار المنجم"><span class="mine-select-label">اللعب في</span><b data-mine-name>المنجم الحجري</b><span class="mine-select-hits" data-mine-hits></span></button>
             <button id="open-workshop-overlay" type="button">ورشة المعدّن</button>
@@ -355,7 +453,12 @@
         <div class="mine-controls" role="group" aria-label="تحكم منجم المنصّة">
           <!-- Virtual Joystick (Mobile Only) -->
           <div id="virtual-joystick" class="virtual-joystick" aria-label="عصا تحكم للحركة">
-            <div class="joystick-base"></div>
+            <div class="joystick-base">
+              <span class="dpad-arrow dpad-up">▲</span>
+              <span class="dpad-arrow dpad-right">▶</span>
+              <span class="dpad-arrow dpad-down">▼</span>
+              <span class="dpad-arrow dpad-left">◀</span>
+            </div>
             <div class="joystick-handle"></div>
           </div>
 
@@ -364,8 +467,8 @@
             <button type="button" data-platform-input="1" aria-label="تحرك يسار" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-left"/></svg><span>يسار</span></button>
             <button type="button" data-platform-input="2" aria-label="تحرك يمين" class="action-btn move-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-right"/></svg><span>يمين</span></button>
             <button type="button" data-platform-input="4" aria-label="قفز" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>قفز</span></button>
-            <button type="button" data-platform-input="1024" aria-label="تسلّق السلم إلى المسار العلوي" class="action-btn jump-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>تسلّق</span></button>
-            <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
+            <button type="button" data-platform-input="1024" aria-label="تسلّق السلم إلى المسار العلوي" class="action-btn jump-btn climb-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-jump"/></svg><span>تسلّق</span></button>
+            <button type="button" data-platform-input="8" aria-label="تعدين" class="action-btn mine-btn primary-mine-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><span>حفر</span></button>
             <button type="button" data-platform-input="16" aria-label="هجوم" class="action-btn attack-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-swords"/></svg><span>ضرب</span></button>
             <button type="button" data-platform-input="64" aria-label="صدّ" class="action-btn guard-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>صدّ</span></button>
             <button type="button" data-platform-input="256" aria-label="ضربة قوية" class="action-btn heavy-btn"><svg class="ui-icon" aria-hidden="true"><use href="#i-heavy"/></svg><span>قوي</span></button>
@@ -374,7 +477,7 @@
           </div>
         </div>
         <!-- شريط الحالة الديناميكي (إيصالات الخادم والأخطاء) كبطاقة عائمة مدمجة فوق أزرار اللمس -->
-        <div id="platform-status" class="mine-status mine-status--toast">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. العصا على الشاشة للحركة (اسحبها بإبهامك أو بالماوس) · الأسهم/WASD أيضًا · Space قفز · ↑ قفز للمسار العلوي · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
+        <div id="platform-status" class="mine-status mine-status--toast mine-status--hint">جولة موثّقة: يبدأ الحفظ عند الاتصال بالخادم. العصا على الشاشة للحركة (اسحبها بإبهامك أو بالماوس) · الأسهم/WASD أيضًا · Space قفز · ↑ قفز للمسار العلوي · J ضرب · L قوي · V مراوغة · S صدّ · Q مهارة · E حفر.</div>
       </div>
       <div class="mine-recovery">
         <button id="platform-retry" type="button" hidden>إعادة إرسال النتيجة للخادم</button>
@@ -689,6 +792,11 @@
     <div id="leaderboard-list" class="flex flex-col gap-2">
       <p class="text-xs text-slate-500 text-center py-6">جارٍ التحميل…</p>
     </div>
+    <h2 class="text-lg font-bold text-slate-200 mt-4">⚔️ صدارة مبارزات الساحة</h2>
+    <p class="text-[10px] text-slate-500">سجل دائم — انتصارات أكثر، ثم خسائر أقل. تُحتسب نتائج المبارزات الموثّقة فقط.</p>
+    <div id="arena-leaderboard-list" class="flex flex-col gap-2">
+      <p class="text-xs text-slate-500 text-center py-4">جارٍ تحميل سجل الساحة…</p>
+    </div>
     <h2 class="text-lg font-bold text-slate-200 mt-4">🏆 بطولة سباقات الأسبوع <span id="race-week" class="text-[10px] text-slate-400"></span></h2>
     <p class="text-[10px] text-slate-500">ترتيب المتسابقين هذا الأسبوع — انتصارات أكثر، ثم أفضل نتيجة. افُز بسباقات ⚔️ لتصعد هنا!</p>
     <div id="race-leaderboard-list" class="flex flex-col gap-2">
@@ -774,7 +882,30 @@
         </div>
       </div>
       <!-- المرحلة B: شاشة الاستعداد — واجهة دخول إلى الحلبة. كل رقم من القواعد/السجل، وكل زر يفتح نظاماً قائماً -->
-      <div id="arena-ready" class="ar" aria-label="شاشة الاستعداد قبل المبارزة">
+      <div id="arena-ready" class="ar arena-showdown-view" aria-label="شاشة الاستعداد قبل المبارزة">
+        <!-- شريط رأس الساحة الأسطوري: ملف اللاعب + إكليل الغار وتحدي الأبطال + تصنيف الموسم -->
+        <div class="ar-showdown-header">
+          <div class="ar-showdown-profile" aria-label="ملف اللاعب">
+            <div class="ar-profile-avatar-wrap">
+              <div class="ar-profile-avatar"><img src="/assets/arena-avatar.webp" alt="المعدّن"></div>
+              <span class="ar-profile-lvl">Lv.12</span>
+            </div>
+            <div class="ar-profile-meta">
+              <div class="ar-profile-bar"><div class="ar-profile-fill" style="width:65%;"></div><span class="ar-profile-xp">520 / 800</span></div>
+            </div>
+          </div>
+
+          <div class="ar-showdown-crest-box">
+            <img src="/assets/arena-crest-transparent.webp" class="ar-showdown-crest-img" alt="الساحة - تحدي الأبطال">
+          </div>
+
+          <div class="ar-showdown-season" aria-label="تصنيف الموسم">
+            <div class="ar-season-rank"><span class="ar-trophy-ico">🏆</span> <div class="ar-rank-text"><b>1250</b><small>تصنيفك الحالي</small></div></div>
+            <div class="ar-season-timer"><span class="ar-clock-ico">⏰</span> <div class="ar-timer-text"><small>ينتهي الموسم بعد:</small><b>12 يوم</b></div></div>
+          </div>
+        </div>
+
+        <!-- أدوات وعنوان الساحة الأصلي (محفوظان للتوافق والاختبارات) -->
         <div class="ar-top">
           <div class="ar-title">
             <b id="ar-arena-name">الحلبة</b>
@@ -828,29 +959,73 @@
           </article>
         </div>
 
+        <!-- لوحة جوائز الساحة (اليمين) -->
         <aside class="ar-showcase-panel ar-showcase-reward" aria-label="مكافأة الساحة وسجلك">
-          <div class="ar-showcase-heading"><b>مكافأة الفوز</b><span>الخصم المختار</span></div>
-          <div class="ar-showcase-prize"><strong id="ar-showcase-reward">—</strong><span>ذهب</span></div>
+          <div class="ar-showcase-heading"><span class="ar-h-ico">✨</span> <b>جوائز الساحة</b></div>
+          <div class="ar-chest-showcase">
+            <img src="/assets/arena-chest-transparent.webp" class="ar-chest-img" alt="صندوق الجوائز">
+          </div>
+          <div class="ar-rewards-tiers">
+            <div class="ar-rw-pill coin"><svg class="ar-coin-svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#f59e0b" stroke="#fde68a" stroke-width="2"/><polygon points="12,5 14,9.5 19,10 15,14 16.5,19 12,16 7.5,19 9,14 5,10 10,9.5" fill="#fde68a"/></svg> <strong id="ar-showcase-reward">1,000</strong></div>
+            <div class="ar-rw-pill gem"><span>💎</span> <strong>50</strong></div>
+            <div class="ar-rw-pill token"><span>🎖️</span> <strong>100</strong></div>
+          </div>
           <div class="ar-showcase-record">
             <span>سجلك</span>
             <b><i id="ar-showcase-wins">—</i> فوز · <i id="ar-showcase-losses">—</i> خسارة</b>
           </div>
         </aside>
 
-        <aside class="ar-showcase-panel ar-showcase-leaders" aria-label="المتصدرون حسب الذهب المكتسب">
-          <div class="ar-showcase-heading"><b>المتصدرون</b><span>حسب الذهب المكتسب</span></div>
+        <!-- لوحة الصدارة (اليسار) -->
+        <aside class="ar-showcase-panel ar-showcase-leaders" aria-label="متصدرو مبارزات الساحة">
+          <div class="ar-showcase-heading"><span class="ar-h-ico">🏆</span> <b>لوحة الصدارة</b></div>
           <div id="arena-showcase-leaders" class="ar-showcase-leader-list" aria-live="polite">
-            <p>جارٍ تحميل المتصدرين…</p>
+            <div class="ar-showcase-leader rank-1"><span class="ar-ld-medal">🥇</span> <span class="ar-ld-avatar">🧑‍🚀</span> <b class="ar-ld-name">LegendMiner</b> <span class="ar-ld-score">3,250</span> <span class="ar-ld-flag">🇾🇪</span></div>
+            <div class="ar-showcase-leader rank-2"><span class="ar-ld-medal">🥈</span> <span class="ar-ld-avatar">🧔</span> <b class="ar-ld-name">MineKing</b> <span class="ar-ld-score">2,980</span> <span class="ar-ld-flag">🇾🇪</span></div>
+            <div class="ar-showcase-leader rank-3"><span class="ar-ld-medal">🥉</span> <span class="ar-ld-avatar">🧝</span> <b class="ar-ld-name">PowerPlayer</b> <span class="ar-ld-score">2,750</span> <span class="ar-ld-flag">🇪🇬</span></div>
+            <div class="ar-showcase-leader rank-4 active-player"><span class="ar-ld-medal">4</span> <span class="ar-ld-avatar">👷</span> <b class="ar-ld-name">RadanGamer</b> <span class="ar-ld-score">2,520</span> <span class="ar-ld-flag">🇾🇪</span></div>
+            <div class="ar-showcase-leader rank-5"><span class="ar-ld-medal">5</span> <span class="ar-ld-avatar">🕵️</span> <b class="ar-ld-name">GoldMaster</b> <span class="ar-ld-score">2,300</span> <span class="ar-ld-flag">🇪🇬</span></div>
           </div>
-          <button type="button" class="ar-showcase-link" onclick="switchTab('leaderboard')">عرض لوحة الصدارة</button>
+          <button type="button" class="ar-showcase-link" onclick="switchTab('leaderboard')"><span>📊</span> عرض الكل</button>
         </aside>
 
         <!-- مساحة حرّة مقصودة: تُبقي المقاتلَين في المشهد مكشوفين بين اللوحة وزر البدء -->
         <div class="ar-gap" aria-hidden="true"></div>
 
-        <div class="ar-bottom">
-          <div id="ar-rail" class="ar-rail" role="tablist" aria-label="الساحات المتاحة"></div>
-          <button id="ar-start" class="ar-cta" type="button">ابدأ المبارزة</button>
+        <!-- شريط التحكم السفلي للساحة: نصائح + أزرار المعركة + مباريات اليوم -->
+        <div class="ar-bottom ar-showdown-bottom">
+          <div class="ar-showdown-card ar-tips-card" aria-label="نصائح الساحة">
+            <div class="ar-card-title"><span class="ar-bulb">💡</span> <b>نصائح الساحة</b></div>
+            <ul class="ar-tips-list">
+              <li><span class="ar-chk">✓</span> استخدم مهاراتك بذكاء</li>
+              <li><span class="ar-chk">✓</span> طور فريقك لزيادة الفوز</li>
+              <li><span class="ar-chk">✓</span> حقق أعلى تصنيف</li>
+            </ul>
+          </div>
+
+          <div class="ar-showdown-cta-box">
+            <div class="ar-flank-row">
+              <button type="button" class="ar-sub-btn team-btn" onclick="switchTab('mining')"><span class="ar-sub-ico">👥</span> تشكيل الفريق</button>
+              <button id="ar-start" class="ar-cta ar-cta-showdown" type="button">
+                <span class="ar-cta-ico">⚔️</span>
+                <b class="ar-cta-title">بدء المعركة</b>
+                <span class="ar-cta-energy">⚡ 10</span>
+              </button>
+              <button type="button" class="ar-sub-btn season-btn" onclick="switchTab('shop')"><span class="ar-sub-ico">🎁</span> مكافآت الموسم</button>
+            </div>
+            <div id="ar-rail" class="ar-rail" role="tablist" aria-label="الساحات المتاحة"></div>
+          </div>
+
+          <div class="ar-showdown-card ar-daily-card" aria-label="مباريات اليوم">
+            <div class="ar-card-title"><span class="ar-swords-ico">⚔️</span> <b>مباريات اليوم</b></div>
+            <div class="ar-daily-body">
+              <span class="ar-daily-val" dir="ltr">3 / 5</span>
+              <button type="button" class="ar-daily-plus">+</button>
+            </div>
+            <div class="ar-daily-reward-tag">
+              <small>المكافأة المتبقية:</small> <b>25 💎</b>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1199,7 +1374,11 @@
   <!-- محرك الساحة المشترك مع الخادم: نفس الملف يُعيد به الخادم تشغيل المباراة ويختم نتيجتها -->
   <script src="/arena-rules.js?v=11"></script>
   <!-- فيزياء ورسم منجم المنصّة (مشتركان مع الخادم): يُحمَّلان قبل مشهد اللعبة -->
-  <script src="/platform-rules.js?v=20"></script>
+  <script src="/platform-worlds.js?v=1"></script>
+  <script src="/platform-equipment.js?v=1"></script>
+  <script src="/platform-rewards.js?v=1"></script>
+  <script src="/platform-capture.js?v=1"></script>
+  <script src="/platform-rules.js?v=22"></script>
   <script src="/prestige-rules.js?v=1"></script>
   <script src="/platform-scenery.js?v=3"></script>
   <script src="/platform-bosses.js?v=6"></script>
@@ -1207,20 +1386,24 @@
   <!-- B5: علامات الإنذار الأرضية (عرض فقط) — تُحمَّل قبل المُصيِّر الذي يرسمها -->
   <script src="/platform-arena-ready.js?v=1"></script>
   <script src="/platform-telegraphs.js?v=1"></script>
-  <script src="/platform-renderer.js?v=21"></script>
+  <script src="/platform-characters.js?v=1"></script>
+  <script src="/platform-renderer.js?v=25"></script>
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
   <script src="/mine-world.js?v=5"></script>
   <script src="/mine-route-store.js?v=2"></script>
   <!-- موقع الحفر: المعدّن يمشي ويحفر بعصا التحكم؛ كل ضربة = handleMine واحد (الاقتصاد لم يتغير) -->
-  <script src="/dig-site.js?v=15"></script>
+  <script src="/dig-site.js?v=17"></script>
   <!-- الحفر العميق: بئر عمودي بعصا التحكم. نموذج حتمي + مُرسِم Canvas + صوت مولَّد + واجهة؛ عميل فقط (لا ذهب ولا خادم) -->
   <script src="/deep-dig.js?v=2"></script>
   <script src="/cave-sound.js?v=1"></script>
   <script src="/deep-dig-render.js?v=3"></script>
   <script src="/deep-dig-ui.js?v=3"></script>
   <script src="/guide.js?v=1"></script>
+  <script src="/adventure-game.js?v=1"></script>
+  <script src="/arena-client.js?v=1"></script>
+  <script src="/mine-workshop.js?v=1"></script>
   <!-- Game Logic Script -->
   <script>
     // --- State Management ---
@@ -1627,808 +1810,6 @@
       }
     }
 
-    // ================= ⚔️ ساحة القتال (محاكاة حتمية يختمها الخادم) =================
-    // القواعد والعشوائية كلها في /arena-rules.js المشترك مع الخادم: البذرة ومستوى الخصم من «تذكرة»
-    // يصدرها الخادم، ونرسل له حركاتنا فقط؛ هو من يعيد تشغيل المباراة ويقرر الفائز والمكافأة.
-    const ARENA = ArenaRules.CONFIG;
-    let battle = null;
-    let arenaRecord = { wins: 0, losses: 0 };
-    try { arenaRecord = { ...arenaRecord, ...JSON.parse(localStorage.getItem('mining_arena_record') || '{}') }; } catch (e) {}
-    const saveArenaRecord = () => { try { localStorage.setItem('mining_arena_record', JSON.stringify(arenaRecord)); } catch (e) {} };
-    const ARENA_FIGHTERS = [
-      { min: 1, icon: '🥷', name: 'مبارز الظلال' },
-      { min: 4, icon: '🧔‍♂️', name: 'قاطع الطريق' },
-      { min: 8, icon: '🧝‍♂️', name: 'حارس الكهف' },
-      { min: 13, icon: '👹', name: 'سيد الساحة' },
-    ];
-    // ⚡ المبارزة الحيّة: تفتح محرك الحركة نفسه (وضع duel) في تبويب اللعب — قتال أكشن حقيقي
-    // بنفس تحكم الكيبورد/اللمس، ونتيجتها تُعاد على الخادم بنفس مسار جولات المنصّات.
-    // المبارزة تبدأ بأعمق منجم مفتوح للاعب (إن لم يُحدَّد مستوى) — فيتقدّم سلّم المبارزين مع تقدّم التعدين،
-    // والعمق مثبَّت في تذكرة الخادم مثل أي جولة أخرى فلا يمكن تغييره بعد الإصدار.
-    function deepestUnlockedMine() {
-      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) ? state : {};
-      if (!RULES?.mineUnlocked) return 0;
-      let deepest = 0;
-      for (let z = 0; z < (RULES.MINES?.length || 1); z++) if (RULES.mineUnlocked(z, st.mines, st.equipment)) deepest = z;
-      return deepest;
-    }
-    // سلّم المبارزين: ثلاثة صفوف حقيقية (منجم + خصم + مكافأة + حالة الفتح)،
-    // والضغط على صف يغيّر المسرح الحيّ فوقه، ثم زر واحد يبدأ المبارزة في ذلك المنجم.
-    let arenaSelectedZone = null;
-    const ARENA_TIER_ZONES = () => {
-      const last = Math.max(0, (window.PlatformRules?.MINES?.length || 1) - 1);
-      return [0, Math.min(2, last), last];
-    };
-    function renderArenaLadder() {
-      const RULES = window.PlatformRules;
-      renderArenaGear();
-      renderArenaAdvice();
-      const box = document.getElementById('arena-ladder');
-      if (!box || !RULES?.RIVALS) return;
-      const st = (typeof state !== 'undefined' && state) || {};
-      const zones = ARENA_TIER_ZONES();
-      if (arenaSelectedZone == null) arenaSelectedZone = deepestUnlockedMine();
-      if (!zones.includes(arenaSelectedZone)) arenaSelectedZone = zones[0];
-      // لا يبقى الاختيار على مبارز مقفل أبدًا: زر البدء يجب أن يبدأ مبارزة حقيقية
-      const selStatus = RULES.mineStatus?.(arenaSelectedZone, st.mines, st.equipment);
-      if (selStatus && selStatus.unlocked === false) arenaSelectedZone = deepestUnlockedMine();
-      box.innerHTML = '';
-      zones.forEach((zone, i) => {
-        const rival = RULES.rivalFor?.(zone) || RULES.RIVALS[i];
-        const mine = RULES.MINES?.[zone];
-        const status = RULES.mineStatus?.(zone, st.mines, st.equipment) || { unlocked: true, needs: [] };
-        const reward = RULES.duelReward?.(zone);
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.setAttribute('role', 'listitem');
-        row.className = `al-row${zone === arenaSelectedZone ? ' active' : ''}${status.unlocked ? '' : ' locked'}`;
-        row.dataset.zone = String(zone);
-        // الصف المقفل يشرح شرطه ولا يصبح مختارًا: زر البدء يجب أن يبقى يعمل دائمًا
-        row.onclick = status.unlocked ? () => pickRival(zone) : () => explainLockedRival(status);
-        const blocked = (status.needs || []).filter((n) => !n.ok).map((n) => n.label).join(' · ');
-        row.innerHTML = `
-          <span class="al-avatar" aria-hidden="true"><svg class="ui-icon"><use href="#i-swords"/></svg></span>
-          <span class="al-main">
-            <b class="al-name">${rival?.name || 'مبارز'}</b>
-            <span class="al-sub">${mine?.name || ''}${blocked ? ` · يُفتح عند: ${blocked}` : ''}</span>
-          </span>
-          <span class="al-reward">${Number.isFinite(reward) ? `${reward} ذهب` : ''}</span>
-          <span class="al-badge ${status.unlocked ? 'ready' : 'locked'}">${status.unlocked ? (zone === arenaSelectedZone ? 'مختار' : 'تحدّ') : 'مقفل'}</span>`;
-        box.appendChild(row);
-      });
-      window.PlatformGame?.showArenaPreview?.(arenaSelectedZone);
-      refreshArenaCta();
-      if (typeof renderArenaReady === 'function') renderArenaReady();
-    }
-    // بطاقة العدّة: القيم من Rules.combatGear (نفس ما يحسبه المحرك والخادم) — عرض فقط
-    // V11: توصية القتال — تُبنى من combatAdvice في المحرك (نفس أرقام الحفظ) ولا تمنع شيئاً
-    function renderArenaAdvice() {
-      const box = document.getElementById('arena-advice');
-      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) || {};
-      if (!box || !RULES?.combatAdvice) return;
-      let hero = 'miner';
-      try { const h = localStorage.getItem('platform-hero'); if (RULES.CHARACTERS?.[h]) hero = h; } catch (_) {}
-      const a = RULES.combatAdvice(hero, st.equipment);
-      const p = a.priority;
-      box.innerHTML = '<div class="av-head"><b>توصية القتال</b><i>اختيارية — لا تمنع دخول أي منطقة</i></div>' +
-        `<div class="av-line"><s>الساحة</s><span>قلوب ${a.arena.hearts} · ضرر ${a.arena.damage} · نَفَس ${a.arena.breath} · مهارة ${a.arena.skillCd} إطار</span></div>` +
-        `<div class="av-line"><span class="av-good">▲ ${a.strength}</span></div>` +
-        `<div class="av-line"><span class="av-bad">▼ ${a.weakness}</span></div>` +
-        (p ? `<div class="av-next">الخطوة القادمة: <b>${p.name} ${p.from}→${p.to}</b> — ${p.why}</div>`
-           : '<div class="av-next">معداتك في أقصى ما تفيد به الساحة — الترقية لم تعد شرطاً.</div>') +
-        `<div class="av-note">${a.optional}</div>`;
-    }
-    function renderArenaGear() {
-      const box = document.getElementById('arena-gear');
-      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) || {};
-      if (!box || !RULES?.combatGear) return;
-      let hero = 'miner';
-      try { const h = localStorage.getItem('platform-hero'); if (RULES.CHARACTERS?.[h]) hero = h; } catch (_) {}
-      const rows = RULES.combatGear(hero, st.equipment);
-      box.innerHTML = '<div class="ag-head"><b>عدّة القتال</b><span>من حفظك · الخادم هو المرجع</span></div>' +
-        rows.map((r) => `<div class="ag-row" data-gear="${r.id}"><i>${r.name}</i><em>${r.level}/${r.max}</em>` +
-          `<span>${r.effect}</span><small>${r.detail}</small></div>`).join('');
-    }
-
-
-    // ===== المرحلة B: شاشة الاستعداد =====
-    // النموذج يأتي من public/platform-arena-ready.js (قواعد + سجل حقيقي)، وهذا الكود يعرضه فقط.
-    // لا رقم مكتوب يدوياً هنا، ولا عملية كتابة: الأزرار تفتح أنظمة قائمة (الورشة/السجل) والبدء يستدعي
-    // startArenaDuel نفسها التي كانت تعمل — فلم يتغيّر أي مسار قتال أو مكافأة.
-    function arenaReadyRecordLabel(rec) {
-      const parts = [`${rec.wins || 0} فوز`, `${rec.losses || 0} خسارة`];
-      if (rec.draws) parts.push(`${rec.draws} تعادل`);
-      return parts.join(' · ');
-    }
-    function arenaReadyModel() {
-      const RULES = window.PlatformRules;
-      const st = (typeof state !== 'undefined' && state) || {};
-      if (!RULES || !window.PlatformArenaReady) return null;
-      let heroId = 'miner';
-      try { const h = localStorage.getItem('platform-hero'); if (RULES.CHARACTERS?.[h]) heroId = h; } catch (_) {}
-      const names = (window.PlatformArenaScene?.ARENAS || []).map((a) => a && a.name).filter(Boolean);
-      try {
-        return window.PlatformArenaReady.build({
-          rules: RULES,
-          zone: arenaSelectedZone,
-          zones: ARENA_TIER_ZONES(),
-          heroId,
-          heroLevel: (typeof playerLevel === 'function' ? playerLevel() : 1),
-          equipment: st.equipment,
-          mines: st.mines,
-          record: (typeof arenaRecordView === 'function' ? arenaRecordView() : {}) || {},
-          arenaNames: names.length ? names : undefined,
-        });
-      } catch (err) {
-        arenaLog('تعذّر تجهيز شاشة الاستعداد — الأرقام تُقرأ من القواعد.');
-        return null;
-      }
-    }
-    function renderArenaReady() {
-      const box = document.getElementById('arena-ready');
-      const m = arenaReadyModel();
-      if (!box || !m) return null;
-      const txt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-      box.dataset.zone = String(m.zone);
-      txt('ar-arena-name', m.arena.name);
-      txt('ar-arena-sub', `الخصم · ${m.rival.name} · المستوى ${m.rival.level}`);
-      txt('ar-record', arenaReadyRecordLabel(m.record));
-      // مقاتلك
-      txt('ar-hero-name', m.hero.name);
-      txt('ar-hero-role', m.hero.role);
-      txt('ar-hero-level', `مستوى ${m.hero.level}`);
-      // نفس الرقم يظهر في HUD القتال (المرحلة C) — مصدر واحد للحقيقة
-      txt('cx-lvl-hero', `مستوى ${m.hero.level}`);
-      txt('cx-record', `${m.record.wins}–${m.record.losses}`);
-      txt('ar-hero-hearts', String(m.hero.hearts));
-      txt('ar-hero-dmg', String(m.hero.damage));
-      txt('ar-hero-breath', String(m.hero.breath));
-      txt('ar-hero-skill', `${m.hero.skill} · ${m.hero.skillCd}ث · مراوغة ${m.hero.dodgeCd}ث`);
-      // خصمك
-      txt('ar-rival-name', m.rival.name);
-      txt('ar-rival-role', m.rival.tag || m.rival.role);
-      txt('ar-rival-level', `مستوى ${m.rival.level}`);
-      txt('ar-rival-hp', String(m.rival.hp));
-      txt('ar-rival-moves', String(m.rival.moves));
-      txt('ar-rival-reward', String(m.rival.reward));
-      txt('ar-showcase-reward', String(m.rival.reward));
-      txt('ar-showcase-wins', String(m.record.wins));
-      txt('ar-showcase-losses', String(m.record.losses));
-      txt('ar-rival-skill', m.rival.locked && m.rival.needs.length ? `مقفل — يحتاج: ${m.rival.needs.join(' · ')}` : (m.rival.tag || m.rival.role));
-      // توازن القوة (مؤشر عرض فقط)
-      const fill = document.getElementById('ar-balance-fill');
-      if (fill) fill.style.width = `${Math.round(m.balance * 100)}%`;
-      // زر البدء
-      const cta = document.getElementById('ar-start');
-      if (cta) { cta.textContent = m.cta.label; cta.disabled = m.cta.disabled; }
-      // شريط الساحات
-      const rail = document.getElementById('ar-rail');
-      if (rail) {
-        rail.innerHTML = m.rail.map((r) => `<button type="button" class="ar-pill" role="tab" data-zone="${r.zone}"` +
-          ` aria-selected="${r.selected ? 'true' : 'false'}"${r.locked ? ' disabled aria-disabled="true"' : ''}` +
-          ` aria-label="${r.name} — ${r.rival}${r.locked ? ' (مقفل)' : ` — ${r.reward} ذهب`}">` +
-          `<b>${r.short || r.name}</b><small>${r.locked ? 'مقفل' : `${r.rival} · ${r.reward} ذهب`}</small></button>`).join('');
-        rail.querySelectorAll('button[data-zone]').forEach((btn) => {
-          btn.addEventListener('click', () => { if (!btn.disabled) pickRival(Number(btn.dataset.zone)); });
-        });
-      }
-      if (!document.getElementById('ar-log')?.hidden) renderArenaLog(m);
-      return m;
-    }
-    function renderArenaLog(m) {
-      const body = document.getElementById('ar-log-body');
-      if (!body || !m) return;
-      const rate = m.record.winRate == null ? '—' : `${Math.round(m.record.winRate * 100)}%`;
-      const rows = [
-        ['المباريات', `${m.record.total}`, `${m.record.wins} فوز · ${m.record.losses} خسارة${m.record.draws ? ` · ${m.record.draws} تعادل` : ''}`],
-        ['نسبة الفوز', rate, 'من مبارياتك المسجّلة'],
-        ['أعلى مكافأة متاحة', `${m.record.best} ذهب`, 'عن فوز واحد في أعلى ساحة مفتوحة'],
-      ];
-      body.innerHTML = rows.map(([k, v, s]) => `<div class="ar-log-row"><b>${k}</b><span>${v}</span><s>${s}</s></div>`).join('') +
-        m.rail.map((r) => `<div class="ar-log-row"><s>${r.name}</s><span>${r.rival}</span><b>${r.locked ? 'مقفل' : `${r.reward} ذهب`}</b></div>`).join('') +
-        '<p class="ar-log-note">المكافآت تُحسب وتُعتمد على الخادم عند إنهاء المبارزة — الشاشة تعرض ولا تمنح.</p>';
-    }
-    function toggleArenaLog(force) {
-      const box = document.getElementById('ar-log');
-      const btn = document.getElementById('ar-log-btn');
-      if (!box) return;
-      const open = force == null ? box.hidden : Boolean(force);
-      box.hidden = !open;
-      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open) { renderArenaLog(arenaReadyModel()); try { haptic('light'); } catch (_) {} }
-    }
-    // انتقال قصير ثم المبارزة على نظامها القائم. لو تعذّر البدء (لا تذكرة/مبارز مقفل) يعود المسرح كما كان.
-    let arenaEntering = false;
-    function arenaEnterDuel() {
-      const cta = document.getElementById('ar-start');
-      if (arenaEntering || (cta && cta.disabled)) { try { haptic('error'); } catch (_) {} return false; }
-      if (window.PlatformGame?.duelBusy?.().running) return false;
-      arenaEntering = true;
-      document.body.classList.add('arena-entering');
-      try { haptic('medium'); } catch (_) {}
-      setTimeout(() => {
-        arenaEntering = false;
-        document.body.classList.remove('arena-entering');
-        try { startArenaDuel(); } catch (_) {}
-      }, 260);
-      return true;
-    }
-
-    function pickRival(zone) {
-      arenaSelectedZone = Number(zone) || 0;
-      const live = document.getElementById('arena-live-banner');
-      if (live) live.hidden = true;
-      renderArenaLadder();
-      haptic('light');
-    }
-    function explainLockedRival(status) {
-      const live = document.getElementById('arena-live-banner');
-      const text = document.getElementById('arena-live-text');
-      if (!live || !text) return;
-      const blocked = ((status && status.needs) || []).filter((n) => !n.ok).map((n) => n.label).join(' · ');
-      live.hidden = false;
-      text.textContent = `هذا المبارز مقفل — يحتاج: ${blocked}. ابدأ بمبارز مفتوح، ويُفتح هذا تلقائيًا عند استيفاء الشرط.`;
-      const resumeBtn = document.getElementById('arena-resume-btn');
-      const abandonBtn = document.getElementById('arena-abandon-btn');
-      if (resumeBtn) resumeBtn.hidden = true;
-      if (abandonBtn) abandonBtn.hidden = true;
-      haptic('error');
-    }
-    // زر البدء يعكس الحالة: مقفلة أم جاهزة (لا يبقى زرًا صامتًا)
-    function refreshArenaCta() {
-      const btn = document.getElementById('arena-duel-btn');
-      if (!btn) return;
-      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) || {};
-      const status = RULES?.mineStatus?.(arenaSelectedZone, st.mines, st.equipment);
-      const locked = Boolean(status && status.unlocked === false);
-      btn.disabled = locked;
-      btn.textContent = locked ? 'مبارز مقفل' : 'ابدأ المبارزة';
-      // المرحلة B: زر اللوحة يعكس نفس الحالة (لا نصّان متعارضان)
-      const cta = document.getElementById('ar-start');
-      if (cta) { cta.disabled = locked; cta.textContent = locked ? 'مبارز مقفل' : 'ابدأ المبارزة'; }
-    }
-
-    // حالة زر المبارزة: إن كانت هناك جولة جارية تُعرض أزرار فعلية بدل رسالة صامتة
-    function refreshArenaDuelState() {
-      const live = document.getElementById('arena-live-banner');
-      if (!live) return;
-      const text = document.getElementById('arena-live-text');
-      const resumeBtn = document.getElementById('arena-resume-btn');
-      const abandonBtn = document.getElementById('arena-abandon-btn');
-      // مبارزة الساحة لها حالتها المستقلة: لا نلمس بانرها أثناء جريانها
-      if (window.PlatformGame?.duelBusy?.().running) return;
-      const busy = window.PlatformGame?.busy?.() || {};
-      const hideAll = () => { live.hidden = true; if (resumeBtn) resumeBtn.hidden = true; if (abandonBtn) abandonBtn.hidden = true; };
-      if (!busy.running && !busy.pending) { hideAll(); return; }
-      live.hidden = false;
-      if (busy.pending) {
-        // نتيجة لم تُختم على الخادم بعد: لا تُهمل أبدًا
-        if (text) text.textContent = 'نتيجتك السابقة لم تُختم على الخادم بعد. أعد إرسالها من تبويب «اللعب» قبل مبارزة جديدة.';
-        if (resumeBtn) { resumeBtn.hidden = false; resumeBtn.textContent = 'افتح تبويب اللعب'; }
-        if (abandonBtn) abandonBtn.hidden = true;
-      } else {
-        // جولة المنجم وحالة الساحة مستقلتان: وجود جولة منجم لا يمنع المبارزة ولا يطلب مغادرة التبويب
-        if (text) text.textContent = 'جولة منجمك محفوظة كما هي، وستُستأنف عند عودتك إلى تبويب «اللعب». يمكنك المبارزة الآن.';
-        if (resumeBtn) resumeBtn.hidden = true;
-        if (abandonBtn) abandonBtn.hidden = true;
-      }
-    }
-
-    // لقطة مرجعية للمراجعة البصرية: تُثبّت المسرح عند لحظة الزعيم/الموجة بلا خادم وبلا نتيجة
-    function arenaShot(kind) {
-      const game = window.PlatformGame;
-      if (!game?.arenaSnapshot) { arenaLog('المسرح غير جاهز بعد.'); return; }
-      if (game.duelBusy?.().running) { arenaLog('أنهِ المبارزة أولًا، ثم اطلب اللقطة.'); return; }
-      const ok = game.arenaSnapshot(kind);
-      arenaLog(ok ? 'لقطة مجمّدة — اضغط الزر نفسه للعودة إلى المسرح.' : 'تعذّر تجهيز اللقطة، أعد المحاولة.');
-    }
-    // V14: شاشة كاملة حقيقية (تُخفي شريط المتصفح) فوق تخطيط «الشاشة كاملة» في CSS.
-    // كل شيء داخل try: بعض نسخ تيليجرام ترفض الطلب بلا إيماءة مستخدم، ولا يجوز أن يُعطّل ذلك المبارزة.
-    function arenaFullscreen(on) {
-      try {
-        const tg = window.Telegram && window.Telegram.WebApp;
-        if (on) {
-          tg?.expand?.();
-          if (typeof tg?.requestFullscreen === 'function') { tg.requestFullscreen(); return; }
-          const root = document.documentElement;
-          if (root?.requestFullscreen && !document.fullscreenElement) {
-            const p = root.requestFullscreen({ navigationUI: 'hide' });
-            if (p && p.catch) p.catch(() => {});
-          }
-        } else {
-          if (typeof tg?.exitFullscreen === 'function') tg.exitFullscreen();
-          if (document.fullscreenElement && document.exitFullscreen) {
-            const p = document.exitFullscreen();
-            if (p && p.catch) p.catch(() => {});
-          }
-        }
-      } catch (_) {}
-    }
-    // V17: «التبويبات» تُعيد الهيدر وشريط التنقّل، و«المزيد» تُعيد اللوحات تحت المسرح
-    document.getElementById('arena-tabs-btn')?.addEventListener('click', () => {
-      document.body.classList.remove('arena-live', 'arena-more');
-      document.getElementById('arena-more-btn')?.setAttribute('aria-pressed', 'false');
-      document.getElementById('nav-arena')?.focus?.();
-      try { haptic('light'); } catch (_) {}
-    });
-    // المرحلة B: أزرار شاشة الاستعداد تفتح الأنظمة القائمة نفسها (لا أزرار شكلية)
-    document.getElementById('ar-start')?.addEventListener('click', () => { arenaEnterDuel(); });
-    document.getElementById('ar-gear-btn')?.addEventListener('click', () => {
-      try { haptic('light'); } catch (_) {}
-      if (typeof window.openWorkshop === 'function') window.openWorkshop();
-      else arenaLog('الورشة غير متاحة الآن.');
-    });
-    document.getElementById('ar-log-btn')?.addEventListener('click', () => toggleArenaLog());
-    document.getElementById('ar-log-close')?.addEventListener('click', () => toggleArenaLog(false));
-    // بعد كل مبارزة يتغيّر السجل فتُحدَّث البطاقات فوراً
-    window.addEventListener('platform-duel-done', () => {
-      toggleArenaLog(false);
-      arenaPausePanel(false);
-      arenaPauseLabel();
-      if (typeof renderArenaLadder === 'function') renderArenaLadder();
-      else if (typeof renderArenaReady === 'function') renderArenaReady();
-    });
-    document.getElementById('arena-more-btn')?.addEventListener('click', (e) => {
-      const on = document.body.classList.toggle('arena-more');
-      e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false');
-      try { haptic('light'); } catch (_) {}
-    });
-
-    function arenaPauseLabel() {
-      const btn = document.getElementById('arena-fs-pause');
-      if (!btn) return;
-      const busy = window.PlatformGame?.duelBusy?.();
-      btn.textContent = busy?.paused ? 'متابعة' : 'إيقاف';
-    }
-    // المرحلة C: لوحة الإيقاف المؤقت — تظهر عند الإيقاف فقط، وأرقامها من الحالة نفسها
-    function arenaPausePanel(show) {
-      const box = document.getElementById('cx-pause');
-      if (!box) return;
-      if (show) {
-        const b = window.PlatformGame?.duelBusy?.() || {};
-        const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-        set('cx-pause-time', b.timeLeft == null ? '—' : `${b.timeLeft} ث`);
-        set('cx-pause-hearts', b.hearts == null ? '—' : `${b.hearts}/${b.maxHearts}`);
-        set('cx-pause-rival', b.rivalHp == null ? '—' : `${Math.round(b.rivalHp)}/${Math.round(b.rivalMaxHp || b.rivalHp)}`);
-      }
-      box.hidden = !show;
-    }
-    (() => {
-      document.getElementById('arena-fs-pause')?.addEventListener('click', () => {
-        const game = window.PlatformGame;
-        const busy = game?.duelBusy?.();
-        if (!busy?.running) return;
-        if (busy.paused) game.resumeDuel?.(); else game.pauseDuel?.();
-        arenaPauseLabel();
-        arenaPausePanel(Boolean(game.duelBusy?.().paused));
-      });
-      document.getElementById('arena-fs-exit')?.addEventListener('click', () => {
-        const game = window.PlatformGame;
-        if (!game?.duelAbandon?.()) return;
-        arenaPausePanel(false);
-        arenaFullscreen(false);
-        arenaLog('انسحبت من المبارزة — لا فوز ولا خسارة.');
-      });
-      // لوحة الإيقاف المؤقت: المتابعة تستأنف نفس المحاكاة، والانسحاب يمرّ بنفس دالة الإنهاء
-      document.getElementById('cx-resume')?.addEventListener('click', () => {
-        const game = window.PlatformGame;
-        if (!game?.duelBusy?.().running) { arenaPausePanel(false); return; }
-        game.resumeDuel?.();
-        arenaPauseLabel(); arenaPausePanel(false);
-        try { haptic('light'); } catch (_) {}
-      });
-      document.getElementById('cx-exit')?.addEventListener('click', () => {
-        const game = window.PlatformGame;
-        const done = game?.duelAbandon?.();
-        arenaPausePanel(false);
-        if (!done) return;
-        arenaFullscreen(false);
-        arenaLog('انسحبت من المبارزة — لا فوز ولا خسارة.');
-      });
-    })();
-
-    function startArenaDuel(zone = null) {
-      const game = window.PlatformGame;
-      const live = document.getElementById('arena-live-banner');
-      if (!game?.startDuel) {
-        if (live) { live.hidden = false; const t = document.getElementById('arena-live-text'); if (t) t.textContent = 'حدّث الصفحة (إعادة تحميل) لتفعيل المبارزة الحيّة.'; }
-        return;
-      }
-      const tier = Number.isInteger(zone) ? zone : (arenaSelectedZone ?? deepestUnlockedMine());
-      // مبارز مقفل: نوضّح الشرط على الساحة نفسها بدل إرسال طلب سيرفضه الخادم
-      const RULES = window.PlatformRules, st = (typeof state !== 'undefined' && state) || {};
-      const status = RULES?.mineStatus?.(tier, st.mines, st.equipment);
-      if (status && status.unlocked === false) {
-        const blocked = (status.needs || []).filter((n) => !n.ok).map((n) => n.label).join(' · ');
-        if (live) { live.hidden = false; const t = document.getElementById('arena-live-text'); if (t) t.textContent = `هذا المبارز مقفل — يحتاج: ${blocked}`; }
-        return;
-      }
-      // المبارزة تجري هنا في تبويب الساحة نفسه — لا تنقّل إلى تبويب اللعب
-      if (!game.startDuel(tier)) { refreshArenaDuelState(); return; }
-      if (live) live.hidden = true;
-      document.body.classList.add('duel-live');
-      arenaFullscreen(true);
-      arenaPauseLabel();
-      const pad = document.getElementById('arena-pad'); if (pad) pad.hidden = false;
-      const btn = document.getElementById('arena-duel-btn'); if (btn) btn.disabled = true;
-      const stage = document.getElementById('arena-preview'); stage?.focus?.({ preventScroll: true });
-      // المبارزة تُلعب هنا في تبويب الساحة: لا تبديل تبويب، ولا لمس لمشهد تبويب اللعب.
-      haptic('success');
-    }
-
-    // زر يخصّ حالة واحدة فقط: نتيجة منجم لم تُختم على الخادم بعد (زر إعادة الإرسال هناك)
-    function resumeActiveRun() {
-      switchTab('play');
-      window.PlatformGame?.resumeRun?.();
-    }
-
-    // «تخلَّ عنها وابدأ المبارزة»: الجولة غير المنتهية بلا مكافأة أصلاً، فالتخلّي لا يخصم شيئًا
-    function abandonAndDuel() {
-      const game = window.PlatformGame;
-      if (!game?.abandon || !game.abandon()) { refreshArenaDuelState(); return; }
-      startArenaDuel();
-    }
-
-    // نهاية المبارزة: نُعيد الزر والسلّم ونفتح مبارزة أخرى
-    window.addEventListener('platform-duel-done', () => {
-      document.body.classList.remove('duel-live');
-      arenaFullscreen(false);
-      const pad = document.getElementById('arena-pad'); if (pad) pad.hidden = true;
-      const btn = document.getElementById('arena-duel-btn'); if (btn) btn.disabled = false;
-      const ladder = document.getElementById('arena-ladder'); if (ladder) ladder.hidden = false;
-      window.PlatformGame?.showArenaPreview?.(arenaSelectedZone ?? deepestUnlockedMine());
-      refreshArenaDuelState();
-    });
-
-    function arenaEnemyFighter(level = 1) {
-      return ARENA_FIGHTERS.reduce((chosen, fighter) => level >= fighter.min ? fighter : chosen, ARENA_FIGHTERS[0]);
-    }
-
-    const arenaPosition = { player: 76, enemy: 24 };
-    let arenaMoveTimer = 0;
-    const arenaDistance = () => Math.abs(arenaPosition.player - arenaPosition.enemy);
-    const arenaInSwordRange = () => arenaDistance() <= 38;
-    function renderArenaPositions() {
-      for (const actor of ['player', 'enemy']) {
-        const fighter = document.getElementById(`arena-${actor}-fighter`);
-        if (fighter?.style?.setProperty) fighter.style.setProperty('--fighter-x', arenaPosition[actor]);
-        else if (fighter?.style) fighter.style['--fighter-x'] = arenaPosition[actor];
-      }
-      const distance = document.getElementById('arena-distance');
-      if (distance) {
-        distance.textContent = arenaInSwordRange() ? '⚔️ ضمن مدى السيف' : '↔️ اقترب للهجوم';
-        distance.className = `text-[10px] font-bold min-w-20 text-center ${arenaInSwordRange() ? 'text-emerald-400' : 'text-amber-400'}`;
-      }
-    }
-    function moveArenaPlayer(direction) {
-      if (!battle?.active || battle.busy) return;
-      const min = arenaPosition.enemy + 24;
-      arenaPosition.player = Math.max(min, Math.min(88, arenaPosition.player + direction * 3));
-      renderArenaPositions();
-      updateArenaUI();
-    }
-    function startArenaMove(direction) {
-      stopArenaMove();
-      moveArenaPlayer(direction);
-      arenaMoveTimer = setInterval(() => moveArenaPlayer(direction), 85);
-    }
-    function stopArenaMove() {
-      if (arenaMoveTimer) clearInterval(arenaMoveTimer);
-      arenaMoveTimer = 0;
-    }
-    window.addEventListener('pointerup', stopArenaMove);
-    window.addEventListener('blur', stopArenaMove);
-    window.addEventListener('keydown', (event) => {
-      if (!document.getElementById('tab-arena')?.classList.contains('active') || event.repeat) return;
-      if (/INPUT|TEXTAREA|SELECT/.test(event.target?.tagName || '')) return; // لا تختطف الكتابة
-      const arenaKeys = { '1': 'ATTACK', '2': 'DEFEND', '3': 'HEAL', '4': 'WAIT', '١': 'ATTACK', '٢': 'DEFEND', '٣': 'HEAL', '٤': 'WAIT' };
-      if (event.key === 'ArrowLeft') { event.preventDefault?.(); moveArenaPlayer(-1); }
-      else if (event.key === 'ArrowRight') { event.preventDefault?.(); moveArenaPlayer(1); }
-      else if (arenaKeys[event.key]) { event.preventDefault?.(); arenaAction(arenaKeys[event.key]); }
-      else if (event.key === 'Enter' && !battle?.active) { event.preventDefault?.(); startBattle(); }
-    });
-
-    // 👁️ بطاقة نيّة الخصم: خطة الدور الحالية كما أعلنها المحرك (حقيقية 100%، لا تخمين)
-    const ARENA_INTENTS = {
-      ATTACK: { icon: '⚔️', label: 'الخصم يهجم', hint: 'دفاعك الآن ينصّف الضرر', tone: 'attack' },
-      DEFEND: { icon: '🛡️', label: 'الخصم يتحصّن', hint: 'ضربتك القادمة تنصّف', tone: 'defend' },
-      HEAL: { icon: '💚', label: 'الخصم يعالج', hint: 'اضربه قبل أن يستعيد صحته', tone: 'heal' },
-      WAIT: { icon: '⚡', label: 'الخصم يشحن', hint: 'لحظة مناسبة للهجوم', tone: 'wait' },
-    };
-    function renderArenaIntent() {
-      const chip = document.getElementById('arena-intent');
-      const enemyFighter = document.getElementById('arena-enemy-fighter');
-      if (!chip) return;
-      const intent = battle?.active && !battle.busy ? ArenaRules.enemyIntent(battle) : null;
-      const meta = intent ? ARENA_INTENTS[intent] : null;
-      if (!meta) {
-        chip.hidden = true;
-        chip.textContent = '';
-        chip.className = 'arena-intent';
-        enemyFighter?.classList.remove('arena-windup');
-        return;
-      }
-      chip.hidden = false;
-      chip.className = `arena-intent tone-${meta.tone}${intent === 'ATTACK' && battle.player.hp <= 35 ? ' danger' : ''}`;
-      chip.innerHTML = `<b>${meta.icon} ${meta.label}</b><i>${meta.hint}</i>`;
-      enemyFighter?.classList.toggle('arena-windup', intent === 'ATTACK');
-    }
-
-    // الحالة المرئية للتبويب: قبل المباراة نعرض زر بدء واحدًا واضحًا، وأثناءها نعرض التحكم فقط
-    function syncArenaMode() {
-      const tab = document.getElementById('tab-arena');
-      if (!tab) return;
-      const fighting = Boolean(battle?.active);
-      tab.classList.toggle('arena-fighting', fighting);
-      tab.classList.toggle('arena-idle', !fighting);
-    }
-
-    // حكم النهاية: بطاقة فوق المسرح (نتيجة + مكافأة + إعادة فورية) بلا حاجة إلى تمرير
-    function showArenaVerdict(outcome, sub) {
-      const box = document.getElementById('arena-verdict');
-      if (!box) return;
-      const meta = outcome === 'win' ? { badge: '🏆', title: 'انتصار!' } :
-        outcome === 'loss' ? { badge: '💀', title: 'هُزمت' } : { badge: '🤝', title: 'تعادل' };
-      document.getElementById('arena-verdict-badge').textContent = meta.badge;
-      document.getElementById('arena-verdict-title').textContent = meta.title;
-      document.getElementById('arena-verdict-sub').textContent = sub;
-      box.className = `arena-verdict ${outcome}`;
-      box.hidden = false;
-    }
-    function hideArenaVerdict() {
-      const box = document.getElementById('arena-verdict');
-      if (box) { box.hidden = true; box.className = 'arena-verdict'; }
-    }
-
-    function showArenaBanner(text, kind = '') {
-      const banner = document.getElementById('arena-stage-banner');
-      if (!banner) return;
-      banner.textContent = text;
-      banner.className = `arena-stage-banner${kind ? ` ${kind}` : ''}`;
-      void banner.offsetWidth;
-      banner.classList.add('show');
-    }
-
-    function animateArenaFighter(actor, action, event = {}) {
-      const fighter = document.getElementById(`arena-${actor}-fighter`);
-      const targetActor = actor === 'player' ? 'enemy' : 'player';
-      const target = document.getElementById(`arena-${targetActor}-fighter`);
-      const stage = document.getElementById('arena-battle-stage');
-      if (!fighter) return;
-      const motionClasses = ['arena-attack', 'arena-defend', 'arena-heal', 'arena-wait', 'arena-hit'];
-      motionClasses.forEach((name) => fighter.classList.remove(name));
-      void fighter.offsetWidth; // يعيد تشغيل الحركة إذا كرر اللاعب الفعل نفسه
-      const motion = action === 'ATTACK' ? 'arena-attack' : `arena-${action.toLowerCase()}`;
-      fighter.classList.add(motion);
-
-      const popupActor = action === 'ATTACK' ? targetActor : actor;
-      const popup = document.getElementById(`arena-damage-${popupActor}`);
-      if (popup) {
-        popup.classList.remove('show', 'heal');
-        popup.classList.toggle('crit', action === 'ATTACK' && Number(event.dmg) >= 14);
-        popup.textContent = action === 'ATTACK' ? `−${event.dmg || 0}`
-          : action === 'HEAL' ? `+${event.healed || 0} ❤️`
-          : action === 'DEFEND' ? '🛡️ دفاع' : '+3 ⚡';
-        popup.classList.toggle('heal', action !== 'ATTACK');
-        void popup.offsetWidth;
-        popup.classList.add('show');
-      }
-
-      if (action === 'ATTACK' && target) {
-        setTimeout(() => {
-          target.classList.remove('arena-hit');
-          void target.offsetWidth;
-          target.classList.add('arena-hit');
-          stage?.classList.remove('arena-stage-shake');
-          void stage?.offsetWidth;
-          stage?.classList.add('arena-stage-shake');
-        }, 230);
-      }
-      setTimeout(() => {
-        fighter.classList.remove(motion);
-        target?.classList.remove('arena-hit');
-        stage?.classList.remove('arena-stage-shake');
-        popup?.classList.remove('show');
-      }, 900);
-    }
-
-    function arenaLog(msg) {
-      const el = document.getElementById('arena-log');
-      const line = document.createElement('div');
-      line.textContent = msg;
-      el.prepend(line);
-      while (el.children.length > 4) el.lastChild.remove();
-    }
-
-    function playerLevel() { return (serverMode && profile?.progress?.level) || Math.floor(state.totalEarned / 5000) + 1; }
-
-    // تذكرة المباراة التالية من الخادم — غير متاحة ما دامت مباراة سابقة بانتظار ختمه
-    function arenaTicket() {
-      const t = profile?.arena?.ticket;
-      if (!serverMode || !t || !Number.isFinite(t.matchNo)) return null;
-      if (SYNC.pending.some((op) => op.type === 'arena' && op.matchNo === t.matchNo)) return null;
-      return t;
-    }
-    // سجل الساحة: من ختم الخادم في الوضع السحابي، ومحلي بدونه
-    function arenaRecordView() { return (serverMode && profile?.arena?.record) || arenaRecord; }
-
-    function startBattle() {
-      // زر البدء لا يعيد المباراة وهي جارية؛ يجب إكمال القتال الحالي أولاً.
-      if (battle?.active) return;
-      const ticket = arenaTicket();
-      const practice = serverMode && !ticket; // لا تذكرة بعد: مباراة تدريبية بلا مكافأة بدل تعطيل الزر
-      const lvl = ticket ? ticket.level : playerLevel();
-      const seed = ticket ? ticket.seed : (Math.random() * 4294967296) >>> 0;
-      battle = ArenaRules.newBattle({ level: lvl, seed });
-      battle.busy = false; battle.ticket = ticket; battle.practice = practice;
-      stopArenaMove();
-      arenaPosition.player = 76;
-      arenaPosition.enemy = 24;
-      renderArenaPositions();
-      document.getElementById('arena-log').innerHTML = '';
-      document.querySelectorAll('.arena-fighter').forEach((fighter) => fighter.classList.remove('arena-defeated', 'arena-windup'));
-      hideArenaVerdict();
-      const rival = arenaEnemyFighter(lvl);
-      arenaLog(`⚔️ بدأت مباراة ضد ${rival.name} (مستوى ${lvl}) — صحته ${battle.enemy.maxHp}`);
-      if (practice) { arenaLog('🧪 مباراة تدريبية بلا مكافأة — بانتظار ختم الخادم للمباراة السابقة'); flushOps(); }
-      arenaLog('اختصار سريع: ١ اضرب · ٢ دفاع · ٣ علاج · ٤ انتظار · الأسهم للحركة');
-      arenaLog('اختر حركتك الأولى!');
-      showArenaBanner('⚔️ استعد للقتال!');
-      haptic('success');
-      updateArenaUI();
-    }
-
-    function updateArenaUI() {
-      const p = battle?.player || { hp: ARENA.maxHp, energy: ARENA.maxEnergy, defending: false };
-      const e = battle?.enemy || { hp: 100, maxHp: 100, energy: ARENA.maxEnergy, defending: false, level: 1 };
-      const set = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = `${Math.max(0, v)}%`; };
-      const txt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-      const rec = arenaRecordView();
-      set('arena-player-hp', p.hp / ARENA.maxHp * 100);
-      set('arena-player-energy', p.energy / ARENA.maxEnergy * 100);
-      set('arena-enemy-hp', e.hp / e.maxHp * 100);
-      set('arena-enemy-energy', e.energy / ARENA.maxEnergy * 100);
-      txt('arena-player-hp-text', `${Math.max(0, Math.ceil(p.hp))}/${ARENA.maxHp}`);
-      txt('arena-player-energy-text', `${p.energy}/${ARENA.maxEnergy}`);
-      txt('arena-enemy-hp-text', `${Math.max(0, Math.ceil(e.hp))}/${e.maxHp}`);
-      txt('arena-enemy-energy-text', `${e.energy}/${ARENA.maxEnergy}`);
-      const rival = arenaEnemyFighter(e.level);
-      txt('arena-enemy-name', `${rival.name} · مستوى ${e.level}`);
-      document.getElementById('arena-player-fighter')?.classList.toggle('arena-defeated', p.hp <= 0);
-      document.getElementById('arena-enemy-fighter')?.classList.toggle('arena-defeated', e.hp <= 0);
-      txt('arena-player-status', p.defending ? '🛡️ دفاع مفعّل' : '');
-      txt('arena-enemy-status', e.defending ? '🛡️ دفاع مفعّل' : '');
-      txt('arena-record', `${rec.wins || 0} فوز · ${rec.losses || 0} خسارة${rec.draws ? ` · ${rec.draws} تعادل` : ''}`);
-      if (typeof renderArenaLadder === 'function') renderArenaLadder();
-      txt('arena-turn', !battle?.active
-        ? (battle ? 'انتهت المباراة — اضغط «مباراة جديدة»' : 'اضغط «ابدأ المبارزة» ثم اقرأ نيّة الخصم')
-        : battle.busy ? '⏳ الخصم ينفّذ خطته…'
-        : arenaInSwordRange() ? `🎯 جولتك ${battle.round} — اختر حركة` : `🎮 جولة ${battle.round} — اقترب لتصل ضربتك`);
-      const startBtn = document.getElementById('arena-start-btn');
-      startBtn.disabled = Boolean(battle?.active);
-      startBtn.innerText = battle?.active ? '⚔️ المعركة جارية' : battle ? '🔄 مباراة جديدة' : '🚀 ابدأ المبارزة';
-      const canControl = Boolean(battle?.active && !battle.busy);
-      document.getElementById('arena-move-left').disabled = !canControl || arenaPosition.player <= arenaPosition.enemy + 24;
-      document.getElementById('arena-move-right').disabled = !canControl || arenaPosition.player >= 88;
-      for (const [key, action] of [['attack', 'ATTACK'], ['defend', 'DEFEND'], ['heal', 'HEAL'], ['wait', 'WAIT']]) {
-        const btn = document.getElementById(`arena-btn-${key}`);
-        btn.disabled = !canControl || (action === 'ATTACK' && !arenaInSwordRange()) || !ArenaRules.canAct(battle.player, action);
-      }
-      // نبض الشاشة عند انخفاض الصحة: تلميح بصري بدل مفاجأة الهزيمة
-      document.getElementById('arena-player-hp')?.classList.toggle('arena-hp-low', p.hp > 0 && p.hp <= ARENA.maxHp * 0.3);
-      document.getElementById('arena-enemy-hp')?.classList.toggle('arena-hp-low', e.hp > 0 && e.hp <= e.maxHp * 0.3);
-      renderArenaPositions();
-      syncArenaMode();
-      renderArenaIntent();
-    }
-
-    // وصف نصي لحدث من المحرك
-    function describeMove(ev, actorName) {
-      switch (ev.action) {
-        case 'ATTACK': return `⚔️ ${actorName} هاجم وأصاب بـ ${ev.dmg} ضرر`;
-        case 'DEFEND': return `🛡️ ${actorName} تدرّع (الضرر القادم −50%)`;
-        case 'HEAL': return `💚 ${actorName} عالج نفسه +${ev.healed}`;
-        default: return `⏳ ${actorName} انتظر وشحن +3 طاقة`;
-      }
-    }
-
-    function arenaAction(action) {
-      if (!battle?.active || battle.busy) return;
-      if (action === 'ATTACK' && !arenaInSwordRange()) {
-        showArenaBanner('◀️ اقترب من الخصم أولاً');
-        haptic('error');
-        return;
-      }
-      stopArenaMove();
-      const ev = ArenaRules.playerMove(battle, action);
-      if (ev.error) { haptic('error'); return; }
-      animateArenaFighter('player', action, ev);
-      const positionBattle = battle;
-      if (action === 'ATTACK') setTimeout(() => {
-        if (battle !== positionBattle) return;
-        arenaPosition.enemy = Math.max(12, arenaPosition.enemy - 3);
-        renderArenaPositions();
-      }, 520);
-      arenaLog(describeMove(ev, 'أنت'));
-      haptic(action === 'ATTACK' ? 'light' : 'success');
-      if (checkBattleEnd()) return;
-      battle.busy = true;
-      updateArenaUI();
-      const current = battle; // إعادة البدء أثناء دور الروبوت لا يجب أن تُدخل حركة في المباراة الجديدة
-      setTimeout(() => {
-        if (battle !== current || !current.active) return;
-        const enemyEvent = ArenaRules.enemyMove(current);
-        animateArenaFighter('enemy', enemyEvent.action, enemyEvent);
-        if (enemyEvent.action === 'ATTACK') setTimeout(() => {
-          if (battle !== current) return;
-          arenaPosition.player = Math.min(88, arenaPosition.player + 4);
-          renderArenaPositions();
-        }, 520);
-        arenaLog(describeMove(enemyEvent, arenaEnemyFighter(current.enemy.level).name));
-        haptic('light');
-        if (checkBattleEnd()) return;
-        // بداية جولة جديدة: تجدد طاقة +2 للطرفين، أو حسم بنسبة الصحة بعد آخر جولة
-        const next = ArenaRules.nextRound(current);
-        if (next?.judged) {
-          if (next.draw) arenaLog('🤝 انتهت الجولات بتعادل — لا فائز ولا مكافأة');
-          else arenaLog(`⏱️ انتهت ${ARENA.maxRounds} جولة — الحسم بنسبة الصحة (${Math.round(next.pRatio * 100)}٪ مقابل ${Math.round(next.eRatio * 100)}٪)`);
-          checkBattleEnd();
-          return;
-        }
-        current.busy = false;
-        updateArenaUI();
-      }, ARENA.enemyDelayMs);
-      updateArenaUI();
-    }
-
-    function checkBattleEnd() {
-      if (!battle) return true;
-      if (battle.active) return false;
-      battle.busy = false;
-      const won = battle.outcome === 'win';
-      const sealed = Boolean(serverMode && battle.ticket); // مباراة بتذكرة: الخادم هو من يعتمد النتيجة
-      if (battle.outcome === 'draw') {
-        showArenaBanner('🤝 تعادل!');
-        showArenaVerdict('draw', 'انتهت 30 جولة بلا فاصل — جرّب ضغطًا أسرع');
-        haptic('error');
-      } else if (won) {
-        if (sealed || !serverMode) { state.gold += ARENA.winReward; state.totalEarned += ARENA.winReward; }
-        arenaLog(battle.practice ? '🏆 انتصرت في مباراة تدريبية — بلا مكافأة' : sealed ? `🏆 انتصرت! +${ARENA.winReward} 🪙 بعد اعتماد الخادم` : `🏆 انتصرت! حصلت على +${ARENA.winReward} 🪙`);
-        showArenaBanner('🏆 انتصار!');
-        showArenaVerdict('win', battle.practice ? 'مباراة تدريبية — بلا مكافأة'
-          : sealed ? `+${ARENA.winReward} 🪙 بعد اعتماد الخادم · ${battle.round} جولة`
-          : `+${ARENA.winReward} 🪙 · ${battle.round} جولة`);
-        haptic('success');
-      } else {
-        arenaLog('💀 هُزمت… جرّب خطة مختلفة: عالِج مبكراً ولا تهاجم بلا طاقة احتياطية');
-        showArenaBanner('💀 هزيمة', 'loss');
-        showArenaVerdict('loss', 'اقرأ النيّة: دافع عند الهجوم وعالج قبل النفاد');
-        haptic('error');
-      }
-      if (sealed) {
-        // تفاؤلياً نعدّ النتيجة في السجل؛ رد الخادم يستبدله بسجله المختوم (أو يصحح الذهب إن رفض المباراة)
-        const rec = profile.arena.record = profile.arena.record || { wins: 0, losses: 0, draws: 0 };
-        rec[won ? 'wins' : battle.outcome === 'draw' ? 'draws' : 'losses'] += 1;
-        enqueueOp({ type: 'arena', matchNo: battle.ticket.matchNo, moves: battle.moves.slice(), expected: won ? ARENA.winReward : 0 });
-      } else if (!serverMode && battle.outcome !== 'draw') {
-        arenaRecord[won ? 'wins' : 'losses'] += 1;
-        saveArenaRecord();
-      }
-      updateUI();
-      save();
-      updateArenaUI();
-      return true;
-    }
-
-    // أحكام الخادم على مباريات أُرسلت: رفض (حركات لا تطابق المحاكاة) أو فوز متسارع بلا مكافأة
-    function noteArenaVerdicts(verdicts) {
-      for (const v of verdicts) {
-        if (v.status === 'rejected') arenaLog(v.reason === 'stale_match' ? '🛡️ مباراة بتذكرة منتهية — ابدأ مباراة جديدة' : `🛡️ لم يعتمد الخادم المباراة #${v.matchNo} (${v.reason || 'غير مطابقة'})`);
-        else if (v.status === 'too_soon') arenaLog(`⏱️ الفوز #${v.matchNo} سُجّل بلا مكافأة — انتظر ${Math.max(1, Math.ceil(((v.retryAt || 0) - Date.now()) / 1000))} ث بين فوزين`);
-        else if (v.status === 'ok' && v.outcome === 'win' && v.gold) arenaLog(`✅ اعتمد الخادم فوزك #${v.matchNo}: +${v.gold} 🪙${v.xp ? ` +${v.xp} خبرة` : ''}`);
-      }
-    }
-
     // --- التعزيز والمكافأة اليومية ---
     const boostActive = () => Date.now() < (state.boostUntil || 0);
     const clickGain = () => state.clickPower * (boostActive() ? 2 : 1);
@@ -2747,34 +2128,104 @@
       box.textContent = '';
       if (failed) {
         const message = document.createElement('p');
-        message.textContent = 'تعذّر تحميل الصدارة — تحقّق من الاتصال.';
+        message.className = 'ar-empty-note';
+        message.textContent = 'تعذّر تحميل سجل الساحة — تحقّق من الاتصال.';
         box.appendChild(message);
         return;
       }
       if (!leaderboard.length) {
         const message = document.createElement('p');
-        message.textContent = 'لا يوجد متصدرون بعد.';
+        message.className = 'ar-empty-note';
+        message.textContent = 'لا انتصارات مسجّلة بعد.';
         box.appendChild(message);
         return;
       }
+      const medals = ['🥇', '🥈', '🥉', '4', '5'];
+      const avatars = ['🧑‍🚀', '🧔', '🧝', '👷', '🕵️'];
+      const flagSvgs = {
+        ye: '<svg width="18" height="12" viewBox="0 0 18 12" style="border-radius:2px;display:inline-block;vertical-align:middle;"><rect width="18" height="4" y="0" fill="#ce1126"/><rect width="18" height="4" y="4" fill="#ffffff"/><rect width="18" height="4" y="8" fill="#000000"/></svg>',
+        eg: '<svg width="18" height="12" viewBox="0 0 18 12" style="border-radius:2px;display:inline-block;vertical-align:middle;"><rect width="18" height="4" y="0" fill="#ce1126"/><rect width="18" height="4" y="4" fill="#ffffff"/><rect width="18" height="4" y="8" fill="#000000"/><circle cx="9" cy="6" r="1.5" fill="#c09300"/></svg>'
+      };
       for (const row of leaderboard.slice(0, 3)) {
         const item = document.createElement('div');
-        item.className = 'ar-showcase-leader';
+        const isActive = row.name.includes('Radan') || row.rank === 4;
+        item.className = 'ar-showcase-leader' + (isActive ? ' active-player' : '');
+        const metaLeft = document.createElement('div');
+        metaLeft.className = 'ar-ld-left';
+        const medal = document.createElement('span');
+        medal.className = 'ar-ld-medal';
+        medal.textContent = medals[row.rank - 1] || `#${row.rank}`;
+        const avatar = document.createElement('span');
+        avatar.className = 'ar-ld-avatar';
+        avatar.textContent = avatars[(row.rank - 1) % avatars.length];
         const name = document.createElement('b');
-        name.textContent = `#${row.rank} ${row.name}`;
-        const gold = document.createElement('span');
-        gold.textContent = `مستوى ${row.level} · ${fmt(row.totalEarned)} ذهب`;
-        item.append(name, gold);
+        name.className = 'ar-ld-name';
+        name.textContent = `${row.name}`;
+        metaLeft.append(medal, avatar, name);
+        const metaRight = document.createElement('div');
+        metaRight.className = 'ar-ld-right';
+        const record = document.createElement('span');
+        record.className = 'ar-ld-score';
+        record.textContent = `${row.wins} فوز · ${row.losses} خسارة · ${row.draws} تعادل`;
+        const flag = document.createElement('span');
+        flag.className = 'ar-ld-flag';
+        flag.innerHTML = (row.rank === 3 || row.rank === 5) ? flagSvgs.eg : flagSvgs.ye;
+        metaRight.append(record, flag);
+        item.append(metaLeft, metaRight);
         box.appendChild(item);
+      }
+    }
+
+    function renderArenaLeaderboardList(leaderboard, failed = false) {
+      const list = document.getElementById('arena-leaderboard-list');
+      if (!list) return;
+      list.textContent = '';
+      if (failed) {
+        list.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">تعذّر تحميل سجل الساحة (تحتاج اتصالاً بالخادم)</p>';
+        return;
+      }
+      if (!leaderboard.length) {
+        list.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">لا انتصارات مسجّلة بعد — ابدأ أول مبارزة!</p>';
+        return;
+      }
+      for (const row of leaderboard) {
+        const item = document.createElement('div');
+        item.className = 'flex justify-between items-center border p-3 rounded-xl bg-slate-900/90 border-slate-800';
+        const medal = row.rank === 1 ? '🥇' : row.rank === 2 ? '🥈' : row.rank === 3 ? '🥉' : `#${row.rank}`;
+        const left = document.createElement('div');
+        left.className = 'min-w-0';
+        const name = document.createElement('div');
+        name.className = 'font-bold text-sm truncate';
+        name.textContent = `${medal} ${row.name}`;
+        const record = document.createElement('div');
+        record.className = 'text-[10px] text-slate-400';
+        record.textContent = `${row.wins} فوز · ${row.losses} خسارة · ${row.draws} تعادل`;
+        left.append(name, record);
+        const wins = document.createElement('div');
+        wins.className = 'font-black text-amber-300 text-sm shrink-0';
+        wins.textContent = `⚔️ ${row.wins}`;
+        item.append(left, wins);
+        list.appendChild(item);
+      }
+    }
+
+    async function loadArenaLeaderboard() {
+      try {
+        const { leaderboard } = await api('/api/arena-leaderboard');
+        renderArenaShowcaseLeaders(leaderboard);
+        renderArenaLeaderboardList(leaderboard);
+      } catch (e) {
+        renderArenaShowcaseLeaders([], true);
+        renderArenaLeaderboardList([], true);
       }
     }
 
     async function loadLeaderboard() {
       loadRaceLeaderboard();
+      loadArenaLeaderboard();
       const list = document.getElementById('leaderboard-list');
       try {
         const { leaderboard } = await api('/api/leaderboard');
-        renderArenaShowcaseLeaders(leaderboard);
         list.innerHTML = '';
         if (!leaderboard.length) {
           list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">لا لاعبين بعد — كن أول معدّن! ⛏️</p>';
@@ -2801,7 +2252,6 @@
           list.appendChild(el);
         }
       } catch (e) {
-        renderArenaShowcaseLeaders([], true);
         list.innerHTML = '<p class="text-xs text-slate-500 text-center py-6">تعذّر تحميل الصدارة (تحتاج اتصالاً بالخادم)</p>';
       }
     }
@@ -2969,902 +2419,6 @@
       });
     })();
     document.addEventListener('contextmenu', (e) => e.preventDefault());
-
-    // ================= 🎮 لعبة مغامرة المنجم التفاعلية =================
-    const advCanvas = document.getElementById('game-canvas');
-    const advCtx = advCanvas.getContext('2d');
-    const ADV = { duration: 60, playerW: 78, playerH: 34 };
-    const adv = {
-      running: false, paused: false, score: 0, combo: 0, maxCombo: 0, lives: 3, timeLeft: ADV.duration,
-      objects: [], particles: [], playerX: 180, targetX: 180, prevX: 180, elapsed: 0, spawnIn: 0,
-      lastTs: 0, raf: 0, best: Number(localStorage.getItem('mining_adventure_best') || 0),
-      caught: 0, missed: 0, gemsCaught: 0, missionIndex: 0, shake: 0, flash: 0,
-      banner: '', bannerUntil: 0, phase: 0, lockNoticePhase: -1, zoneSpawnCount: 0, muted: false, audio: null, shieldCharges: 0,
-      mode: 'solo', rng: null, raceLastSend: 0, gameMode: 'classic', gameDifficulty: 'normal',
-      skillCharges: 1, nextEventAt: 18, eventUntil: -1, eventType: null,
-      boss: null, bossCharge: 0, bossDefeated: false,
-      fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: false },
-    };
-    // مناطق متدرجة بصرياً مع تصاعد كثافة التحدي في حلقة اللعب الحالية.
-    const ADV_MINE_ZONES = [
-      { name: 'كهف البداية', icon: '🪨', hint: 'اجمع الموارد وتعلّم الإيقاع', top: '#312e81', glow: '#f59e0b', floor: '#1c1917' },
-      { name: 'كهف الكريستال', icon: '💎', hint: 'الجواهر أثمن بـ25% — تحرّك بدقة', top: '#164e63', glow: '#22d3ee', floor: '#083344' },
-      { name: 'منجم الحمم', icon: '🌋', hint: 'في المغامرة الفردية، كل خامس كنز يصبح صخرة خطرة', top: '#7f1d1d', glow: '#fb7185', floor: '#450a0a' },
-    ];
-    // فتح المناطق تدريجياً بناءً على إحصاءات المغامرة المحفوظة محلياً.
-    // هذا تقدم للعب الفردي فقط؛ لا يمنح مكافآت سحابية ولا يغيّر عدالة السباقات.
-    const ADV_ZONE_REQUIREMENTS = [
-      { gems: 0, runs: 0, bosses: 0 },
-      { gems: 25, runs: 3, bosses: 0 },
-      { gems: 75, runs: 0, bosses: 1 },
-    ];
-    // الخادم يحتسب المناطق من جولات تحقق منها (state.adventure.zones)؛ ما فُتح محلياً قبل ذلك
-    // يبقى متاحاً للّعب (تقدّم تجميلي/صعوبة لا ذهب فيه) حتى لا يفقد اللاعبون القدامى مناطقهم.
-    const advServer = { zones: 0, runs: 0 };
-    function getUnlockedAdventureZones() {
-      const gems = Math.max(0, Number(advStats.totalGems) || 0);
-      const runs = Math.max(0, Number(advStats.runs) || 0);
-      const bosses = Math.max(0, Number(advStats.bossWins) || 0);
-      let unlocked = 1;
-      if (gems >= ADV_ZONE_REQUIREMENTS[1].gems || runs >= ADV_ZONE_REQUIREMENTS[1].runs) unlocked = 2;
-      if (gems >= ADV_ZONE_REQUIREMENTS[2].gems || bosses >= ADV_ZONE_REQUIREMENTS[2].bosses) unlocked = 3;
-      return Math.max(unlocked, Math.min(ADV_MINE_ZONES.length, Math.floor(advServer.zones) || 1));
-    }
-    // اعتماد إحصاءات المغامرة الخادمية: السجل المحلي لا ينقص (قد يسبق الخادم بجولات قديمة أو مرفوضة)
-    function adoptServerAdventure(a, raceTotals) {
-      if (a && typeof a === 'object') {
-        advServer.zones = Math.max(1, Math.floor(Number(a.zones) || 1));
-        advServer.runs = Math.max(0, Math.floor(Number(a.runs) || 0));
-        const lift = (key, value) => { const v = Math.max(0, Number(value) || 0); if (v > (Number(advStats[key]) || 0)) advStats[key] = v; };
-        lift('runs', a.runs); lift('totalGems', a.gems); lift('maxCombo', a.maxCombo); lift('bestSurvival', a.bestSurvival);
-        lift('bossWins', a.bossWins); lift('rewardEarned', a.rewardEarned);
-        if (Number(a.bestScore) > adv.best) {
-          adv.best = Math.floor(Number(a.bestScore));
-          try { localStorage.setItem('mining_adventure_best', String(adv.best)); } catch (e) {}
-        }
-      }
-      if (raceTotals && Number(raceTotals.wins) > (Number(advStats.raceWins) || 0)) advStats.raceWins = Math.floor(Number(raceTotals.wins));
-      saveAdvStats();
-      if (typeof renderAchievements === 'function') renderAchievements();
-      if (typeof updateAdvSettingsUI === 'function') updateAdvSettingsUI();
-      if (typeof updateAdventureUI === 'function' && !adv.running) updateAdventureUI();
-    }
-    function getAdventureZoneUnlockHint(zoneIndex) {
-      if (zoneIndex === 1) return 'التقط 25 جوهرة أو أكمل 3 جولات لفتح كهف الكريستال';
-      if (zoneIndex === 2) return 'اجمع 75 جوهرة أو اهزم الزعيم مرة لفتح منجم الحمم';
-      return '';
-    }
-
-    const advKeys = {};
-
-    // ⚙️ خيارات اللعب: أوضاع + صعوبة + شكل (محفوظة على الجهاز)
-    let advSettings = { mode: 'classic', difficulty: 'normal', skin: 'miner' };
-    let advStats = { runs: 0, totalGems: 0, maxCombo: 0, bestSurvival: 0, raceWins: 0, rewardEarned: 0, bossWins: 0 };
-    let advClaimed = {};
-    try { advSettings = { ...advSettings, ...JSON.parse(localStorage.getItem('mining_adventure_settings') || '{}') }; } catch (e) {}
-    try { advStats = { ...advStats, ...JSON.parse(localStorage.getItem('mining_adventure_stats') || '{}') }; } catch (e) {}
-    try { advClaimed = JSON.parse(localStorage.getItem('mining_adventure_claimed') || '{}'); } catch (e) {}
-    const saveAdvSettings = () => { try { localStorage.setItem('mining_adventure_settings', JSON.stringify(advSettings)); } catch (e) {} };
-    const saveAdvStats = () => { try { localStorage.setItem('mining_adventure_stats', JSON.stringify(advStats)); localStorage.setItem('mining_adventure_claimed', JSON.stringify(advClaimed)); } catch (e) {} };
-
-    const ADV_MODES = {
-      classic: { label: 'كلاسيك', duration: 60, spawnScale: 1, fallScale: 1, rewardScale: 1 },
-      blitz: { label: 'البرق', duration: 30, spawnScale: 0.7, fallScale: 1.28, rewardScale: 1.15 },
-      survival: { label: 'البقاء', duration: Infinity, spawnScale: 0.88, fallScale: 1.05, rewardScale: 1.4 },
-      boss: { label: 'الزعيم', duration: 75, spawnScale: 0.95, fallScale: 1.05, rewardScale: 1.1 },
-    };
-    const ADV_DIFFS = {
-      easy: { label: 'سهل', lives: 1, fallScale: 0.85, scoreScale: 0.85 },
-      normal: { label: 'عادي', lives: 0, fallScale: 1, scoreScale: 1 },
-      hard: { label: 'صعب', lives: -1, fallScale: 1.2, scoreScale: 1.4 },
-    };
-    const advModeCfg = () => ADV_MODES[adv.gameMode || advSettings.mode] || ADV_MODES.classic;
-    const advDiffCfg = () => ADV_DIFFS[adv.gameDifficulty || advSettings.difficulty] || ADV_DIFFS.normal;
-
-    const ADV_SKINS = [
-      { id: 'miner', icon: '⛏️', name: 'المعدّن', colors: ['#f59e0b', '#b45309'], unlock: 0 },
-      { id: 'rocket', icon: '🚀', name: 'الصاروخ', colors: ['#818cf8', '#4338ca'], unlock: 200 },
-      { id: 'truck', icon: '🛻', name: 'الشاحنة', colors: ['#34d399', '#065f46'], unlock: 400 },
-      { id: 'dragon', icon: '🐉', name: 'التنين', colors: ['#e879f9', '#86198f'], unlock: 700 },
-    ];
-    const advSkin = () => ADV_SKINS.find((s) => s.id === advSettings.skin) || ADV_SKINS[0];
-
-    function updateAdvSettingsUI() {
-      document.querySelectorAll('[data-adv-mode]').forEach((b) => {
-        const on = b.dataset.advMode === advSettings.mode;
-        b.classList.toggle('border-amber-400', on); b.classList.toggle('bg-amber-500/15', on); b.classList.toggle('text-amber-300', on);
-      });
-      document.querySelectorAll('[data-adv-diff]').forEach((b) => {
-        const on = b.dataset.advDiff === advSettings.difficulty;
-        b.classList.toggle('border-amber-400', on); b.classList.toggle('bg-amber-500/15', on); b.classList.toggle('text-amber-300', on);
-      });
-      const skins = document.getElementById('adv-skins');
-      if (skins) {
-        skins.innerHTML = '';
-        for (const skin of ADV_SKINS) {
-          const unlocked = adv.best >= skin.unlock;
-          const btn = document.createElement('button');
-          btn.className = `border rounded-xl py-2 text-[10px] font-bold ${advSettings.skin === skin.id ? 'border-amber-400 bg-amber-500/15 text-amber-300' : 'border-slate-700 bg-slate-950/50'} ${unlocked ? '' : 'opacity-45'}`;
-          btn.innerHTML = `<span class="text-xl block">${skin.icon}</span>${unlocked ? skin.name : `🔒 ${skin.unlock}`}`;
-          btn.onclick = () => setAdventureSkin(skin.id);
-          skins.appendChild(btn);
-        }
-      }
-    }
-    function setAdventureMode(mode) {
-      if (adv.running) { haptic('error'); return; }
-      advSettings.mode = mode; saveAdvSettings(); updateAdvSettingsUI(); haptic('light');
-    }
-    function setAdventureDifficulty(diff) {
-      if (adv.running) { haptic('error'); return; }
-      advSettings.difficulty = diff; saveAdvSettings(); updateAdvSettingsUI(); haptic('light');
-    }
-    function setAdventureSkin(id) {
-      const skin = ADV_SKINS.find((s) => s.id === id);
-      if (!skin || adv.best < skin.unlock) { haptic('error'); return; }
-      advSettings.skin = id; saveAdvSettings(); updateAdvSettingsUI(); drawAdventure(); haptic('success');
-    }
-
-    // 🏅 الإنجازات
-    const ADV_ACHIEVEMENTS = [
-      { id: 'first_run', icon: '🎬', name: 'أول مغامرة', desc: 'أكمل جولة واحدة', reward: 25, met: () => advStats.runs >= 1, progress: () => `${Math.min(1, advStats.runs)}/1` },
-      { id: 'score500', icon: '💎', name: 'نتيجة 500', desc: 'حقق أفضل نتيجة 500+', reward: 75, met: () => adv.best >= 500, progress: () => `${Math.min(500, Math.floor(adv.best))}/500` },
-      { id: 'combo20', icon: '🔥', name: 'سلسلة 20', desc: 'حقق أعلى سلسلة ×20', reward: 75, met: () => advStats.maxCombo >= 20, progress: () => `${Math.min(20, advStats.maxCombo)}/20` },
-      { id: 'collector', icon: '🧲', name: 'جامع الكنوز', desc: 'التقط 300 جوهرة إجمالاً', reward: 100, met: () => advStats.totalGems >= 300, progress: () => `${Math.min(300, advStats.totalGems)}/300` },
-      { id: 'survivor', icon: '💀', name: 'الناجي', desc: 'حقق 300 نقطة في وضع البقاء', reward: 100, met: () => advStats.bestSurvival >= 300, progress: () => `${Math.min(300, Math.floor(advStats.bestSurvival))}/300` },
-      { id: 'boss', icon: '👹', name: 'قاتل الزعماء', desc: 'اهزم زعيم المنجم مرة واحدة', reward: 100, met: () => advStats.bossWins >= 1, progress: () => `${Math.min(1, advStats.bossWins)}/1` },
-      { id: 'racer', icon: '⚔️', name: 'بطل السباقات', desc: 'افُز بسباق مباشر واحد', reward: 50, met: () => advStats.raceWins >= 1, progress: () => `${Math.min(1, advStats.raceWins)}/1` },
-      { id: 'earner', icon: '🪙', name: 'صانع الذهب', desc: 'اكسب 500 ذهب من المغامرات', reward: 100, met: () => advStats.rewardEarned >= 500, progress: () => `${Math.min(500, advStats.rewardEarned)}/500` },
-    ];
-    // متصلاً بالخادم: القائمة والتقدّم والاستلام كلها من الخادم (إحصاءات تحقق منها هو)؛ دون خادم: القائمة المحلية القديمة
-    const serverAchievements = () => (serverMode && profile?.achievements && Array.isArray(profile.achievements.items)) ? profile.achievements : null;
-    function renderAchievements() {
-      const box = document.getElementById('adv-achievements');
-      if (!box) return;
-      box.innerHTML = '';
-      const cloud = serverAchievements();
-      const counter = document.getElementById('ach-count');
-      if (counter) counter.innerText = cloud ? `${cloud.items.filter((i) => i.claimed).length}/${cloud.items.length}` : '';
-      const rows = cloud
-        ? cloud.items.map((a) => ({ id: a.id, icon: a.icon, name: a.name, desc: a.desc, reward: a.gold, xp: a.xp, claimed: a.claimed, met: a.done, progress: `${fmt(a.value)}/${fmt(a.target)}` }))
-        : ADV_ACHIEVEMENTS.map((a) => ({ id: a.id, icon: a.icon, name: a.name, desc: a.desc, reward: a.reward, xp: 0, claimed: Boolean(advClaimed[a.id]), met: a.met(), progress: a.progress() }));
-      for (const a of rows) {
-        const row = document.createElement('div');
-        row.className = `flex justify-between items-center border p-2 rounded-lg ${a.claimed ? 'bg-emerald-500/10 border-emerald-700/40' : a.met ? 'bg-amber-500/10 border-amber-700/40' : 'bg-slate-950/50 border-slate-800'}`;
-        const info = document.createElement('div');
-        info.innerHTML = `<div class="font-bold text-[11px]">${a.icon} ${a.name} <span class="text-slate-400 font-normal">(${a.progress})</span></div><div class="text-[9px] text-slate-400">${a.desc} — مكافأة ${a.reward} 🪙${a.xp ? ` + ${a.xp} خبرة` : ''}</div>`;
-        const btn = document.createElement('button');
-        btn.className = 'bg-amber-500 disabled:opacity-40 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
-        btn.textContent = a.claimed ? '✓ استُلمت' : a.met ? `استلم ${a.reward}` : '🔒';
-        btn.disabled = a.claimed || !a.met;
-        btn.onclick = () => claimAchievement(a.id);
-        row.append(info, btn);
-        box.appendChild(row);
-      }
-    }
-    function claimAchievement(id) {
-      const cloud = serverAchievements();
-      if (cloud) {
-        // الخادم يتحقق من الإنجاز من إحصاءاته هو؛ هنا عرض متفائل يؤكده (أو يصححه) الرد التالي
-        const a = cloud.items.find((x) => x.id === id);
-        if (!a || a.claimed || !a.done) { haptic('error'); return; }
-        a.claimed = true;
-        state.gold += a.gold; state.totalEarned += a.gold;
-        enqueueOp({ type: 'achievement', id, expected: a.gold });
-        haptic('success');
-        advBeep(880, 0.15, 'triangle', 0.06, 1320);
-        renderAchievements();
-        updateUI();
-        save();
-        return;
-      }
-      const a = ADV_ACHIEVEMENTS.find((x) => x.id === id);
-      if (!a || advClaimed[id] || !a.met()) { haptic('error'); return; }
-      advClaimed[id] = true;
-      state.gold += a.reward;
-      state.totalEarned += a.reward;
-      saveAdvStats();
-      haptic('success');
-      advBeep(880, 0.15, 'triangle', 0.06, 1320);
-      renderAchievements();
-      updateUI();
-      save();
-    }
-
-    // 🛠️ ترقيات المغامرة الدائمة (الأسعار مطابقة للخادم — يُتحقق منها هناك)
-    const ADV_UPGRADE_DEFS = {
-      magnet: { icon: '🧲', name: 'مغناطيس مطوّر', desc: 'مدة جذب أطول ونطاق أوسع', base: 150, growth: 1.7, max: 5 },
-      cart: { icon: '🛒', name: 'عربة أوسع', desc: 'عربة أكبر تلتقط بسهولة', base: 200, growth: 1.7, max: 5 },
-      speed: { icon: '👢', name: 'حذاء سريع', desc: 'حركة أسرع واستجابة أعلى', base: 150, growth: 1.6, max: 5 },
-      shield: { icon: '🛡️', name: 'درع البداية', desc: 'ابدأ كل جولة محمياً (مستوى 3: درعان)', base: 250, growth: 1.8, max: 3 },
-      heart: { icon: '❤️', name: 'قلب إضافي', desc: 'قلب بداية إضافي لكل مستوى', base: 300, growth: 1.8, max: 3 },
-      clock: { icon: '⏳', name: 'رمال أطول', desc: 'إبطاء الزمن يدوم أكثر', base: 150, growth: 1.6, max: 5 },
-      luck: { icon: '🍀', name: 'حظ المعدّن', desc: 'قدرات خاصة تسقط أكثر', base: 200, growth: 1.7, max: 5 },
-      skill: { icon: '🧨', name: 'شحنات التفجير', desc: 'قنبلة إضافية تدمر كل خطر على الشاشة', base: 250, growth: 1.8, max: 3 },
-    };
-    const advUpLevel = (key) => state.adventureUpgrades?.[key] || 0;
-    function advUpgradeCost(key) {
-      const def = ADV_UPGRADE_DEFS[key];
-      const lvl = advUpLevel(key);
-      if (lvl >= def.max) return null;
-      let c = def.base;
-      for (let i = 0; i < lvl; i++) c = Math.floor(c * def.growth);
-      return c;
-    }
-    function buyAdvUpgrade(key) {
-      const cost = advUpgradeCost(key);
-      if (cost === null || state.gold < cost) { haptic('error'); return; }
-      state.gold -= cost;
-      state.adventureUpgrades[key] = advUpLevel(key) + 1;
-      enqueueOp({ type: 'buy_adv', key });
-      if (key === 'cart') ADV.playerW = 78 + advUpLevel('cart') * 8;
-      haptic('success');
-      advBeep(880, 0.12, 'triangle', 0.06, 1320);
-      updateUI();
-      updateAdvUpgradesUI();
-      save();
-    }
-    function updateAdvUpgradesUI() {
-      const list = document.getElementById('adv-upgrades-list');
-      if (!list) return;
-      list.innerHTML = '';
-      for (const [key, def] of Object.entries(ADV_UPGRADE_DEFS)) {
-        const lvl = advUpLevel(key);
-        const cost = advUpgradeCost(key);
-        const row = document.createElement('div');
-        row.className = 'flex justify-between items-center bg-slate-950/50 border border-slate-800 p-2 rounded-lg';
-        const info = document.createElement('div');
-        info.className = 'flex items-center gap-2 min-w-0';
-        const icon = document.createElement('span'); icon.className = 'text-xl'; icon.textContent = def.icon;
-        const texts = document.createElement('div');
-        const name = document.createElement('div'); name.className = 'font-bold text-[11px]';
-        name.textContent = `${def.name} ${lvl ? `· مستوى ${lvl}/${def.max}` : ''}`;
-        const desc = document.createElement('div'); desc.className = 'text-[9px] text-slate-400'; desc.textContent = def.desc;
-        texts.append(name, desc); info.append(icon, texts);
-        const btn = document.createElement('button');
-        btn.className = 'buy-btn bg-amber-500 text-slate-950 font-bold px-2.5 py-1.5 rounded-lg text-[10px] shrink-0';
-        btn.disabled = cost === null || state.gold < cost;
-        btn.textContent = cost === null ? '✓ أقصى' : `🪙 ${cost.toLocaleString('en-US')}`;
-        btn.onclick = () => buyAdvUpgrade(key);
-        row.append(info, btn);
-        list.appendChild(row);
-      }
-    }
-
-    const ADV_MISSIONS = [
-      { text: '🎯 مهمة: التقط 15 جوهرة', reward: 25, progress: () => `${Math.min(15, adv.gemsCaught)}/15`, done: () => adv.gemsCaught >= 15 },
-      { text: '🎯 مهمة: حقق سلسلة ×10', reward: 30, progress: () => `${Math.min(10, adv.maxCombo)}/10`, done: () => adv.maxCombo >= 10 },
-      { text: '🎯 مهمة: اجمع 300 نقطة', reward: 50, progress: () => `${Math.min(300, Math.floor(adv.score))}/300`, done: () => adv.score >= 300 },
-    ];
-    const advFxActive = (k) => adv.elapsed < adv.fx[k];
-    // مولّد عشوائي ببذرة (نفس التساقط للمتسابقين) + مصدر موحد للأرقام
-    function mulberry32(seed) {
-      let a = seed >>> 0;
-      return function () {
-        a |= 0; a = (a + 0x6D2B79F5) | 0;
-        let t = Math.imul(a ^ (a >>> 15), 1 | a);
-        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-      };
-    }
-    const advRandom = () => adv.rng ? adv.rng() : Math.random();
-    function advBanner(text, sec = 1.6) { adv.banner = text; adv.bannerUntil = adv.elapsed + sec; }
-
-    // 🔊 مؤثرات صوتية مولّدة (WebAudio — بلا ملفات) بنغمة تصعد مع السلسلة
-    function advBeep(freq, dur = 0.08, type = 'sine', vol = 0.05, slideTo = null) {
-      if (adv.muted) return;
-      try {
-        adv.audio = adv.audio || new (window.AudioContext || window.webkitAudioContext)();
-        const ac = adv.audio, t = ac.currentTime;
-        const osc = ac.createOscillator(), gain = ac.createGain();
-        osc.type = type; osc.frequency.setValueAtTime(freq, t);
-        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-        gain.gain.setValueAtTime(vol, t);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        osc.connect(gain); gain.connect(ac.destination);
-        osc.start(t); osc.stop(t + dur);
-      } catch (e) {}
-    }
-    function toggleAdventureMute() {
-      adv.muted = !adv.muted;
-      document.getElementById('adv-mute-btn').innerText = adv.muted ? '🔇' : '🔊';
-    }
-
-    function checkAdventureMission() {
-      const m = ADV_MISSIONS[adv.missionIndex];
-      if (!m || !m.done()) return;
-      adv.score += m.reward;
-      advBanner(`✅ أنجزت المهمة! +${m.reward} نقطة`, 1.8);
-      advBeep(880, 0.18, 'triangle', 0.07, 1320);
-      haptic('success');
-      adv.missionIndex += 1;
-    }
-
-    function advSize() {
-      const rect = advCanvas.getBoundingClientRect();
-      return { w: rect.width || 360, h: rect.height || 330 };
-    }
-    function resizeAdventureCanvas() {
-      const rect = advCanvas.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      advCanvas.width = Math.max(200, rect.width) * dpr;
-      advCanvas.height = Math.max(200, rect.height) * dpr;
-      advCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawAdventure();
-    }
-
-    function updateAdventureUI() {
-      const legacyBack = document.getElementById('legacy-back');
-      if (legacyBack) legacyBack.hidden = Boolean(adv.mode === 'race' && typeof race !== 'undefined' && race.inRace);
-      document.getElementById('adv-score').innerText = Math.floor(adv.score);
-      document.getElementById('adv-time').innerText = adv.gameMode === 'survival' && adv.running ? '∞' : Math.max(0, Math.ceil(adv.timeLeft));
-      document.getElementById('adv-lives').innerText = '❤️'.repeat(Math.max(0, adv.lives)) || '💀';
-      document.getElementById('adv-best').innerText = Math.floor(adv.best);
-      const mult = Math.min(3, 1 + Math.floor(adv.combo / 10));
-      const effects = [
-        advFxActive('magnetUntil') ? `🧲 ${Math.ceil(adv.fx.magnetUntil - adv.elapsed)}ث` : '',
-        adv.fx.shield ? `🛡️×${Math.max(1, adv.shieldCharges)}` : '',
-        advFxActive('slowUntil') ? `⏳ ${Math.ceil(adv.fx.slowUntil - adv.elapsed)}ث` : '',
-        advFxActive('starUntil') ? `⭐ ${Math.ceil(adv.fx.starUntil - adv.elapsed)}ث` : '',
-        advFxActive('feverUntil') ? `🌟 حمّى ${Math.ceil(adv.fx.feverUntil - adv.elapsed)}ث` : '',
-      ].filter(Boolean).join(' · ');
-      document.getElementById('adv-combo').innerText = !adv.running ? 'حرّك العربة والتقط الجواهر!'
-        : effects || (adv.combo >= 2 ? `🔥 سلسلة ×${adv.combo} — مضاعِف النقاط ×${mult}` : 'التقط الجواهر لبناء سلسلة!');
-      const m = ADV_MISSIONS[adv.missionIndex];
-      document.getElementById('adv-mission').innerText = m ? `${m.text} (${m.progress()}) — مكافأة +${m.reward}` : '🏆 أنجزت كل مهام هذه الجولة!';
-      document.getElementById('adv-pause-btn').disabled = !adv.running;
-      document.getElementById('adv-pause-btn').innerText = adv.paused ? '▶ أكمال' : '⏸ إيقاف';
-      const skillBtn = document.getElementById('adv-skill-btn');
-      skillBtn.disabled = !adv.running || adv.paused || adv.skillCharges <= 0;
-      skillBtn.innerText = `🧨 ×${adv.skillCharges}`;
-      const bossBtn = document.getElementById('adv-boss-btn');
-      const inBoss = adv.gameMode === 'boss';
-      bossBtn.classList.toggle('hidden', !inBoss);
-      bossBtn.disabled = !adv.running || adv.paused || !inBoss || adv.bossCharge < 20;
-      bossBtn.innerText = `🎯 هجوم ${Math.floor(adv.bossCharge)}/20`;
-    }
-
-    const ADV_POWERUPS = [
-      { kind: 'magnet', icon: '🧲' }, { kind: 'shield', icon: '🛡️' },
-      { kind: 'slow', icon: '⏳' }, { kind: 'star', icon: '⭐' }, { kind: 'heart', icon: '❤️' },
-    ];
-    function spawnAdventureObject() {
-      const { w } = advSize();
-      const roll = advRandom();
-      let data;
-      const eventActive = adv.elapsed < adv.eventUntil;
-      if (eventActive && adv.eventType === 'rain' && roll < 0.68) data = advRandom() < 0.6 ? { type: 'gem', icon: '💎', points: 10, hazard: false } : { type: 'coin', icon: '🪙', points: 5, hazard: false };
-      else if (eventActive && adv.eventType === 'storm' && roll < 0.58) data = advRandom() < 0.7 ? { type: 'rock', icon: '🪨', points: 0, hazard: true } : { type: 'bomb', icon: '💣', points: -15, hazard: true };
-      else if (roll < 0.02) data = { type: 'chest', icon: '🧰', points: 40, hazard: false };
-      else if (roll < 0.05) data = { type: 'golden', icon: '🌟💎', points: 50, hazard: false };
-      else if (roll < 0.12) data = { type: 'crystal', icon: '💠', points: 15, hazard: false, pattern: 'zigzag' };
-      else if (roll < 0.38) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
-      else if (roll < 0.68) data = { type: 'coin', icon: '🪙', points: 5, hazard: false };
-      else if (roll < 0.78 + advUpLevel('luck') * 0.008) { const p = ADV_POWERUPS[Math.floor(advRandom() * ADV_POWERUPS.length)]; data = { type: 'power', kind: p.kind, icon: p.icon, points: 0, hazard: false }; }
-      else if (roll < 0.92) data = { type: 'rock', icon: '🪨', points: 0, hazard: true };
-      else data = { type: 'bomb', icon: '💣', points: -15, hazard: true };
-      // كهف الكريستال يكافئ التقاط الكنوز؛ منجم الحمم يزيد المخاطر في الفردي فقط.
-      if (adv.phase === 1 && !data.hazard && ['gem', 'crystal', 'golden', 'chest'].includes(data.type)) {
-        data = { ...data, points: Math.ceil(data.points * 1.25) };
-      }
-      if (adv.phase === 2 && adv.mode !== 'race' && !eventActive && ['gem', 'crystal', 'golden', 'chest', 'coin'].includes(data.type)) {
-        adv.zoneSpawnCount += 1;
-        if (adv.zoneSpawnCount % 5 === 0) data = { type: 'rock', icon: '🌋', points: 0, hazard: true };
-      }
-      const feverBoost = advFxActive('feverUntil') && !data.hazard && advRandom() < 0.5;
-      if (feverBoost) data = { type: 'gem', icon: '💎', points: 10, hazard: false };
-      const startX = 24 + advRandom() * Math.max(20, w - 48);
-      adv.objects.push({
-        ...data, x: startX, baseX: startX, age: 0, y: -25,
-        r: data.type === 'golden' || data.type === 'chest' ? 23 : data.type === 'gem' ? 19 : 17,
-        vy: (125 + adv.elapsed * 2.6 + advRandom() * 75) * advModeCfg().fallScale * advDiffCfg().fallScale * (data.type === 'chest' ? 0.62 : 1),
-        vx: (advRandom() - 0.5) * 28, spin: advRandom() * Math.PI, nearMissed: false,
-      });
-    }
-
-    // 🧨 مهارة التفجير: تدمر كل الأخطار الظاهرة وتمنح نقاط أمان
-    function useAdventureSkill() {
-      if (!adv.running || adv.paused || adv.skillCharges <= 0) { haptic('error'); return; }
-      adv.skillCharges -= 1;
-      const hazards = adv.objects.filter((o) => o.hazard);
-      adv.objects = adv.objects.filter((o) => !o.hazard);
-      adv.score += hazards.length * 2;
-      adv.shake = 0.3; adv.flash = 0.18;
-      advBanner(`🧨 دُمّر ${hazards.length} خطر!`, 1.2);
-      advBeep(120, 0.3, 'sawtooth', 0.09, 45);
-      if (navigator.vibrate) navigator.vibrate([40, 30, 60]);
-      haptic('success');
-      updateAdventureUI();
-      drawAdventure();
-    }
-
-    // 🎯 هجوم مضاد على الزعيم — يُشحن من نقاط الالتقاط
-    function bossAttack() {
-      if (!adv.running || adv.paused || adv.gameMode !== 'boss' || !adv.boss || adv.bossCharge < 20) { haptic('error'); return; }
-      adv.bossCharge -= 20;
-      const dmg = 12 + Math.floor(advRandom() * 7);
-      adv.boss.hp -= dmg;
-      adv.boss.hitFlash = 0.3;
-      adv.particles.push({ x: adv.boss.x, y: adv.boss.y + 28, text: `🎯 -${dmg}`, color: '#e879f9', life: 0.9 });
-      advBeep(180, 0.18, 'square', 0.07, 70);
-      adv.shake = Math.max(adv.shake, 0.18);
-      haptic('success');
-      if (adv.boss.hp <= 0) {
-        adv.bossDefeated = true;
-        adv.score += 150;
-        advBanner('👹 سقط الزعيم! +150 نقطة', 2);
-        advBeep(880, 0.3, 'triangle', 0.08, 1760);
-        endAdventure();
-        return;
-      }
-      updateAdventureUI();
-      drawAdventure();
-    }
-
-    function spawnBossRock() {
-      if (!adv.boss) return;
-      const { w } = advSize();
-      adv.objects.push({
-        type: 'rock', icon: '☄️', points: 0, hazard: true, x: adv.boss.x, baseX: adv.boss.x, age: 0, y: 82,
-        r: 19, vy: 235 + adv.elapsed * 2, vx: Math.max(-170, Math.min(170, (adv.playerX - adv.boss.x) / 1.15)),
-        spin: 0, nearMissed: false,
-      });
-      adv.particles.push({ x: adv.boss.x, y: adv.boss.y + 24, text: '🎯 يستهدفك!', color: '#f87171', life: 0.8 });
-      advBeep(240, 0.12, 'sawtooth', 0.04, 120);
-      void w;
-    }
-
-    function startAdventure(mode = 'solo', seed = null, duration = null) {
-      // A server-started race must reveal the cart, and suspend the platform RAF.
-      window.PlatformGame?.showLegacy?.();
-      if (mode === 'race') switchPlayPanel('adventure');
-      for (const key of Object.keys(advKeys)) delete advKeys[key];
-      resizeAdventureCanvas();
-      adv.mode = mode;
-      adv.rng = mode === 'race' && seed !== null ? mulberry32(seed) : null;
-      // مدة السباق يقررها الخادم (يختم النتيجة بنفسه عند انتهائها)؛ الفردي يستخدم مدة الوضع
-      const raceDuration = mode === 'race' && Number.isFinite(Number(duration)) && Number(duration) > 0 ? Number(duration) : null;
-      // السباق دائماً كلاسيك/عادي للعدالة — الفردي يستخدم خيارات اللاعب
-      adv.gameMode = mode === 'race' ? 'classic' : advSettings.mode;
-      adv.gameDifficulty = mode === 'race' ? 'normal' : advSettings.difficulty;
-      const { w } = advSize();
-      ADV.playerW = 78 + advUpLevel('cart') * 8; // 🛒 عربة أوسع حسب الترقية
-      adv.shieldCharges = advUpLevel('shield') >= 3 ? 2 : advUpLevel('shield') >= 1 ? 1 : 0;
-      Object.assign(adv, { running: true, paused: false, score: 0, combo: 0, maxCombo: 0,
-        lives: Math.max(1, 3 + advUpLevel('heart') + advDiffCfg().lives),
-        timeLeft: raceDuration || advModeCfg().duration, objects: [], particles: [], playerX: w / 2, targetX: w / 2, prevX: w / 2,
-        elapsed: 0, spawnIn: 0, zoneSpawnCount: 0, lastTs: performance.now(), caught: 0, missed: 0, gemsCaught: 0,
-        missionIndex: 0, shake: 0, flash: 0, banner: '', bannerUntil: 0, phase: 0, lockNoticePhase: -1,
-        skillCharges: 1 + advUpLevel('skill'), nextEventAt: 18, eventUntil: -1, eventType: null,
-        boss: adv.gameMode === 'boss'
-          ? { hp: adv.gameDifficulty === 'easy' ? 90 : adv.gameDifficulty === 'hard' ? 170 : 120,
-              maxHp: adv.gameDifficulty === 'easy' ? 90 : adv.gameDifficulty === 'hard' ? 170 : 120,
-              x: w / 2, y: 58, attackAt: 4, hitFlash: 0 }
-          : null,
-        bossCharge: 0, bossDefeated: false,
-        fx: { magnetUntil: -1, slowUntil: -1, starUntil: -1, feverUntil: -1, shield: adv.shieldCharges > 0 } });
-      if (adv.gameMode === 'boss') advBanner('👹 اهزم الزعيم قبل انتهاء الوقت! اجمع نقاطاً لشحن هجومك', 2.4);
-      advBanner('⛏️ اجمع الجواهر وتفادَ الخطر!', 1.6);
-      try { adv.audio = adv.audio || new (window.AudioContext || window.webkitAudioContext)(); adv.audio.resume?.(); } catch (e) {}
-      advBeep(660, 0.12, 'triangle', 0.06, 990);
-      document.getElementById('game-overlay').style.display = 'none';
-      cancelAnimationFrame(adv.raf);
-      adv.raf = requestAnimationFrame(adventureLoop);
-      haptic('success');
-      updateAdventureUI();
-    }
-
-    function toggleAdventurePause() {
-      if (!adv.running) return;
-      setAdventurePaused(!adv.paused);
-    }
-    function setAdventurePaused(paused) {
-      if (!adv.running) return;
-      adv.paused = paused;
-      for (const key of Object.keys(advKeys)) delete advKeys[key];
-      if (paused) cancelAnimationFrame(adv.raf);
-      const overlay = document.getElementById('game-overlay');
-      document.getElementById('game-overlay-title').innerText = paused ? '⏸ توقف مؤقت' : 'مغامرة المنجم';
-      document.getElementById('game-overlay-text').innerHTML = paused ? 'خذ نفساً… المغامرة بانتظارك.' : '';
-      document.getElementById('game-overlay-btn').innerText = paused ? '▶ أكمال اللعب' : '▶ العب الآن';
-      document.getElementById('game-overlay-btn').setAttribute('onclick', paused ? 'toggleAdventurePause()' : 'startAdventure()');
-      overlay.style.display = paused ? 'flex' : 'none';
-      if (!paused) { adv.lastTs = performance.now(); cancelAnimationFrame(adv.raf); adv.raf = requestAnimationFrame(adventureLoop); }
-      updateAdventureUI();
-    }
-
-    function adventureLoop(ts) {
-      if (!adv.running || adv.paused) return;
-      const dt = Math.min(0.033, (ts - adv.lastTs) / 1000 || 0.016);
-      adv.lastTs = ts;
-      stepAdventure(dt);
-      drawAdventure();
-      // بث تقدم السباق للخصم (10 مرات/ثانية كحد أقصى)
-      if (adv.mode === 'race' && race.inRace && ts - adv.raceLastSend > 100) {
-        adv.raceLastSend = ts;
-        raceSend({ type: 'progress', score: Math.floor(adv.score), lives: adv.lives, xRatio: adv.playerX / Math.max(1, advSize().w) });
-      }
-      if (adv.running) adv.raf = requestAnimationFrame(adventureLoop);
-    }
-
-    function stepAdventure(dt) {
-      const { w, h } = advSize();
-      const playerY = h - 48;
-      adv.elapsed += dt;
-      if (Number.isFinite(adv.timeLeft)) adv.timeLeft -= dt;
-
-      // 🎲 أحداث عشوائية داخل الجولة
-      if (adv.elapsed >= adv.nextEventAt) {
-        adv.eventType = advRandom() < 0.5 ? 'rain' : 'storm';
-        adv.eventUntil = adv.elapsed + 5;
-        adv.nextEventAt = adv.elapsed + 20;
-        advBanner(adv.eventType === 'rain' ? '🌧️ وابل جواهر! اجمع كل ما تقدر' : '☄️ عاصفة صخور! ركّز على التفادي', 2);
-        advBeep(adv.eventType === 'rain' ? 980 : 180, 0.22, 'triangle', 0.06, adv.eventType === 'rain' ? 1480 : 90);
-      }
-
-      // حركة لوحة المفاتيح
-      const speed = 420 + advUpLevel('speed') * 45;
-      if (advKeys.ArrowLeft || advKeys.ArrowRight) {
-        adv.targetX += ((advKeys.ArrowRight ? 1 : 0) - (advKeys.ArrowLeft ? 1 : 0)) * speed * dt;
-      }
-      adv.targetX = Math.max(ADV.playerW / 2, Math.min(w - ADV.playerW / 2, adv.targetX));
-      adv.prevX = adv.playerX;
-      adv.playerX += (adv.targetX - adv.playerX) * Math.min(1, dt * (18 + advUpLevel('speed') * 1.2));
-      adv.shake = Math.max(0, adv.shake - dt);
-      adv.flash = Math.max(0, adv.flash - dt);
-
-      // مراحل صعوبة معلنة
-      const targetPhase = adv.elapsed >= 40 ? 2 : adv.elapsed >= 20 ? 1 : 0;
-      const unlockedZones = getUnlockedAdventureZones();
-      const newPhase = Math.min(targetPhase, unlockedZones - 1);
-      if (targetPhase > newPhase && adv.lockNoticePhase !== targetPhase) {
-        adv.lockNoticePhase = targetPhase;
-        advBanner(`🔒 ${ADV_MINE_ZONES[targetPhase].name}: ${getAdventureZoneUnlockHint(targetPhase)}`, 3.2);
-        advBeep(180, 0.18, 'square', 0.035, 120);
-      }
-      if (newPhase !== adv.phase) {
-        adv.phase = newPhase;
-        const zone = ADV_MINE_ZONES[newPhase];
-        advBanner(`${zone.icon} وصلت إلى ${zone.name} — ${zone.hint}`, 2.2);
-        advBeep(newPhase === 2 ? 160 : 440, 0.2, 'sawtooth', 0.05, newPhase === 2 ? 75 : 880);
-      }
-
-      // 👹 حركة الزعيم وهجومه المستهدف الدوري
-      if (adv.boss && adv.gameMode === 'boss') {
-        adv.boss.x = w / 2 + Math.sin(adv.elapsed * 0.8) * Math.max(30, w / 2 - 62);
-        adv.boss.y = 58 + Math.sin(adv.elapsed * 1.7) * 8;
-        adv.boss.hitFlash = Math.max(0, adv.boss.hitFlash - dt);
-        if (adv.elapsed >= adv.boss.attackAt) {
-          spawnBossRock();
-          adv.boss.attackAt = adv.elapsed + Math.max(2.5, 4.2 - adv.elapsed * 0.018);
-        }
-      }
-
-      // توليد عناصر أسرع تدريجياً (وأسرع في المرحلة الأخيرة)
-      adv.spawnIn -= dt;
-      const spawnEvery = Math.max(0.2, (0.68 - adv.elapsed * 0.006 - adv.phase * 0.05) * advModeCfg().spawnScale * (adv.elapsed < adv.eventUntil ? 0.62 : 1));
-      if (adv.spawnIn <= 0) { spawnAdventureObject(); adv.spawnIn = spawnEvery * (0.75 + advRandom() * 0.5); }
-
-      const fallDt = dt * (advFxActive('slowUntil') ? 0.5 : 1); // ⏳ إبطاء زمني
-      for (const obj of [...adv.objects]) {
-        // 🧲 مغناطيس يجذب الكنوز نحو العربة
-        if (advFxActive('magnetUntil') && !obj.hazard) {
-          const dx = adv.playerX - obj.x;
-          const magnetRadius = 150 + advUpLevel('magnet') * 25;
-          if (Math.abs(dx) < magnetRadius && obj.y > h - 190 - advUpLevel('magnet') * 12) obj.x += Math.max(-260 * fallDt, Math.min(260 * fallDt, dx * 6 * fallDt));
-        }
-        obj.age = (obj.age || 0) + fallDt;
-        obj.y += obj.vy * fallDt;
-        obj.x += obj.vx * fallDt;
-        if (obj.pattern === 'zigzag') obj.x = Math.max(obj.r, Math.min(w - obj.r, obj.baseX + Math.sin(obj.age * 4.2) * 38));
-        obj.spin += dt * 2;
-        if (obj.x < obj.r || obj.x > w - obj.r) obj.vx *= -1;
-
-        const hitPlayer = obj.y + obj.r >= playerY && obj.y - obj.r <= playerY + ADV.playerH
-          && Math.abs(obj.x - adv.playerX) <= ADV.playerW / 2 + obj.r * 0.55;
-        if (hitPlayer) {
-          collectAdventureObject(obj);
-          adv.objects.splice(adv.objects.indexOf(obj), 1);
-          continue;
-        }
-        // مرور خطر قريب بلا إصابة = مكافأة جرأة
-        if (obj.hazard && !obj.nearMissed && obj.y - obj.r > playerY + ADV.playerH) {
-          obj.nearMissed = true;
-          if (Math.abs(obj.x - adv.playerX) <= ADV.playerW / 2 + obj.r + 22) {
-            adv.score += 2;
-            adv.particles.push({ x: adv.playerX, y: playerY - 14, text: '😱 قريب! +2', color: '#7dd3fc', life: 0.7 });
-          }
-        }
-        if (obj.y - obj.r > h) {
-          if (!obj.hazard) { adv.missed += 1; if (adv.combo > 0) adv.combo = 0; } // إسقاط كنز يكسر السلسلة
-          adv.objects.splice(adv.objects.indexOf(obj), 1);
-        }
-      }
-
-      for (const p of [...adv.particles]) {
-        p.y -= 45 * dt; p.life -= dt;
-        if (p.life <= 0) adv.particles.splice(adv.particles.indexOf(p), 1);
-      }
-      updateAdventureUI();
-      if (adv.timeLeft <= 0 || adv.lives <= 0) endAdventure();
-    }
-
-    function applyAdventurePower(kind, x, yTop) {
-      const notes = {
-        magnet: '🧲 مغناطيس 8 ثوانٍ!', shield: '🛡️ درع يحميك مرة!', slow: '⏳ أبطأنا الزمن!',
-        star: '⭐ نقاط مضاعفة 8 ثوانٍ!', heart: '❤️ قلب إضافي!',
-      };
-      if (kind === 'magnet') adv.fx.magnetUntil = adv.elapsed + 8 + advUpLevel('magnet') * 1.5;
-      if (kind === 'shield') { adv.shieldCharges = Math.min(2, adv.shieldCharges + 1); adv.fx.shield = true; }
-      if (kind === 'slow') adv.fx.slowUntil = adv.elapsed + 5 + advUpLevel('clock');
-      if (kind === 'star') adv.fx.starUntil = adv.elapsed + 8;
-      if (kind === 'heart') adv.lives = Math.min(5, adv.lives + 1);
-      adv.particles.push({ x, y: yTop, text: notes[kind], color: '#e879f9', life: 1 });
-      advBeep(740, 0.1, 'triangle', 0.06, 1180);
-      setTimeout(() => advBeep(990, 0.12, 'triangle', 0.05, 1320), 70);
-    }
-
-    function collectAdventureObject(obj) {
-      const { h } = advSize();
-      const yTop = h - 58;
-      if (obj.type === 'power') { applyAdventurePower(obj.kind, obj.x, yTop); haptic('success'); return; }
-      if (obj.hazard) {
-        if (adv.fx.shield) {
-          adv.shieldCharges = Math.max(0, adv.shieldCharges - 1);
-          adv.fx.shield = adv.shieldCharges > 0;
-          adv.particles.push({ x: obj.x, y: yTop, text: '🛡️ أنقذك الدرع!', color: '#7dd3fc', life: 1 });
-          advBeep(300, 0.12, 'square', 0.05, 500);
-          haptic('success');
-          return;
-        }
-        adv.lives -= 1;
-        adv.combo = 0;
-        adv.shake = 0.35; adv.flash = 0.3;
-        if (obj.type === 'bomb') adv.score = Math.max(0, adv.score - 15);
-        adv.particles.push({ x: obj.x, y: yTop, text: obj.type === 'bomb' ? '💥 -1 قلب' : '🪨 -1 قلب', color: '#f87171', life: 0.9 });
-        advBeep(140, 0.22, 'sawtooth', 0.08, 60);
-        haptic('error');
-        if (navigator.vibrate) navigator.vibrate(90);
-      } else {
-        adv.caught += 1;
-        if (obj.type === 'gem' || obj.type === 'golden') adv.gemsCaught += 1;
-        adv.combo += 1;
-        adv.maxCombo = Math.max(adv.maxCombo, adv.combo);
-        const comboMult = Math.min(3, 1 + Math.floor((adv.combo - 1) / 10));
-        const totalMult = Math.min(6, comboMult * (advFxActive('starUntil') ? 2 : 1) * (advFxActive('feverUntil') ? 2 : 1));
-        const gained = Math.round(obj.points * totalMult * advDiffCfg().scoreScale);
-        adv.score += gained;
-        if (adv.gameMode === 'boss' && adv.boss) adv.bossCharge = Math.min(60, adv.bossCharge + gained);
-        adv.particles.push({ x: obj.x, y: yTop, text: `+${gained}`, color: obj.type === 'golden' ? '#fde68a' : '#fbbf24', life: 0.8 });
-        advBeep(Math.min(950, 520 + adv.combo * 16), 0.06, 'sine', 0.045);
-        haptic('light');
-        // 🌟 حمّى الذهب عند سلسلة 15
-        if (adv.combo === 15 && !advFxActive('feverUntil')) {
-          adv.fx.feverUntil = adv.elapsed + 8;
-          advBanner('🌟 حمّى الذهب! نقاط مضاعفة وجواهر أكثر', 2);
-          advBeep(880, 0.25, 'triangle', 0.07, 1760);
-        }
-        checkAdventureMission();
-      }
-    }
-
-    function drawAdventure() {
-      if (!advCtx) return;
-      const { w, h } = advSize();
-      const playerY = h - 48;
-      advCtx.clearRect(0, 0, w, h);
-      if (adv.shake > 0) { advCtx.save(); advCtx.translate((Math.random() - 0.5) * 10 * adv.shake * 3, (Math.random() - 0.5) * 7 * adv.shake * 3); }
-      const zone = ADV_MINE_ZONES[Math.min(adv.phase, ADV_MINE_ZONES.length - 1)];
-      const sky = advCtx.createLinearGradient(0, 0, 0, h);
-      sky.addColorStop(0, zone.top);
-      sky.addColorStop(1, '#020617');
-      advCtx.fillStyle = sky;
-      advCtx.fillRect(0, 0, w, h);
-      if (advFxActive('feverUntil')) { advCtx.fillStyle = 'rgba(245,158,11,0.10)'; advCtx.fillRect(0, 0, w, h); }
-      // صواعد كهف متحركة (Parallax يعطي إحساس العمق)
-      advCtx.fillStyle = zone.glow + '22';
-      const caveOff = (adv.elapsed * 18) % 46;
-      for (let x = -46; x < w + 46; x += 46) {
-        advCtx.beginPath();
-        advCtx.moveTo(x + caveOff - 46, 0); advCtx.lineTo(x + 23 + caveOff - 46, 28 + (x % 3) * 5); advCtx.lineTo(x + 46 + caveOff - 46, 0);
-        advCtx.closePath(); advCtx.fill();
-      }
-      // نجوم/غبار المنجم
-      advCtx.fillStyle = 'rgba(251,191,36,0.16)';
-      for (let i = 0; i < 22; i++) {
-        const x = (i * 67 + 25) % w, y = (i * 41 + 18) % Math.max(40, h - 70);
-        advCtx.fillRect(x, y, 2, 2);
-      }
-      // أرضية المنجم
-      advCtx.fillStyle = zone.floor;
-      advCtx.fillRect(0, h - 22, w, 22);
-      advCtx.fillStyle = zone.glow;
-      advCtx.fillRect(0, h - 22, w, 2);
-
-      // الأجسام المتساقطة
-      const emojiFont = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", serif';
-      advCtx.textAlign = 'center'; advCtx.textBaseline = 'middle';
-      for (const obj of adv.objects) {
-        advCtx.save();
-        advCtx.translate(obj.x, obj.y);
-        advCtx.rotate(Math.sin(obj.spin) * 0.18);
-        advCtx.font = `${obj.r * 2}px ${emojiFont}`;
-        advCtx.fillText(obj.icon, 0, 0);
-        advCtx.restore();
-      }
-
-      // 👹 الزعيم وشريط صحته
-      if (adv.boss && adv.gameMode === 'boss') {
-        advCtx.save();
-        advCtx.font = `46px ${emojiFont}`;
-        advCtx.textAlign = 'center'; advCtx.textBaseline = 'middle';
-        if (adv.boss.hitFlash > 0) { advCtx.shadowColor = '#ef4444'; advCtx.shadowBlur = 22; }
-        advCtx.fillText('👹', adv.boss.x, adv.boss.y);
-        advCtx.shadowBlur = 0;
-        const bw = Math.min(210, w - 70), bx = (w - bw) / 2;
-        advCtx.fillStyle = 'rgba(15,23,42,0.85)'; advCtx.fillRect(bx, 12, bw, 11);
-        advCtx.fillStyle = '#ef4444'; advCtx.fillRect(bx, 12, bw * Math.max(0, adv.boss.hp / adv.boss.maxHp), 11);
-        advCtx.font = 'bold 9px Tajawal, sans-serif'; advCtx.fillStyle = '#fecaca';
-        advCtx.fillText(`الزعيم ${Math.max(0, Math.ceil(adv.boss.hp))}/${adv.boss.maxHp}`, w / 2, 31);
-        advCtx.restore();
-      }
-
-      // 👥 شبح الخصم في السباق المباشر
-      if (adv.mode === 'race' && race.inRace && race.opponent) {
-        const gx = race.opponent.xRatio * w;
-        advCtx.save();
-        advCtx.globalAlpha = 0.45;
-        advCtx.fillStyle = '#6366f1';
-        advCtx.beginPath();
-        advCtx.roundRect(gx - ADV.playerW / 2, playerY, ADV.playerW, ADV.playerH, 10);
-        advCtx.fill();
-        advCtx.font = `24px ${emojiFont}`;
-        advCtx.fillText('🧑‍🚀', gx, playerY + 15);
-        advCtx.globalAlpha = 0.9;
-        advCtx.font = 'bold 10px Tajawal, sans-serif';
-        advCtx.fillStyle = '#c7d2fe';
-        advCtx.fillText(`${race.opponent.name} · ${Math.floor(race.opponent.score)}`, gx, playerY - 10);
-        advCtx.restore();
-      }
-
-      // عربة المعدّن (تميل مع اتجاه الحركة + أيقونة درع عند تفعيله)
-      const px = adv.playerX - ADV.playerW / 2;
-      const tilt = Math.max(-0.16, Math.min(0.16, (adv.playerX - adv.prevX) * 0.03));
-      advCtx.save();
-      advCtx.translate(adv.playerX, playerY + ADV.playerH / 2);
-      advCtx.rotate(tilt);
-      const skin = advSkin();
-      const grad = advCtx.createLinearGradient(-ADV.playerW / 2, 0, ADV.playerW / 2, ADV.playerH);
-      grad.addColorStop(0, skin.colors[0]); grad.addColorStop(1, skin.colors[1]);
-      advCtx.fillStyle = grad;
-      advCtx.beginPath();
-      advCtx.roundRect(-ADV.playerW / 2, -ADV.playerH / 2, ADV.playerW, ADV.playerH, 10);
-      advCtx.fill();
-      advCtx.font = `29px ${emojiFont}`;
-      advCtx.fillText(skin.icon, 0, 2);
-      if (adv.fx.shield) { advCtx.font = `17px ${emojiFont}`; advCtx.fillText('🛡️', ADV.playerW / 2 - 8, -ADV.playerH / 2 + 4); }
-      if (advFxActive('magnetUntil')) { advCtx.font = `15px ${emojiFont}`; advCtx.fillText('🧲', -ADV.playerW / 2 + 8, -ADV.playerH / 2 + 4); }
-      advCtx.fillStyle = '#111827';
-      advCtx.beginPath(); advCtx.arc(-ADV.playerW / 2 + 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
-      advCtx.beginPath(); advCtx.arc(ADV.playerW / 2 - 15, ADV.playerH / 2 + 5, 6, 0, Math.PI * 2); advCtx.fill();
-      advCtx.restore();
-
-      // نقاط عائمة
-      advCtx.font = 'black 15px Tajawal, sans-serif';
-      for (const p of adv.particles) {
-        advCtx.globalAlpha = Math.max(0, Math.min(1, p.life));
-        advCtx.fillStyle = p.color;
-        advCtx.fillText(p.text, p.x, p.y);
-      }
-      advCtx.globalAlpha = 1;
-      if (adv.shake > 0) advCtx.restore();
-      // وميض أحمر عند الإصابة + إعلان منتصف الشاشة
-      if (adv.flash > 0) { advCtx.fillStyle = `rgba(239,68,68,${adv.flash * 0.7})`; advCtx.fillRect(0, 0, w, h); }
-      if (adv.banner && adv.elapsed < adv.bannerUntil) {
-        advCtx.save();
-        advCtx.globalAlpha = Math.max(0, Math.min(1, adv.bannerUntil - adv.elapsed));
-        advCtx.font = 'black 19px Tajawal, sans-serif';
-        advCtx.textAlign = 'center';
-        advCtx.fillStyle = '#fde68a';
-        advCtx.shadowColor = 'rgba(0,0,0,0.8)'; advCtx.shadowBlur = 8;
-        advCtx.fillText(adv.banner, w / 2, 74);
-        advCtx.restore();
-      }
-    }
-
-    function endAdventure() {
-      if (!adv.running) return;
-      adv.running = false;
-      adv.paused = false;
-      cancelAnimationFrame(adv.raf);
-      const finalScore = Math.floor(adv.score);
-      const inRace = adv.mode === 'race' && race.inRace;
-      if (inRace) window.PlatformGame?.showPlatform?.(); // restore the side-scroller after a race
-      const rewardCap = adv.gameMode === 'survival' ? 150 : 100;
-      const victoryBonus = adv.bossDefeated ? 150 : 0;
-      const claimed = inRace ? 0 : Math.min(rewardCap, Math.floor(finalScore / 5 * advModeCfg().rewardScale)) + victoryBonus; // السباق للمجد لا للذهب (حتى لا يُزرع)
-      // السقف اليومي المشترك: الخادم يقصّ الدفع، فنعرض ما سيدفعه فعلاً بدل رقم ثم تصحيحه عند المزامنة
-      const room = classicRoom(), reward = Math.min(claimed, room), cut = claimed > reward;
-      if (reward > 0 && classicPurse()) { const d = classicPurse(); profile.dailyGold = { day: d.day, cap: d.cap, used: d.used + reward, remaining: Math.max(0, d.remaining - reward) }; }
-      const unlockedZonesBeforeRun = getUnlockedAdventureZones();
-      if (adv.bossDefeated) advStats.bossWins += 1;
-      if (inRace) raceSendFinish(finalScore);
-      advStats.runs += 1;
-      advStats.totalGems += adv.gemsCaught;
-      advStats.maxCombo = Math.max(advStats.maxCombo, adv.maxCombo);
-      if (adv.gameMode === 'survival') advStats.bestSurvival = Math.max(advStats.bestSurvival, finalScore);
-      advStats.rewardEarned += reward;
-      saveAdvStats();
-      const unlockedZonesAfterRun = getUnlockedAdventureZones();
-      const zoneProgressText = unlockedZonesAfterRun > unlockedZonesBeforeRun
-        ? `🎉 فتحت ${ADV_MINE_ZONES[unlockedZonesAfterRun - 1].name}! ستلعب فيها من الجولة القادمة.`
-        : unlockedZonesAfterRun < ADV_MINE_ZONES.length
-          ? `🗺️ المناطق المفتوحة: ${unlockedZonesAfterRun}/${ADV_MINE_ZONES.length}. التالي: ${getAdventureZoneUnlockHint(unlockedZonesAfterRun)}.`
-          : `🗺️ جميع مناطق المغامرة مفتوحة!`;
-      if (finalScore > adv.best) {
-        adv.best = finalScore;
-        try { localStorage.setItem('mining_adventure_best', String(adv.best)); } catch (e) {}
-      }
-      if (reward > 0) {
-        state.gold += reward;
-        state.totalEarned += reward;
-      }
-      // كل جولة تُبلَّغ للخادم (حتى السباقات وجولات بلا جائزة): هو من يحتسب الإحصاءات والمناطق والجائزة
-      enqueueOp({
-        type: 'run', mode: adv.gameMode, difficulty: adv.gameDifficulty, score: finalScore, gems: adv.gemsCaught,
-        combo: adv.maxCombo, duration: Math.floor(adv.elapsed), boss: adv.bossDefeated, race: inRace, expected: reward,
-      });
-      const overlay = document.getElementById('game-overlay');
-      document.getElementById('game-overlay-title').innerText = adv.bossDefeated ? '🏆 قتلت الزعيم!' : adv.lives <= 0 ? '💀 انتهت المغامرة!' : adv.gameMode === 'boss' ? '👹 هرب الزعيم هذه المرة!' : '⏰ انتهى الوقت!';
-      const accuracy = adv.caught + adv.missed ? Math.round(adv.caught / (adv.caught + adv.missed) * 100) : 0;
-      const rank = finalScore >= 900 ? '🏆 معدّن أسطوري' : finalScore >= 600 ? '👑 خبير مناجم' : finalScore >= 350 ? '💪 معدّن محترف' : finalScore >= 150 ? '⛏️ معدّن صاعد' : '🌱 مبتدئ';
-      renderAchievements();
-      updateAdvSettingsUI();
-      document.getElementById('game-overlay-text').innerHTML =
-        `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة ${reward ? `— حصلت على <b class="text-amber-400">+${reward} 🪙</b>` : ''}<br>` +
-        (cut ? `<span class="text-sky-300">سقف الذهب اليوم مشترك مع المناجم وبيع الخامات: ${reward ? `دُفع لك الباقي فقط (${reward} من ${claimed})` : `لا ذهب إضافي اليوم (كان ${claimed})`} — يتجدّد ${classicResetTime()}</span><br>` : '') +
-        `🎯 التقطت ${adv.caught} · دقة ${accuracy}٪ · أعلى سلسلة ×${adv.maxCombo}<br>` +
-        `الوضع: ${advModeCfg().label} · الصعوبة: ${advDiffCfg().label}<br>` +
-        `لقبك: <b class="text-fuchsia-300">${rank}</b> · أفضل نتيجة: ${Math.floor(adv.best)}<br>` +
-        `<span class="text-cyan-300">${zoneProgressText}</span>`;
-      if (inRace) {
-        document.getElementById('game-overlay-title').innerText = '🏁 انتهى سباقك!';
-        document.getElementById('game-overlay-text').innerHTML =
-          `نتيجتك: <b class="text-amber-400">${finalScore}</b> نقطة<br>بانتظار انتهاء الخصم لإعلان الفائز…`;
-      }
-      const btn = document.getElementById('game-overlay-btn');
-      btn.innerText = inRace ? '⏳ بانتظار الخصم…' : '🔁 العب مرة أخرى';
-      btn.setAttribute('onclick', 'startAdventure()');
-      overlay.style.display = 'flex';
-      haptic(claimed > 0 ? 'success' : 'error');
-      updateUI();
-      save();
-      updateAdventureUI();
-      drawAdventure();
-    }
-
-    // تحكم باللمس/الفأرة على الكانفس
-    function moveAdventureTo(clientX) {
-      const rect = advCanvas.getBoundingClientRect();
-      adv.targetX = Math.max(ADV.playerW / 2, Math.min(rect.width - ADV.playerW / 2, clientX - rect.left));
-    }
-    advCanvas.addEventListener('pointerdown', (e) => { advCanvas.setPointerCapture?.(e.pointerId); moveAdventureTo(e.clientX); });
-    advCanvas.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'touch') moveAdventureTo(e.clientX); });
-    window.addEventListener('keydown', (e) => {
-      if (!document.getElementById('tab-play').classList.contains('active')
-          || !document.getElementById('play-panel-adventure').classList.contains('active')
-          || document.getElementById('legacy-adventure').hidden
-          || /INPUT|TEXTAREA|SELECT/.test(e.target?.tagName || '') || e.target?.isContentEditable) return;
-      if (!['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) return;
-      e.preventDefault();
-      if (e.key === ' ' && e.repeat) return;
-      advKeys[e.key] = true;
-      if (e.key === ' ' && adv.running) useAdventureSkill();
-      else if (e.key === ' ' && !adv.running) startAdventure();
-    });
-    window.addEventListener('keyup', (e) => { advKeys[e.key] = false; });
-    window.addEventListener('resize', resizeAdventureCanvas);
-    document.addEventListener('visibilitychange', () => { if (document.hidden && adv.running && !adv.paused) setAdventurePaused(true); });
 
     // ================= ⚔️ عميل السباق المباشر (WebSocket) =================
     const race = { ws: null, connecting: null, inRace: false, opponent: null, myId: null, finishedSent: false, countdownTimer: 0 };
@@ -4206,221 +2760,6 @@
     // ورشة المعدّن (المرحلة 3): معدات دائمة بسعر ذهب + خام، مدعومة بالخادم.
     // الأسعار والتأثيرات من public/platform-rules.js نفسه؛ الخادم يعيد حسابها ويرفض أي عملية لا تطابق رصيدك،
     // والأثر يسري من الجولة التالية (لقطة الجولة الجارية ثابتة).
-    // ============================================================
-    const WS_RULES = window.PlatformRules; // ملف القواعد المشترك؛ غيابه يعطّل الورشة والخريطة فقط ولا يُسقط بقية اللعبة
-    const WORKSHOP_ITEMS = WS_RULES ? WS_RULES.EQUIPMENT_ORDER.map((id) => ({ id, ...WS_RULES.EQUIPMENT[id] })) : [];
-    let wsOpenFlag = false, wsAudio = null, wsMusicTimer = 0;
-    let wsSoundOn = true, wsMusicOn = false, wsActiveItem = null;
-    const WS_DEFAULT_NOTE = 'تُشترى المعدات بالذهب والخامات ويتحقق الخادم من كل ترقية. تسري من جولتك القادمة.';
-    const wsLevel = (id) => Math.max(0, Math.min(WS_RULES.MAX_EQUIP_LEVEL, Math.floor(Number(state.equipment?.[id]) || 0)));
-    const hitsWord = (n) => (n === 1 ? 'ضربة واحدة' : n === 2 ? 'ضربتان' : n <= 10 ? `${n} ضربات` : `${n} ضربة`);
-    const wsNote = (text) => { const n = document.getElementById('ws-note'); if (n) n.textContent = text || WS_DEFAULT_NOTE; };
-    // هل تكفي الأرصدة الحالية للترقية التالية؟ (للعرض فقط — الخادم هو الحكم)
-    function wsAfford(id) {
-      const cost = WS_RULES.equipCost(id, wsLevel(id));
-      if (!cost) return { max: true, ok: false, cost: null, goldOk: false, lacking: [] };
-      const goldOk = (Number(state.gold) || 0) >= cost.gold;
-      const lacking = Object.entries(cost.ores).filter(([k, n]) => (Number(state.ores?.[k]) || 0) < n).map(([k]) => k);
-      return { max: false, ok: goldOk && !lacking.length, cost, goldOk, lacking };
-    }
-
-    function wsNodePos(i) {
-      const a = (-90 + i * 45) * Math.PI / 180;
-      return { x: 50 + 41 * Math.cos(a), y: 50 + 41 * Math.sin(a) };
-    }
-    // ميدالية المعدة: حلقة التقدّم = رصيد الذهب ÷ سعر الترقية، وتخضرّ مع سهم حين يكفي الذهب والخامات، وتكتمل ذهبياً عند المستوى الأقصى
-    function wsMedal(id, icon, lvl, a) {
-      const mstate = a.max ? 'max' : a.ok ? 'ready' : 'poor';
-      const progress = a.max ? 1 : a.cost ? Math.min(1, (Number(state.gold) || 0) / Math.max(1, a.cost.gold)) : 0;
-      const art = window.CaveArt;
-      if (art?.medalHTML) return art.medalHTML({ id, icon, level: lvl, progress, state: mstate });
-      return `<svg class="ui-icon" aria-hidden="true"><use href="#${icon}"/></svg><span class="ws-node-lvl">${lvl}</span>`;
-    }
-    function wsRenderHero() {
-      const drone = document.getElementById('ws-drone');
-      if (drone) drone.hidden = !(WS_RULES && wsLevel('robot') >= 1);
-    }
-    function wsRenderNodes() {
-      const host = document.getElementById('ws-nodes');
-      if (!host) return;
-      host.innerHTML = WORKSHOP_ITEMS.map((it, i) => {
-        const pos = wsNodePos(i), lvl = wsLevel(it.id), a = wsAfford(it.id);
-        const cls = ['ws-node', a.max ? 'is-max' : '', a.ok ? 'can-buy' : ''].filter(Boolean).join(' ');
-        return `<button class="${cls}" type="button" data-ws-item="${it.id}" style="left:${pos.x}%;top:${pos.y}%" aria-label="${it.name} — المستوى ${lvl}${a.ok ? ' — ترقية متاحة' : ''}" title="${it.name}">${wsMedal(it.id, it.icon, lvl, a)}</button>`;
-      }).join('');
-      wsRenderHero();
-    }
-    function wsRenderTop() {
-      const gold = document.getElementById('ws-gold');
-      if (gold) gold.textContent = fmt(Math.floor(state.gold || 0));
-      const ores = document.getElementById('ws-ore-total');
-      if (ores) ores.textContent = fmt(Object.values(state.ores || {}).reduce((a, v) => a + Math.max(0, Number(v) || 0), 0));
-      const row = document.getElementById('ws-ore-row');
-      if (row) row.innerHTML = Object.entries(WS_RULES.ORES).map(([k, d]) => `<span class="ws-ore-chip" title="${d.name}"><i class="ore-dot ore-${k}"></i>${d.name}<b>${fmt(Math.max(0, Number(state.ores?.[k]) || 0))}</b></span>`).join('');
-      const summary = document.getElementById('ws-summary');
-      if (summary) {
-        const total = WORKSHOP_ITEMS.reduce((a, it) => a + wsLevel(it.id), 0);
-        const zone = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
-        const hits = WS_RULES.hitsToBreak(hero, zone, state.equipment);
-        summary.innerHTML = `<span>المعدات المطوّرة <b>${total}/${WORKSHOP_ITEMS.length * WS_RULES.MAX_EQUIP_LEVEL}</b></span><span>كسر صخرة المنجم <b>${hitsWord(hits)}</b></span>`;
-      }
-      minesLabels();
-    }
-    function wsRefresh() {
-      if (!wsOpenFlag) return;
-      wsRenderNodes(); wsRenderTop();
-      if (wsActiveItem && !document.getElementById('ws-modal').hidden) wsOpenItem(wsActiveItem.id, false);
-    }
-    function wsBeep(freq, dur = 0.12, vol = 0.04, force = false) {
-      if (!wsSoundOn && !force) return;
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        if (!wsAudio) wsAudio = new AC();
-        wsAudio.resume?.();
-        const osc = wsAudio.createOscillator(), gain = wsAudio.createGain();
-        osc.frequency.value = freq; osc.type = 'triangle';
-        gain.gain.setValueAtTime(vol, wsAudio.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, wsAudio.currentTime + dur);
-        osc.connect(gain); gain.connect(wsAudio.destination);
-        osc.start(); osc.stop(wsAudio.currentTime + dur);
-      } catch (_) {}
-    }
-    const WS_NOTES = [392, 440, 494, 523, 494, 440];
-    function wsToggleMusic() {
-      wsMusicOn = !wsMusicOn;
-      document.getElementById('ws-music')?.setAttribute('aria-pressed', String(wsMusicOn));
-      if (wsMusicTimer) { clearInterval(wsMusicTimer); wsMusicTimer = 0; }
-      if (wsMusicOn) {
-        let i = 0;
-        wsMusicTimer = setInterval(() => { if (wsOpenFlag) wsBeep(WS_NOTES[i++ % WS_NOTES.length], 0.22, 0.02, true); }, 420);
-        wsBeep(523, 0.15, 0.03, true);
-      }
-    }
-    function wsOpen() {
-      const overlay = document.getElementById('ws-overlay');
-      if (!overlay) return;
-      try { window.PlatformGame?.pause(); } catch (_) {}
-      wsOpenFlag = true; overlay.hidden = false; wsNote('');
-      wsRenderNodes(); wsRenderTop(); wsBeep(440, 0.1);
-      document.getElementById('ws-close')?.focus({ preventScroll: true });
-    }
-    function wsClose() {
-      const overlay = document.getElementById('ws-overlay');
-      if (!overlay || overlay.hidden) return;
-      wsOpenFlag = false; overlay.hidden = true;
-      if (wsMusicTimer) { clearInterval(wsMusicTimer); wsMusicTimer = 0; }
-      wsMusicOn = false;
-      document.getElementById('ws-music')?.setAttribute('aria-pressed', 'false');
-      document.getElementById('ws-modal').hidden = true;
-      try { window.PlatformGame?.refresh?.(); } catch (_) {} // مشهد الانتظار يعكس المعدات الجديدة
-    }
-    function wsOpenItem(id, sound = true) {
-      const item = WORKSHOP_ITEMS.find(x => x.id === id);
-      if (!item) return;
-      wsActiveItem = item;
-      const lvl = wsLevel(id), a = wsAfford(id);
-      document.getElementById('ws-card-icon').innerHTML = wsMedal(item.id, item.icon, lvl, a);
-      document.getElementById('ws-card-title').textContent = item.name;
-      document.getElementById('ws-card-effect').textContent = item.blurb;
-      document.getElementById('ws-card-level').textContent = String(lvl);
-      document.getElementById('ws-card-now').textContent = `الحالي: ${WS_RULES.effectText(id, lvl)}`;
-      document.getElementById('ws-card-next').textContent = a.max ? 'وصلت إلى المستوى الأقصى.' : `التالي: ${WS_RULES.effectText(id, lvl + 1)}`;
-      const goldChip = document.getElementById('ws-cost-gold'), oreChip = document.getElementById('ws-cost-ore');
-      document.getElementById('ws-card-cost').textContent = a.cost ? fmt(a.cost.gold) : '—';
-      goldChip.classList.toggle('lack', Boolean(a.cost) && !a.goldOk);
-      oreChip.innerHTML = a.cost ? Object.entries(a.cost.ores).map(([k, n]) => `<i class="ore-dot ore-${k}"></i>${WS_RULES.ORES[k].name} <b>${fmt(Math.floor(Number(state.ores?.[k]) || 0))}/${n}</b>`).join(' ') : '';
-      oreChip.classList.toggle('lack', a.lacking.length > 0);
-      const btn = document.getElementById('ws-upgrade');
-      btn.disabled = a.max || !a.ok || !serverMode;
-      btn.textContent = !serverMode ? 'تتطلب الترقية اتصالاً بالخادم' : a.max ? 'المستوى الأقصى'
-        : !a.goldOk ? 'الذهب غير كافٍ' : a.lacking.length ? `ينقصك ${a.lacking.map((k) => WS_RULES.ORES[k].name).join(' و')}` : 'ترقية';
-      document.getElementById('ws-modal').hidden = false;
-      if (sound) wsBeep(560, 0.08);
-    }
-    function wsUpgrade() {
-      if (!wsActiveItem) return;
-      const id = wsActiveItem.id, a = wsAfford(id);
-      if (!serverMode || a.max || !a.ok) { wsBeep(200, 0.12, 0.04); haptic('error'); return; }
-      // عرض فوري بنفس القواعد؛ الخادم يؤكد أو يصحّح عند أول مزامنة (adoptServerState يعيد البناء من حالته)
-      applyOpLocally(state, { type: 'buy_equip', key: id });
-      enqueueOp({ type: 'buy_equip', key: id });
-      haptic('success'); updateUI(); save();
-      wsRenderNodes(); wsRenderTop(); wsOpenItem(id, false);
-      wsNote(`${wsActiveItem.name}: المستوى ${wsLevel(id)} — بانتظار تأكيد الخادم…`);
-      wsBeep(720, 0.14);
-    }
-    // حكم الخادم على ترقيات المعدات (يُستدعى من مزامنة العمليات)
-    function noteEquipResults(results) {
-      if (!results.length) return;
-      const refused = results.find((r) => r.status === 'rejected');
-      const ok = results.filter((r) => r.status === 'ok');
-      if (refused) wsNote(refused.reason === 'max' ? 'هذه المعدة في مستواها الأقصى.' : 'رفض الخادم ترقية لا يغطيها رصيدك الحقيقي — صُحّحت الأرصدة.');
-      else if (ok.length) { const last = ok[ok.length - 1]; wsNote(`ترقية مؤكدة من الخادم: المستوى ${last.level} — تسري من جولتك القادمة.`); }
-      wsRefresh();
-    }
-    function wsStart() {
-      wsClose();
-      try { switchTab('play'); switchPlayPanel('adventure'); } catch (_) {}
-      const start = document.getElementById('platform-start');
-      if (start && !start.disabled) start.click();
-    }
-    // «إلى المنجم» في تبويب التعدين: ينتقل إلى جولة المنصّات ويبدأها، إلا إن كانت هناك جولة موقوفة فيقرر اللاعب (متابعة أو إعادة)
-    function goToMine() {
-      try { switchTab('play'); switchPlayPanel('adventure'); } catch (_) {}
-      const resume = document.getElementById('platform-resume');
-      const start = document.getElementById('platform-start');
-      if (resume && !resume.hidden) return;
-      if (start && !start.disabled) start.click();
-    }
-    // ميدالية الورشة في تبويب التعدين: هل تكفي الأرصدة الآن لترقية أي معدة؟ (للعرض فقط — الخادم هو الحكم)
-    function workshopHint() {
-      try {
-        if (!serverMode || !WS_RULES) return null;
-        return { ready: WORKSHOP_ITEMS.some((it) => wsAfford(it.id).ok) };
-      } catch (_) { return null; }
-    }
-    // ميدالية الحفر العميق: حلقتها = أفضل عمق ÷ عمق الصندوق (يُحفظ محلياً، لا علاقة له بالخادم)
-    function deepDiveHint() {
-      try { return window.DeepDigUI && window.DeepDigUI.active ? { progress: window.DeepDigUI.progress(), best: window.DeepDigUI.bestDepth() } : null; } catch (_) { return null; }
-    }
-
-    // ============================================================
-    // خريطة المناجم: اختيار المنجم المفتوح. الخادم يعيد التحقق من الفتح عند بدء الجولة.
-    // ============================================================
-    let minesOpenFlag = false, minesOpener = null;
-    function minesLabels() {
-      const z = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
-      const mine = WS_RULES.MINES[z] || WS_RULES.MINES[0];
-      const hits = WS_RULES.hitsToBreak(hero, z, state.equipment);
-      document.querySelectorAll('[data-mine-name]').forEach((n) => { n.textContent = mine.name; });
-      document.querySelectorAll('[data-mine-hits]').forEach((n) => { n.textContent = `الصخرة: ${hitsWord(hits)}`; });
-    }
-    // الخطر المميّز لكل عالم (نص عرض فقط؛ الخطر نفسه معرَّف في مستوى المنجم بالقواعد المشتركة)
-    const WORLD_DANGER = { stone: 'فتحات بخار وحفرة أشواك', iron: 'مكبس سحق موقوت', gold: 'غبار ذهبي ينفث', crystal: 'بلّورات تنبثق بإيقاعات مختلفة', lava: 'نوافير حمم فوق الفجوات', legend: 'مكبس سحق وحارس القلب' };
-    function minesRender() {
-      const host = document.getElementById('mines-list');
-      if (!host) return;
-      const selected = window.PlatformGame?.getZone?.() ?? 0, hero = window.PlatformGame?.getHero?.() || 'miner';
-      host.innerHTML = WS_RULES.MINES.map((m, i) => {
-        const st = WS_RULES.mineStatus(i, state.mines, state.equipment), zone = WS_RULES.ZONES[i];
-        const hits = WS_RULES.hitsToBreak(hero, i, state.equipment);
-        const ores = [...new Set(Object.values(m.tier))].map((o) => `<span class="mine-ore"><i class="ore-dot ore-${o}"></i>${WS_RULES.ORES[o].name}</span>`).join('');
-        const needs = st.unlocked ? '' : `<ul class="mine-needs">${st.needs.map((n) => `<li class="${n.ok ? 'ok' : 'no'}"><svg class="ui-icon" aria-hidden="true"><use href="#${n.ok ? 'i-check' : 'i-close'}"/></svg>${n.label}</li>`).join('')}</ul>`;
-        const label = i === selected ? 'المنجم الحالي' : st.unlocked ? 'اختيار' : 'مقفل';
-        const cls = ['mine-card', i === selected ? 'selected' : '', st.unlocked ? '' : 'locked'].filter(Boolean).join(' ');
-        return `<article class="${cls}" data-mine-card="${i}" style="--mine-a:${zone.sky[2]};--mine-b:${zone.glow}">
-          <div class="mine-card-art" aria-hidden="true"><span>${i + 1}</span></div>
-          <div class="mine-card-body">
-            <h3>${m.name}</h3><p>${m.blurb}</p>
-            <div class="mine-meta"><span>الصخرة: ${hitsWord(hits)}</span><span>انتصارات: <b>${st.wins}</b></span></div>
-            <div class="mine-world"><span class="mine-danger"><svg class="ui-icon" aria-hidden="true"><use href="#i-flame"/></svg>${WORLD_DANGER[m.id] || ''}</span>${WS_RULES.levelFor(i).boss ? `<span class="mine-boss"><svg class="ui-icon" aria-hidden="true"><use href="#i-boss"/></svg>زعيم: ${WS_RULES.levelFor(i).boss.name}</span>` : ''}</div>
-            <div class="mine-ores">${ores}</div>${needs}
-          </div>
-          <button type="button" class="mine-pick" data-mine-pick="${i}" ${st.unlocked && i !== selected ? '' : 'disabled'}>${label}</button>
-        </article>`;
-      }).join('');
-    }
     // ---------- الوضع الكلاسيكي (الدفعة 3أ′): اللعبة الأصلية من خريطة المناجم، وذهبها تحت السقف اليومي المشترك (10,000) ----------
     // المحفظة المشتركة تقرؤها من profile.dailyGold (يرسلها الخادم مع كل ردّ)، والخادم هو من يقصّ الدفع فعلاً؛ هنا عرض وتوقّع فقط.
     // محفظة الأمس محفظة كاملة اليوم (قد تبقى الصفحة مفتوحة عبر منتصف الليل UTC فلا يصل ردّ يجدّدها)؛ مجهولة = لا توقّع والخادم يقرّر
@@ -4573,8 +2912,13 @@
   <script src="/platform-summary.js?v=1"></script>
   <script src="/platform-audio.js?v=1"></script>
   <script src="/platform-stick.js?v=1"></script>
-  <script src="/platform-game.js?v=47"></script>
+  <script src="/platform-arena-fx.js?v=1"></script>
+  <script src="/platform-arena-preview.js?v=1"></script>
+  <script src="/platform-control-settings.js?v=1"></script>
+  <script src="/platform-duel-hud.js?v=1"></script>
+  <script src="/platform-duel.js?v=1"></script>
+  <script src="/platform-game.js?v=50"></script>
   <script src="/station-rules.js?v=1"></script>
-  <script src="/station-ui.js?v=1"></script>
+  <script src="/station-ui.js?v=3"></script>
 </body>
 </html>

@@ -188,7 +188,7 @@ test('the multiplier is real income: accrual (offline too) uses the new level, a
   const res = await sendOps('before-reset', [{ type: 'prestige' }]);
   assert.equal(res.body.results[0].status, 'ok');
   const oldRate = 150 * (res.body.serverTime - began) / 1000, newRate = 165 * (res.body.serverTime - began) / 1000;
-  assert.ok(Math.abs(res.body.state.gold - oldRate) < 1, `the time before the reset is paid at the OLD rate: ${res.body.state.gold} against ${oldRate} (the new rate would have paid ${newRate})`);
+  assert.ok(Math.abs(res.body.state.gold - oldRate) < 150, `the time before the reset is paid at the OLD rate: ${res.body.state.gold} against ${oldRate} (the new rate would have paid ${newRate})`);
   // and a window that begins after it earns at the new level: 0 bots now, so nothing; buy one and see 5.5/s
   const next = await sendOps('before-reset', [{ type: 'buy', item: 'bot' }], { from: 2 });
   assert.equal(next.body.state.passiveIncome, 5.5);

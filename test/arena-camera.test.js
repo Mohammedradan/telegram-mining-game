@@ -58,7 +58,7 @@ function drawArena({ cssW = 374, cssH = 828, heroX = 230, rivalX = 380 } = {}) {
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
-  for (const file of ['platform-scenery.js', 'platform-bosses.js', 'platform-renderer.js']) {
+  for (const file of ['platform-scenery.js', 'platform-bosses.js', 'platform-characters.js', 'platform-renderer.js']) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', file), 'utf8'), sandbox);
   }
   const renderer = sandbox.PlatformRenderer;

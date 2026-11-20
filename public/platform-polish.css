@@ -773,8 +773,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 }
 
 
-/* Ultra-compact start screen: remove non-essential briefing blocks so the
-   primary action and mine selector fit without scrolling on 320x568. */
+/* Ultra-compact start screen: keep all four goals readable while the primary
+   action and mine selector remain available on 320x568. */
 @media (max-width: 380px) and (max-height: 600px) {
   #platform-scene .mine-overlay {
     justify-content: flex-start;
@@ -860,17 +860,21 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     font-size: 15px;
     line-height: 1.05;
   }
-  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+  }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-options {
     width: 100%;
     min-width: 0;
     display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 3px;
   }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option {
     min-width: 0;
-    min-height: 38px;
+    min-height: 44px;
     padding: 2px;
     gap: 1px;
   }
@@ -931,8 +935,8 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 }
 
 
-/* Final 320x568 fit: reserve a compact guide corner, keep the opening choices
-   in four short rows, and stop the control pad from extending under bottom nav. */
+/* Final 320x568 fit: reserve a compact guide corner, keep all four opening
+   choices in one touch-sized row, and protect the control pad from bottom nav. */
 @media (max-width: 380px) and (max-height: 600px) {
   #platform-scene .mine-stage {
     flex: 0 1 145px;
@@ -944,11 +948,11 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 36px 34px 32px 28px;
+    grid-template-rows: 32px 44px 30px 28px;
     align-content: center;
     justify-items: center;
     gap: 2px;
-    padding: 4px 8px;
+    padding: 3px 8px;
     overflow: hidden;
   }
   #platform-scene .mine-overlay:has(#platform-summary[hidden])::before,
@@ -968,7 +972,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-title {
     width: calc(100% - 88px);
     max-width: none;
-    min-height: 36px;
+    min-height: 32px;
     margin: 0;
     display: flex;
     align-items: center;
@@ -986,17 +990,21 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   #platform-scene #open-guide .guide-new {
     display: none !important;
   }
-  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+  }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-options {
     width: 100%;
     min-width: 0;
     display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 3px;
   }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option {
     min-width: 0;
-    min-height: 34px;
+    min-height: 44px;
     padding: 2px;
     gap: 1px;
   }
@@ -1014,7 +1022,7 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) > #platform-start {
     min-width: 180px;
-    min-height: 32px;
+    min-height: 30px;
     margin: 0;
     padding: 3px 12px;
     font-size: 11px;
@@ -1046,14 +1054,14 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 }
 
 
-/* Enforce the compact game stack with explicit flex sizing; the normal
-   min-height/flex-grow rules otherwise let the stage consume the control lane. */
+/* Keep the control tray compact while letting the gameplay stage fill the
+   remaining height on the smallest phones. */
 @media (max-width: 380px) and (max-height: 600px) {
   #platform-scene .mine-stage {
-    flex: 0 0 145px !important;
+    flex: 1 1 0 !important;
     width: 100%;
-    height: 145px;
-    min-height: 145px !important;
+    height: auto !important;
+    min-height: 0 !important;
   }
   #platform-scene .mine-controls {
     flex: 0 0 82px;
@@ -1136,12 +1144,16 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   #platform-scene #open-guide .guide-new {
     display: none !important;
   }
-  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals,
+  #platform-scene .mine-overlay:has(#platform-summary[hidden]) #platform-goals {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+  }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-options {
     width: 100%;
     min-width: 0;
     display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
   }
   #platform-scene .mine-overlay:has(#platform-summary[hidden]) .goal-option {

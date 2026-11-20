@@ -10,7 +10,7 @@ const vm = require('node:vm');
 const R = require('../public/platform-rules');
 
 const ROOT = path.join(__dirname, '..');
-const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 const CONFIG = { zone: 0, mode: 'duel' };
 const SEED = 424242;
 
@@ -119,20 +119,21 @@ test('the round clock and the anti-speed check stay honest while frames are froz
   // قاعدة الخادم: يرفض فقط إذا كان المعلن أطول من الزمن الحقيقي (+١ ثانية سماح) ⇒ التجميد آمن
   const serverAccepts = !(realElapsed * 1000 + 1000 < claimed * 1000);
   assert.equal(serverAccepts, true, 'freeze can only make the run look slower, never faster');
-  const game = read('public/platform-game.js');
-  assert.match(game, /duelAcc \+= Math\.min\(0\.1,/, 'the accumulator is capped, so a freeze never causes a catch-up burst');
-  assert.match(game, /if \(duelFreeze > 0\) \{[\s\S]{0,500}?duelAcc -= R\.DT; continue;/, 'a frozen frame consumes its slot instead of banking it');
+  const duel = read('public/platform-duel.js');
+  assert.match(duel, /duelAcc \+= Math\.min\(0\.1,/, 'the accumulator is capped, so a freeze never causes a catch-up burst');
+  assert.match(duel, /if \(duelFreeze > 0\) \{[\s\S]{0,500}?duelAcc -= R\.DT; continue;/, 'a frozen frame consumes its slot instead of banking it');
 });
 
 test('a tap during a frozen frame is carried into the next step, never dropped', () => {
   const run = pump({ tapDuringFreeze: true });
   assert.ok(run.mergedTaps > 0, 'at least one press landed during a freeze and was merged');
-  const game = read('public/platform-game.js');
-  assert.match(game, /duelPendingMask \|= duelMaskNow\(\);/, 'frozen frames still sample the input');
-  assert.match(game, /const mask = duelMaskNow\(\) \| duelPendingMask;\n\s*duelPendingMask = 0;/, 'the pending press is merged once and cleared');
-  assert.match(game, /duelFreeze = 0; duelLastCombo = 0; duelPendingMask = 0;/, 'and reset at the start of every duel');
+  const duel = read('public/platform-duel.js');
+  assert.match(duel, /duelPendingMask \|= duelMaskNow\(\);/, 'frozen frames still sample the input');
+  assert.match(duel, /const mask = duelMaskNow\(\) \| duelPendingMask;\n\s*duelPendingMask = 0;/, 'the pending press is merged once and cleared');
+  assert.match(duel, /duelFreeze = 0; duelLastCombo = 0; duelPendingMask = 0;/, 'and reset at the start of every duel');
   // التسجيل يحدث مرة واحدة لكل خطوة مقدَّمة فقط
-  const loop = game.slice(game.indexOf('while (duelAcc >= R.DT'), game.indexOf('duelAcc -= R.DT;\n    }'));
+  const loopStart = duel.indexOf('while (duelAcc >= R.DT');
+  const loop = duel.slice(loopStart, duel.indexOf('duelAcc -= R.DT;\n      }', loopStart));
   assert.equal((loop.match(/duelRecord\(/g) || []).length, 1, 'exactly one record call per stepped frame');
   assert.equal((loop.match(/R\.step\(duelSim/g) || []).length, 1, 'exactly one simulation step per recorded frame');
 });
@@ -144,7 +145,7 @@ test('shake, flashes, sparks and petals never touch the simulation', () => {
   const sandbox = { PlatformRules: R, devicePixelRatio: 1, Math, Date, console, requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
-  for (const f of ['platform-scenery.js', 'platform-bosses.js', 'platform-arena-scene.js', 'platform-renderer.js']) {
+  for (const f of ['platform-scenery.js', 'platform-bosses.js', 'platform-arena-scene.js', 'platform-characters.js', 'platform-renderer.js']) {
     vm.runInContext(read(`public/${f}`), sandbox);
   }
   const run = pump();

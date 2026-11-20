@@ -63,9 +63,12 @@ test('the mountain obstacle unlocks only through mining progress, with responsiv
   assert.match(styles, /\.ck-rockslide\{/);
   assert.match(styles, /@media\(max-width:520px\).*ck-expedition-route/);
   assert.match(styles, /@media\(prefers-reduced-motion:reduce\).*ck-mobile-rig-bit/);
-  assert.match(page, /clicker\.css\?v=18/);
-  assert.match(page, /mine-world\.js\?v=5/);
-  assert.match(page, /mine-route-store\.js\?v=2/);
-  assert.match(page, /dig-site\.js\?v=\d+/);
-  assert.ok(page.indexOf('<script src="/mine-route-store.js') < page.indexOf('<script src="/dig-site.js'), 'the local route store loads before DigSite');
+  // لا نُثبّت رقم نسخة الكاش (?v=) هنا: كل رفع لرقم النسخة كان يُسقط هذا الاختبار بلا أي عطل حقيقي.
+  // المطلوب أن الوسم موجود في الصفحة، وأن الترتيب صحيح (المخزن المحلي قبل DigSite).
+  for (const asset of ['clicker\\.css', 'mine-world\\.js', 'mine-route-store\\.js', 'dig-site\\.js']) {
+    assert.match(page, new RegExp(`["']\\/${asset}\\?v=\\d+["']`), `${asset} must be loaded with a cache-busting version`);
+  }
+  const order = ['<script src="/mine-route-store.js', '<script src="/dig-site.js'].map((tag) => page.indexOf(tag));
+  assert.ok(order.every((i) => i >= 0), 'both scripts must be present in the page');
+  assert.ok(order[0] < order[1], 'the local route store loads before DigSite');
 });

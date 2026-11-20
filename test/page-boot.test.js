@@ -10,12 +10,12 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
 const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
 // كل السكربتات بترتيب الصفحة: المضمّنة كما هي، والمحلية (src يبدأ بـ /) من public/ — الخارجية (تيليجرام/Tailwind) تُتجاهل
-const script = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map((m) => {
+const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].map((m) => {
   const src = /\bsrc="([^"]+)"/.exec(m[1]);
   if (!src) return m[2];
   if (!src[1].startsWith('/')) return '';
   return fs.readFileSync(path.join(__dirname, '..', 'public', src[1].replace(/[?#].*$/, '')), 'utf8');
-}).join('\n;\n');
+});
 
 const noop = () => {};
 function makeElement(id = '') {
@@ -40,7 +40,7 @@ function makeElement(id = '') {
   return e;
 }
 
-function bootPage({ me, source = script }) {
+function bootPage({ me, source = scripts }) {
   const elements = new Map();
   const byId = (id) => { if (!ids.has(id)) return null; if (!elements.has(id)) elements.set(id, makeElement(id)); return elements.get(id); };
   const timers = [];
@@ -80,9 +80,13 @@ function bootPage({ me, source = script }) {
   ctx.window = ctx; ctx.globalThis = ctx; ctx.self = ctx; ctx.document.defaultView = ctx;
   vm.createContext(ctx);
   let topLevelError = null;
-  try {
-    vm.runInContext(`${source}\n;globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });`, ctx, { filename: 'index.html' });
-  } catch (e) { topLevelError = e; }
+  const sourceScripts = Array.isArray(source) ? source : [source];
+  for (let i = 0; i < sourceScripts.length; i++) {
+    try { vm.runInContext(sourceScripts[i], ctx, { filename: `index.html:script-${i + 1}` }); }
+    catch (e) { if (!topLevelError) topLevelError = e; }
+  }
+  try { vm.runInContext('globalThis.__dbg = () => ({ serverMode, profile, state, SYNC });', ctx); }
+  catch (e) { if (!topLevelError) topLevelError = e; }
   const settle = async () => {
     for (let i = 0; i < 12; i++) {
       for (const fn of timers.splice(0)) { try { fn(); } catch (e) { log.errors.push(`timer: ${e.message}`); } }
@@ -539,8 +543,8 @@ test('the cave scene follows the mining tab: on when it opens, off when anything
 });
 
 test('without clicker-fx.js the game still mines: legacy floating number, direct gold counter, classic boost label', async () => {
-  const legacy = script.replace(fxSource, '');
-  assert.notEqual(legacy, script, 'the module was really removed from the boot script');
+  const legacy = scripts.filter((source) => source !== fxSource);
+  assert.equal(legacy.length, scripts.length - 1, 'the module was really removed from the boot scripts');
   const page = bootPage({ me: meResponse, source: legacy });
   assert.equal(page.topLevelError, null, page.topLevelError && page.topLevelError.message);
   await page.settle();

@@ -105,7 +105,7 @@ test('each cave places caches in distinct reachable locations and checks the dis
 });
 
 test('expanded mining shell is wired, responsive and focusable', () => {
-  assert.match(html, /href="\/mine-expedition\.css\?v=6"/);
+  assert.match(html, /href="\/mine-expedition\.css\?v=8"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   assert.match(html, /id="i-fullscreen"/);
   assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
@@ -118,12 +118,18 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /\.ck-catwalk-lower\s*\{[^}]*left:\s*50%;[^}]*right:\s*2%;[^}]*top:\s*64%;/);
   assert.match(css, /\.ck-catwalk-lower::after\s*\{[^}]*height:\s*clamp\(70px,\s*28vh,\s*180px\)/);
   assert.match(css, /@media\s*\(max-width:\s*520px\)/);
-  assert.match(css, /body\.ck-cave #ck-stage \.ck-node \{ --ck-node: 44px !important; \}/, 'the five mobile medals retain a 44px minimum touch target');
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-node \{ --ck-node: 44px !important; \}/, 'the mobile expedition medals keep a 44px touch target');
   assert.match(css, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*560px\)/);
   assert.match(css, /@media\s*\(min-width:\s*760px\)/);
   assert.match(css, /data-conveyor="on"\]\s*\.ck-ore-cart/);
   assert.match(css, /data-drill="off"\]\s*\.ck-drill-cart/);
   assert.match(css, /data-secret-open="true"\]\s*\.ck-treasure-vault/);
+  assert.match(css, /Mobile cave flow: keep the medals, mining field, actions and energy in separate rows/);
+  assert.match(css, /body\.ck-cave #ck-stage \{[^}]*display: flex !important;[^}]*flex-direction: column !important;/s);
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-area \{[^}]*position: relative !important;[^}]*inset: auto !important;/s);
+  assert.match(css, /body\.ck-cave #energy-container \{[^}]*position: static !important;[^}]*pointer-events: none !important;/s);
+  assert.match(css, /body\.ck-cave \.bottom-nav \{[^}]*position: relative !important;[^}]*inset: auto !important;[^}]*order: 2 !important;/s,
+    'mobile cave navigation must return to normal flow after the energy row instead of covering it');
 });
 
 test('expedition layer grants no economy or server rewards from the client', () => {

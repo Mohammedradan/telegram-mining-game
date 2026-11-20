@@ -6,6 +6,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const { createStore } = require('../db');
 const R = require('../public/platform-rules');
 const solution = require('./fixtures/platform-solution.cjs');
+const bot = require('./fixtures/platform-bot.cjs');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mining-goals-'));
 const file = path.join(dir, 'game.db'), url = process.env.TEST_DATABASE_URL || '';
@@ -56,6 +57,41 @@ async function historical(name, goal, config = { zone: 0, goal, loadout: {} }, h
   return { id, inputs: s.inputs, state: s.state };
 }
 
+function logisticsSolution(seed, zone = 0) {
+  const config = { zone, goal: 3, mode: 'mine', loadout: {} };
+  const base = bot(seed, 'miner', config);
+  const state = R.create('miner', seed, config), inputs = [];
+  let inputIndex = 0, inputFrame = 0;
+  for (let i = 0; i < R.MAX_TICKS && state.status === 'playing'; i++) {
+    const item = base.inputs[inputIndex];
+    let mask = item ? item.mask : 0;
+    if (item && ++inputFrame >= item.frames) { inputIndex++; inputFrame = 0; }
+    const p = state.player, l = state.logistics;
+    const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - 54, y: p.y - 8, w: 54, h: p.h + 16 };
+    const reaches = target => hitbox.x < target.x + target.w && hitbox.x + hitbox.w > target.x &&
+      hitbox.y < target.y + target.h && hitbox.y + hitbox.h > target.y;
+    if ((l.jammed && reaches(l.jam)) || (!l.jammed && !l.workerAssigned && reaches(l.worker))) mask = R.INPUT.MINE;
+    if (inputs.at(-1)?.mask === mask) inputs.at(-1).frames++;
+    else inputs.push({ mask, frames: 1 });
+    R.step(state, mask);
+  }
+  assert.equal(state.logistics.delivered, true, 'the legal input path completes the worker delivery');
+  return { state, inputs };
+}
+
+async function historicalLogistics(name) {
+  const config = { zone: 0, goal: 3, mode: 'mine', loadout: {} };
+  await post(name, 'start', { zone: 0, goal: 3 });
+  const id = crypto.randomUUID(), s = logisticsSolution(R.seedFromId(id), config.zone);
+  await store.withUsers([`guest_${user(name)}`], async () => {
+    const active = await store.activePlatformRun(`guest_${user(name)}`);
+    if (active) { active.status = 'expired'; await store.savePlatformRun(active); }
+    await store.savePlatformRun({ id, user_id: `guest_${user(name)}`, version: R.VERSION, config_json: JSON.stringify(config),
+      status: 'playing', started_at: Math.floor(Date.now() - s.state.tick / R.FPS * 1000 - 2000) });
+  });
+  return { id, inputs: s.inputs, state: s.state };
+}
+
 test('V6 API: the goal is validated, snapshotted with the run and returned to the client', async () => {
   const res = await post('snap', 'start', { goal: 2 });
   assert.equal(res.status, 200);
@@ -64,12 +100,32 @@ test('V6 API: the goal is validated, snapshotted with the run and returned to th
   const row = await store.getPlatformRun(res.body.id);
   assert.equal(JSON.parse(row.config_json).goal, 2, 'the goal is persisted with the ticket');
 
-  for (const bad of [3, -1, 1.5, '1', null]) {
+  for (const bad of [4, -1, 1.5, '1', null]) {
     const r = await post('bad', 'start', { goal: bad });
     assert.equal(r.status, 400, `goal ${JSON.stringify(bad)} is refused`);
   }
   const noGoal = await post('bad', 'start', {});
   assert.equal(noGoal.status, 200, 'omitting the goal keeps the previous one (or defaults to 0)');
+});
+
+test('V22 API: replayed logistics delivery is saved once in the profile and audit receipt', async () => {
+  const run = await historicalLogistics('logistics');
+  const first = await post('logistics', 'finish', { id: run.id, inputs: run.inputs, hero: 'miner' });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.goal.id, 'logistics');
+  assert.equal(first.body.goal.done, true);
+  assert.deepEqual(first.body.logistics, { delivered: true, ore: run.state.logistics.ore });
+  const owner = `guest_${user('logistics')}`;
+  const saved = await store.getUser(owner);
+  assert.deepEqual(saved.sync.platformLogistics, { deliveries: 1, completed: 1, oreStored: 1 });
+  assert.deepEqual(first.body.profile.platformLogistics, saved.sync.platformLogistics);
+  const ledger = (await store.ledgerFor(owner)).find(r => r.kind === 'platform_finish');
+  assert.deepEqual(ledger.detail.logistics, first.body.logistics);
+
+  const duplicate = await post('logistics', 'finish', { id: run.id, inputs: [], hero: 'miner' });
+  assert.equal(duplicate.body.duplicate, true);
+  assert.deepEqual((await store.getUser(owner)).sync.platformLogistics, saved.sync.platformLogistics,
+    'a retried finish cannot increment persistent deliveries');
 });
 
 test('V6 API: changing the goal replaces the active run, while resume keeps the original snapshot', async () => {

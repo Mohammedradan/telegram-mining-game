@@ -181,6 +181,7 @@
   backdrop-filter: blur(4px); text-shadow: 0 1px 4px #000;
 }
 #platform-scene:not(.scene-live) .mine-status--toast { bottom: 10px; }
+#platform-scene.scene-live .mine-status--hint { display: none; }
 
 /* ===== نافذة إعدادات التحكم (Modal / Drawer) ===== */
 .ctl-modal { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; justify-content: center; }
@@ -310,3 +311,174 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene.scene-liv
     border-radius: 0;
   }
 }
+
+/* Keep the in-canvas HUD compact despite the broader platform-card styles. */
+#platform-scene .mine-hud--overlay {
+  position: absolute;
+  top: 8px; left: 8px; right: 8px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+#platform-scene .mine-hud--overlay .hud-center { min-width: 0; }
+#platform-scene .mine-hud--overlay .hud-right {
+  display: flex;
+  align-items: flex-start;
+  justify-self: end;
+  gap: 6px;
+  min-width: 0;
+}
+#platform-scene .mine-hud--overlay #platform-resources {
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+}
+#platform-scene .mine-hud--overlay #platform-pause {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(8, 18, 30, .72);
+  border: 1px solid rgba(255, 255, 255, .28);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .4);
+}
+
+@media (max-width: 600px) {
+  #platform-scene .mine-hud--overlay {
+    grid-template-areas: "hearts center pause" "resources resources resources";
+    grid-template-columns: auto minmax(0, 1fr) 40px;
+    row-gap: 4px;
+  }
+  #platform-scene .mine-hud--overlay #platform-hearts { grid-area: hearts; }
+  #platform-scene .mine-hud--overlay .hud-center { grid-area: center; justify-self: center; }
+  #platform-scene .mine-hud--overlay .hud-right { display: contents; }
+  #platform-scene .mine-hud--overlay #platform-resources {
+    grid-area: resources;
+    justify-self: center;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  #platform-scene .mine-hud--overlay #platform-pause { grid-area: pause; }
+}
+
+#platform-scene:not(.scene-live) .mine-hud--overlay { display: none; }
+
+@media (max-width: 600px) {
+  body #platform-scene.scene-lobby .mine-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "title economy" "actions actions";
+    align-items: center;
+    gap: 4px;
+    padding: 5px 7px;
+  }
+  body #platform-scene.scene-lobby .mine-title { grid-area: title; min-width: 0; flex: initial; }
+  body #platform-scene.scene-lobby .mine-title-text { min-width: 0; }
+  body #platform-scene.scene-lobby .mine-kicker { display: none; }
+  body #platform-scene.scene-lobby .mine-title-text h2 {
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body #platform-scene.scene-lobby .mine-badge { width: 26px; height: 26px; }
+  body #platform-scene.scene-lobby .mine-economy {
+    grid-area: economy;
+    justify-self: end;
+    gap: 5px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  body #platform-scene.scene-lobby .mine-gold,
+  body #platform-scene.scene-lobby .mine-energy { padding: 4px 6px; font-size: 10px; }
+  body #platform-scene.scene-lobby .mine-heading-actions {
+    grid-area: actions;
+    justify-self: center;
+    gap: 4px;
+  }
+  body #platform-scene.scene-lobby .mine-heading-actions button {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+  }
+  body #platform-scene.scene-lobby .mine-heading-actions .mute-label,
+  body #platform-scene.scene-lobby .mine-heading-actions .topbar-btn-label { display: none; }
+  body #platform-scene.scene-lobby .mine-hero-bar { gap: 4px; padding: 4px; }
+  body #platform-scene.scene-lobby .mine-hero-btn {
+    min-height: 48px;
+    padding: 4px 2px;
+    gap: 2px;
+  }
+  body #platform-scene.scene-lobby .hero-icon { width: 18px; height: 18px; }
+  body #platform-scene.scene-lobby .hero-name { font-size: 9px; }
+  body #platform-scene.scene-lobby .hero-desc { font-size: 7px; line-height: 1.1; }
+}
+
+body #platform-scene.scene-live .mine-title,
+body #platform-scene.scene-live .mine-economy { display: none; }
+body #platform-scene.scene-live .mine-topbar { justify-content: center; min-height: 0; padding: 3px 6px; }
+body #platform-scene.scene-live .mine-heading-actions { margin-inline: auto; gap: 4px; }
+
+/* Keep the active game header and scene inside the phone viewport. The showcase
+   desktop stage has a fixed 770px height; on phones it must return to flex sizing. */
+@media (max-width: 600px) {
+  body #platform-scene.scene-live .mine-topbar {
+    display: flex !important;
+    flex: 0 0 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    width: 100% !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    justify-content: center !important;
+  }
+  body #platform-scene.scene-live .mine-stage {
+    flex: 1 1 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+}
+body.scene-live .bottom-nav {
+  flex: 0 0 52px;
+  height: 52px;
+  min-height: 52px;
+  gap: 2px;
+  padding: 2px !important;
+}
+body.scene-live .bottom-nav button {
+  height: 44px;
+  min-height: 44px;
+  padding: 2px !important;
+  line-height: 1;
+}
+body.scene-live .bottom-nav .nav-icon { width: 18px; height: 18px; }

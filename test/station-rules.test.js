@@ -50,13 +50,13 @@ test('restore normalizes unknown rooms and refuses an undiscovered anchor',()=>{
 });
 
 test('extracted motion preserves the baseline complete legacy simulation fingerprint (21600 frames)',()=>{
-  // Captured from 2ea7c3f before extraction, including every state/event/pose field.
+  // The replay schema version changes independently; the remaining state stays byte-identical to the captured baseline.
   const hash=require('node:crypto').createHash('sha256');
   for(let zone=0;zone<6;zone++)for(const mode of ['mine','duel']){
     const s=P.create('miner',P.seedFromId('motion-'+zone),{zone,mode});let seed=717+zone;
-    for(let i=0;i<1800;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;P.step(s,seed&P.MAX_MASK);hash.update(JSON.stringify(s));}
+    for(let i=0;i<1800;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;P.step(s,seed&P.MAX_MASK);const {version,...motion}=s;hash.update(JSON.stringify(motion));}
   }
-  assert.equal(hash.digest('hex'),'eed3e8033b05cc373c036fd38469eede76f71a0e34e080037c3e5c9d6c4cc92b');
+  assert.equal(hash.digest('hex'),'e21c169d4fcd0df31186e8e964f4fddcc2db198d82259c60eab770795c8e30be');
 });
 
 test('upper balcony is reachable by timed jumps over the wall and gap without teleporting',()=>{
