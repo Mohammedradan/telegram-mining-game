@@ -10,8 +10,17 @@
     linear-gradient(180deg, #071328, #090e1e 74%, #050913);
 }
 
-/* The immersive arena shell keeps the app chrome folded until the player taps
-   its visible tabs control; app-shell.css owns those responsive transitions. */
+/* Keep arena controls and navigation reachable in the showdown view. */
+body.arena-live:not(.duel-live) .app-header {
+  display: flex !important;
+}
+body.arena-live:not(.duel-live) .bottom-nav {
+  display: flex !important;
+}
+body.arena-live:not(.duel-live) .arena-x-bar {
+  display: flex !important;
+}
+
 #tab-arena:not(.arena-fighting) .arena-stage {
   position: relative !important;
   min-height: 520px;
@@ -1027,372 +1036,45 @@
   #tab-arena .ar-balance u { transition: none !important; }
 }
 
-/* Compact, in-bounds lobby for phones and small tablets. The original showcase
-   coordinates are retained for desktop, but never force a 660px stage on mobile. */
-@media (max-width: 900px) {
-  #platform-scene.scene-lobby {
-    height: 100% !important;
-    max-height: 100dvh !important;
-    min-height: 0 !important;
-    gap: 4px !important;
-    justify-content: space-between !important;
-    overflow: hidden !important;
-  }
-  #platform-scene.scene-lobby > .mine-topbar {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "title economy" "actions actions";
-    align-items: center;
-    gap: 4px;
-    flex: 0 0 auto;
-    height: auto !important;
-    min-height: 76px !important;
-    padding: 5px 7px !important;
-    box-sizing: border-box;
-  }
-  #platform-scene.scene-lobby .adv-topbar-brand { display: none !important; }
-  #platform-scene.scene-lobby .mine-title {
-    grid-area: title;
-    min-width: 0;
-    flex: initial !important;
-    gap: 6px;
-  }
-  #platform-scene.scene-lobby .mine-badge { width: 26px; height: 26px; }
-  #platform-scene.scene-lobby .mine-kicker { display: none !important; }
-  #platform-scene.scene-lobby .mine-title-text { min-width: 0; }
-  #platform-scene.scene-lobby .mine-title-text h2 {
-    max-width: 100%;
-    overflow: hidden;
-    font-size: 12px;
-    line-height: 1.15;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  #platform-scene.scene-lobby .mine-economy {
-    grid-area: economy;
-    justify-self: end;
-    gap: 4px !important;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-  #platform-scene.scene-lobby .mine-topbar .mine-gold,
-  #platform-scene.scene-lobby .mine-topbar .mine-energy {
-    gap: 3px;
-    padding: 4px 5px;
-    font-size: 9px;
-  }
-  #platform-scene.scene-lobby .mine-heading-actions {
-    grid-area: actions;
-    justify-self: center;
-    gap: 4px !important;
-  }
-  #platform-scene.scene-lobby .mine-heading-actions button {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    min-height: 34px !important;
-    padding: 0 !important;
-    border-radius: 50%;
-    justify-content: center;
-  }
-  #platform-scene.scene-lobby .mine-heading-actions .mute-label,
-  #platform-scene.scene-lobby .mine-heading-actions .topbar-btn-label { display: none !important; }
-  #platform-scene.scene-lobby > .lobby-subbar { display: none !important; }
-  #platform-scene.scene-lobby > .mine-hero-bar {
-    position: relative !important;
-    inset: auto !important;
-    display: flex !important;
-    flex: 0 0 50px !important;
-    width: 100% !important;
-    height: 50px !important;
-    min-height: 50px !important;
-    gap: 4px !important;
-    padding: 3px !important;
-    box-sizing: border-box;
-  }
-  #platform-scene.scene-lobby .mine-hero-btn {
-    min-width: 0;
-    min-height: 42px !important;
-    padding: 3px 2px !important;
-    justify-content: center;
-  }
-  #platform-scene.scene-lobby .hero-card-inner { justify-content: center; gap: 2px; min-width: 0; }
-  #platform-scene.scene-lobby .hero-card-img,
-  #platform-scene.scene-lobby .hero-desc { display: none !important; }
-  #platform-scene.scene-lobby .hero-card-meta { align-items: center; min-width: 0; }
-  #platform-scene.scene-lobby .hero-name { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-  #platform-scene.scene-lobby > .mine-stage {
-    position: relative !important;
-    flex: 1 1 0 !important;
-    min-width: 0;
-    min-height: 0 !important;
-    max-height: none !important;
-    width: 100% !important;
-    height: auto !important;
-    border-radius: 14px !important;
-  }
-  #platform-scene.scene-lobby #platform-overlay {
-    position: absolute !important;
-    inset: 0 !important;
-    display: block !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-    pointer-events: none !important;
-  }
-  #platform-scene.scene-lobby #platform-overlay > * {
-    position: absolute !important;
-    pointer-events: auto !important;
-  }
-  #platform-scene.scene-lobby .lobby-compass-card,
-  #platform-scene.scene-lobby .lobby-side-card,
-  #platform-scene.scene-lobby .overlay-mission,
-  #platform-scene.scene-lobby .overlay-lead,
-  #platform-scene.scene-lobby .overlay-help,
-  #platform-scene.scene-lobby .goal-hint { display: none !important; }
-  #platform-scene.scene-lobby #platform-overlay > .overlay-kicker {
-    display: flex !important;
-    top: 4px !important;
-    left: 50% !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: max-content;
-    max-width: calc(100% - 100px);
-    min-height: 20px;
-    padding: 2px 7px;
-    overflow: hidden;
-    transform: translateX(-50%) !important;
-    font-size: 9px;
-    line-height: 1.2;
-    white-space: nowrap;
-  }
-  #platform-scene.scene-lobby #platform-overlay > #platform-title {
-    display: block !important;
-    top: 31px !important;
-    left: 50% !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: min(420px, calc(100% - 100px));
-    max-height: 40px;
-    margin: 0 !important;
-    overflow: hidden;
-    transform: translateX(-50%) !important;
-    font-size: 15px !important;
-    line-height: 1.15;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: normal;
-  }
-  #platform-scene.scene-lobby #platform-goals {
-    position: absolute !important;
-    top: auto !important;
-    left: 8px !important;
-    right: 8px !important;
-    bottom: 104px !important;
-    width: auto !important;
-    height: auto !important;
-    max-width: 560px;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-    transform: none !important;
-    z-index: 10 !important;
-  }
-  #platform-scene.scene-lobby #platform-goals::before {
-    margin: 0 0 3px !important;
-    font-size: 10px !important;
-    line-height: 1.15;
-  }
-  #platform-scene.scene-lobby .mine-overlay .goal-options {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 4px !important;
-    width: 100%;
-  }
-  #platform-scene.scene-lobby .mine-overlay .goal-option {
-    width: 100% !important;
-    height: auto !important;
-    min-height: 68px !important;
-    flex: initial !important;
-    gap: 2px !important;
-    padding: 4px 2px !important;
-    border-radius: 10px !important;
-  }
-  #platform-scene.scene-lobby .goal-mode-img { width: 24px; height: 24px; border-radius: 7px; }
-  #platform-scene.scene-lobby .goal-mode-title { gap: 3px; }
-  #platform-scene.scene-lobby .goal-mode-title b { font-size: 9px; line-height: 1.1; }
-  #platform-scene.scene-lobby .goal-option i,
-  #platform-scene.scene-lobby .goal-reward-tag { display: none !important; }
-  #platform-scene.scene-lobby .mine-overlay > .overlay-row {
-    display: flex !important;
-    top: auto !important;
+
+/* A restored round places Resume on the lower-left lane. Keep the mine/workshop
+   row in the lower-right lane so its workshop button cannot intercept Resume. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) .overlay-row {
     left: auto !important;
     right: 8px !important;
-    bottom: 8px !important;
-    width: min(350px, calc(64% - 12px)) !important;
-    height: auto !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-    gap: 6px !important;
-    z-index: 12 !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay > .overlay-row button {
-    display: flex;
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    min-height: 44px !important;
-    padding: 4px !important;
-    font-size: 10px;
-    line-height: 1.1;
-  }
-  #platform-scene.scene-lobby .mine-overlay #mine-select { justify-content: center; }
-  #platform-scene.scene-lobby .mine-overlay #mine-select .mine-select-label,
-  #platform-scene.scene-lobby .mine-overlay #mine-select .mine-select-hits { display: none !important; }
-  #platform-scene.scene-lobby .mine-overlay #platform-start {
-    position: absolute !important;
-    top: auto !important;
-    left: 8px !important;
-    right: auto !important;
-    bottom: 8px !important;
-    width: calc(34% - 12px) !important;
-    min-width: 0 !important;
-    height: auto !important;
-    min-height: 44px !important;
-    padding: 5px 3px !important;
-    border-width: 1px !important;
-    border-radius: 12px !important;
-    transform: none !important;
-    font-size: 10px !important;
-    line-height: 1.1;
-    gap: 0 !important;
-    z-index: 12 !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay #platform-start:hover,
-  #platform-scene.scene-lobby .mine-overlay #platform-start:active { transform: none !important; }
-  #platform-scene.scene-lobby #platform-start .adv-cta-axe,
-  #platform-scene.scene-lobby #platform-start .adv-cta-play { display: none !important; }
-  #platform-scene.scene-lobby .mine-overlay #platform-resume {
-    position: absolute !important;
-    top: auto !important;
-    left: 8px !important;
-    right: 8px !important;
-    bottom: 8px !important;
-    width: auto !important;
-    height: auto !important;
-    min-width: 0 !important;
-    min-height: 44px !important;
-    padding: 5px 8px !important;
+    bottom: 7px !important;
+    width: min(55%, 230px) !important;
+    max-width: 230px !important;
     z-index: 13 !important;
   }
-  #platform-scene.scene-lobby .mine-overlay #platform-resume:not([hidden]) {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-  }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-goals { display: none !important; }
-  /* A paused run must still let players open the mine map (e.g. to resume a classic round). */
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) > .overlay-row {
-    display: flex !important;
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-resume {
     left: 8px !important;
-    right: 8px !important;
-    bottom: 60px !important;
-    width: auto !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-    gap: 6px !important;
-    z-index: 12 !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) > .overlay-row #open-workshop-overlay { display: none !important; }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-start {
-    width: calc(50% - 12px) !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-resume {
-    left: auto !important;
-    width: calc(50% - 12px) !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) > .overlay-lead {
-    display: block !important;
-    top: 59px !important;
-    left: 10px !important;
-    right: 10px !important;
-    bottom: auto !important;
-    width: auto !important;
-    max-width: none !important;
-    margin: 0 !important;
-    font-size: 9px !important;
-    line-height: 1.3;
-    text-align: center;
-  }
-}
-
-/* Short landscape still keeps the goal and all lobby actions reachable. */
-@media (max-height: 520px) and (orientation: landscape) {
-  #platform-scene.scene-lobby > .mine-topbar {
-    display: flex !important;
-    justify-content: center !important;
-    height: 38px !important;
-    min-height: 38px !important;
-    padding: 2px 5px !important;
-  }
-  #platform-scene.scene-lobby .mine-title,
-  #platform-scene.scene-lobby .mine-economy { display: none !important; }
-  #platform-scene.scene-lobby .mine-heading-actions { margin-inline: auto; }
-  #platform-scene.scene-lobby > .mine-hero-bar { display: none !important; }
-  #platform-scene.scene-lobby > .mine-stage { min-height: 0 !important; }
-  #platform-scene.scene-lobby #platform-overlay > #platform-title {
-    top: 28px !important;
-    max-height: 38px;
-    font-size: 14px !important;
-  }
-  #platform-scene.scene-lobby #platform-overlay > .overlay-lead { display: none !important; }
-  #platform-scene.scene-lobby #platform-goals {
-    left: 50% !important;
     right: auto !important;
-    bottom: 52px !important;
-    width: min(560px, calc(100% - 16px)) !important;
-    transform: translateX(-50%) !important;
+    bottom: 7px !important;
+    width: min(38%, 150px) !important;
+    z-index: 14 !important;
   }
-  #platform-scene.scene-lobby .mine-overlay .goal-option { min-height: 56px !important; padding: 3px 2px !important; }
-  #platform-scene.scene-lobby .goal-mode-img { width: 20px; height: 20px; }
-  #platform-scene.scene-lobby .mine-overlay > .overlay-row {
-    width: min(350px, calc(64% - 12px)) !important;
-    bottom: 4px !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay > .overlay-row button,
-  #platform-scene.scene-lobby .mine-overlay #platform-start,
-  #platform-scene.scene-lobby .mine-overlay #platform-resume { min-height: 36px !important; }
-  #platform-scene.scene-lobby .mine-overlay #platform-start { bottom: 4px !important; }
-  #platform-scene.scene-lobby .mine-overlay #platform-resume { bottom: 4px !important; }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-goals { display: none !important; }
 }
 
-/* On the narrowest handsets, stack the start action above the two full-width
-   mine/workshop choices instead of squeezing either button below 90px. */
-@media (max-width: 360px) and (min-height: 421px) {
-  #platform-scene.scene-lobby #platform-goals { bottom: 104px !important; }
-  #platform-scene.scene-lobby .mine-overlay > .overlay-row {
-    left: 8px !important;
-    right: 8px !important;
-    bottom: 4px !important;
+
+/* A fresh lobby needs the full-width mine/workshop row. The compact 55% lane
+   is reserved only for a visible Resume button, where it must share the bottom
+   edge without covering Resume. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby:not(:has(#platform-resume:not([hidden]))) .overlay-row {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 8px !important;
     width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    gap: 8px !important;
   }
-  #platform-scene.scene-lobby .mine-overlay #platform-start {
-    left: 50% !important;
-    bottom: 54px !important;
-    width: min(250px, calc(100% - 32px)) !important;
-    transform: translateX(-50%) !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay #platform-start:hover,
-  #platform-scene.scene-lobby .mine-overlay #platform-start:active { transform: translateX(-50%) !important; }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-start {
-    left: 8px !important;
-    width: calc(50% - 12px) !important;
-    transform: none !important;
-  }
-  #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-resume {
-    left: auto !important;
-    width: calc(50% - 12px) !important;
+  #platform-scene.scene-lobby:not(:has(#platform-resume:not([hidden]))) .overlay-row > button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 90px !important;
+    min-height: 42px !important;
   }
 }

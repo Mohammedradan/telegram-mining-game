@@ -231,11 +231,13 @@ test('V10 server: a forged loadout in the request body is ignored — the saved 
 });
 
 test('arena leaderboard ranks real persistent records and excludes players without wins', async () => {
+  // CI reuses one PostgreSQL database across suites. Unique names prevent fixtures
+  // from colliding, and assertions tolerate unrelated legitimate winners.
   const players = [
-    { key: 'top-clean', name: 'Top Clean', record: { wins: 5, losses: 0, draws: 1 } },
-    { key: 'top-rough', name: 'Top Rough', record: { wins: 5, losses: 2, draws: 0 } },
-    { key: 'bronze', name: 'Bronze', record: { wins: 2, losses: 0, draws: 0 } },
-    { key: 'no-wins', name: 'No Wins', record: { wins: 0, losses: 7, draws: 0 } },
+    { key: 'top-clean', name: `Top Clean ${runId}`, record: { wins: 5, losses: 0, draws: 1 } },
+    { key: 'top-rough', name: `Top Rough ${runId}`, record: { wins: 5, losses: 2, draws: 0 } },
+    { key: 'bronze', name: `Bronze ${runId}`, record: { wins: 2, losses: 0, draws: 0 } },
+    { key: 'no-wins', name: `No Wins ${runId}`, record: { wins: 0, losses: 7, draws: 0 } },
   ];
   for (const player of players) {
     const guestId = `board_${runId}_${player.key}`;
@@ -253,18 +255,17 @@ test('arena leaderboard ranks real persistent records and excludes players witho
   const response = await fetch(`http://127.0.0.1:${port}/api/arena-leaderboard`);
   assert.equal(response.status, 200);
   const { leaderboard } = await response.json();
-  // The PostgreSQL CI run shares one database across the test suite. Other
-  // tests may legitimately leave winning guest records in the global board,
-  // so assert this fixture's deterministic leading ranks instead of assuming
-  // it is the only data in the database.
-  assert.deepEqual(leaderboard.slice(0, 3), [
-    { rank: 1, name: 'Top Clean', wins: 5, losses: 0, draws: 1 },
-    { rank: 2, name: 'Top Rough', wins: 5, losses: 2, draws: 0 },
-    { rank: 3, name: 'Bronze', wins: 2, losses: 0, draws: 0 },
-  ]);
-  assert.equal(leaderboard.some((player) => player.name === 'No Wins'), false,
-    'players without wins are excluded even when unrelated winners share the database');
-  assert.deepEqual(leaderboard.slice(0, 3).map((player) => player.rank), [1, 2, 3]);
+  const seededWinners = players.slice(0, 3);
+  const ranked = leaderboard.filter((row) => seededWinners.some((player) => player.name === row.name));
+  assert.deepEqual(ranked.map(({ name, wins, losses, draws }) => ({ name, wins, losses, draws })), seededWinners.map(({ name, record }) => ({
+    name, wins: record.wins, losses: record.losses, draws: record.draws,
+  })), 'the seeded winners keep their relative wins/losses ordering');
+  assert.ok(ranked[0].rank < ranked[1].rank && ranked[1].rank < ranked[2].rank,
+    'the seeded winners retain their relative leaderboard order');
+  assert.equal(leaderboard.some((row) => row.name === players[3].name), false,
+    'players without wins are excluded');
+  assert.ok(leaderboard.every((row, index) => row.rank === index + 1),
+    'ranks remain contiguous when unrelated winners are present');
 });
 
 // ---------- 7) الرحلة الكاملة عبر الخادم: معدات ← مبارزة ← خسارة/فوز ← مكافأة ← عودة ← تعدين ----------

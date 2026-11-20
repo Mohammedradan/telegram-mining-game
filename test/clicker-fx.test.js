@@ -689,3 +689,14 @@ test('the walk has weight: stride, a breathing shadow and dust are tied to walki
   assert.match(css, /\.ck-miner\[data-face="-1"\] \.ck-dust i \{ --dx: 70%; \}/);
   assert.match(css, /\.ck-miner\[data-act="walk"\] \.ck-dust i:nth-child\(2\) \{ animation-delay: -\.26s; \}/, 'the second puff is half a stride behind (a specificity-safe override of the shorthand)');
 });
+
+
+test('tall-phone miner keeps a readable rendered height after world-depth scaling', () => {
+  const phoneRule = css.slice(css.lastIndexOf('@media (max-width: 430px) and (min-height: 700px)'));
+  assert.match(phoneRule, /\.ck-area \{ --miner-h: max\(144px, min\(42vh, 36vw\)\); \}/,
+    'the phone rule uses viewport units rather than a narrow ancestor container');
+  assert.match(phoneRule, /\.ck-miner \{ min-height: 148px !important; \}/,
+    'the miner box is large enough to remain at least 120px after the depth transform');
+  assert.match(css, /\.ck-miner \{[^}]*height: var\(--miner-h\);/,
+    'the original base sizing contract remains intact for the rest of the viewport sizes');
+});
