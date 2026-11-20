@@ -1275,9 +1275,9 @@ const envDays = (name, fallback) => {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 };
 const RETENTION = {
-  runDays: envDays('RETENTION_RUN_DAYS', 30),
-  ledgerDays: envDays('RETENTION_LEDGER_DAYS', 90),
-  raceDays: envDays('RETENTION_RACE_DAYS', 400),
+  runDays: envDays('RETENTION_RUN_DAYS', 0),
+  ledgerDays: envDays('RETENTION_LEDGER_DAYS', 0),
+  raceDays: envDays('RETENTION_RACE_DAYS', 0),
 };
 const RETENTION_INTERVAL_MS = 6 * 3600_000;
 async function pruneOldData() {

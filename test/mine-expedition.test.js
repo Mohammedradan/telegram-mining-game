@@ -118,18 +118,24 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /\.ck-catwalk-lower\s*\{[^}]*left:\s*50%;[^}]*right:\s*2%;[^}]*top:\s*64%;/);
   assert.match(css, /\.ck-catwalk-lower::after\s*\{[^}]*height:\s*clamp\(70px,\s*28vh,\s*180px\)/);
   assert.match(css, /@media\s*\(max-width:\s*520px\)/);
-  assert.match(css, /body\.ck-cave #ck-stage \.ck-node \{ --ck-node: 44px !important; \}/, 'the mobile expedition medals keep a 44px touch target');
+  assert.match(css, /body\.ck-cave \.ck-node \{ --ck-node: clamp\(44px, 8vh, 48px\) !important; \}/, 'mobile expedition medals keep at least a 44px touch target');
   assert.match(css, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*560px\)/);
   assert.match(css, /@media\s*\(min-width:\s*760px\)/);
   assert.match(css, /data-conveyor="on"\]\s*\.ck-ore-cart/);
   assert.match(css, /data-drill="off"\]\s*\.ck-drill-cart/);
   assert.match(css, /data-secret-open="true"\]\s*\.ck-treasure-vault/);
-  assert.match(css, /Mobile cave flow: keep the medals, mining field, actions and energy in separate rows/);
-  assert.match(css, /body\.ck-cave #ck-stage \{[^}]*display: flex !important;[^}]*flex-direction: column !important;/s);
-  assert.match(css, /body\.ck-cave #ck-stage \.ck-area \{[^}]*position: relative !important;[^}]*inset: auto !important;/s);
-  assert.match(css, /body\.ck-cave #energy-container \{[^}]*position: static !important;[^}]*pointer-events: none !important;/s);
-  assert.match(css, /body\.ck-cave \.bottom-nav \{[^}]*position: relative !important;[^}]*inset: auto !important;[^}]*order: 2 !important;/s,
-    'mobile cave navigation must return to normal flow after the energy row instead of covering it');
+  assert.match(css, /body\.ck-cave #ck-stage \{[^}]*position: relative;[^}]*display: block;[^}]*flex: 1 1 0;/s,
+    'the mining stage is a full-bleed positioning context');
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-area \{[^}]*position: absolute;[^}]*inset: 0;/s,
+    'the cave art fills the stage without changing the scene dimensions');
+  assert.match(css, /body\.ck-cave \.ck-hud \{[^}]*position: fixed;/s,
+    'the balance and sound controls stay in the fixed toolbar');
+  assert.match(css, /body\.ck-cave #energy-container \{[^}]*position: fixed;/s,
+    'energy is a separate fixed HUD panel');
+  assert.match(css, /body\.ck-cave \.bottom-nav \{[^}]*position: fixed;[^}]*top: 8px;/s,
+    'navigation remains in the upper fixed toolbar');
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-nodes \{[^}]*position: absolute;[^}]*top: 67px;/s,
+    'the medals are anchored below the toolbar rather than taking a flow row');
 });
 
 test('expedition layer grants no economy or server rewards from the client', () => {
