@@ -461,12 +461,16 @@ test('platform UI: Lobby default state, Live class while round runs', async () =
   assert.equal(scene.classList.contains('scene-lobby'), false, 'Live: not scene-lobby while running');
   assert.ok(page.ctx.document.body.classList.contains('scene-live'), 'the document exposes the active gameplay state');
   const layout = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-layout.css'), 'utf8');
-  assert.match(layout, /body\.scene-live \.bottom-nav \{\s*padding: 2px; gap: 2px;/,
+  assert.match(layout, /body\.scene-live \.bottom-nav \{\s*flex: 0 0 52px;/,
     'the global tab bar compacts during active play instead of disappearing');
-  assert.match(layout, /body\.scene-live \.bottom-nav button \{\s*flex-direction: row !important;[\s\S]*?min-height: 32px;/,
-    'active-play navigation uses a compact horizontal button row');
+  assert.match(layout, /body\.scene-live \.bottom-nav button \{\s*flex-direction: row !important;[\s\S]*?min-height: 44px;/,
+    'active-play navigation uses a compact horizontal button row with a 44px touch target');
   assert.match(layout, /body\.scene-live \.bottom-nav button span \{\s*display: none;/,
     'active-play navigation hides labels while preserving reachable icons');
+  // A visible-but-compact bar cannot also be hidden: the contradiction failed the
+  // real browser gate (active play must keep the tab bar reachable) and this suite.
+  assert.doesNotMatch(layout, /body\.scene-live \.bottom-nav \{\s*display: none/,
+    'active-play navigation must never be fully hidden');
   page.fireWindow('blur');
   assert.equal(page.PlatformGame().inspect().paused, true);
   assert.equal(scene.classList.contains('scene-live'), false, 'paused: not scene-live');
