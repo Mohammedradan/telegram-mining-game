@@ -25,7 +25,7 @@
 }
 #platform-scene.scene-live .adv-topbar-brand,
 #platform-scene.scene-live .lobby-subbar,
-#platform-scene.scene-live .mine-hero-bar { display: none; }
+#platform-scene.scene-live .mine-hero-bar { display: none !important; }
 
 body #platform-scene.scene-live .mine-title {
   display: flex;
