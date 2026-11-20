@@ -147,7 +147,9 @@ test('wiring: the card sits in the shop between the rig and the ore store, the r
   assert.match(html, /profitCounter\.innerText = `\+\$\{fmtRate\(passiveGain\(\)\)\}`;/, 'the income chip shows halves');
   assert.match(html, /prestigeDone\.length\) setSyncStatus\(`🌟 تبجيل مُعتمد: المستوى \$\{prestigeDone\[prestigeDone\.length - 1\]\.level\}/);
   assert.match(html, /prestige: 0,\s+\/\/ مستوى التبجيل/, 'the default state carries the level');
-  assert.ok(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).scripts.build.includes('node --check public/prestige-rules.js'), 'the build syntax-checks the rules');
+  // الفحص الشامل (scripts/check-build.cjs) يغطي public/prestige-rules.js بدل قائمة أسماء في package.json
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).scripts.build, 'node scripts/check-build.cjs', 'the build runs the full-tree syntax check');
+  assert.match(fs.readFileSync(path.join(root, 'scripts', 'check-build.cjs'), 'utf8'), /for \(const dir of \['', 'public', 'lib', 'scripts'\]\)/, 'the build syntax-checks the rules');
   for (const sel of ['.prestige-card{', '.prestige-head{', '.prestige-need{', '.prestige-bar{', '.prestige-btn{', '.prestige-btn[data-state="confirm"]{', '.prestige-btn:disabled{']) assert.ok(css.includes(sel), sel);
   assert.doesNotMatch(css.slice(css.indexOf('/* التبجيل (3ج)')), EMOJI);
 });
