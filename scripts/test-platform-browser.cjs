@@ -160,7 +160,13 @@ async function main() {
       await page.locator('#platform-resume').click();
       await page.waitForFunction(t => window.PlatformGame.inspect().tick > t, paused.tick, { timeout: 8000 });
       await page.waitForFunction(() => document.body.classList.contains('scene-live'));
-      assert.equal(await page.locator('.bottom-nav').isVisible(), false, 'active play hides the global tab bar');
+      const liveNav = page.locator('.bottom-nav');
+      assert.equal(await liveNav.isVisible(), true, 'active play keeps the compact global tab bar reachable');
+      assert.equal(await liveNav.locator('button').first().isVisible(), true, 'active-play navigation icons remain reachable');
+      const liveNavLabelDisplay = await liveNav.locator('button span').first().evaluate(el => getComputedStyle(el).display);
+      assert.equal(liveNavLabelDisplay, 'none', 'active play hides navigation labels to save vertical space');
+      const liveNavButtonMinHeight = await liveNav.locator('button').first().evaluate(el => getComputedStyle(el).minHeight);
+      assert.ok(parseFloat(liveNavButtonMinHeight) >= 32, `active-play navigation retains a 32px minimum target: ${liveNavButtonMinHeight}`);
       await page.locator('#platform-pause').click();
       await page.waitForFunction(() => window.PlatformGame.inspect().paused && !document.body.classList.contains('scene-live'));
       assert.equal(await page.locator('.bottom-nav').isVisible(), true, 'pause restores the global tab bar');

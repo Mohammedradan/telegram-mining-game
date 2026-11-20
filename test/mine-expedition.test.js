@@ -118,19 +118,24 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /\.ck-catwalk-lower\s*\{[^}]*left:\s*50%;[^}]*right:\s*2%;[^}]*top:\s*64%;/);
   assert.match(css, /\.ck-catwalk-lower::after\s*\{[^}]*height:\s*clamp\(70px,\s*28vh,\s*180px\)/);
   assert.match(css, /@media\s*\(max-width:\s*520px\)/);
-  assert.match(css, /body\.ck-cave #ck-stage \.ck-node \{ --ck-node: 44px !important; \}/, 'the mobile expedition medals keep a 44px touch target');
+  assert.match(css, /body\.ck-cave \.ck-node \{ --ck-node: clamp\(44px, 8vh, 48px\) !important; \}/, 'mobile expedition medals keep at least a 44px touch target');
   assert.match(css, /@media\s*\(orientation:\s*landscape\)\s*and\s*\(max-height:\s*560px\)/);
   assert.match(css, /@media\s*\(min-width:\s*760px\)/);
   assert.match(css, /data-conveyor="on"\]\s*\.ck-ore-cart/);
   assert.match(css, /data-drill="off"\]\s*\.ck-drill-cart/);
   assert.match(css, /data-secret-open="true"\]\s*\.ck-treasure-vault/);
-  assert.match(css, /Reserve real lanes for the medal rail and the two action buttons/);
-  // Portrait layout reserves independent vertical lanes instead of using a flex-column stage.
-  assert.match(css, /@media \(max-width: 520px\) and \(orientation: portrait\) \{[\s\S]*?body\.ck-cave #ck-stage #click-area \{[\s\S]*?top: calc\(136px \+ env\(safe-area-inset-top, 0px\)\);[\s\S]*?bottom: calc\(136px \+ env\(safe-area-inset-bottom, 0px\)\);/);
-  assert.match(css, /body\.ck-cave #ck-stage \.ck-actions \{[\s\S]*?bottom: calc\(90px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/);
-  assert.match(css, /body\.ck-cave #energy-container \{[\s\S]*?bottom: calc\(52px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/);
-  assert.match(css, /body\.ck-cave \.bottom-nav \{[\s\S]*?bottom: 4px;[\s\S]*?height: 44px;/,
-    'bottom navigation remains below the energy meter with its own reserved lane');
+  assert.match(css, /body\.ck-cave #ck-stage \{[^}]*position: relative;[^}]*display: block;[^}]*flex: 1 1 0;/s,
+    'the mining stage is a full-bleed positioning context');
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-area \{[^}]*position: absolute;[^}]*inset: 0;/s,
+    'the cave art fills the stage without changing the scene dimensions');
+  assert.match(css, /body\.ck-cave \.ck-hud \{[^}]*position: fixed;/s,
+    'the balance and sound controls stay in the fixed toolbar');
+  assert.match(css, /body\.ck-cave #energy-container \{[^}]*position: fixed;/s,
+    'energy is a separate fixed HUD panel');
+  assert.match(css, /body\.ck-cave \.bottom-nav \{[^}]*position: fixed;[^}]*top: 8px;/s,
+    'navigation remains in the upper fixed toolbar');
+  assert.match(css, /body\.ck-cave #ck-stage \.ck-nodes \{[^}]*position: absolute;[^}]*top: 67px;/s,
+    'the medals are anchored below the toolbar rather than taking a flow row');
 });
 
 test('expedition layer grants no economy or server rewards from the client', () => {

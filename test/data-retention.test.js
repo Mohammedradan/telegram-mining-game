@@ -91,3 +91,33 @@ test('pruneCutoffs يشتق حدوداً صحيحة ويترك المهجورة 
     { runBefore: null, ledgerBefore: null, raceBefore: null, playingBefore: at - ABANDONED_PLAYING_MS },
   );
 });
+
+test('التقليم التلقائي معطّل افتراضياً ويحافظ على كل السجلات القديمة', async () => {
+  const { RETENTION_DEFAULTS, pruneCutoffs } = require('../db');
+  assert.deepEqual(RETENTION_DEFAULTS, { runDays: 0, ledgerDays: 0, raceDays: 0 });
+  const cut = pruneCutoffs({ now });
+  assert.deepEqual(
+    { runBefore: cut.runBefore, ledgerBefore: cut.ledgerBefore, raceBefore: cut.raceBefore },
+    { runBefore: null, ledgerBefore: null, raceBefore: null },
+  );
+
+  const serverSource = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(serverSource.includes("envDays('RETENTION_RUN_DAYS', 0)"));
+  assert.ok(serverSource.includes("envDays('RETENTION_LEDGER_DAYS', 0)"));
+  assert.ok(serverSource.includes("envDays('RETENTION_RACE_DAYS', 0)"));
+
+  const old = now - 500 * DAY;
+  await store.savePlatformRun(platformRun('default-old-platform', 'finished', old));
+  await store.savePlatformRun(platformRun('default-old-playing', 'playing', old));
+  await store.saveDeepDigRun(deepRun('default-old-deep-dig', 'finished', old));
+  await store.appendLedger('default-retention-user', [
+    { session: 'default-retention-session', seq: 1, kind: 'buy', detail: {}, goldDelta: -1, at: old },
+  ]);
+
+  const removed = await store.pruneOldData();
+  assert.deepEqual(removed, { platformRuns: 0, deepDigRuns: 0, ledger: 0, raceStats: 0 });
+  assert.ok(await store.getPlatformRun('default-old-platform'));
+  assert.ok(await store.getPlatformRun('default-old-playing'));
+  assert.ok(await store.getDeepDigRun('default-old-deep-dig'));
+  assert.equal((await store.ledgerFor('default-retention-user')).length, 1);
+});

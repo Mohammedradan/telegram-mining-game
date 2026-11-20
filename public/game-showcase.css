@@ -767,9 +767,12 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
 #platform-scene.scene-lobby #platform-goals {
   pointer-events: none !important;
 }
-#platform-scene.scene-lobby #platform-goals .goal-option {
-  pointer-events: auto !important;
-}
+    #platform-scene.scene-lobby #platform-goals .goal-option {
+      pointer-events: auto !important;
+    }
+    #platform-scene.scene-lobby .mine-overlay:has(#platform-resume:not([hidden])) #platform-goals {
+      display: none !important;
+    }
 
 @media (max-width: 600px) {
   /* Give the mine picker and workshop equal, usable touch areas. */
@@ -811,17 +814,21 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
     margin: 0 auto !important;
     gap: 4px !important;
   }
-  body #platform-scene.scene-live .mine-heading-actions button {
-    display: inline-flex !important;
-    flex: 0 0 36px !important;
-    width: 36px !important;
-    min-width: 36px !important;
-    height: 36px !important;
-    min-height: 36px !important;
-    padding: 4px !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
+      body #platform-scene.scene-live .mine-heading-actions button {
+        display: inline-flex !important;
+        flex: 0 0 36px !important;
+        width: 36px !important;
+        min-width: 36px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        padding: 4px 6px !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      body #platform-scene.scene-live .mine-gold::after,
+      body #platform-scene.scene-live .mine-energy::after {
+        display: none !important;
+      }
 }
 
 
