@@ -35,7 +35,7 @@ function pgSslConfig(url, env = process.env) {
 
 // تقليم البيانات القديمة: الجداول كانت تنمو بلا حد (صف لكل جولة ولكل عملية ولكل سباق).
 // القيم بالأيام، 0 = تعطيل التقليم لذلك الجدول.
-const RETENTION_DEFAULTS = { runDays: 30, ledgerDays: 90, raceDays: 400 };
+const RETENTION_DEFAULTS = { runDays: 0, ledgerDays: 0, raceDays: 0 };
 // جولة ما زالت "playing" أطول من هذه المدة مهجورة قطعاً (عمر التذكرة 30 دقيقة في كل الأوضاع).
 const ABANDONED_PLAYING_MS = 7 * 24 * 60 * 60 * 1000;
 

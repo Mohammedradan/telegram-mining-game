@@ -461,7 +461,12 @@ test('platform UI: Lobby default state, Live class while round runs', async () =
   assert.equal(scene.classList.contains('scene-lobby'), false, 'Live: not scene-lobby while running');
   assert.ok(page.ctx.document.body.classList.contains('scene-live'), 'the document exposes the active gameplay state');
   const layout = fs.readFileSync(path.join(__dirname, '..', 'public', 'platform-layout.css'), 'utf8');
-  assert.match(layout, /body\.scene-live \.bottom-nav \{\s*display: none !important;/, 'the global tab bar is removed from layout during active play');
+  assert.match(layout, /body\.scene-live \.bottom-nav \{\s*padding: 2px; gap: 2px;/,
+    'the global tab bar compacts during active play instead of disappearing');
+  assert.match(layout, /body\.scene-live \.bottom-nav button \{\s*flex-direction: row !important;[\s\S]*?min-height: 32px;/,
+    'active-play navigation uses a compact horizontal button row');
+  assert.match(layout, /body\.scene-live \.bottom-nav button span \{\s*display: none;/,
+    'active-play navigation hides labels while preserving reachable icons');
   page.fireWindow('blur');
   assert.equal(page.PlatformGame().inspect().paused, true);
   assert.equal(scene.classList.contains('scene-live'), false, 'paused: not scene-live');
