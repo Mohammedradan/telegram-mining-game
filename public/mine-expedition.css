@@ -1217,6 +1217,7 @@ body.ck-cave #tap-hint { display: none !important; }
     flex: 0 0 auto;
     width: calc(100% - 16px) !important;
     height: 50px !important;
+    margin-inline: auto !important;
     margin-top: 48px !important;
     margin-bottom: 8px !important;
   }
