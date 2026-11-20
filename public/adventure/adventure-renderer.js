@@ -272,6 +272,25 @@
   }
 
   function drawPlatform(ctx, box, t, reduced) {
+    if (box.kind === 'lift-shaft' || box.kind === 'drop-shaft') {
+      // Shafts are markers, never solids — but they used to fall through to the floor
+      // branch below and paint a 130x140 slab of rock strata across the shaft mouth, right
+      // under the lift cabin. A shaft is open air with a lit rim, so draw exactly that and
+      // stop: nothing else in this function knows how to render negative space.
+      const glow = ctx.createLinearGradient(0, box.y, 0, box.y + box.h);
+      glow.addColorStop(0, 'rgba(0, 0, 0, .82)');
+      glow.addColorStop(0.55, 'rgba(6, 3, 12, .62)');
+      glow.addColorStop(1, 'rgba(0, 0, 0, .30)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(box.x, box.y, box.w, box.h);
+      // Steel lip at the top and a rail down each side, so the opening reads as built.
+      ctx.fillStyle = PALETTE.steel;
+      ctx.fillRect(box.x - 5, box.y - 4, box.w + 10, 6);
+      ctx.fillStyle = PALETTE.steelLight;
+      ctx.fillRect(box.x - 2, box.y, 3, box.h);
+      ctx.fillRect(box.x + box.w - 1, box.y, 3, box.h);
+      return;
+    }
     if (box.kind === 'ledge') {
       // Timber walkway with plank lines.
       ctx.fillStyle = PALETTE.timber;

@@ -111,3 +111,44 @@ test('the renderer knows the sprite sheets the game actually ships', () => {
     assert.ok(row >= 0 && row < 2, 'hero row in range');
   }
 });
+
+test('shaft markers paint as open air, not as slabs of rock', () => {
+  // `lift-shaft` and `drop-shaft` are drawing markers with no collision body. They once fell
+  // through drawPlatform's final branch and painted a 130x140 block of rock strata straight
+  // across the shaft mouth, underneath the lift cabin — the player boarded the lift through
+  // a wall of stone. Rock strata is recognisable by its 3px lit top edge.
+  const shafts = M.MAP.platforms.filter((p) => p.kind === 'lift-shaft' || p.kind === 'drop-shaft');
+  assert.ok(shafts.length >= 2, 'the map ships both shaft markers');
+
+  for (const shaft of shafts) {
+    const { ctx, ops } = fakeContext();
+    const fills = [];
+    const grad = () => ({ addColorStop() {} });
+    const probe = new Proxy({}, {
+      get(_t, key) {
+        if (key === 'canvas') return { width: 1400, height: 800 };
+        if (key === 'measureText') return () => ({ width: 80 });
+        if (key === 'createLinearGradient' || key === 'createRadialGradient') return grad;
+        return (...args) => { if (key === 'fillRect') fills.push(args); };
+      },
+      set() { return true; },
+    });
+    // Frame *this* shaft: the map is 3400 wide and the renderer culls off-screen work,
+    // so a fixed camera would only ever see the lift and call the drop-shaft missing.
+    Renderer.draw(probe, frame({
+      view: { w: 600, h: 700 },
+      camera: { x: shaft.x - 200, y: Math.max(0, shaft.y - 200) },
+    }));
+
+    const atMouth = fills.filter((a) => a[0] === shaft.x && a[1] === shaft.y);
+    assert.equal(atMouth.length, 1, `${shaft.kind} must paint one opening, got ${atMouth.length}`);
+    assert.equal(atMouth[0][3], shaft.h, 'the opening fills the marker height');
+    const rockStrip = atMouth.filter((a) => a[3] === 3);
+    assert.equal(rockStrip.length, 0, `${shaft.kind} mouth must not carry the rock top-edge strip`);
+
+    // The build around the opening must still be drawn, or it reads as a hole in the map.
+    const rim = fills.filter((a) => a[3] === 6 && a[2] === shaft.w + 10);
+    assert.equal(rim.length, 1, `${shaft.kind} needs a steel lip above the opening`);
+    assert.equal(ops.save, ops.restore);
+  }
+});
