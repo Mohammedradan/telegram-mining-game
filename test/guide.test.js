@@ -532,7 +532,8 @@ test('ui: a broken state source or a broken storage cannot break the game around
 test('wiring: markup, styles, script order and the hooks in the page', () => {
   assert.match(html, /<link rel="stylesheet" href="\/guide\.css\?v=1">/);
   assert.match(html, /game-showcase\.css\?v=\d+/, 'the showcase stylesheet uses an explicit cache-busting version');
-  assert.match(read('public', 'game-showcase.css'), /#platform-scene\.scene-lobby \.overlay-row \{\s*right: 8px; bottom: 7px; width: min\(62%, 230px\)/, 'mobile lobby keeps both side-by-side actions comfortably wide');
+  assert.match(read('public', 'game-showcase.css'), /#platform-scene\.scene-lobby \.overlay-row \{[\s\S]*?display: flex !important;[\s\S]*?left: 12px !important;[\s\S]*?right: 12px !important;[\s\S]*?width: auto !important;[\s\S]*?max-width: 360px !important;/, 'mobile lobby keeps both side-by-side actions in a bounded, responsive row');
+  assert.match(read('public', 'game-showcase.css'), /#platform-scene\.scene-lobby \.overlay-row button \{[^}]*min-height: 42px !important;/, 'mobile lobby actions keep finger-sized targets');
   const rules = html.indexOf('/platform-rules.js'), guide = html.indexOf('/guide.js?v=1'), main = html.indexOf('<script>\n    //') >= 0 ? html.indexOf('<script>\n    //') : html.search(/<script>\s*\n/);
   assert.ok(rules > 0 && guide > rules, 'guide.js loads after the shared rules it reads');
   assert.ok(main > guide || html.indexOf('window.Guide?.init') > guide, 'and before the page script that initialises it');
