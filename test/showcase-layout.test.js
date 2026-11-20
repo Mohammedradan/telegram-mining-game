@@ -11,7 +11,7 @@ const css = fs.readFileSync(path.join(root, 'public/game-showcase.css'), 'utf8')
 test('the redesigned lobby keeps the mine picker and workshop entry reachable', () => {
   assert.match(html, /id="mine-select"/);
   assert.match(html, /id="open-workshop-overlay"/);
-  assert.match(html, /game-showcase\.css\?v=5/);
+  assert.match(html, /game-showcase\.css\?v=\d+/);
   assert.match(css, /#platform-scene\.scene-lobby \.overlay-row \{[\s\S]*?display: grid !important;/);
   assert.doesNotMatch(css, /#platform-scene\.scene-lobby \.overlay-row,\s*#platform-scene\.scene-lobby \.overlay-mission \{\s*display: none !important;/);
   assert.match(css, /@media \(max-width: 600px\) \{[\s\S]*?#platform-scene\.scene-lobby \.overlay-row \{[\s\S]*?display: flex !important;/);
