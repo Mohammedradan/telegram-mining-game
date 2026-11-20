@@ -1001,7 +1001,7 @@ body.ck-cave #tap-hint { display: none !important; }
     /* Keep mobile touch-target expansion from retargeting a card-corner tap to an end medal. */
     padding: 2px 20px !important;
   }
-  body.ck-cave #ck-stage .ck-node { --ck-node: clamp(36px, 7vw, 48px) !important; }
+  body.ck-cave #ck-stage .ck-node { --ck-node: clamp(44px, 7vw, 48px) !important; }
   body.ck-cave .ck-depth-sign {
     top: 158px;
     left: 8px;

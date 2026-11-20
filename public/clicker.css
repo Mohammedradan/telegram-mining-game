@@ -280,7 +280,7 @@ body.ck-cave .ck-sound { display: grid; }
 }
 @supports (width: 1cqw) {
   .ck-area {
-    --miner-h: min(40cqh, 38cqw);
+    --miner-h: min(60cqh, 38cqw);
     --rock-w: min(36cqw, 52cqh);
     --pad: clamp(68px, min(27cqw, 38cqh), 96px);
     --dig: clamp(58px, min(22cqw, 31cqh), 78px);

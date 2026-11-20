@@ -668,7 +668,6 @@ body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidd
   color: #78350f !important;
 }
 
-#platform-scene.scene-lobby .overlay-row,
 #platform-scene.scene-lobby .overlay-mission {
   display: none !important;
 }
