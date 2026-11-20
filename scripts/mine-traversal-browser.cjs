@@ -52,8 +52,44 @@ module.exports = async function verifyTraversal(page, tag) {
       });
     } finally { await page.keyboard.up('ArrowRight'); }
     const direction = await page.evaluate(() => DigSite.inspect().mine.travelDirection < 0 ? 'ArrowLeft' : 'ArrowRight');
-    // The overland segment is a real route: first verify the boulder blocks
-    // horizontal travel, then steer around it instead of teleporting through it.
+    // Find a cross-track lane that physically intersects the boulder but clears
+    // every earlier obstacle with room for movement-step and collision margins.
+    const boulder = await page.evaluate((travel) => {
+      const state = DigSite.inspect(), aspect = Math.max(0.2, state.size.W / state.size.H);
+      const obstacles = MineWorld.routeObstacles(state.mine);
+      const rock = obstacles.find((item) => item.id === 'boulder');
+      if (!rock) return null;
+      const before = obstacles.filter((item) => item !== rock &&
+        (travel === 'ArrowLeft' ? item.x > rock.x : item.x < rock.x));
+      const limits = DigSite.CFG.BAND, clearance = 0.04, laneTolerance = 0.025;
+      const rockAllowance = rock.radius * 0.65, candidates = [];
+      for (let step = 0; step <= 1000; step++) {
+        const y = limits.y0 + (limits.y1 - limits.y0) * step / 1000;
+        if (Math.abs(y - rock.y) / aspect > rockAllowance) continue;
+        if (before.some((item) => Math.abs(y - item.y) / aspect < item.radius + clearance)) continue;
+        candidates.push(y);
+      }
+      if (!candidates.length) return { y: null, rockY: rock.y, radius: rock.radius, aspect, before };
+      const y = candidates.reduce((best, candidate) =>
+        Math.abs(candidate - state.miner.y) < Math.abs(best - state.miner.y) ? candidate : best);
+      return { y, rockY: rock.y, radius: rock.radius, aspect, before, laneTolerance };
+    }, direction);
+    assert.ok(boulder && Number.isFinite(boulder.y),
+      `${tag}: find a lane that hits the boulder and clears the previous obstacle (${JSON.stringify(boulder)})`);
+    const lane = await page.evaluate(({ y, laneTolerance }) => {
+      const state = DigSite.inspect(), aspect = Math.max(0.2, state.size.W / state.size.H);
+      if (Math.abs(state.miner.y - y) / aspect < laneTolerance) return null;
+      return state.miner.y < y ? 'ArrowDown' : 'ArrowUp';
+    }, boulder);
+    if (lane) {
+      await page.keyboard.down(lane);
+      try {
+        await page.waitForFunction(({ y, laneTolerance }) => {
+          const state = DigSite.inspect(), aspect = Math.max(0.2, state.size.W / state.size.H);
+          return Math.abs(state.miner.y - y) / aspect < laneTolerance;
+        }, boulder, { timeout: 8000 });
+      } finally { await page.keyboard.up(lane); }
+    }
     // The obstacle is reported only on the frames where it really stops the miner,
     // so the snapshot is taken inside the same frame that satisfies the wait
     // (reading it after the key is released would always see `null`).
@@ -70,7 +106,15 @@ module.exports = async function verifyTraversal(page, tag) {
     } finally { await page.keyboard.up(direction); }
     assert.equal(blocked.index, index, `${tag}: the boulder blocks cave progression until bypassed`);
     assert.equal(blocked.lastObstacle, 'boulder', `${tag}: the route reports the physical obstacle`);
-    const vertical = await page.evaluate(() => DigSite.inspect().miner.y > 0.62 ? 'ArrowUp' : 'ArrowDown');
+    const vertical = await page.evaluate(({ rockY, radius }) => {
+      const state = DigSite.inspect(), aspect = Math.max(0.2, state.size.W / state.size.H), band = DigSite.CFG.BAND;
+      const preferred = state.miner.y <= rockY ? 'ArrowUp' : 'ArrowDown';
+      const canUp = (rockY - band.y0) / aspect > radius * 1.2;
+      const canDown = (band.y1 - rockY) / aspect > radius * 1.2;
+      if (preferred === 'ArrowUp' && !canUp && canDown) return 'ArrowDown';
+      if (preferred === 'ArrowDown' && !canDown && canUp) return 'ArrowUp';
+      return preferred;
+    }, { rockY: boulder.rockY, radius: boulder.radius });
     await page.keyboard.down(direction);
     await page.keyboard.down(vertical);
     try {

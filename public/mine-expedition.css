@@ -998,7 +998,8 @@ body.ck-cave #tap-hint { display: none !important; }
     top: 94px;
     max-width: calc(100% - 16px);
     gap: 1px;
-    padding: 2px 4px !important;
+    /* Keep mobile touch-target expansion from retargeting a card-corner tap to an end medal. */
+    padding: 2px 20px !important;
   }
   body.ck-cave #ck-stage .ck-node { --ck-node: clamp(36px, 7vw, 48px) !important; }
   body.ck-cave .ck-depth-sign {
@@ -1042,9 +1043,10 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave .ck-hud .balance-strip { min-height: 36px; }
   body.ck-cave #energy-container { top: 48px; min-height: 27px; }
   body.ck-cave #ck-stage .ck-nodes { top: 86px; }
-  body.ck-cave #ck-stage .ck-node { --ck-node: 36px !important; }
+  /* Keep every hub medal comfortably tappable even when the header is collapsed. */
+  body.ck-cave #ck-stage .ck-node { --ck-node: 44px !important; }
   body.ck-cave #ck-stage .ck-node-tag { display: none; }
-  body.ck-cave .ck-depth-sign { top: 136px; max-width: 38vw; }
+  body.ck-cave #ck-stage .ck-depth-sign { top: 136px; max-width: 38vw; }
   body.ck-cave .ck-depth-sign b { font-size: 9px; }
   body.ck-cave .ck-depth-sign small { font-size: 7px; }
   body.ck-cave .ck-expedition-rail { top: 136px; width: min(174px, 45vw); }
@@ -1069,4 +1071,106 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave #ck-stage .ck-pad { --pad: 64px; }
   body.ck-cave #ck-stage .ck-dig { --dig: 54px; }
   body.ck-cave .ck-cache { width: 34px; height: 34px; }
+}
+
+/* At tall-phone sizes the miner is meant to read as a full character, not a tiny sprite. */
+@media (min-width: 360px) and (max-width: 520px) and (min-height: 700px) {
+  body.ck-cave #ck-stage .ck-hero { scale: .82; }
+}
+
+/* Reserve real lanes for the medal rail and the two action buttons. The cave
+   artwork remains full-screen behind them; only the interactive field is inset. */
+@media (max-width: 520px) and (orientation: portrait) {
+  body.ck-cave #ck-stage #click-area {
+    top: calc(136px + env(safe-area-inset-top, 0px));
+    right: 0;
+    bottom: calc(136px + env(safe-area-inset-bottom, 0px));
+    left: 0;
+    width: 100%;
+    height: auto;
+  }
+  body.ck-cave #ck-stage .ck-actions {
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  body.ck-cave #ck-stage #ck-go { flex: 1 1 0 !important; min-width: 0; }
+  body.ck-cave #ck-stage #boost-btn { flex: 0 0 clamp(64px, 20vw, 78px) !important; }
+  body.ck-cave #energy-container {
+    top: auto !important;
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 50% !important;
+    transform: translateX(-50%);
+  }
+}
+
+/* Restore the intended three-column short-landscape layout after the cave's
+   full-screen positioning rules, so the medal rail, field, and actions each
+   get their own lane instead of stacking on top of one another. */
+@media (orientation: landscape) and (max-height: 520px) {
+  body.ck-cave #ck-stage {
+    display: grid !important;
+    grid-template-columns: minmax(96px, 18vw) minmax(0, 1fr) minmax(120px, 190px) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: stretch;
+    column-gap: 10px;
+  }
+  body.ck-cave #ck-stage .ck-nodes {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    grid-column: 1;
+    grid-row: 1;
+    display: grid !important;
+    grid-template-columns: repeat(2, auto);
+    grid-auto-rows: min-content;
+    align-content: center;
+    justify-content: center;
+    width: auto !important;
+    max-width: none !important;
+    height: auto;
+    padding: 0 !important;
+    gap: 2px 8px;
+    transform: none !important;
+  }
+  body.ck-cave #ck-stage #click-area {
+    position: relative !important;
+    inset: auto !important;
+    grid-column: 2;
+    grid-row: 1;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0;
+    min-height: 0 !important;
+    align-self: stretch;
+  }
+  body.ck-cave #ck-stage .ck-actions {
+    position: relative !important;
+    inset: auto !important;
+    grid-column: 3;
+    grid-row: 1;
+    width: 100% !important;
+    min-width: 0;
+    height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-self: center;
+    transform: none !important;
+    flex-direction: column;
+    gap: 8px;
+  }
+  body.ck-cave #ck-stage .ck-actions > button { width: 100%; flex: none; }
+}
+
+/* On short portrait phones the collapsed machinery tray otherwise sits directly
+   over the rock. Move it into the empty upper-left lane, below the medal row. */
+@media (max-width: 520px) and (max-height: 680px) and (orientation: portrait) {
+  body.ck-cave #ck-stage .ck-machine-console {
+    top: 8px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 8px !important;
+  }
+  body.ck-cave #ck-stage .ck-pad,
+  body.ck-cave #ck-stage .ck-dig { bottom: 0 !important; }
 }
