@@ -18,11 +18,11 @@ test('the redesigned lobby keeps the mine picker and workshop entry reachable', 
 });
 
 test('a restored paused run hides the goal chooser so it cannot intercept Resume', () => {
-  assert.match(css, /#platform-scene\.scene-lobby \.mine-overlay:has\(#platform-resume:not\(\[hidden\]\)\) #platform-goals \{\s*display: none !important;\s*\}/);
+  assert.match(css, /#platform-scene\.scene-lobby:has\(#platform-resume:not\(\[hidden\]\)\) #platform-goals \{\s*visibility: hidden !important;\s*pointer-events: none !important;\s*\}/);
 });
 
 test('live mobile header compacts title, economy and actions into the phone viewport', () => {
   assert.match(css, /@media \(max-width: 600px\)[\s\S]*?body #platform-scene\.scene-live \.mine-topbar \{[\s\S]*?padding: 4px 6px !important;/);
-  assert.match(css, /body #platform-scene\.scene-live \.mine-heading-actions button \{[\s\S]*?padding: 4px 6px !important;/);
+  assert.match(css, /body #platform-scene\.scene-live \.mine-heading-actions button \{[\s\S]*?padding: 4px !important;/);
   assert.match(css, /body #platform-scene\.scene-live \.mine-gold::after,[\s\S]*?display: none !important;/);
 });
