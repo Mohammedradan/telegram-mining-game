@@ -314,3 +314,52 @@ test('a scene without a canvas degrades to null instead of throwing', () => {
 test('create() refuses to build without its collaborators', () => {
   assert.throws(() => Scene.create({ doc: {}, win: {} }), /requires doc, win and rules/);
 });
+
+/* ------------------------------------------------------------------ the repair loop */
+
+test('a machine failure reaches the player and can be fixed from the HUD', () => {
+  // The full loop the incident exists to teach: the drill seizes, the player is told, and
+  // pressing the machine button repairs it instead of trying (and failing) to start it.
+  const { scene, h } = makeScene();
+  start(h, scene);
+
+  // Drive the scripted condition through the live scene.
+  scene.state.bag.copper = 3;
+  h.pump(2);
+  const status = h.nodeFor('adv-status');
+  assert.equal(scene.state.machines['drill-1'].broken, true, 'the drill seized');
+  assert.match(status.textContent, /تعطّلت|عطل/, 'the player is told, not left guessing');
+
+  // The command spacing guard rejects commands in the same tick; let time pass first.
+  h.pump(5);
+  const result = scene.command('machine', { machineId: 'drill-1', action: 'repair' });
+  assert.equal(result.ok, true, 'repair is reachable through the scene command surface');
+  assert.equal(scene.state.machines['drill-1'].broken, false);
+  assert.equal(scene.state.machines['drill-1'].wear, 0, 'the repair reset the wear gauge');
+
+  h.pump(1);
+  assert.equal(status.dataset.tone, 'ok', 'the fix is confirmed positively');
+
+  // The stale "it broke" entry must not re-announce over the confirmation.
+  h.pump(40);
+  assert.doesNotMatch(status.textContent, /تعطّلت/, 'the incident message does not come back');
+  scene.destroy();
+});
+
+test('toggleMachine repairs a broken machine instead of asking it to start', () => {
+  const { scene, h } = makeScene();
+  start(h, scene);
+  // Put the miner next to the drill so the machine button targets it.
+  const drill = M.MAP.machines.find((m) => m.id === 'drill-1');
+  scene.state.player.x = drill.x + drill.w / 2 - scene.state.player.w / 2;
+  scene.state.player.y = drill.y - scene.state.player.h;
+  scene.state.machines['drill-1'].broken = true;
+  scene.state.machines['drill-1'].status = 'broken';
+  h.pump(3);
+
+  h.fire(h.nodeFor('adv-btn-machine'), 'click');
+  h.pump(2);
+  assert.equal(scene.state.machines['drill-1'].broken, false,
+    'one press repaired it rather than trying to start a broken machine');
+  scene.destroy();
+});

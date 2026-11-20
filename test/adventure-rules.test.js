@@ -370,3 +370,142 @@ test('time cannot go backwards between commands', () => {
   ]);
   assert.ok(outcome.snapshot.tick >= 500, 'the tick never regresses');
 });
+
+/* ------------------------------------------------------------------ wear, breakage, repair */
+
+test('a machine wears out while working and seizes at its limit', () => {
+  const s = Sim.freshState();
+  s.script.seize.fired = true;        // suppress the scripted beat; this is raw wear
+  assert.equal(s.machines['drill-1'].wear, 0, 'a new drill is unworn');
+  Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'start' });
+
+  for (let i = 0; i < 100; i++) Sim.step(s, 0);
+  assert.equal(s.machines['drill-1'].wear, 100, 'one wear point per working tick');
+  assert.equal(s.machines['drill-1'].broken, false, 'not broken yet');
+
+  let ticks = 100;
+  while (!s.machines['drill-1'].broken && ticks < 3000) { Sim.step(s, 0); ticks++; }
+  assert.equal(s.machines['drill-1'].broken, true, 'the drill seized');
+  assert.equal(s.machines['drill-1'].status, 'broken');
+  assert.equal(s.machines['drill-1'].progress, 0, 'a broken machine holds no work in progress');
+  assert.equal(s.machines['drill-1'].reason, 'seized', 'the reason is legible, not generic');
+  // Reachable in one sitting: the point of wear is a loop the player actually meets.
+  assert.ok(ticks <= 1200, `a drill reaches its limit in a few seconds of play (took ${ticks} ticks)`);
+});
+
+test('wear does not accrue while a machine is blocked or off', () => {
+  // The duty cycle matters: the drill goes `blocked` on energy, and a limit that ignored
+  // that would be reachable only in theory. Wear must track real work, not uptime.
+  const s = Sim.freshState();
+  s.script.seize.fired = true;
+  Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'start' });
+  let blockedWearSeen = null;
+  for (let i = 0; i < 600; i++) {
+    const before = s.machines['drill-1'].wear;
+    const wasBlocked = s.machines['drill-1'].status === 'blocked';
+    Sim.step(s, 0);
+    if (wasBlocked && blockedWearSeen === null) blockedWearSeen = s.machines['drill-1'].wear - before;
+  }
+  assert.equal(s.machines['drill-1'].wear, 600, 'the drill worked every tick of this run');
+  if (blockedWearSeen !== null) assert.equal(blockedWearSeen, 0, 'a blocked tick adds no wear');
+
+  // A stopped machine never wears, however long it sits.
+  Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'stop' });
+  const idle = s.machines['drill-1'].wear;
+  for (let i = 0; i < 500; i++) Sim.step(s, 0);
+  assert.equal(s.machines['drill-1'].wear, idle, 'an idle machine does not wear out');
+});
+
+test('a broken machine refuses to start until it is repaired', () => {
+  const s = Sim.freshState();
+  s.machines['drill-1'].broken = true;
+  s.machines['drill-1'].status = 'broken';
+
+  assert.deepEqual(
+    Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'start' }),
+    { ok: false, reason: 'broken' },
+    'starting a broken machine is refused with a reason the UI can show',
+  );
+
+  const repaired = Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'repair' });
+  assert.equal(repaired.ok, true);
+  assert.equal(s.machines['drill-1'].broken, false);
+  assert.equal(s.machines['drill-1'].wear, 0, 'a repair rebuilds the machine, it does not patch it');
+
+  const started = Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'start' });
+  assert.equal(started.ok, true, 'it works again after repair');
+});
+
+test('repairing a machine that is not broken is refused', () => {
+  const s = Sim.freshState();
+  assert.deepEqual(
+    Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'repair' }),
+    { ok: false, reason: 'not-broken' },
+  );
+});
+
+/* ------------------------------------------------------------------ the scripted incident */
+
+test('the scripted drill failure fires exactly once, when the player has copper', () => {
+  const s = Sim.freshState();
+  assert.equal(s.script.seize.fired, false, 'a new world has had no incident');
+
+  Sim.step(s, 0);
+  assert.equal(s.script.seize.fired, false, 'no copper yet, so nothing breaks');
+
+  s.bag.copper = 3;
+  Sim.step(s, 0);
+  assert.equal(s.script.seize.fired, true, 'the seize fired');
+  assert.equal(s.machines['drill-1'].broken, true);
+  const kinds = s.lastEvents.map((e) => e.type);
+  assert.ok(kinds.includes('incident'), 'the player is told there is an incident');
+  assert.ok(kinds.includes('machine_broke'), 'and that a machine broke');
+
+  const repaired = Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'repair' });
+  assert.equal(repaired.ok, true);
+  assert.equal(s.script.seize.resolved, true, 'the beat is marked resolved');
+
+  // It must never fire again, however much copper the player mines afterwards.
+  s.bag.copper = 12;
+  for (let i = 0; i < 20; i++) Sim.step(s, 0);
+  assert.equal(s.script.seize.resolved, true);
+  assert.equal(s.machines['drill-1'].broken, false, 'nothing re-broke the drill');
+});
+
+test('a reload mid-incident neither re-arms the beat nor launders the damage', () => {
+  const s = Sim.freshState();
+  s.bag.copper = 3;
+  Sim.step(s, 0);
+  assert.equal(s.script.seize.fired, true);
+
+  const reloaded = Sim.hydrate(Sim.snapshotOf(s));
+  assert.equal(reloaded.script.seize.fired, true, 'the beat stays fired across a reload');
+  assert.equal(reloaded.script.seize.at, s.script.seize.at, 'it remembers when it happened');
+  assert.equal(reloaded.machines['drill-1'].broken, true, 'the broken drill stays broken');
+  assert.equal(reloaded.machines['drill-1'].wear, s.machines['drill-1'].wear, 'wear survives too');
+
+  let refired = false;
+  for (let i = 0; i < 5; i++) {
+    Sim.step(reloaded, 0);
+    if (reloaded.lastEvents.some((e) => e.type === 'incident')) refired = true;
+  }
+  assert.equal(refired, false, 'a reloaded world never replays the incident');
+});
+
+test('wear and its break tick are identical after a save/restore', () => {
+  // The server replays an op log from a checkpoint; if wear drifted across a restore the
+  // replay would break at a different tick and the two worlds would diverge.
+  const s = Sim.freshState();
+  s.script.seize.fired = true;
+  Sim.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'start' });
+  for (let i = 0; i < 300; i++) Sim.step(s, 0);
+
+  const reloaded = Sim.hydrate(Sim.snapshotOf(s));
+  assert.equal(reloaded.machines['drill-1'].wear, s.machines['drill-1'].wear);
+
+  let a = 0;
+  while (!s.machines['drill-1'].broken && a < 4000) { Sim.step(s, 0); a++; }
+  let b = 0;
+  while (!reloaded.machines['drill-1'].broken && b < 4000) { Sim.step(reloaded, 0); b++; }
+  assert.equal(a, b, 'the drill seizes on exactly the same tick in both worlds');
+});

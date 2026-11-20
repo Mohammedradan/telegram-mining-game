@@ -122,6 +122,28 @@
       const el = $(id);
       if (el && el.hidden !== hidden) el.hidden = hidden;
     };
+    // Which `lastEvents` entries are worth interrupting the player for. Everything else is
+    // ambient (ore pieces, conveyor moves) and would drown the HUD if it were announced.
+    const ANNOUNCE = {
+      incident: (e) => [e.title || 'عطل في المنجم', 'warn'],
+      machine_broke: (e) => (e.scripted ? null : ['تعطّلت آلة — اقترب منها للإصلاح', 'warn']),
+      machine_repaired: () => ['أُصلحت الآلة ✓', 'ok'],
+      vein_depleted: () => ['نفد العرق', 'warn'],
+      gate_open: (e) => ['انفتح ' + (e.name || 'ممر جديد') + ' ✓', 'ok'],
+      mission_complete: () => ['اكتملت المهمة! ✓', 'ok'],
+    };
+
+    /** Turn per-tick simulation events into at most one toast per frame. */
+    function announce(events) {
+      if (!events || !events.length) return;
+      for (const event of events) {
+        const rule = ANNOUNCE[event.type];
+        if (!rule) continue;
+        const said = rule(event);
+        if (said) toast(said[0], said[1]);
+      }
+    }
+
     const toast = (text, tone) => {
       const el = $('adv-status');
       if (!el) return;
@@ -172,6 +194,10 @@
       const result = rules.applyCommand(state, command);
       if (result && result.ok) {
         pushOp({ t: 'c', command });
+        // A command is applied outside the frame loop, so the events it produces would sit
+        // in `lastEvents` until the next step overwrote them. Consume them here or the
+        // player never sees the answer to the button they just pressed.
+        announce(state.lastEvents.splice(0));
         if (okayText) toast(okayText, 'ok');
       } else if (result && result.reason && result.reason !== 'crew-only') {
         toast(reasonText(result.reason), 'warn');
@@ -286,9 +312,19 @@
       const spec = contextOf().machine;
       if (!spec) { toast('اقترب من آلة أولاً', 'warn'); return; }
       const machine = state.machines[spec.id];
-      const action = machine.status === 'working' || machine.status === 'starting' ? 'stop' : 'start';
+      // A broken machine has exactly one legal action. Offering "start" here meant the
+      // player pressed the button, the server refused with `broken`, and nothing on screen
+      // said how to fix it — the repair command existed but was unreachable.
+      let action;
+      if (machine.broken) action = 'repair';
+      else if (machine.status === 'working' || machine.status === 'starting') action = 'stop';
+      else action = 'start';
+
       const result = issue('machine', { machineId: spec.id, action });
-      if (result && result.ok) toast(action === 'start' ? `${labelOf(spec)} تعمل` : `${labelOf(spec)} متوقفة`, 'ok');
+      if (!result || !result.ok) return;
+      if (action === 'repair') toast('أُصلحت ' + labelOf(spec) + ' ✓', 'ok');
+      else if (action === 'start') toast(labelOf(spec) + ' تعمل', 'ok');
+      else toast(labelOf(spec) + ' متوقفة', 'ok');
     }
 
     function labelOf(spec) {
@@ -488,6 +524,12 @@
           const mask = recomputeMask();
           rules.step(state, mask);
           pushOp({ t: 'i', mask, ticks: 1 });
+          // Speak the simulation's own output. Until now nothing read `lastEvents`, so a
+          // drill could seize and the player would see only a machine that stopped moving.
+          // `applyCommand` *appends* to this list rather than replacing it, so entries from
+          // an earlier tick survive into the next one; consume them or the stale
+          // "it broke" message re-fires on top of the "it's fixed" one.
+          announce(state.lastEvents.splice(0));
           if (state.status !== 'playing') { running = false; toast('انتهت الجولة', 'warn'); break; }
         }
         followCamera(elapsed);

@@ -68,6 +68,8 @@ function sanitizeOps(raw, frameLimit) {
   return { ops: out, ticks };
 }
 
+const MACHINE_ACTIONS = Object.freeze(['start', 'stop', 'repair']);
+
 function sanitizeCommand(command) {
   if (!command || typeof command !== 'object' || Array.isArray(command)) return null;
   if (!Rules.COMMANDS.includes(command.type)) return null;
@@ -78,7 +80,11 @@ function sanitizeCommand(command) {
     clean[key] = command[key];
   }
   if (command.action !== undefined) {
-    if (command.action !== 'start' && command.action !== 'stop') return null;
+    // This list must stay in step with the actions the simulation actually implements.
+    // `repair` was missing, so the server rejected the one command that can recover a
+    // seized drill: the client could render the repair button, send it, and be told the
+    // whole batch was malformed — leaving a broken mine unrecoverable over the network.
+    if (!MACHINE_ACTIONS.includes(command.action)) return null;
     clean.action = command.action;
   }
   return clean;

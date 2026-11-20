@@ -43,6 +43,26 @@
   const CREW_SPEED = 92;                     // world px per second
   const MACHINE_ENERGY_CAP = 100;
   const MACHINE_ENERGY_REGEN = 0.35;         // per tick, when not working
+  // Wear is the only thing that can break a machine, and it is deterministic: it accrues
+  // one point per working tick, so the server can replay exactly the same break at exactly
+  // the same tick and a modified client cannot dodge or fabricate it.
+  const WEAR_PER_TICK = 1;
+  // Sized against the real duty cycle, not the theoretical one: the drill spends part of
+  // its life `blocked` on energy (the cap is 100 and the cost is per tick), and wear only
+  // accrues while actually working. A limit of 1500 was unreachable in one sitting, so the
+  // repair loop the incident exists to teach never came up. 720 working ticks is ~12s.
+  const DRILL_WEAR_LIMIT = 720;
+  const MACHINE_WEAR_LIMIT = 2160;           // conveyor / cart / warehouse: three times the drill
+  // The colliery's scripted repair beat. "رافعة معطّلة" is a deliberate first-draft set
+  // piece, not a random failure: the drill seizes once the player has mined enough copper
+  // to care, teaching the repair loop before the mission asks for machines.
+  const INCIDENT = Object.freeze({
+    id: 'seize-1',
+    machineId: 'drill-1',
+    title: 'الحفارة تعطّلت',
+    detail: 'توقّف الحفر واهتزّت الأرض. أصلح الحفارة ليعود خط الإنتاج.',
+    afterOre: 3,               // only once the player has put copper in the bag
+  });
 
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
   const num = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
@@ -67,6 +87,8 @@
         buffer: 0,                // ore waiting at this machine's input
         cargo: 0,                 // ore inside the conveyor/cart
         broken: false,
+        // Wear is persisted so a reload cannot launder a half-worn drill back to new.
+        wear: 0,
         reason: null,
       };
     }
@@ -111,6 +133,11 @@
       secrets: [],
       mission: { id: MAP.mission.id, counters: { copper: 0, iron: 0, gold: 0, crystal: 0, assigned: 0, machinesOn: 0, delivered: 0 }, completed: false, claimed: false },
       stats: { mined: 0, commands: 0, rejected: 0 },
+      // Scripted beats. `fired` is one-way: an incident never re-fires for this world.
+      // NOTE: this is `script`, not `events` — `s.events` is the motion kernel's per-tick
+      // output list and is cleared at the top of every step. Storing state there (an earlier
+      // version kept deliveries in it) makes it vanish on the next tick.
+      script: { seize: { fired: false, resolved: false, at: 0 } },
       lastEvents: [],
     };
   }
@@ -179,6 +206,7 @@
       m.buffer = clamp(int(saved.buffer), 0, 1_000);
       m.cargo = clamp(int(saved.cargo), 0, 1_000);
       m.broken = saved.broken === true;
+      m.wear = clamp(int(saved.wear), 0, 100_000);
       m.reason = typeof saved.reason === 'string' ? saved.reason.slice(0, 40) : null;
     }
     for (const key of Object.keys(base.crew)) {
@@ -212,6 +240,14 @@
       out.mission.completed = snapshot.mission.completed === true;
       out.mission.claimed = snapshot.mission.claimed === true;
     }
+    // Scripted beats restore too: a reload mid-incident must not re-arm the seize (that
+    // would fire a second time at a different tick and desync the server's replay).
+    const seen = snapshot.script && snapshot.script.seize;
+    if (seen && typeof seen === 'object') {
+      out.script.seize.fired = seen.fired === true;
+      out.script.seize.resolved = seen.resolved === true;
+      out.script.seize.at = clamp(int(seen.at), 0, 10_000_000);
+    }
     return out;
   }
 
@@ -227,12 +263,13 @@
       bag: { ...s.bag },
       warehouse: { stored: { ...s.warehouse.stored }, total: s.warehouse.total, capacity: s.warehouse.capacity },
       deposits: Object.fromEntries(Object.entries(s.deposits).map(([id, d]) => [id, { remaining: d.remaining, mined: d.mined, state: d.state }])),
-      machines: Object.fromEntries(Object.entries(s.machines).map(([id, m]) => [id, { status: m.status, energy: Math.round(m.energy), progress: m.progress, buffer: m.buffer, cargo: m.cargo, broken: m.broken, reason: m.reason }])),
+      machines: Object.fromEntries(Object.entries(s.machines).map(([id, m]) => [id, { status: m.status, energy: Math.round(m.energy), progress: m.progress, buffer: m.buffer, cargo: m.cargo, broken: m.broken, wear: Math.round(m.wear || 0), reason: m.reason }])),
       crew: Object.fromEntries(Object.entries(s.crew).map(([id, w]) => [id, { status: w.status, x: Math.round(w.x), y: Math.round(w.y), site: w.site, task: w.task, progress: w.progress, reason: w.reason }])),
       lift: { y: s.lift.y, target: s.lift.target },
       openGates: [...s.openGates],
       secrets: [...s.secrets],
       mission: { id: s.mission.id, counters: { ...s.mission.counters }, completed: s.mission.completed, claimed: s.mission.claimed },
+      script: { seize: { fired: !!s.script?.seize?.fired, resolved: !!s.script?.seize?.resolved, at: s.script?.seize?.at || 0 } },
       stats: { ...s.stats },
     };
   }
@@ -589,8 +626,15 @@
     } else if (action === 'repair') {
       if (!machine.broken) return { ok: false, reason: 'not-broken' };
       machine.broken = false;
+      // A repair is a rebuild, not a patch: the wear gauge resets, or the machine would
+      // simply seize again on its next tick and the loop would read as broken.
+      machine.wear = 0;
       machine.status = 'off';
       machine.reason = null;
+      machine.progress = 0;
+      if (s.script && s.script.seize && machineId === INCIDENT.machineId && s.script.seize.fired) {
+        s.script.seize.resolved = true;
+      }
       s.lastEvents.push({ type: 'machine_repaired', machineId });
     } else {
       return { ok: false, reason: 'unknown-action' };
@@ -615,6 +659,22 @@
     // feeds the conveyor. It needs energy and free buffer space.
     const drillCost = drillSpec.energy * DT;
     const conveyorCost = conveyorSpec.energy * DT;
+
+    // --- wear: one point per working tick, breaks at the limit. Deterministic, so the
+    // server replays the identical break tick from the op log alone.
+    for (const machine of Object.values(s.machines)) {
+      if (machine.broken || machine.status !== 'working') continue;
+      machine.wear = (machine.wear || 0) + WEAR_PER_TICK;
+      const limit = machine.kind === 'drill' ? DRILL_WEAR_LIMIT : MACHINE_WEAR_LIMIT;
+      if (machine.wear >= limit) {
+        machine.broken = true;
+        machine.status = 'broken';
+        machine.reason = 'seized';
+        machine.progress = 0;
+        s.lastEvents.push({ type: 'machine_broke', machineId: machine.id, wear: machine.wear });
+      }
+    }
+
     if (drill.status === 'working') {
       if (drill.energy < drillCost) { drill.status = 'blocked'; drill.reason = 'no-energy'; s.lastEvents.push({ type: 'machine_blocked', machineId: 'drill-1', reason: 'no-energy' }); }
       else if (drill.buffer >= drillSpec.buffer) { drill.status = 'blocked'; drill.reason = 'buffer-full'; s.lastEvents.push({ type: 'machine_blocked', machineId: 'drill-1', reason: 'buffer-full' }); }
@@ -748,6 +808,27 @@
     }
   }
 
+  /**
+   * Scripted beats. Every branch is a pure function of state, so a replayed op log lands on
+   * exactly the same tick — the server never has to trust an event the client reports.
+   */
+  function evaluateIncidents(s) {
+    const seize = s.script && s.script.seize;
+    if (!seize || seize.fired) return;
+    const copper = (s.bag && s.bag.copper) || 0;
+    if (copper < INCIDENT.afterOre) return;
+    const drill = s.machines[INCIDENT.machineId];
+    if (!drill || drill.broken) return;
+    seize.fired = true;
+    seize.at = s.tick;
+    drill.broken = true;
+    drill.status = 'broken';
+    drill.reason = 'seized';
+    drill.progress = 0;
+    s.lastEvents.push({ type: 'incident', id: INCIDENT.id, machineId: INCIDENT.machineId, title: INCIDENT.title });
+    s.lastEvents.push({ type: 'machine_broke', machineId: INCIDENT.machineId, scripted: true });
+  }
+
   function evaluateMission(s) {
     if (s.mission.completed) return;
     const done = MAP.mission.steps.every((step) => (s.mission.counters[step.counter] || 0) >= step.target);
@@ -789,6 +870,7 @@
     stepWorkerProduction(s);
     stepMachines(s);
     evaluateGates(s);
+    evaluateIncidents(s);
     evaluateMission(s);
 
     s.player.pose = s.player.mining ? 'mine'

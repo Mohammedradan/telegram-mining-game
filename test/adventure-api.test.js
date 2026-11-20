@@ -350,6 +350,38 @@ test('stored sessions survive a server restart (save / restore)', async () => {
   assert.equal(restored.body.session.id, id);
 });
 
+// A command the simulation implements but the sanitizer rejects is unreachable over the
+// network, and the client cannot tell that apart from a corrupted batch. `repair` was in
+// exactly that state: a seized drill could never be fixed on a real server.
+test('every command the simulation implements is accepted by the sanitizer', () => {
+  const samples = {
+    mine_start: { type: 'mine_start' },
+    mine_stop: { type: 'mine_stop' },
+    assign_worker: { type: 'assign_worker', workerId: 'worker-1', siteId: 'site-mine-a' },
+    recall_worker: { type: 'recall_worker', workerId: 'worker-1' },
+    machine: { type: 'machine', machineId: 'drill-1', action: 'start' },
+    lift: { type: 'lift' },
+    unload: { type: 'unload' },
+    inspect: { type: 'inspect' },
+  };
+  for (const type of R.COMMANDS) {
+    assert.ok(samples[type], `add a sample for the new command "${type}" to this test`);
+    const parsed = sanitizeCommands([samples[type]]);
+    assert.ok(parsed, `the sanitizer must accept "${type}"`);
+    assert.equal(parsed[0].type, type);
+  }
+
+  // Every machine action the rules implement must survive too, not just start/stop.
+  for (const action of ['start', 'stop', 'repair']) {
+    const parsed = sanitizeCommands([{ type: 'machine', machineId: 'drill-1', action }]);
+    assert.ok(parsed, `the sanitizer must accept machine action "${action}"`);
+    assert.equal(parsed[0].action, action);
+  }
+  // And an invented action is still refused.
+  assert.equal(sanitizeCommands([{ type: 'machine', machineId: 'drill-1', action: 'explode' }]), null);
+  assert.equal(sanitizeCommands([{ type: 'machine', machineId: 'drill-1', action: 'REPAIR' }]), null);
+});
+
 test('the validators are strict and total', () => {
   const ok = sanitizeOps([{ t: 'i', mask: R.INPUT.RIGHT, ticks: 3 }, { t: 'c', command: { type: 'mine_stop' } }], 100);
   assert.equal(ok.ops.length, 2);
@@ -373,4 +405,63 @@ test('the validators are strict and total', () => {
   // hydrate path clamps every field, so there is nothing to trust in an empty snapshot.
   assert.equal(safeSnapshot({ mapId: M.MAP.id, mapVersion: M.VERSION }).tick, 0);
   assert.equal(STATE_KEY, 'adventureMine', 'the save key is stable');
+});
+
+// The scripted failure and the wear that causes it are simulation state, so they must
+// survive the round trip through the server exactly — the client renders what the server
+// replayed, and a replay that broke the drill on a different tick would desync the mine.
+test('machine wear and the scripted failure survive the server replay unchanged', async () => {
+  const { body } = await post('wear', 'start');
+  const id = body.session.id;
+
+  const ops = [];
+  const s = R.hydrate(body.snapshot);
+  // Start the drill, then run it long enough to wear it out.
+  ops.push({ t: 'c', command: { type: 'machine', machineId: 'drill-1', action: 'start', tick: s.tick } });
+  R.applyCommand(s, { type: 'machine', machineId: 'drill-1', action: 'start' });
+  while (!s.machines['drill-1'].broken && s.tick < 3000) {
+    for (let i = 0; i < 30 && !s.machines['drill-1'].broken; i++) R.step(s, 0);
+    ops.push({ t: 'i', mask: 0, ticks: 30 });
+  }
+  assert.equal(s.machines['drill-1'].broken, true, 'the drill wore out locally');
+  const localWear = s.machines['drill-1'].wear;
+
+  // Pacing: the server refuses a checkpoint whose game time outruns wall clock
+  // (`base.tick + ticks <= 60 * realSeconds + 600`). Claiming ~12s of drilling therefore
+  // needs real seconds behind it, so send it as two batches with a sleep, the same way the
+  // collect test does. This is the contract working as designed, not an obstacle.
+  const half = Math.ceil(ops.length / 2);
+  const first = ops.slice(0, half);
+  const firstTicks = first.reduce((n, op) => n + (op.ticks || 0), 0);
+  await new Promise((resolve) => setTimeout(resolve, Math.ceil((firstTicks / R.FPS) * 1000) + 800));
+  const part1 = await post('wear', 'checkpoint', { id, seq: 1, ops: first });
+  assert.equal(part1.status, 200, 'batch 1: ' + JSON.stringify(part1.body).slice(0, 200));
+  assert.equal(part1.body.rejected, 0);
+
+  const second = ops.slice(half);
+  const secondTicks = second.reduce((n, op) => n + (op.ticks || 0), 0);
+  await new Promise((resolve) => setTimeout(resolve, Math.ceil((secondTicks / R.FPS) * 1000) + 800));
+  const sent = await post('wear', 'checkpoint', { id, seq: 2, ops: second });
+  assert.equal(sent.status, 200, 'batch 2: ' + JSON.stringify(sent.body).slice(0, 200) + ' | firstTicks=' + firstTicks + ' secondTicks=' + secondTicks);
+  assert.equal(sent.body.rejected, 0, 'a legal wear sequence is accepted');
+  assert.equal(sent.body.snapshot.machines['drill-1'].broken, true,
+    'the server replayed the same break');
+  assert.equal(sent.body.snapshot.machines['drill-1'].wear, localWear,
+    'the server replayed the same wear count');
+  assert.equal(sent.body.snapshot.script.seize.fired, false,
+    'the scripted beat has not fired (no copper in the bag) — wear is separate from it');
+
+  // And repairing over HTTP is accepted and resets the gauge. The time ceiling is measured
+  // from the session start against the *whole* accumulated tick count, so the repair needs
+  // its own slice of real time on top of what the two batches already claimed.
+  const totalGameSeconds = s.tick / R.FPS;
+  const realSoFar = (firstTicks + secondTicks) / R.FPS;
+  const stillOwed = Math.max(0, totalGameSeconds - realSoFar);
+  await new Promise((resolve) => setTimeout(resolve, Math.ceil(stillOwed * 1000) + 900));
+  const repaired = await post('wear', 'checkpoint', {
+    id, seq: 3, ops: [{ t: 'c', command: { type: 'machine', machineId: 'drill-1', action: 'repair', tick: s.tick } }],
+  });
+  assert.equal(repaired.status, 200, 'repair: ' + JSON.stringify(repaired.body).slice(0, 160));
+  assert.equal(repaired.body.snapshot.machines['drill-1'].broken, false);
+  assert.equal(repaired.body.snapshot.machines['drill-1'].wear, 0, 'a repair resets wear server-side too');
 });
