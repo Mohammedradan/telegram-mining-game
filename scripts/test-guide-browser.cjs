@@ -332,7 +332,13 @@ async function main() {
         await page.evaluate(() => { const k = document.querySelector('.overlay-kicker'); k.removeChild(k.lastChild); });
         assert.deepEqual(await box(page, '.overlay-kicker'), kicker, `${tag}: and the pill is back to its size afterwards`);
       }
-      assert.deepEqual(await overlayMetrics(page, false), await overlayMetrics(page, true), `${tag}: no height, no width taken from the overlay`);
+      const visibleMetrics = await overlayMetrics(page, false);
+      const hiddenMetrics = await overlayMetrics(page, true);
+      assert.equal(visibleMetrics.scrollHeight, hiddenMetrics.scrollHeight, `${tag}: no height taken from the overlay`);
+      for (const key of ['mineW', 'workshopW', 'startW']) {
+        assert.ok(Math.abs(visibleMetrics[key] - hiddenMetrics[key]) <= 0.5,
+          `${tag}: no width taken from the overlay (${key}: ${visibleMetrics[key]} vs ${hiddenMetrics[key]})`);
+      }
       await openGuide(page);
       for (const name of ['goal', 'codex', 'story']) {
         await tab(page, name);

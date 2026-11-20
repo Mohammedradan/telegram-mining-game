@@ -1,180 +1,139 @@
-
-
 /* ==========================================================================
-   ===== ⚔️ Fantasy Adventure Live (المشهد الحي أثناء اللعب الفعلي) =====
+   Responsive live platform scene
    ========================================================================== */
 #platform-scene.scene-live {
-  position: relative !important;
-  background: #080d16;
+  position: relative;
   width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #080d16;
 }
 
-/* 1. الشريط العلوي الكامل */
 #platform-scene.scene-live .mine-topbar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 16px !important;
-  padding: 8px 24px !important;
-  min-height: 68px !important;
-  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
-  border-radius: 16px !important;
-  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98)) !important;
-  direction: ltr !important;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1.2vw, 16px);
+  min-height: 58px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 204, 77, .38);
+  border-radius: 14px;
+  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98));
+  direction: ltr;
 }
-#platform-scene.scene-live .adv-topbar-brand { display: none !important; }
-#platform-scene.scene-live .lobby-subbar { display: none !important; }
+#platform-scene.scene-live .adv-topbar-brand,
+#platform-scene.scene-live .lobby-subbar,
+#platform-scene.scene-live .mine-hero-bar { display: none; }
 
-/* عنوان المنجم على أقصى اليمين (عربياً) */
 body #platform-scene.scene-live .mine-title {
-  display: flex !important;
-  order: 1 !important;
-  direction: rtl !important;
-  align-items: center !important;
-  gap: 12px !important;
+  display: flex;
+  order: 1;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1 1 auto;
+  direction: rtl;
 }
 body #platform-scene.scene-live .mine-badge {
-  display: flex !important;
-  width: 48px !important;
-  height: 48px !important;
-  border-radius: 14px !important;
-  border: 2px solid #ffd36b !important;
-  background: radial-gradient(circle at 35% 35%, #92400e, #451a03 70%, #1f0a00 100%) !important;
-  box-shadow: 0 0 16px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 211, 107, .82);
+  border-radius: 12px;
+  background: radial-gradient(circle at 35% 35%, #92400e, #451a03 70%, #1f0a00);
+  box-shadow: 0 0 14px rgba(245, 158, 11, .32), inset 0 1px 0 rgba(255, 255, 255, .3);
 }
-body #platform-scene.scene-live .mine-badge .badge-icon {
-  width: 28px !important;
-  height: 28px !important;
-  color: #ffd36b !important;
-}
-body #platform-scene.scene-live .mine-title-text {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-}
+body #platform-scene.scene-live .mine-badge .badge-icon { width: 24px; height: 24px; color: #ffd36b; }
+body #platform-scene.scene-live .mine-title-text { min-width: 0; }
 body #platform-scene.scene-live .mine-title-text h2 {
-  font-size: 17px !important;
-  font-weight: 900 !important;
-  color: #ffffff !important;
-  margin: 0 !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7) !important;
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(13px, 1.4vw, 17px);
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .55);
 }
-body #platform-scene.scene-live .mine-kicker {
-  display: block !important;
-  font-size: 12px !important;
-  font-weight: 800 !important;
-  color: #fbbf24 !important;
-}
+body #platform-scene.scene-live .mine-kicker { color: #fbbf24; font-size: 9px; font-weight: 800; }
 
-/* كبسولات العملات (الذهب والطاقة مع زر + الأخضر) */
 body #platform-scene.scene-live .mine-economy {
-  display: flex !important;
-  order: 2 !important;
-  direction: rtl !important;
-  align-items: center !important;
-  gap: 16px !important;
+  display: flex;
+  order: 2;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  direction: rtl;
 }
 body #platform-scene.scene-live .mine-gold,
 body #platform-scene.scene-live .mine-energy {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  padding: 6px 14px 6px 8px !important;
-  border-radius: 999px !important;
-  background: rgba(10, 22, 46, 0.95) !important;
-  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
-  font-size: 16px !important;
-  font-weight: 900 !important;
-  color: #fef08a !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 204, 77, .4);
+  border-radius: 999px;
+  background: rgba(10, 22, 46, .9);
+  color: #fef08a;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
 }
-body #platform-scene.scene-live .mine-gold::after,
-body #platform-scene.scene-live .mine-energy::after {
-  content: "+" !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 24px !important;
-  height: 24px !important;
-  border-radius: 6px !important;
-  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
-  color: #ffffff !important;
-  font-size: 16px !important;
-  font-weight: 900 !important;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6) !important;
-  margin-inline-start: 8px !important;
-  cursor: pointer !important;
-}
-body #platform-scene.scene-live .mine-gold .econ-icon {
-  width: 22px !important;
-  height: 22px !important;
-  color: #f59e0b !important;
-}
-body #platform-scene.scene-live .mine-energy {
-  border-color: rgba(56, 189, 248, 0.55) !important;
-  color: #bae6fd !important;
-}
-body #platform-scene.scene-live .mine-energy .econ-icon {
-  width: 22px !important;
-  height: 22px !important;
-  color: #38bdf8 !important;
-}
+body #platform-scene.scene-live .mine-energy { border-color: rgba(56, 189, 248, .42); color: #bae6fd; }
+body #platform-scene.scene-live .mine-gold .econ-icon,
+body #platform-scene.scene-live .mine-energy .econ-icon { width: 17px; height: 17px; }
+body #platform-scene.scene-live .mine-gold .econ-icon { color: #f59e0b; }
+body #platform-scene.scene-live .mine-energy .econ-icon { color: #38bdf8; }
 
-/* أزرار الإجراءات العلوية */
 body #platform-scene.scene-live .mine-heading-actions {
-  display: flex !important;
-  order: 3 !important;
-  direction: rtl !important;
-  align-items: center !important;
-  gap: 12px !important;
+  display: flex;
+  order: 3;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  direction: rtl;
 }
 body #platform-scene.scene-live .mine-heading-actions button {
-  min-height: 40px !important;
-  padding: 6px 16px !important;
-  border-radius: 12px !important;
-  border: 1.5px solid rgba(135, 174, 231, 0.3) !important;
-  background: linear-gradient(180deg, rgba(20, 42, 80, 0.9), rgba(12, 26, 52, 0.95)) !important;
-  color: #f8fafc !important;
-  font-size: 14px !important;
-  font-weight: 800 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  cursor: pointer !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 5px 8px;
+  border: 1px solid rgba(135, 174, 231, .28);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(20, 42, 80, .9), rgba(12, 26, 52, .95));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
 }
-body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
-  width: 18px !important;
-  height: 18px !important;
-  color: #38bdf8 !important;
-}
+body #platform-scene.scene-live .mine-heading-actions button .ui-icon { width: 16px; height: 16px; color: #7ddcf2; }
+#platform-scene.scene-live .mine-heading-actions button[hidden] { display: none !important; }
 
-/* 2. مسرح اللعبة */
 #platform-scene.scene-live .mine-stage {
-  position: relative !important;
-  flex: 1 1 770px !important;
-  min-height: 700px !important;
-  height: 770px !important;
-  border: 2px solid rgba(245, 158, 11, 0.45) !important;
-  border-radius: 18px !important;
-  background:
-    url('/assets/fantasy-adventure-bg.webp') center 50% / 1672px 770px no-repeat,
-    radial-gradient(ellipse at 50% 50%, #17243c, #050a14) !important;
-  box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.75),
-    0 0 35px rgba(245, 158, 11, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-  overflow: hidden !important;
-}
-#platform-scene.scene-live .mine-stage::after,
-#platform-scene.scene-lobby .mine-stage::after {
-  display: none !important;
-}
-#platform-scene.scene-live #platform-canvas {
   position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: none;
+  height: auto;
+  overflow: hidden;
+  border: 1px solid rgba(245, 158, 11, .34);
+  border-radius: 16px;
+  background:
+    url('/assets/fantasy-adventure-bg.webp') center / cover no-repeat,
+    radial-gradient(ellipse at 50% 50%, #17243c, #050a14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .58), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+#platform-scene.scene-live .mine-stage::after { display: none; }
+#platform-scene.scene-live #platform-canvas {
+  position: absolute;
+  inset: 0;
   z-index: 2;
   background: transparent !important;
 }
@@ -293,6 +252,9 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
   width: 210px !important;
   height: 210px !important;
   z-index: 10 !important;
+}
+#platform-scene.scene-live .mine-controls.touch-hidden .virtual-joystick {
+  display: none !important;
 }
 #platform-scene.scene-live .joystick-base {
   width: 100% !important;
@@ -494,10 +456,15 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     max-height: 100dvh !important;
     overflow: hidden !important;
   }
+  body #platform-scene.scene-live .mine-title,
+  body #platform-scene.scene-live .mine-economy {
+    display: none !important;
+  }
   #platform-scene.scene-live .mine-topbar {
     position: sticky !important;
     top: 0 !important;
     align-self: stretch !important;
+    justify-content: center !important;
     z-index: 80 !important;
     flex: 0 0 44px !important;
     width: 100% !important;
@@ -510,12 +477,16 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     box-sizing: border-box !important;
   }
   #platform-scene.scene-live .mine-heading-actions {
-    width: 100% !important;
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: fit-content !important;
+    max-width: 100% !important;
     justify-content: center !important;
     margin: 0 !important;
     gap: 4px !important;
   }
-  #platform-scene.scene-live .mine-heading-actions button {
+  body #platform-scene.scene-live .mine-heading-actions button {
     flex: 0 0 36px !important;
     width: 36px !important;
     min-width: 36px !important;
@@ -523,10 +494,11 @@ body #platform-scene.scene-live .mine-heading-actions button .ui-icon {
     height: 36px !important;
     min-height: 36px !important;
     padding: 4px !important;
+    box-sizing: border-box !important;
   }
   /* The sound toggle must remain stationary while Playwright/player taps it;
      the desktop button transition/active transform caused a moving hit target. */
-  #platform-scene.scene-live .mine-heading-actions button {
+  body #platform-scene.scene-live .mine-heading-actions button {
     transition: none !important;
     animation: none !important;
     transform: none !important;

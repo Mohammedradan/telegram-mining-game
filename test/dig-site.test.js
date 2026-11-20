@@ -810,7 +810,9 @@ test('sprite sheets: the CSS grid and aspect ratios are the shipped pixels (a re
 
 test('build and CI know the module: syntax check in the build script and the E2E exercises the controls', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.match(pkg.scripts.build, /node --check public\/dig-site\.js/);
+  // الفحص شامل لكل الأشجار (انظر scripts/check-build.cjs) لا قائمة أسماء في package.json
+  assert.equal(pkg.scripts.build, 'node scripts/check-build.cjs');
+  assert.match(read('scripts', 'check-build.cjs'), /for \(const dir of \['', 'public', 'lib', 'scripts'\]\)/, 'public/dig-site.js داخل الفحص');
   const e2e = read('scripts', 'test-clicker-browser.cjs');
   for (const needle of ['ck-pad', 'ck-dig', 'DigSite']) assert.ok(e2e.includes(needle), `the browser test drives ${needle}`);
 });

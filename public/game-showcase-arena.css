@@ -1,5 +1,3 @@
-
-
 /* ==========================================================================
    ===== 🏛️ Arena lobby & Showdown =====
    ========================================================================== */
@@ -10,6 +8,17 @@
     radial-gradient(ellipse at 50% 0%, rgba(48, 108, 173, .3), transparent 52%),
     radial-gradient(ellipse at 50% 100%, rgba(30, 20, 50, .35), transparent 60%),
     linear-gradient(180deg, #071328, #090e1e 74%, #050913);
+}
+
+/* Keep arena controls and navigation reachable in the showdown view. */
+body.arena-live:not(.duel-live) .app-header {
+  display: flex !important;
+}
+body.arena-live:not(.duel-live) .bottom-nav {
+  display: flex !important;
+}
+body.arena-live:not(.duel-live) .arena-x-bar {
+  display: flex !important;
 }
 
 #tab-arena:not(.arena-fighting) .arena-stage {
