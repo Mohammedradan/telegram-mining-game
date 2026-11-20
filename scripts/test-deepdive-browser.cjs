@@ -34,6 +34,7 @@ async function main() {
     await page.locator('#nav-mining').tap();
     await page.waitForFunction(() => document.getElementById('tab-mining').classList.contains('active'));
     await page.waitForFunction(() => [...document.querySelectorAll('#tab-mining img, #ck-nodes img')].every((i) => i.complete && i.naturalWidth > 0), null, { timeout: 20000 });
+    await page.waitForFunction(() => window.DigSite?.inspect?.().layoutReady === true, null, { timeout: 10000 });
     return { ctx, page };
   }
   const openDive = async (page) => {
@@ -66,8 +67,8 @@ async function main() {
     assert.ok(dive.r - dive.l >= 44, 'finger-sized');
     report.entry.medal = { ok: true, width: Math.round(dive.r - dive.l) };
 
-    // the hub before the dive: an economy snapshot (the dive must not move any of it)
-    const eco0 = await page.evaluate(() => ({ gold: state.gold, energy: Math.round(state.energy), pending: SYNC.pending.length, miner: DigSite.inspect().miner }));
+    // Capture the hub only after the dive has opened and its layout has settled.
+    // This avoids comparing against a pre-overlay relayout as "hub movement".
     const posts0 = page.posts.length;
 
     // 2) opening: full-screen overlay, intro card first, the platformer stopped, the hub's miner paused
@@ -80,6 +81,7 @@ async function main() {
         platform: window.PlatformGame && PlatformGame.inspect ? PlatformGame.inspect().running : null, dig: DigSite.inspect().paused, title: document.getElementById('dd-intro-title').textContent,
         best: document.getElementById('dd-intro-best').textContent, gear: document.getElementById('dd-intro-gear').textContent, active: document.activeElement && document.activeElement.id };
     });
+    const eco0 = await page.evaluate(() => ({ gold: state.gold, energy: Math.round(state.energy), pending: SYNC.pending.length, miner: DigSite.inspect().miner }));
     assert.notEqual(intro.display, 'none');
     assert.deepEqual(intro.overlay, [0, 0, 390, 844], 'covers the whole screen');
     assert.deepEqual(intro.canvas.slice(0, 2), intro.canvas.slice(2), 'canvas pixels match its box at DPR 1');

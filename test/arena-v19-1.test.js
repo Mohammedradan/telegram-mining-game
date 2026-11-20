@@ -66,7 +66,7 @@ test('المسرح يبقى مِلء الشاشة، وتكوينه وحده تغ
   assert.match(css, /body\.arena-live:not\(\.arena-more\) #tab-arena > #arena-stage \{\s*position: absolute; inset: 0;/, 'the full-bleed stage rule is unchanged');
   // المرحلة A: التكوين صار من المقاتلين (كان مثبّتاً على نسبة الشاشة) — الحلبة فقط، المنجم كما هو.
   assert.match(renderer, /function arenaLayout\(state, cssW, cssH\)/, 'arena framing is a function of the fighters');
-  assert.match(renderer, /const camera = arena \? arenaCamera\(s, arena\) : R\.cameraFor\(s, w\);/, 'the arena pans, the mine keeps its camera');
+  assert.match(renderer, /const camera = arena \? arenaCamera\(s, arena\) : \(showcase \? R\.cameraFor\(cameraState, w\) : R\.cameraFor\(s, w\)\);/, 'the arena pans, and the mine only changes camera in its display-only lobby showcase');
   assert.match(renderer, /fighterScale: 1\.3,/, 'fighters are drawn 1.3x larger (visual only)');
   assert.match(renderer, /const yTop = arena \? ARENA_FRAME\.groundAt \* pixelH - 360 \* sy/, 'the floor is pinned by the new frame');
 });

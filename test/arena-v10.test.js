@@ -158,7 +158,8 @@ test('V10 skill: mashing the key cannot exceed the cooldown rate', () => {
 
 // ---------- 5) واجهة الساحة تعرض المعدات ----------
 test('V10 UI: the arena shows the gear card and fills it from the shared rules', () => {
-  const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
+  const html = (fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') +
+    fs.readFileSync(path.join(ROOT, 'public', 'arena-client.js'), 'utf8')).replace(/\r\n/g, '\n');
   assert.match(html, /id="arena-gear"[^>]*aria-label="معداتك في المبارزة"/, 'the arena tab has a gear card');
   assert.ok(html.indexOf('id="arena-gear"') < html.indexOf('id="arena-ladder"'), 'it sits before the rival ladder, i.e. before the duel starts');
   assert.match(html, /function renderArenaGear\(\)/, 'and it is rendered by a real function');
@@ -227,6 +228,44 @@ test('V10 server: a forged loadout in the request body is ignored — the saved 
   assert.equal(sim.player.damage, 2, 'so the simulation built from that ticket has the V11 axe damage (1 + floor(5/4))');
   assert.equal(sim.player.skillMaxCooldown, 100, 'and the drill cooldown');
   assert.equal(sim.player.guard.maxStamina, 200, 'and the armor breath');
+});
+
+test('arena leaderboard ranks real persistent records and excludes players without wins', async () => {
+  // CI reuses one PostgreSQL database across suites. Unique names prevent fixtures
+  // from colliding, and assertions tolerate unrelated legitimate winners.
+  const players = [
+    { key: 'top-clean', name: `Top Clean ${runId}`, record: { wins: 5, losses: 0, draws: 1 } },
+    { key: 'top-rough', name: `Top Rough ${runId}`, record: { wins: 5, losses: 2, draws: 0 } },
+    { key: 'bronze', name: `Bronze ${runId}`, record: { wins: 2, losses: 0, draws: 0 } },
+    { key: 'no-wins', name: `No Wins ${runId}`, record: { wins: 0, losses: 7, draws: 0 } },
+  ];
+  for (const player of players) {
+    const guestId = `board_${runId}_${player.key}`;
+    const playerHeaders = { 'X-Guest-Id': guestId, 'Content-Type': 'application/json' };
+    const created = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: playerHeaders });
+    assert.equal(created.status, 200);
+    await store.withUsers([`guest_${guestId}`], async () => {
+      const user = await store.getUser(`guest_${guestId}`);
+      user.name = player.name;
+      user.sync.arena.record = player.record;
+      await store.putUser(user);
+    });
+  }
+
+  const response = await fetch(`http://127.0.0.1:${port}/api/arena-leaderboard`);
+  assert.equal(response.status, 200);
+  const { leaderboard } = await response.json();
+  const seededWinners = players.slice(0, 3);
+  const ranked = leaderboard.filter((row) => seededWinners.some((player) => player.name === row.name));
+  assert.deepEqual(ranked.map(({ name, wins, losses, draws }) => ({ name, wins, losses, draws })), seededWinners.map(({ name, record }) => ({
+    name, wins: record.wins, losses: record.losses, draws: record.draws,
+  })), 'the seeded winners keep their relative wins/losses ordering');
+  assert.ok(ranked[0].rank < ranked[1].rank && ranked[1].rank < ranked[2].rank,
+    'the seeded winners retain their relative leaderboard order');
+  assert.equal(leaderboard.some((row) => row.name === players[3].name), false,
+    'players without wins are excluded');
+  assert.ok(leaderboard.every((row, index) => row.rank === index + 1),
+    'ranks remain contiguous when unrelated winners are present');
 });
 
 // ---------- 7) الرحلة الكاملة عبر الخادم: معدات ← مبارزة ← خسارة/فوز ← مكافأة ← عودة ← تعدين ----------

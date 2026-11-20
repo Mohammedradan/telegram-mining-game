@@ -96,6 +96,17 @@ body.ck-cave .ck-sound { display: grid; }
 
 /* ---------- الهيكل ---------- */
 .ck-tab { justify-content: flex-start; padding: 0 2px; }
+.ck-actions,
+.ck-actions > button {
+  z-index: 30 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+.ck-nodes,
+.ck-node {
+  z-index: 32 !important;
+  pointer-events: auto !important;
+}
 .ck-stage {
   position: relative;
   flex: 1 1 0;
@@ -198,7 +209,7 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-node[data-state="ready"] .ck-node-tag { color: #d8ffe5; border-color: rgba(74, 222, 128, .85); box-shadow: 0 2px 6px rgba(0, 0, 0, .55), 0 0 10px rgba(74, 222, 128, .35); }
 .ck-node-tag.is-label { color: #c8e9ff; border-color: rgba(125, 211, 252, .55); }
 /* خمس ميداليات (مع «الأعماق»): تُصغَّر قليلاً لتتسع في الصف على أضيق الشاشات (يضبط ClickerFX الخاصية data-count) */
-.ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(44px, min(12.6vw, calc(var(--app-height, 100vh) * .068)), 62px); gap: 7px; }
+.ck-nodes[data-count="5"] .ck-node { --ck-node: clamp(40px, min(12.6vw, calc(var(--app-height, 100vh) * .068)), 62px); gap: 7px; min-width: 44px; }
 .ck-nodes[data-count="5"] .ck-node-tag { min-width: 40px; padding-inline: 5px 6px; font-size: 10.5px; }
 .ck-nodes[data-count="5"] .ck-node-tag svg { width: 11px; height: 11px; }
 /* شارة «جديد» على ميدالية الحفر العميق: تختفي بعد أول فتح (ClickerFX يضبط data-fresh) */
@@ -275,6 +286,7 @@ body.ck-cave .ck-sound { display: grid; }
     --dig: clamp(58px, min(22cqw, 31cqh), 78px);
   }
 }
+
 /* العالم: طبقة معزولة (أولوية الرسم بين المعدّن والصخرة بحسب العمق y) تحت اللُصيقات والتحكم */
 .ck-world { position: absolute; inset: 0; z-index: 1; isolation: isolate; pointer-events: none; }
 
@@ -288,6 +300,13 @@ body.ck-cave .ck-sound { display: grid; }
   transform-origin: 50% 100%;
   will-change: transform;
   pointer-events: none;
+}
+/* The hero's world-depth transform scales its rendered box. Use a viewport-based
+   floor on tall phones so the visible sprite, not just its unscaled CSS box,
+   remains at least 120px high even when container-query units resolve narrowly. */
+@media (max-width: 430px) and (min-height: 700px) {
+  .ck-area { --miner-h: max(144px, min(42vh, 36vw)); }
+  .ck-miner { min-height: 148px !important; }
 }
 /* ظل تحت القدمين (إهليلج متدرج: أرخص من drop-shadow ولا يتبع الإطار) */
 .ck-miner::before, .ck-btn::before {
@@ -763,7 +782,7 @@ body.ck-cave .ck-sound { display: grid; }
 }
 .ck-boost[data-state="cooldown"] .ck-boost-fill { background: rgba(148, 163, 184, .24); }
 
-.ck-go { min-height: 54px; padding: 6px 12px; gap: 10px; }
+.ck-go { width: 100%; min-width: 96px; min-height: 54px; padding: 6px 12px; gap: 10px; }
 .ck-go-icon { width: 26px; height: 26px; flex: none; stroke-width: 2.2; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .4)); }
 .ck-go-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; text-align: start; }
 .ck-go-text b { font-size: 19px; line-height: 1.1; letter-spacing: .2px; }

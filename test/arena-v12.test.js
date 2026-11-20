@@ -69,7 +69,7 @@ test('سياسة الالتقاط تحترم قناع الإدخال: لا بت�
 });
 
 test('الواجهة: زرّا اللقطة موجودان ويظهران خارج المبارزة فقط', () => {
-  const html = read('public/index.html');
+  const html = read('public/index.html') + read('public/arena-client.js');
 const css = read('public/app-shell.css');
   assert.match(html, /onclick="arenaShot\('boss'\)"/, 'a boss-shot button');
   assert.match(html, /onclick="arenaShot\('wave'\)"/, 'a wave-shot button');
@@ -82,26 +82,27 @@ const css = read('public/app-shell.css');
 
 test('واجهة المسرح: اللقطة تُجمّد العرض فقط، والتلميح يبقى حتى تُلغى', () => {
   const game = read('public/platform-game.js');
+  const fx = read('public/platform-arena-fx.js');
+  const preview = read('public/platform-arena-preview.js');
   assert.match(game, /arenaSnapshot,\s*arenaSnapshotOff/, 'both entry points are exposed');
   // التثبيت: خطوة محاكاة متوقفة عند التجميد
-  assert.match(game, /if \(!arenaFrozen\) arenaStep\(\)/, 'a frozen snapshot stops stepping the simulation');
+  assert.match(preview, /if \(!frozen\) step\(\)/, 'a frozen snapshot stops stepping the simulation');
   // التلميح الثابت: ms ≤ 0 لا يضع مؤقّتاً، ويُمسح بـ arenaHintHide
-  const hint = game.slice(game.indexOf('function arenaHint'), game.indexOf('function arenaHintHide'));
-  assert.match(hint, /if \(ms > 0\) arenaHintTimer = setTimeout/, 'ms ≤ 0 keeps the hint on screen');
-  const snap = game.slice(game.indexOf('function arenaSnapshot('), game.indexOf('function showArenaPreview('));
-  assert.match(snap, /arenaHint\(R\.DUEL\.phase2Hint, 0\)/, 'the boss shot pins the real phase-2 hint text');
-  assert.match(snap, /R\.capture\.sim\(/, 'the moment comes from the shared engine policy, not a hardcoded state');
+  assert.match(fx, /if \(ms > 0\) arenaHintTimer = root\.setTimeout/, 'ms ≤ 0 keeps the hint on screen');
+  const snap = preview.slice(preview.indexOf('function snapshot('), preview.indexOf('function snapshotOff('));
+  assert.match(snap, /showHint\(rules\.DUEL\.phase2Hint, 0\)/, 'the boss shot pins the real phase-2 hint text');
+  assert.match(snap, /rules\.capture\.sim\(/, 'the moment comes from the shared engine policy, not a hardcoded state');
 });
 
 test('اللمس: كل زر فعل يُرسل نبضة إطار واحد حتى لا تُفقد اللمسة السريعة', () => {
-  const game = read('public/platform-game.js');
+  const game = read('public/platform-duel.js');
   const bits = /const ACTION_BITS = ([^;]+);/.exec(game);
   assert.ok(bits, 'ACTION_BITS is defined in the pointer path');
   const expected = ['JUMP', 'ATTACK', 'SKILL', 'DEFEND', 'DODGE', 'HEAVY'].every((k) => bits[1].includes(`R.INPUT.${k}`));
   assert.ok(expected, `action mask covers every action button: ${bits[1]}`);
   assert.match(game, /duelPulses\.set\(`d:\$\{e\.pointerId\}`, mask & ACTION_BITS\)/, 'pointerdown pulses the action bits');
   // مسار الساحة فقط: نبضة المنجم تبقي 12 (قفز/تعدين) لأن المنجم لا يملك مهارة ولا صدّ ولا مراوغة
-  const pad = game.slice(game.indexOf('function duelButtons'), game.indexOf('function arenaHint'));
+  const pad = game.slice(game.indexOf('const duelButtons'), game.indexOf('window.PlatformGame ='));
   assert.doesNotMatch(pad, /mask & 12\b/, 'the arena pad no longer drops a fast skill/guard/dodge tap');
 });
 
@@ -134,14 +135,15 @@ test('خطة التلميح لا تكرّر: لا فوق تلميح ظاهر، �
 });
 
 test('الواجهة: التذكير يُرسَل بنوعه، يُصرف مرة واحدة، ويُصفَّر مع كل مبارزة', () => {
-  const game = read('public/platform-game.js');
-  assert.match(game, /function arenaHint\(text, ms = 5200, kind = 'main'\)/, 'the hint takes a kind');
-  assert.match(game, /classList\.toggle\('remind', kind === 'reminder'\)/, 'the reminder gets its own smaller style');
-  assert.match(game, /R\.duelHintPlan\?\.\(ev,/, 'the decision comes from the rules module');
-  assert.match(game, /if \(plan && plan\.kind === 'reminder'\) \{ hintReminderShown = true;/, 'a reminder is consumed once');
-  const resets = game.match(/hintReminderShown = false/g) || [];
-  assert.ok(resets.length >= 2, 'reset on stage rebuild and on every new duel');
-  const html = read('public/index.html');
+  const duel = read('public/platform-duel.js');
+  const fx = read('public/platform-arena-fx.js');
+  assert.match(fx, /function arenaHint\(text, ms = 5200, kind = 'main'\)/, 'the hint takes a kind');
+  assert.match(fx, /classList\.toggle\('remind', kind === 'reminder'\)/, 'the reminder gets its own smaller style');
+  assert.match(fx, /rules\.duelHintPlan\?\.\(ev,/, 'the decision comes from the rules module');
+  assert.match(fx, /if \(plan && plan\.kind === 'reminder'\) \{ hintReminderShown = true;/, 'a reminder is consumed once');
+  assert.match(fx, /function arenaHintReset\(\) \{ hintReminderShown = false;/, 'the reminder resets with the preview stage');
+  assert.match(duel, /arenaFx\.resetHint\(\);/, 'the hint and one-time reminder reset when a live duel starts');
+  const html = read('public/index.html') + read('public/arena-client.js');
   const css = read('public/app-shell.css');
   assert.match(css, /\.arena-hint\.remind \{[^}]*font-size: 9\.5px/, 'the reminder is smaller than the 10.5px main hint');
   assert.match(css, /\.arena-hint\.remind \{[^}]*max-width: 72%/, 'and narrower, so it hides less of the fight');

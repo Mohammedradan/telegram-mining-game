@@ -1,350 +1,988 @@
 /* Reference-inspired lobby and arena presentation. Game state and rewards stay in their existing systems. */
 
-/* ===== Adventure lobby ===== */
+/* ==========================================================================
+   ===== 🧭 Widescreen App Layout for Adventure (مطابقة كاملة للشاشات العريضة) =====
+   ========================================================================== */
+@media (min-width: 800px) {
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) {
+    width: min(1672px, 100vw) !important;
+    max-width: 1672px !important;
+    margin: 0 auto !important;
+  }
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #tab-play,
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #play-panel-adventure,
+  body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) #platform-scene {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* Hide duplicate subnav tabs in adventure mode to let the stage shine like the reference screenshots */
+body:has(#tab-play.active #play-panel-adventure.active #platform-scene:not([hidden])) .play-subnav {
+  display: none !important;
+}
+
+#platform-scene {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+/* ==========================================================================
+   ===== 🧭 Adventure Lobby (مشهد ردهة المغامرة مطابق للصورة المرجعية) =====
+   ========================================================================== */
+#platform-scene.scene-lobby {
+  background: radial-gradient(circle at 50% 10%, #152542 0%, #070d18 80%);
+}
+
+/* --- الشريط العلوي --- */
 #platform-scene.scene-lobby .mine-topbar {
-  border-color: rgba(104, 151, 221, .45);
-  background: linear-gradient(110deg, rgba(10, 23, 49, .97), rgba(17, 33, 65, .94) 56%, rgba(12, 24, 45, .97));
-  box-shadow: 0 7px 22px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .09);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 16px !important;
+  height: 68px !important;
+  min-height: 68px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(110deg, rgba(10, 23, 49, .98), rgba(17, 33, 65, .96) 56%, rgba(12, 24, 45, .98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+  direction: ltr !important;
+}
+
+.adv-topbar-brand {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+.adv-logo-img {
+  height: 48px !important;
+  width: auto !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 2px 8px rgba(255, 180, 50, 0.45)) !important;
+}
+
+#platform-scene.scene-lobby .mine-title {
+  order: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
+  text-align: right !important;
 }
 #platform-scene.scene-lobby .mine-badge {
   color: #17213a;
   background: linear-gradient(145deg, #ffe58f, #f3aa35 72%, #d97922);
-  box-shadow: 0 0 18px rgba(255, 184, 67, .28), inset 0 1px 0 rgba(255, 255, 255, .65);
+  box-shadow: 0 0 18px rgba(255, 184, 67, .35), inset 0 1px 0 rgba(255, 255, 255, .65);
 }
 #platform-scene.scene-lobby .mine-title-text h2 {
   color: #fff0bc;
-  text-shadow: 0 2px 9px rgba(0, 0, 0, .62), 0 0 18px rgba(255, 192, 74, .18);
+  font-size: 14px;
+  font-weight: 900;
+  text-shadow: 0 2px 9px rgba(0, 0, 0, .62), 0 0 18px rgba(255, 192, 74, .25);
 }
-#platform-scene.scene-lobby .mine-kicker { color: #9dc9ff; }
+#platform-scene.scene-lobby .mine-kicker {
+  color: #9dc9ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+#platform-scene.scene-lobby .mine-economy {
+  order: 3 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  direction: rtl !important;
+}
 #platform-scene.scene-lobby .mine-topbar .mine-gold,
 #platform-scene.scene-lobby .mine-topbar .mine-energy {
-  padding: 6px 9px;
-  border: 1px solid rgba(135, 174, 231, .23);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 204, 77, .35);
   border-radius: 999px;
-  background: rgba(6, 15, 33, .57);
+  background: rgba(6, 15, 33, .85);
+  font-weight: 800;
+  color: #fff0c1;
+  font-size: 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-#platform-scene.scene-lobby .mine-hero-bar {
-  gap: 7px;
-  padding: 6px;
-  border-color: rgba(102, 143, 205, .35);
-  background: linear-gradient(110deg, rgba(9, 23, 49, .96), rgba(17, 36, 67, .91));
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .23), inset 0 1px 0 rgba(255, 255, 255, .06);
+#platform-scene.scene-lobby .mine-topbar .mine-gold .econ-icon { color: #f59e0b; width: 16px; height: 16px; }
+#platform-scene.scene-lobby .mine-topbar .mine-energy .econ-icon { color: #38bdf8; width: 16px; height: 16px; }
+
+#platform-scene.scene-lobby .mine-heading-actions {
+  order: 4 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
 }
-#platform-scene.scene-lobby .mine-hero-btn {
-  min-height: 58px;
-  border: 1px solid rgba(126, 158, 207, .14);
-  border-radius: 11px;
-  background: linear-gradient(145deg, rgba(29, 49, 82, .52), rgba(12, 24, 48, .6));
+#platform-scene.scene-lobby .mine-heading-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border: 1px solid rgba(135, 174, 231, .3);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(20, 38, 70, 0.85), rgba(10, 20, 40, 0.95));
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
-#platform-scene.scene-lobby .mine-hero-btn.active {
-  border-color: #ffc94f;
-  color: #fff2c7;
-  background: linear-gradient(145deg, rgba(113, 75, 25, .75), rgba(42, 37, 45, .92));
-  box-shadow: 0 0 0 1px rgba(255, 203, 77, .23), 0 0 18px rgba(255, 178, 45, .2), inset 0 1px 0 rgba(255, 239, 177, .2);
+#platform-scene.scene-lobby .mine-heading-actions button:hover {
+  border-color: #ffd36b;
+  transform: translateY(-1px);
 }
-#platform-scene.scene-lobby .mine-hero-btn.active::after {
-  height: 3px;
-  left: 12%;
-  right: 12%;
-  background: linear-gradient(90deg, transparent, #ffe17c, transparent);
-  box-shadow: 0 0 10px #ffc94f;
+
+/* --- شريط الملف الشخصي والمهمة والمؤشرات (Sub-header) --- */
+.lobby-subbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 8px 16px !important;
+  height: 60px !important;
+  min-height: 60px !important;
+  border: 1px solid rgba(119, 169, 225, .25) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(90deg, rgba(9, 21, 45, 0.95), rgba(15, 31, 62, 0.9), rgba(9, 21, 45, 0.95)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  direction: ltr !important;
 }
-#platform-scene.scene-lobby .hero-icon { width: 21px; height: 21px; color: #f5ca6d; }
+#platform-scene.scene-live .lobby-subbar {
+  display: none !important;
+}
+
+.lobby-subbar-profile {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  direction: rtl !important;
+}
+.lobby-avatar-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.lobby-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #ffca54;
+  box-shadow: 0 0 12px rgba(255, 202, 84, 0.4);
+  object-fit: cover;
+}
+.lobby-level-badge {
+  position: absolute;
+  bottom: -3px;
+  left: -3px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: 1px solid #fef08a;
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 900;
+}
+.lobby-profile-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.lobby-player-name {
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+.lobby-xp-track {
+  position: relative;
+  width: 120px;
+  height: 15px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 204, 77, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lobby-xp-fill {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  border-radius: 999px;
+}
+.lobby-xp-text {
+  position: relative;
+  z-index: 1;
+  font-size: 8px;
+  font-weight: 800;
+  color: #f8fafc;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.lobby-subbar-quest {
+  order: 2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 7px 18px !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, rgba(69, 39, 13, 0.65), rgba(26, 33, 54, 0.85)) !important;
+  color: #fef08a;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  direction: rtl !important;
+}
+
+.lobby-subbar-chips {
+  order: 3 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  direction: rtl !important;
+}
+.lobby-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #f1f5f9;
+  font-size: 11px;
+  font-weight: 800;
+}
+.lobby-chip--compass {
+  color: #38bdf8;
+  cursor: pointer;
+}
+
+/* --- مسرح المغامرة في وضع الاستعداد --- */
 #platform-scene.scene-lobby .mine-stage {
-  border: 1px solid rgba(245, 196, 91, .55);
-  box-shadow: 0 13px 36px rgba(0, 0, 0, .44), inset 0 0 0 1px rgba(255, 255, 255, .06);
-}
-#platform-scene.scene-lobby .mine-overlay {
-  gap: 7px;
-  padding: 14px;
+  position: relative !important;
+  flex: 1 1 660px !important;
+  min-height: 660px !important;
+  height: 660px !important;
+  border: 2px solid rgba(255, 204, 77, .65) !important;
+  border-radius: 20px !important;
   background:
-    linear-gradient(180deg, rgba(5, 14, 30, .08) 0%, rgba(5, 14, 30, .04) 42%, rgba(5, 13, 27, .38) 100%),
-    radial-gradient(ellipse at 50% 46%, transparent 32%, rgba(4, 10, 23, .2) 100%);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, .92);
+    url('/assets/lobby-adventure-stage.webp') center center / 100% 100% no-repeat,
+    #070d18 !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .6), 0 0 35px rgba(245, 158, 11, .25), inset 0 1px 0 rgba(255, 255, 255, .1) !important;
+  overflow: hidden !important;
+}
+#platform-scene.scene-lobby #platform-canvas {
+  opacity: 0.05 !important;
+}
+
+/* بطاقات الشخصيات: تطابق تام مع موضع ومقاس الصورة المرجعية */
+@media (min-width: 800px) {
+  #platform-scene.scene-lobby .mine-hero-bar {
+    position: absolute !important;
+    top: 265px !important;
+    left: 20px !important;
+    width: 250px !important;
+    height: 350px !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 12px 10px !important;
+    background: linear-gradient(160deg, rgba(12, 26, 52, 0.98), rgba(8, 17, 34, 0.98)) !important;
+    border: 2px solid rgba(255, 204, 77, 0.5) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    z-index: 10 !important;
+    backdrop-filter: blur(8px) !important;
+  }
+  #platform-scene.scene-lobby .mine-hero-bar::before {
+    content: "اختر شخصيتك";
+    display: block;
+    color: #ffd36b;
+    font-size: 14px;
+    font-weight: 900;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 211, 107, 0.25);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  }
+  #platform-scene.scene-lobby .mine-hero-btn {
+    width: 100% !important;
+    min-height: 80px !important;
+    padding: 8px 12px !important;
+    border-radius: 14px !important;
+    border: 1.5px solid rgba(135, 174, 231, 0.25) !important;
+    background: rgba(15, 25, 48, 0.8) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+  }
+  #platform-scene.scene-lobby .mine-hero-btn.active {
+    border-color: #ffd36b !important;
+    background: linear-gradient(145deg, rgba(160, 105, 24, 0.96), rgba(100, 60, 15, 0.98)) !important;
+    box-shadow: 0 0 18px rgba(245, 169, 42, 0.45) !important;
+  }
+}
+
+#platform-scene.scene-lobby .mine-hero-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+.hero-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.hero-card-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 204, 77, 0.6);
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.hero-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+#platform-scene.scene-lobby .hero-name {
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+}
+#platform-scene.scene-lobby .hero-desc {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.25;
+}
+.hero-card-check {
+  display: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+#platform-scene.scene-lobby .mine-hero-btn.active .hero-card-check {
+  display: inline-flex;
+}
+#platform-scene.scene-lobby .mine-hero-btn.active .hero-name {
+  color: #fff0a7;
+}
+#platform-scene.scene-lobby .mine-hero-btn > .hero-icon {
+  display: none;
+}
+
+/* --- الغلاف التفاعلي فوق المسرح --- */
+#platform-scene.scene-lobby .mine-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  background: transparent !important;
+  display: block !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby .mine-overlay > * {
+  pointer-events: auto !important;
 }
 #platform-scene.scene-lobby .mine-overlay::before,
-#platform-scene.scene-lobby .mine-overlay::after { display: none; }
-#platform-scene.scene-lobby .overlay-kicker {
-  width: fit-content;
-  padding: 6px 12px;
-  border: 1px solid rgba(255, 204, 93, .57);
-  border-radius: 999px;
-  color: #ffe8ad;
-  background: linear-gradient(100deg, rgba(57, 35, 18, .86), rgba(13, 25, 45, .9));
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+#platform-scene.scene-lobby .mine-overlay::after { display: none !important; }
+#platform-scene.scene-lobby .overlay-kicker,
+#platform-scene.scene-lobby .mine-overlay h3,
+#platform-scene.scene-lobby .overlay-lead,
+#platform-scene.scene-lobby .overlay-help { display: none !important; }
+
+/* بطاقة البوصلة التوجيهية في ردهة المنجم (أعلى يمين داخل المسرح) */
+.lobby-compass-card {
+  position: absolute !important;
+  top: 15px !important;
+  right: 20px !important;
+  width: 395px !important;
+  height: 90px !important;
+  padding: 10px 18px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.5) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(12, 26, 52, 0.98), rgba(7, 16, 34, 0.98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  z-index: 10 !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  direction: rtl !important;
 }
-#platform-scene.scene-lobby .mine-overlay h3 {
-  color: #fff0be;
-  text-shadow: 0 2px 12px #020817, 0 0 20px rgba(255, 200, 89, .28);
+.compass-badge-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #38bdf8, #0369a1 70%, #082f49 100%);
+  border: 2.5px solid #ffd36b;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.6), inset 0 1px 3px rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
 }
-#platform-scene.scene-lobby .overlay-mission {
-  border: 1px solid rgba(119, 169, 225, .5);
-  border-radius: 14px;
-  background: linear-gradient(145deg, rgba(8, 21, 43, .91), rgba(13, 28, 50, .83));
-  box-shadow: 0 9px 24px rgba(0, 0, 0, .33), inset 0 1px 0 rgba(255, 255, 255, .08);
-  backdrop-filter: blur(7px);
+.compass-text {
+  color: #fff0c1;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  text-align: right;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
-#platform-scene.scene-lobby .mission-row { color: #e7efff; }
-#platform-scene.scene-lobby .mission-row .ui-icon { color: #78cfff; }
-#platform-scene.scene-lobby .mission-progress { background: rgba(2, 8, 20, .8); }
-#platform-scene.scene-lobby .mission-progress i {
-  background: linear-gradient(90deg, #2ed5c4, #a4ef9b);
-  box-shadow: 0 0 10px rgba(77, 227, 197, .42);
+
+/* بطاقة حالة المنجم الجانبية (معلومات سريعة أسفل يمين) */
+.lobby-side-card {
+  position: absolute !important;
+  top: 465px !important;
+  right: 20px !important;
+  width: 315px !important;
+  height: 185px !important;
+  padding: 14px 18px !important;
+  border: 1.5px solid rgba(255, 204, 77, 0.45) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(12, 26, 52, 0.98), rgba(7, 16, 34, 0.98)) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  z-index: 10 !important;
+  backdrop-filter: blur(8px) !important;
+  direction: rtl !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-around !important;
+}
+.lobby-side-title {
+  color: #ffd36b;
+  font-size: 14px;
+  font-weight: 900;
+  border-bottom: 1px solid rgba(255, 211, 107, 0.25);
+  padding-bottom: 6px;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lobby-side-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.side-k { color: #cbd5e1; font-weight: 700; }
+.side-v { color: #f8fafc; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; }
+.side-v--ok { color: #4ade80; }
+.side-v .inline-coin { width: 14px; height: 14px; color: #f59e0b; }
+
+/* بطاقات أوضاع اللعب / أنماط اللعب (أسفل يسار) */
+#platform-scene.scene-lobby #platform-goals {
+  position: absolute !important;
+  top: 450px !important;
+  left: 20px !important;
+  width: 500px !important;
+  height: 185px !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 10 !important;
+  direction: rtl !important;
+}
+#platform-scene.scene-lobby #platform-goals::before {
+  content: "أنماط اللعب";
+  display: block;
+  color: #ffd36b;
+  font-size: 14px;
+  font-weight: 900;
+  margin-bottom: 10px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+#platform-scene.scene-lobby .goal-options {
+  display: flex !important;
+  gap: 12px !important;
 }
 #platform-scene.scene-lobby .goal-option {
-  border-color: rgba(119, 167, 224, .37);
+  flex: 1 !important;
+  height: 135px !important;
+  padding: 10px 8px !important;
+  border: 1.5px solid rgba(119, 167, 224, .37) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(145deg, rgba(14, 30, 58, 0.98), rgba(8, 17, 34, 0.98)) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.goal-mode-img {
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
-  background: linear-gradient(145deg, rgba(15, 33, 62, .94), rgba(7, 17, 36, .96));
-  box-shadow: 0 5px 13px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .06);
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 204, 77, 0.45);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.goal-mode-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.goal-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+.goal-mode-title .ui-icon {
+  display: none;
+}
+#platform-scene.scene-lobby .goal-option i {
+  display: none;
+}
+.goal-reward-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #ffd36b;
+  font-size: 11px;
+  font-weight: 800;
+}
+.goal-reward-tag .inline-coin {
+  width: 13px;
+  height: 13px;
+  color: #f59e0b;
 }
 #platform-scene.scene-lobby .goal-option.active {
-  border-color: #ffca54;
-  color: #fff0c1;
-  background: linear-gradient(145deg, rgba(157, 103, 27, .96), rgba(96, 59, 20, .98));
-  box-shadow: 0 0 0 1px rgba(255, 207, 89, .23), 0 0 18px rgba(245, 169, 42, .2);
+  border-color: #ffd36b !important;
+  background: linear-gradient(145deg, rgba(160, 105, 24, 0.98), rgba(100, 60, 15, 0.98)) !important;
+  box-shadow: 0 0 0 1px rgba(255, 211, 107, 0.4), 0 0 20px rgba(245, 169, 42, 0.45) !important;
+  transform: translateY(-2px) !important;
 }
-#platform-scene.scene-lobby .goal-option .ui-icon { color: #77dcff; }
-#platform-scene.scene-lobby .goal-option.active .ui-icon { color: #fff0a7; }
-#platform-scene.scene-lobby .goal-hint { color: #ffe4a0; }
-#platform-scene.scene-lobby #platform-start {
-  min-height: 52px;
-  border: 1px solid #fff0b0;
-  border-radius: 16px;
-  color: #2a1c0c;
-  background: linear-gradient(115deg, #ffe075, #ffae24 58%, #e88719);
-  box-shadow: 0 7px 22px rgba(247, 158, 32, .36), inset 0 2px 0 rgba(255, 255, 255, .66), inset 0 -3px 0 rgba(127, 67, 8, .2);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .4);
-  font-size: 15px;
-}
-#platform-scene.scene-lobby #platform-start:hover { filter: brightness(1.07); }
-#platform-scene.scene-lobby .overlay-row button {
-  border-color: rgba(135, 177, 229, .38);
-  color: #e9f2ff;
-  background: linear-gradient(140deg, rgba(18, 38, 69, .94), rgba(8, 19, 40, .96));
-  box-shadow: 0 5px 15px rgba(0, 0, 0, .25);
+#platform-scene.scene-lobby .goal-option.active .goal-mode-title {
+  color: #fff0a7;
 }
 
-@media (min-width: 800px) and (min-height: 620px) {
-  #platform-scene.scene-lobby { justify-content: flex-start; }
-  #platform-scene.scene-lobby .mine-stage {
-    flex: 1 1 0;
-    min-height: 360px;
-    max-height: none;
+/* Phone layout: the desktop showcase uses fixed 450px coordinates and hides
+   the map/workshop row. Restore the real controls in a compact, reachable lane. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-topbar {
+    height: auto !important;
+    min-height: 68px !important;
   }
-  #platform-scene.scene-lobby .mine-overlay {
-    display: block;
-    overflow: hidden;
-  }
-  #platform-scene.scene-lobby .mine-overlay > * { position: absolute; }
-  #platform-scene.scene-lobby .overlay-kicker {
-    top: 14px; left: 50%; transform: translateX(-50%);
-  }
-  #platform-scene.scene-lobby .mine-overlay h3 {
-    top: 56px; left: 50%; transform: translateX(-50%);
-    margin: 0; font-size: clamp(18px, 2vw, 25px); white-space: nowrap;
-  }
-  #platform-scene.scene-lobby .overlay-lead,
-  #platform-scene.scene-lobby .overlay-help,
-  #platform-scene.scene-lobby .goal-hint { display: none; }
-  #platform-scene.scene-lobby .overlay-mission {
-    top: 15px; right: 15px; width: min(230px, 23%);
-    padding: 10px 12px;
-  }
-  #platform-scene.scene-lobby .overlay-mission .mission-row { font-size: 10px; }
-  #platform-scene.scene-lobby #platform-goals {
-    left: 15px; bottom: 14px; width: min(340px, 35%);
-    margin: 0; padding: 0; background: transparent; border: 0;
-  }
-  #platform-scene.scene-lobby .goal-options { gap: 6px; }
-  #platform-scene.scene-lobby .goal-option { min-height: 72px; padding: 8px 5px; }
-  #platform-scene.scene-lobby #platform-start {
-    left: 50%; bottom: 22px; transform: translateX(-50%);
-    width: min(310px, 31%); min-height: 70px; font-size: clamp(17px, 1.8vw, 22px);
-  }
-  #platform-scene.scene-lobby #platform-start:hover { transform: translate(-50%, -1px); }
   #platform-scene.scene-lobby .overlay-row {
-    right: 15px; bottom: 14px; width: min(225px, 23%);
-    display: grid; grid-template-columns: 1fr; gap: 6px; margin: 0;
+    display: flex !important;
+    position: absolute !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    z-index: 13 !important;
   }
-  #platform-scene.scene-lobby .overlay-row button { min-height: 34px; padding: 6px 10px; }
-  #platform-scene.scene-lobby .overlay-row .mine-select { display: flex; }
+  #platform-scene.scene-lobby .overlay-row button {
+    min-width: 0 !important;
+    min-height: 42px !important;
+  }
+  #platform-scene.scene-lobby .lobby-compass-card,
+  #platform-scene.scene-lobby .lobby-side-card {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-goals {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
 }
 
-/* ===== Arena lobby ===== */
-#tab-arena:not(.arena-fighting) {
-  --arena-gold: #ffd36b;
-  --arena-gold-soft: rgba(255, 195, 72, .24);
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(48, 108, 173, .26), transparent 52%),
-    linear-gradient(180deg, #071328, #090e1e 74%, #050913);
+#platform-scene.scene-lobby #platform-start,
+#platform-scene.scene-lobby .adv-golden-cta {
+  position: absolute !important;
+  top: 465px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 11 !important;
+  height: 155px !important;
+  width: 420px !important;
+  padding: 12px 32px !important;
+  border: 3px solid #fff3b8 !important;
+  border-radius: 999px !important;
+  color: #2e1704 !important;
+  font-size: 26px !important;
+  font-weight: 900 !important;
+  background: linear-gradient(180deg, #ffe58f 0%, #f59e0b 52%, #b45309 100%) !important;
+  box-shadow: 0 12px 32px rgba(245, 158, 11, 0.65), 0 0 35px rgba(255, 215, 0, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.85) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
 }
-#tab-arena .arena-stage {
-  border-color: rgba(255, 200, 79, .64);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, .38), 0 0 28px rgba(47, 143, 224, .15), inset 0 0 0 1px rgba(255, 255, 255, .07);
+#platform-scene.scene-lobby #platform-start:hover,
+#platform-scene.scene-lobby .adv-golden-cta:hover {
+  transform: translateX(-50%) scale(1.03) !important;
+  box-shadow: 0 16px 40px rgba(245, 158, 11, 0.75), 0 0 45px rgba(255, 215, 0, 0.55) !important;
 }
-#tab-arena #arena-preview { filter: brightness(1.12) saturate(1.24) contrast(1.04); }
-#tab-arena .arena-stage::before {
-  background:
-    linear-gradient(180deg, rgba(5, 14, 35, .2), transparent 25%, transparent 70%, rgba(51, 24, 10, .28)),
-    radial-gradient(ellipse at 50% 72%, rgba(255, 177, 64, .13), transparent 40%),
-    radial-gradient(ellipse at 50% 15%, rgba(72, 179, 255, .14), transparent 52%);
+#platform-scene.scene-lobby #platform-start:active,
+#platform-scene.scene-lobby .adv-golden-cta:active {
+  transform: translateX(-50%) scale(0.97) !important;
 }
-#tab-arena .ar {
-  background:
-    linear-gradient(180deg, rgba(5, 13, 32, .6), rgba(6, 14, 30, .12) 34%, rgba(7, 11, 24, .12) 63%, rgba(6, 11, 25, .78)),
-    radial-gradient(ellipse at 50% 52%, transparent 24%, rgba(4, 9, 22, .21) 100%);
+.adv-cta-axe {
+  width: 40px !important;
+  height: 40px !important;
+  color: #451a03 !important;
 }
-#tab-arena .ar-title {
-  border-color: rgba(255, 209, 94, .64);
-  background: linear-gradient(115deg, rgba(15, 41, 79, .96), rgba(48, 31, 74, .95) 52%, rgba(17, 37, 69, .96));
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .14);
+.adv-cta-play {
+  font-size: 24px !important;
+  color: #78350f !important;
 }
-#tab-arena .ar-title b { color: #ffe8a6; font-size: 15px; text-shadow: 0 2px 10px rgba(255, 190, 60, .2); }
-#tab-arena .ar-title span { color: #c4dcff; }
-@media (min-width: 700px) {
-  #tab-arena .ar-title { min-width: min(360px, 42vw); padding: 9px 24px; }
-  #tab-arena .ar-title b { font-size: clamp(20px, 2.2vw, 28px); }
-  #tab-arena .ar-title span { font-size: 11px; }
-}
-#tab-arena .ar-chip,
-#tab-arena .ar-tool {
-  border-color: rgba(129, 178, 235, .38);
-  background: linear-gradient(135deg, rgba(15, 34, 64, .95), rgba(8, 19, 41, .96));
-  color: #e2efff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, .23);
-}
-#tab-arena .ar-chip { border-color: rgba(255, 205, 91, .48); color: #ffe4a2; }
-#tab-arena .ar-tool:hover { border-color: rgba(255, 212, 111, .7); color: #fff0c2; }
-#tab-arena .ar-card {
-  border-color: rgba(112, 172, 238, .48);
-  background: linear-gradient(145deg, rgba(9, 29, 60, .94), rgba(8, 16, 36, .96));
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .44), inset 0 1px 0 rgba(255, 255, 255, .09);
-}
-#tab-arena .ar-card.hero { border-color: rgba(69, 197, 255, .72); }
-#tab-arena .ar-card.rival { border-color: rgba(255, 171, 72, .7); }
-#tab-arena .ar-card.rival .ar-stats > span:last-child {
-  border-color: rgba(255, 199, 85, .42);
-  background: linear-gradient(145deg, rgba(90, 56, 18, .64), rgba(29, 23, 28, .84));
-}
-#tab-arena .ar-card.rival .ar-stats > span:last-child b { color: #ffdf84; }
-#platform-scene.scene-lobby .mine-stage canvas { filter: brightness(1.12) saturate(1.08); }
-#tab-arena .ar-showcase-panel { display: none; }
-#tab-arena .ar-lvl {
-  color: #ffe4a2;
-  background: rgba(255, 191, 55, .16);
-  border-color: rgba(255, 207, 98, .42);
-}
-#tab-arena .ar-card.rival .ar-lvl {
-  color: #ffe2bd;
-  background: rgba(249, 146, 60, .17);
-  border-color: rgba(255, 181, 107, .45);
-}
-#tab-arena .ar-vs b { color: #ffdf78; text-shadow: 0 2px 12px rgba(255, 178, 43, .5); }
-#tab-arena .ar-balance { background: rgba(255, 166, 82, .55); }
-#tab-arena .ar-balance u { background: linear-gradient(90deg, #48caff, #ffe07a); }
-#tab-arena .ar-pill {
-  border-color: rgba(119, 165, 222, .38);
-  background: linear-gradient(145deg, rgba(12, 30, 59, .95), rgba(8, 17, 37, .96));
-}
-#tab-arena .ar-pill[aria-selected="true"] {
-  border-color: #ffd36b;
-  background: linear-gradient(135deg, rgba(154, 99, 27, .96), rgba(92, 54, 25, .98));
-  color: #fff1c4;
-  box-shadow: 0 0 0 1px rgba(255, 211, 107, .24), 0 6px 18px rgba(200, 123, 32, .25);
-}
-#tab-arena .ar-pill[aria-selected="true"] small { color: #ffe0a2; }
-#tab-arena .ar-cta {
-  border-color: #fff0ae;
-  color: #2a1b0a;
-  background: linear-gradient(110deg, #ffe17a, #ffb82d 56%, #ed8c20);
-  box-shadow: 0 9px 26px rgba(238, 147, 32, .34), inset 0 2px 0 rgba(255, 255, 255, .62), inset 0 -3px 0 rgba(125, 68, 13, .22);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .36);
-}
-#tab-arena .ar-cta:disabled { filter: grayscale(.65) brightness(.72); }
-#tab-arena .arena-ladder .al-row.active {
-  border-color: rgba(255, 211, 107, .86);
-  background: linear-gradient(115deg, rgba(88, 59, 22, .83), rgba(18, 28, 48, .98));
-}
-#tab-arena .arena-ladder .al-reward { color: #ffe28c; }
-#tab-arena .arena-duel-btn,
-#tab-arena #arena-start-btn {
-  border-color: #fff0ae;
-  background: linear-gradient(110deg, #ffe17a, #ffb82d 56%, #ed8c20);
-  color: #2a1b0a;
-}
-#tab-arena .arena-pad .ap-hit { box-shadow: 0 4px 13px rgba(226, 70, 76, .2); }
 
-@media (min-width: 1000px) and (min-height: 640px) {
-  #tab-arena .ar-showcase-panel {
-    position: absolute;
-    z-index: 3;
-    top: 51%;
-    display: block;
-    width: clamp(150px, 16vw, 205px);
-    padding: 11px;
-    border: 1px solid rgba(123, 177, 235, .48);
-    border-radius: 15px;
-    direction: rtl;
-    color: #e8f1ff;
-    background: linear-gradient(150deg, rgba(7, 23, 48, .92), rgba(7, 13, 30, .88));
-    box-shadow: 0 12px 30px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .09);
-    backdrop-filter: blur(7px);
-    transform: translateY(-50%);
+#platform-scene.scene-lobby .overlay-mission {
+  display: none !important;
+}
+
+/* Informational lobby cards must never intercept the primary run controls. */
+#platform-scene.scene-lobby .lobby-compass-card,
+#platform-scene.scene-lobby .lobby-side-card {
+  pointer-events: none !important;
+}
+
+/* Re-apply the phone lobby controls after the desktop showcase's hide rules.
+   Keep the topbar in two compact rows so mute/workshop/settings stay on-screen. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-topbar {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas: "title economy" "actions actions" !important;
+    align-items: center !important;
+    gap: 4px !important;
+    height: auto !important;
+    min-height: 68px !important;
+    padding: 5px 7px !important;
   }
-  #tab-arena .ar-showcase-reward { left: 14px; border-color: rgba(255, 203, 91, .54); }
-  #tab-arena .ar-showcase-leaders { right: 14px; }
-  #tab-arena .ar-showcase-heading { display: flex; flex-direction: column; gap: 2px; }
-  #tab-arena .ar-showcase-heading b { color: #ffe5a0; font-size: 13px; font-weight: 900; }
-  #tab-arena .ar-showcase-heading span { color: #a9bfdc; font-size: 9px; }
-  #tab-arena .ar-showcase-prize {
-    display: flex; align-items: baseline; gap: 6px;
-    margin: 11px 0; color: #ffdc72;
+  #platform-scene.scene-lobby .mine-title {
+    grid-area: title !important;
+    min-width: 0 !important;
+    flex: initial !important;
   }
-  #tab-arena .ar-showcase-prize strong {
-    font-size: clamp(24px, 2.4vw, 34px); line-height: 1; font-weight: 950;
-    text-shadow: 0 0 16px rgba(255, 195, 72, .35);
+  #platform-scene.scene-lobby .mine-economy {
+    grid-area: economy !important;
+    justify-self: end !important;
+    gap: 5px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
-  #tab-arena .ar-showcase-prize span { color: #ffe6a5; font-size: 10px; font-weight: 800; }
-  #tab-arena .ar-showcase-record {
-    display: flex; flex-direction: column; gap: 4px;
-    padding-top: 8px; border-top: 1px solid rgba(138, 170, 212, .22);
+  #platform-scene.scene-lobby .mine-heading-actions {
+    grid-area: actions !important;
+    justify-self: center !important;
+    display: flex !important;
+    gap: 4px !important;
   }
-  #tab-arena .ar-showcase-record span { color: #9fb4d0; font-size: 9px; }
-  #tab-arena .ar-showcase-record b { color: #dceaff; font-size: 10px; }
-  #tab-arena .ar-showcase-record i { color: #a8e7c2; font-style: normal; }
-  #tab-arena .ar-showcase-leader-list { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
-  #tab-arena .ar-showcase-leader {
-    display: flex; flex-direction: column; gap: 2px; min-width: 0;
-    padding: 6px 7px; border: 1px solid rgba(116, 153, 199, .2); border-radius: 9px;
-    background: rgba(4, 12, 27, .54);
+  #platform-scene.scene-lobby .mine-heading-actions button {
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
   }
-  #tab-arena .ar-showcase-leader b {
-    overflow: hidden; color: #f0f5ff; font-size: 10px; text-overflow: ellipsis; white-space: nowrap;
+  #platform-scene.scene-lobby .mine-heading-actions .mute-label,
+  #platform-scene.scene-lobby .mine-heading-actions .topbar-btn-label {
+    display: none !important;
   }
-  #tab-arena .ar-showcase-leader span,
-  #tab-arena .ar-showcase-leader-list > p {
-    margin: 0; color: #a7bad4; font-size: 8px; line-height: 1.4;
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    position: absolute !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: 360px !important;
+    margin-inline: auto !important;
+    z-index: 13 !important;
   }
-  #tab-arena .ar-showcase-link {
-    width: 100%; margin-top: 9px; padding: 6px 8px; border: 1px solid rgba(125, 179, 238, .34);
-    border-radius: 9px; color: #d8eaff; background: rgba(28, 57, 91, .56); font-size: 9px; font-weight: 800;
+  #platform-scene.scene-lobby .overlay-row button {
+    min-width: 0 !important;
+    min-height: 42px !important;
   }
-  #tab-arena .ar-showcase-link:hover { border-color: rgba(255, 211, 107, .7); color: #fff0c2; }
+  #platform-scene.scene-lobby .lobby-compass-card,
+  #platform-scene.scene-lobby .lobby-side-card {
+    display: none !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-goals {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
+
+/* 2026-11-17: final mobile lobby and active-header hit-target fixes */
+/* Decorative information and empty goal-panel space must not cover real controls. */
+#platform-scene.scene-lobby .lobby-compass-card,
+#platform-scene.scene-lobby .lobby-side-card,
+#platform-scene.scene-lobby .lobby-compass-card * {
+  pointer-events: none !important;
+}
+/* The empty goal group must not cover the resume/start actions in either
+   lobby or a restored live round; individual goal choices remain clickable. */
+#platform-scene #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene #platform-goals .goal-option {
+  pointer-events: auto !important;
+}
+
+#platform-scene.scene-lobby #platform-goals {
+  pointer-events: none !important;
+}
+#platform-scene.scene-lobby #platform-goals .goal-option {
+  pointer-events: auto !important;
 }
 
 @media (max-width: 600px) {
-  #platform-scene.scene-lobby .mine-overlay { background: linear-gradient(180deg, rgba(5, 13, 29, .18), rgba(5, 13, 29, .37)); }
-  #platform-scene.scene-lobby .mine-overlay h3 { font-size: clamp(16px, 5vw, 22px); }
-  #platform-scene.scene-lobby .overlay-mission { max-width: min(230px, 70%); }
-  #platform-scene.scene-lobby #platform-start { min-height: 48px; }
-  #tab-arena .ar { padding-inline: 8px; }
-  #tab-arena .ar-tools { gap: 4px; }
-  #tab-arena .ar-tool { padding-inline: 8px; font-size: 9px; }
-  #tab-arena .ar-chip { padding-inline: 7px; font-size: 8.5px; }
+  /* Give the mine picker and workshop equal, usable touch areas. */
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row > button {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 90px !important;
+  }
+  /* Keep mine selection available when a saved run is paused; resume remains the primary action. */
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) .overlay-row {
+    display: flex !important;
+    pointer-events: auto !important;
+  }
+
+  /* Keep active-round sound/workshop/settings controls inside the phone viewport. */
+  body #platform-scene.scene-live .mine-topbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding: 4px 6px !important;
+    overflow: visible !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+    margin: 0 auto !important;
+    gap: 4px !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions button {
+    display: inline-flex !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #platform-scene.scene-lobby .mine-hero-btn,
+
+/* Mobile/short-screen correction: the desktop showcase reserves a 660px stage.
+   Let the lobby stage use the actual space left by the top bar and navigation. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+}
+
+/* The compact 320x568 opening keeps its deliberately short playfield and
+   anchors the primary action inside it instead of at the desktop 465px offset. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 0 0 145px !important;
+    min-height: 145px !important;
+    height: 145px !important;
+  }
   #platform-scene.scene-lobby #platform-start,
-  #tab-arena .ar-balance u { transition: none !important; }
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 7px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(220px, 94%) !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 4px 12px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Short landscape phones/tablets need the same responsive stage; the
+   660px desktop frame otherwise clips the map picker below the viewport. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-lobby .mine-stage {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 6px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(260px, 92%) !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 4px 12px !important;
+    font-size: 12px !important;
+  }
+}
+
+
+/* Keep the primary start action above the mine/workshop row on every phone.
+   The old desktop top:465px position could be clipped by the flexible stage,
+   making Playwright scroll the tab and hiding the live sound control. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    top: auto !important;
+    bottom: 64px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(260px, 92%) !important;
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short phones have a 145px stage: reserve a smaller action row above the
+   two 42px mine/workshop buttons instead of overlapping them. */
+@media (max-width: 380px) and (max-height: 600px) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 60px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    font-size: 11px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 8px !important;
+  }
+}
+
+/* Short landscape keeps the action and picker in separate visible rows. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  #platform-scene.scene-lobby #platform-start,
+  #platform-scene.scene-lobby #platform-resume,
+  #platform-scene.scene-lobby .adv-golden-cta {
+    bottom: 52px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row {
+    bottom: 6px !important;
+  }
+}
+
+
+/* Phone lobby row sizing: keep mine and workshop actions equally finger-sized. */
+@media (max-width: 600px) {
+  #platform-scene.scene-lobby .overlay-row {
+    display: flex !important;
+    align-items: stretch !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(360px, calc(100% - 24px)) !important;
+    max-width: calc(100% - 24px) !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .overlay-row > button {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    width: calc(50% - 4px) !important;
+    max-width: calc(50% - 4px) !important;
+    min-width: 90px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+
+/* Compact phone overlays keep both mine and workshop actions visible.
+   The fit-state rules hide the workshop shortcut to save space; on normal
+   portrait phones the equal-width row still fits, so preserve both entry points.
+   Very short phones (<=380px) keep their dedicated compact layout. */
+@media (min-width: 381px) and (max-width: 600px) {
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-summary[hidden]) .overlay-row {
+    display: flex !important;
+    width: min(360px, calc(100% - 24px)) !important;
+    gap: 8px !important;
+  }
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-summary[hidden]) .overlay-row > #mine-select {
+    flex: 1 1 0 !important;
+    width: calc(50% - 4px) !important;
+    max-width: calc(50% - 4px) !important;
+    min-width: 90px !important;
+  }
+  #platform-scene.scene-lobby .mine-overlay:has(#platform-summary[hidden]) .overlay-row > #open-workshop-overlay {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    width: calc(50% - 4px) !important;
+    max-width: calc(50% - 4px) !important;
+    min-width: 90px !important;
+    min-height: 42px !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
 }

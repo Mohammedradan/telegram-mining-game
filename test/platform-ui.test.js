@@ -161,9 +161,11 @@ function bootPage({ failServer = false, storedRun = null } = {}) {
 }
 
 test('platform UI: the page wires the scene — assets and every element the controller needs', () => {
-  for (const asset of ['/platform.css', '/platform-rules.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-game.js']) {
+  for (const asset of ['/platform.css', '/platform-equipment.js', '/platform-rewards.js', '/platform-capture.js', '/platform-rules.js', '/platform-characters.js', '/platform-renderer.js', '/platform-bridge.js', '/platform-control-settings.js', '/platform-duel-hud.js', '/platform-arena-fx.js', '/platform-game.js', '/adventure-game.js']) {
     assert.ok(html.includes(asset), `${asset} must be referenced from index.html`);
   }
+  assert.ok(html.indexOf('/platform-duel-hud.js') < html.indexOf('/platform-game.js'), 'the duel HUD loads before its controller');
+  assert.ok(html.indexOf('/platform-arena-fx.js') < html.indexOf('/platform-game.js'), 'arena effects load before their controller');
   for (const id of ['platform-scene', 'legacy-adventure', 'platform-canvas', 'platform-overlay', 'platform-title', 'platform-message',
     'platform-start', 'platform-resume', 'platform-pause', 'platform-retry', 'platform-discard', 'platform-mute', 'platform-hearts', 'platform-resources', 'platform-progress', 'platform-status', 'platform-gold', 'platform-energy', 'virtual-joystick',
     'platform-combo', 'overlay-mission', 'mission-gems', 'mission-rocks', 'mission-fill',
@@ -323,6 +325,8 @@ test('platform UI: without a server identity the round is offline training — p
   const game = page.PlatformGame().inspect();
   assert.equal(game.running, true);
   assert.ok(!game.ticket, 'no server ticket without an identity');
+  assert.equal(page.byId('platform-status').classList.contains('mine-status--hint'), false,
+    'a live status message replaces the persistent control hint');
   assert.match(page.byId('platform-status').textContent, /تدريب بلا اتصال/);
   const x0 = game.x;
   page.key('keydown', 'ArrowRight');

@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') +
+  fs.readFileSync(path.join(ROOT, 'public', 'arena-client.js'), 'utf8');
 const shellCss = fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
 const css = shellCss.slice(shellCss.indexOf('/* ===== V17'));
 
