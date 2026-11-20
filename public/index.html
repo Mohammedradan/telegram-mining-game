@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/cave.css?v=1">
   <link rel="stylesheet" href="/station.css?v=4">
   <link rel="stylesheet" href="/clicker.css?v=23">
+  <link rel="stylesheet" href="/adventure/adventure.css?v=1">
   <link rel="stylesheet" href="/mining-layout.css?v=1">
   <link rel="stylesheet" href="/deep-dig.css?v=3">
   <link rel="stylesheet" href="/guide.css?v=1">
@@ -619,7 +620,114 @@
   <!-- TAB 1: MINING (QUICK CLICK) — مركز الكهف: ميداليات ترقية بحلقات تقدّم حول مدخل المنجم، صخرة خام تُنقر فتتفتت شرراً،
        معدّن يتفاعل، وزر «إلى المنجم». العرض كله من public/clicker-fx.js؛ الذهب والطاقة والعمليات تبقى من handleMine/buyUpgrade/activateBoost. -->
   <main id="tab-mining" class="tab-content flex-col items-center relative flex-1 ck-tab">
-    <div id="ck-stage" class="ck-stage" data-boost="0" data-frenzy="0" data-fresh="1">
+    <!-- ===== عالم منجم الحجر (المغامرة) =====
+         مشهد حقيقي بحجم أكبر من الشاشة: كاميرا تتبع، تصادم، سلالم، مصعد، عروق خام ثابتة،
+         عامل، حفارة وسير ناقل ومخزن. الشاشة الكلاسيكية (#ck-stage) تبقى محفوظة وتُفتح من
+         زر «النمط الكلاسيكي»؛ الحالة كلها تأتي من StoneMineRules ولا تُعدَّل من العرض. -->
+    <div id="adv-scene" class="adv-scene" data-live="0" data-quality="high">
+      <canvas id="adv-canvas" tabindex="0"
+        aria-label="عالم منجم الحجر: تحرّك بالأسهم أو عصا التحكم، اقفز بالمسافة، احفر بزر الحفر، وتفاعل مع الآلات والعامل"></canvas>
+
+      <!-- أعلى الشاشة: هوية اللاعب ثم الاقتصاد ثم التنقل -->
+      <div class="adv-hud adv-hud--top">
+        <button id="adv-profile" class="adv-plate adv-identity" type="button" aria-label="ملف اللاعب">
+          <span class="adv-portrait" aria-hidden="true"></span>
+          <span class="adv-identity-text">
+            <b id="adv-name">المعدّن</b>
+            <small><span id="adv-level">المستوى 1</span> <span id="adv-xp">0%</span></small>
+            <span class="adv-xp-track" role="progressbar" aria-label="تقدم المستوى" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="adv-xp-fill"></i></span>
+          </span>
+        </button>
+        <div class="adv-economy">
+          <span class="adv-plate adv-chip adv-chip--gold"><svg class="adv-icon" aria-hidden="true"><use href="#i-coin"/></svg><b id="adv-gold">0</b></span>
+          <span class="adv-plate adv-chip adv-chip--energy"><svg class="adv-icon" aria-hidden="true"><use href="#i-bolt"/></svg><b id="adv-energy">1000</b></span>
+          <span class="adv-plate adv-chip adv-chip--crystal"><svg class="adv-icon" aria-hidden="true"><use href="#i-gem"/></svg><b id="adv-ore">0</b></span>
+        </div>
+        <div class="adv-top-actions">
+          <button id="adv-sound" class="adv-round" type="button" aria-pressed="false" aria-label="كتم الصوت"><svg class="adv-icon adv-ico-on" aria-hidden="true"><use href="#i-sound"/></svg><svg class="adv-icon adv-ico-off" aria-hidden="true"><use href="#i-muted"/></svg></button>
+          <button id="adv-classic" class="adv-round" type="button" aria-label="النمط الكلاسيكي"><svg class="adv-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></button>
+          <button id="adv-help" class="adv-round" type="button" aria-label="كيف ألعب"><svg class="adv-icon" aria-hidden="true"><use href="#i-book"/></svg></button>
+        </div>
+      </div>
+
+      <!-- الجانب الأيسر: المهمة الحالية وتقدمها -->
+      <div class="adv-hud adv-hud--left">
+        <section class="adv-plate adv-quest" aria-labelledby="adv-quest-title">
+          <header><svg class="adv-icon" aria-hidden="true"><use href="#i-check"/></svg><h2 id="adv-quest-title">المهمة الحالية</h2></header>
+          <p id="adv-quest-name">أول حمولة</p>
+          <ol id="adv-quest-steps" class="adv-quest-steps"></ol>
+        </section>
+        <section class="adv-plate adv-event" id="adv-event" hidden aria-live="polite">
+          <svg class="adv-icon" aria-hidden="true"><use href="#i-sparkle"/></svg>
+          <span><b id="adv-event-title"></b><small id="adv-event-text"></small></span>
+        </section>
+      </div>
+
+      <!-- الجانب الأيمن: أزرار سياقية + حالة الآلات -->
+      <div class="adv-hud adv-hud--right">
+        <div class="adv-stack">
+          <button id="adv-btn-assign" class="adv-round adv-round--gold" type="button" aria-label="تكليف العامل"><svg class="adv-icon" aria-hidden="true"><use href="#i-users"/></svg><span class="adv-badge" id="adv-crew-badge" hidden></span></button>
+          <button id="adv-btn-machine" class="adv-round" type="button" aria-label="تشغيل الآلة"><svg class="adv-icon" aria-hidden="true"><use href="#i-drill"/></svg></button>
+          <button id="adv-btn-lift" class="adv-round" type="button" aria-label="نداء المصعد"><svg class="adv-icon" aria-hidden="true"><use href="#i-dive"/></svg></button>
+          <button id="adv-btn-unload" class="adv-round" type="button" aria-label="تفريغ الحمولة"><svg class="adv-icon" aria-hidden="true"><use href="#i-bag"/></svg></button>
+          <button id="adv-btn-inspect" class="adv-round adv-round--hidden" type="button" aria-label="فحص الاكتشاف"><svg class="adv-icon" aria-hidden="true"><use href="#i-gem"/></svg></button>
+        </div>
+      </div>
+
+      <!-- شريط الحالة: نتيجة كل أمر خادمي، لا شيء يفترض النجاح -->
+      <div id="adv-status" class="adv-status" role="status" aria-live="polite"></div>
+
+      <!-- التعدين: شريط تقدم فوق العرق نفسه يُرسم داخل الكانفاس؛ هذا هو هدف اللمس -->
+      <div id="adv-minebar" class="adv-minebar" hidden>
+        <span class="adv-minebar-label" id="adv-minebar-label">جارٍ التعدين…</span>
+        <i class="adv-minebar-track"><i id="adv-minebar-fill"></i></i>
+      </div>
+
+      <!-- التحكم السفلي -->
+      <div class="adv-hud adv-hud--bottom">
+        <div class="adv-pad" id="adv-pad" role="group" aria-label="عصا الحركة: اسحب يميناً ويساراً">
+          <button class="adv-pad-btn" data-adv-dir="left" type="button" aria-label="يسار"><svg class="adv-icon" aria-hidden="true"><use href="#i-left"/></svg></button>
+          <span class="adv-pad-knob" id="adv-knob" aria-hidden="true"></span>
+          <button class="adv-pad-btn" data-adv-dir="right" type="button" aria-label="يمين"><svg class="adv-icon" aria-hidden="true"><use href="#i-right"/></svg></button>
+        </div>
+        <div class="adv-actions">
+          <button id="adv-jump" class="adv-action adv-action--jump" type="button" aria-label="قفز"><svg class="adv-icon" aria-hidden="true"><use href="#i-jump"/></svg><b>قفز</b></button>
+          <button id="adv-dig" class="adv-action adv-action--dig" type="button" aria-label="احفر — اضغط مطوّلاً"><svg class="adv-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg><b>احفر</b></button>
+          <button id="adv-interact" class="adv-action adv-action--act" type="button" aria-label="تفاعل"><svg class="adv-icon" aria-hidden="true"><use href="#i-gear"/></svg><b>تفاعل</b></button>
+        </div>
+      </div>
+
+      <!-- لوحة العمال (تُفتح من الزر الجانبي، وتُغلق بـEscape) -->
+      <div id="adv-crew-sheet" class="adv-sheet" hidden>
+        <div class="adv-sheet-card cv-frame" role="dialog" aria-modal="true" aria-labelledby="adv-crew-title">
+          <button id="adv-crew-close" class="adv-sheet-x" type="button" aria-label="إغلاق"><svg class="adv-icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+          <h3 id="adv-crew-title">العمال</h3>
+          <p class="adv-sheet-lead">اختر عاملًا ثم موقع عمل. العامل ينتقل فعلياً أولاً، ولا يعمل إلا بعد وصوله.</p>
+          <div id="adv-crew-list" class="adv-crew-list"></div>
+          <div id="adv-site-list" class="adv-site-list"></div>
+        </div>
+      </div>
+
+      <!-- شاشة البداية/الإرشاد -->
+      <div id="adv-overlay" class="adv-overlay">
+        <div class="adv-overlay-card cv-frame">
+          <h2>منجم الحجر — الطبقة الأولى</h2>
+          <p class="adv-overlay-lead">اخرج من نقطة البداية، احفر العروق، كلّف عاملًا، وشغّل الحفارة والسير حتى تصل الحمولة إلى المخزن.</p>
+          <ul class="adv-overlay-keys">
+            <li><b>حركة</b> الأسهم أو A/D أو العصا</li>
+            <li><b>قفز</b> المسافة أو السهم الأعلى على السلم للتسلق</li>
+            <li><b>حفر</b> استمر على زر «احفر» حتى يمتلئ شريط التقدم</li>
+            <li><b>تفاعل</b> E قرب الآلة أو المصعد أو المخزن</li>
+          </ul>
+          <div class="adv-overlay-actions">
+            <button id="adv-start" class="cv-btn cv-btn-gold" type="button">ابدأ المغامرة</button>
+          </div>
+          <p id="adv-overlay-note" class="adv-overlay-note" role="status"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="ck-stage" class="ck-stage" data-boost="0" data-frenzy="0" data-fresh="1" hidden>
       <div class="ck-screen-title">
         <span class="ck-screen-title-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></span>
         <span><b>منجم الأعماق المتقدمة</b><small>استكشف المناجم واجمع الخامات</small></span>
@@ -1391,6 +1499,11 @@
   <!-- مؤثرات تبويب التعدين التفاعلي: عرض فقط، لا تغيّر الذهب ولا العمليات -->
   <script src="/cave-art.js?v=3"></script>
   <script src="/clicker-fx.js?v=6"></script>
+  <script src="/adventure/stone-mine-map.js?v=1"></script>
+  <script src="/adventure/adventure-camera.js?v=1"></script>
+  <script src="/adventure/stone-mine-rules.js?v=1"></script>
+  <script src="/adventure/adventure-renderer.js?v=1"></script>
+  <script src="/adventure/adventure-scene.js?v=1"></script>
   <script src="/mine-world.js?v=5"></script>
   <script src="/mine-route-store.js?v=2"></script>
   <!-- موقع الحفر: المعدّن يمشي ويحفر بعصا التحكم؛ كل ضربة = handleMine واحد (الاقتصاد لم يتغير) -->
@@ -2699,6 +2812,9 @@
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
       window.ClickerFX?.onTab?.(tabId); // يُفرغ المؤثرات العالقة عند المغادرة ويُنعش العرض عند الدخول
       window.DigSite?.onTab?.(tabId);   // يوقف المعدّن عند المغادرة ويعيد قياس الساحة عند الدخول
+      // عالم منجم الحجر: يتوقف فور مغادرة تبويب التعدين حتى لا يظل الرصاص يتحرك في الخلفية
+      if (tabId === 'mining') window.AdvMine?.scene?.show?.();
+      else window.AdvMine?.scene?.hide?.();
       if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);
       if (tabId === 'play') setTimeout(() => { resizeAdventureCanvas(); updateAdvUpgradesUI(); window.PlatformGame?.onShow?.(); }, 30);
@@ -2885,6 +3001,110 @@
     // موقع الحفر: كل ضربة للمعدّن تمرّ من handleMine نفسه (طاقة + ذهب + عملية mine)؛ يعيد false حين ترفضها قلة الطاقة
     window.DigSite?.init({ swing: (x, y) => handleMine({ clientX: x, clientY: y, dig: true }), haptic });
     window.DigSite?.setRefresh?.(() => bootstrap());
+    // ===== عالم منجم الحجر (P2) =====
+    // المشهد يقرأ state للعرض فقط. كل تغيير في العالم يمرّ عبر /api/adventure/mine/*،
+    // والخادم يعيد تشغيل نفس سجل الأوامر بقواعد حتمية ثم يُرجع اللقطة السلطوية.
+    (function mountAdventureMine() {
+      if (!window.AdventureScene || !document.getElementById('adv-canvas')) return;
+      const money = (n) => (typeof fmt === 'function' ? fmt(n) : String(Math.floor(Number(n) || 0)));
+      const sceneEl = document.getElementById('adv-scene');
+      const classicEl = document.getElementById('ck-stage');
+      const noteEl = document.getElementById('adv-overlay-note');
+      const adv = { scene: null, session: null };
+      window.AdvMine = adv;
+
+      const note = (message) => { if (noteEl) noteEl.textContent = message || ''; };
+
+      const post = async (route, body) => {
+        const response = await fetch(`/api/adventure/mine/${route}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {}),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'تعذّر الاتصال بالخادم');
+        return payload;
+      };
+
+      // One request at a time: a checkpoint that overtakes another would desync the seq.
+      let chain = Promise.resolve();
+      let lastBatch = null;
+      const send = (batch) => {
+        if (!batch || !batch.ops || !batch.ops.length || !adv.session) return chain;
+        chain = chain.then(async () => {
+          try {
+            const receipt = await post('checkpoint', { id: adv.session.id, seq: adv.session.seq + 1, ops: batch.ops });
+            adv.session.seq = receipt.session.seq;
+            adv.scene?.adoptAuthoritative(receipt.snapshot);
+            note(receipt.rejected ? `${receipt.rejected} أمر رُفض من الخادم — الحالة اتبعتها كما هي` : '');
+            return receipt;
+          } catch (error) {
+            // Keep the ops so the next flush can retry them; the seq was never accepted.
+            lastBatch = batch;
+            note(error.message);
+            throw error;
+          }
+        }).catch(() => {});
+        return chain;
+      };
+      window.AdvMineSend = (batch) => send(batch);
+
+      window.AdventureScene.init({
+        rules: window.StoneMineRules,
+        map: window.StoneMineMap,
+        camera: window.AdventureCamera,
+        renderer: window.AdventureRenderer,
+        hooks: {
+          money,
+          xpPercent: () => (typeof xpNeeded === 'number' && xpNeeded > 0 && typeof state !== 'undefined' ? (state.xp / xpNeeded) * 100 : 0),
+          levelText: () => (typeof levelFromXp === 'function' && typeof state !== 'undefined' ? `المستوى ${levelFromXp(state.xp)}` : 'المستوى 1'),
+        },
+        onBatch: (batch) => { send(batch); },
+        onClassic: () => {
+          // The classic clicker screen stays fully reachable: it owns the tested economy
+          // path (handleMine/handleBuy). The adventure view is the default, not the only view.
+          sceneEl.hidden = true;
+          classicEl.hidden = false;
+          adv.classic = true;
+          window.AdvMine?.scene?.hide();
+          window.DigSite?.onTab?.('mining');
+          haptic('light');
+        },
+        onReady: (scene) => { adv.scene = scene; },
+      });
+
+      // The session opens on the first visit to the mining tab, not on page load: a player
+      // who never opens the mine does not consume a session.
+      let opening = false;
+      const begin = async () => {
+        if (adv.session || opening) return;
+        opening = true;
+        try {
+          const payload = await post('start', {});
+          adv.session = { id: payload.session.id, seq: payload.session.seq };
+          adv.scene?.adoptAuthoritative(payload.snapshot);
+          note(payload.resumed ? 'استُعيد منجمك من آخر حفظ.' : '');
+        } catch (error) {
+          note(error.message);
+        } finally {
+          opening = false;
+        }
+      };
+      document.getElementById('adv-start')?.addEventListener('click', begin);
+
+      // Leaving the tab or hiding the page must not lose the last few seconds of work.
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) window.AdvMine?.scene?.flush();
+        else if (!sceneEl.hidden && document.getElementById('tab-mining')?.classList.contains('active')) window.AdvMine?.scene?.show();
+      });
+      window.addEventListener('beforeunload', () => { window.AdvMine?.scene?.flush(); });
+      // The classic view stays the default until the player opens the adventure tab; this
+      // keeps the already-tested clicker economy reachable while the world is introduced.
+      if (sceneEl && classicEl && !window.__advDefault) {
+        sceneEl.hidden = false;
+        classicEl.hidden = true;
+      }
+    })();
     // المرشد (عرض فقط): يقرأ state ولا يكتب ذهباً ولا عمليات؛ يبدأ بعد اعتماد حالة الخادم كي لا يبدو اللاعب القديم جديداً
     window.Guide?.init({
       getState: () => state, getZone: () => window.PlatformGame?.getZone?.() ?? 0,

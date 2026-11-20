@@ -96,10 +96,10 @@
       tick: 0,
       lastMask: 0,
       status: 'playing',
-      // Rock solids: veins the miner has not fully mined are physical bodies. Positions
-      // come from the map so the same replay collides identically everywhere.
-      rocks: MAP.deposits.filter((vein) => !vein.crewOnly)
-        .map((vein) => ({ id: vein.id, x: vein.x - 18, y: vein.y - 40, w: 36, h: 40, hp: 1 })),
+      // Veins are interaction targets, never collision bodies: a vein that blocked walking
+      // could seal the only gallery route past it. Kept as an empty list because the shared
+      // motion kernel and the renderer both read `s.rocks`; `hp` is reserved for cave-ins.
+      rocks: [],
       player: spawnPlayer(),
       bag: {},                    // ore carried by the miner
       warehouse: machines[MAP.machines.find((m) => m.kind === 'warehouse').id],
@@ -193,7 +193,7 @@
       w.progress = clamp(int(saved.progress), 0, 10_000);
       w.reason = typeof saved.reason === 'string' ? saved.reason.slice(0, 40) : null;
     }
-    out.rocks = base.rocks.map((rock) => ({ ...rock, hp: out.deposits[rock.id] && out.deposits[rock.id].remaining === 0 ? 0 : 1 }));
+    out.rocks = [];   // see freshState: veins are not solids
     out.bag = {};
     for (const ore of ['copper', 'iron', 'gold', 'crystal']) out.bag[ore] = clamp(int(snapshot.bag && snapshot.bag[ore]), 0, BAG_CAPACITY);
     out.player.carrying = Object.values(out.bag).reduce((a, b) => a + b, 0);
@@ -242,19 +242,50 @@
   /** Build the level object the motion kernel needs (lift platform included). */
   function levelOf(s) {
     const level = levelFor(MAP, s.openGates);
-    // While docked, the cabin floor sits exactly on a deck. Two solids at the same height
-    // would give the solver conflicting edges, so the deck under a docked cabin is
-    // replaced by the cabin floor across the shaft width.
+    // The deck is continuous, and the cabin is where the miner stands while it moves. A
+    // docked cabin needs no platform of its own (the deck is already there) — adding one
+    // used to mean *removing* deck geometry, and an over-broad filter once deleted the whole
+    // 2530px service deck. The cabin is added only while it is in motion.
+    //
+    // Cabin geometry, and why it is a rising body rather than a floor:
+    //  • the deck runs continuously through the shaft, so boarding is "stand in the doorway
+    //    and call the lift" — there is no gap to fall into and no lip to step over;
+    //  • while the cabin rises it *is* the floor, and it carries the rider itself (see
+    //    stepLift/stepPlayer), so the cabin body must sit above `lift.y` by real height.
+    //    An earlier version drew it at the deck line, so a rider read as "off the cabin" the
+    //    moment it moved one pixel and the lift left without them.
     const docked = s.lift.y === s.lift.target;
-    const platforms = level.platforms.filter((box) => !(docked && box.kind === 'floor' &&
-      box.y === s.lift.y && box.x < MAP.lift.x + MAP.lift.w && box.x + box.w > MAP.lift.x));
-    const liftFloor = { x: MAP.lift.x, y: s.lift.y, w: MAP.lift.w, h: MAP.lift.h, route: 'upper', lift: true };
-    return { ...level, platforms: platforms.concat([liftFloor]) };
+    const cabin = docked
+      // Docked: a zero-height marker at the deck line. The deck itself is the floor, so the
+      // miner simply walks into the doorway; the marker only tells the renderer where to
+      // draw the open cabin and tells `callLift` that this is a ride.
+      ? { x: MAP.lift.x, y: s.lift.y, w: MAP.lift.w, h: 0, route: 'upper', lift: true }
+      : { x: MAP.lift.x, y: s.lift.y - 74, w: MAP.lift.w, h: 74, kind: 'lift', lift: true };
+    // A zero-height docked marker keeps `collisionFor` shape-stable without ever blocking a
+    // walk through the doorway; the moving body is a real platform for the rider.
+    const platforms = level.platforms.concat([cabin]);
+    // `downMask` is what teaches the shared kernel how to climb *down* a ladder. It was
+    // never set here, so every ladder in the mine was one-way. Task requirement: ladders
+    // go both ways.
+    return { ...level, downMask: INPUT.DOWN, platforms };
   }
+
+  /**
+   * The walkable surface of the cabin is the deck line `lift.y`: the deck runs continuously
+   * through the shaft, the controller has no step-up, and a raised sill turned the lift into
+   * a body the miner could not enter. Kept as a named constant because the renderer and the
+   * tests both need to know the cabin's floor height.
+   */
+  const CABIN_DECK = 0;
 
   function onLift(s) {
     const p = s.player;
-    return p.grounded && Math.abs((p.y + p.h) - s.lift.y) < 1.5 &&
+    // While the cabin moves, the rider is pinned to it by stepLift(), so the tolerance only
+    // has to distinguish "in the cabin" from "on the deck beside it". While docked it is a
+    // boarding test, and a generous tolerance is desirable there.
+    const riding = s.lift.riders > 0 && s.lift.y !== s.lift.target;
+    const tolerance = riding ? 24 : 1.5;
+    return p.grounded && Math.abs((p.y + p.h) - s.lift.y) < tolerance &&
       p.x + p.w > MAP.lift.x + 2 && p.x < MAP.lift.x + MAP.lift.w - 2;
   }
 
@@ -274,8 +305,10 @@
     lift.y = Math.round((lift.y + delta) * 100) / 100;
     if (Math.abs(lift.y - lift.target) < 0.01) lift.y = lift.target;
     if (rider) {
-      // The cabin is the authoritative mover: the rider keeps their feet on its floor
-      // even when the cabin's speed exceeds a single gravity step.
+      // The cabin is the authoritative mover: the rider keeps their feet on its cabin floor
+      // even when the cabin's speed exceeds a single gravity step. The feet follow the cabin
+      // top (not the old `lift.y`, which is the deck the cabin floor sits on) so the rider
+      // rises and falls with the cabin.
       s.player.y = lift.y - s.player.h;
       s.player.vy = 0;
       s.player.grounded = true;
@@ -290,10 +323,14 @@
   function callLift(s) {
     const p = s.player;
     const feet = p.y + p.h;
-    const here = MAP.lift.stops.find((stop) => Math.abs(stop - feet) < 6);
+    // Inside the cabin the miner stands CABIN_DECK above the deck line, so the stop they are
+    // at is the cabin's own stop, not the deck their feet are closest to.
+    const inside = onLift(s);
+    const here = inside ? MAP.lift.stops.find((stop) => Math.abs(stop - s.lift.y) < 6)
+      : MAP.lift.stops.find((stop) => Math.abs(stop - feet) < 6);
     if (here === undefined) return { ok: false, reason: 'no-stop' };
     // Inside the cabin: ride to the next stop in the requested direction.
-    if (onLift(s)) {
+    if (inside) {
       s.lift.riders = 1;
       const index = MAP.lift.stops.indexOf(s.lift.y);
       const next = MAP.lift.stops[index + s.lift.direction];
@@ -325,16 +362,36 @@
     const liftBoard = onLift(s);
     s.lift.riders = liftBoard ? 1 : 0;
 
-    // A rider cannot steer or jump: the cabin owns the vertical motion.
-    const effective = liftBoard ? (mask & ~(INPUT.LEFT | INPUT.RIGHT | INPUT.JUMP | INPUT.UP | INPUT.DOWN)) : mask;
-    const direction = liftBoard ? 0 : updateCameraFacing(s, mask);
+    // A rider cannot jump. Steering on a *moving* cabin belongs to the cabin; on a docked
+    // one, walking is normal movement — otherwise the miner who boards at the surface is
+    // pinned in place forever. `onLift` is deliberately generous (a boarding test), so the
+    // decision to walk is made here, not there.
+    const docked = s.lift.y === s.lift.target;
+    const rideLock = liftBoard && !docked;
+    const walking = (mask & (INPUT.LEFT | INPUT.RIGHT)) !== 0;
+    const effective = rideLock ? (mask & ~(INPUT.LEFT | INPUT.RIGHT | INPUT.JUMP | INPUT.UP | INPUT.DOWN)) : mask;
+    const steering = !rideLock && (!liftBoard || walking);
+    const direction = steering ? updateCameraFacing(s, mask) : 0;
+
+    if (rideLock) {
+      // The cabin owns the miner's vertical motion; the character controller would only
+      // fight it (gravity pulled the rider out of a climbing cabin, one pixel per tick, and
+      // the generous boarding test then lost them entirely).
+      s.player.vx = 0;
+      s.player.vy = 0;
+      s.player.grounded = true;
+      updateCameraFacing(s, 0);
+      return;
+    }
 
     R.motion.updateJumpWindow(s, effective);
     const running = Boolean(effective & INPUT.RUN);
     // A miner mid-swing plants their feet: mining is a place-bound action, so moving is
     // what cancels it — and the cancel must happen before an early piece is produced.
-    p.vx = (direction && !p.mining) ? direction * p.speed * (running ? 1.35 : 0.62)
-      : (p.mining ? 0 : p.vx);
+    // No input means no horizontal motion. Keeping the old velocity here made the miner
+    // glide on forever after a key release (nothing else in the sim ever decayed `vx`),
+    // so releasing a direction did not actually stop the player.
+    p.vx = (direction && !p.mining) ? direction * p.speed * (running ? 1.35 : 0.62) : 0;
     if (!liftBoard) R.motion.applyJump(s);
     R.motion.moveActor(s, effective, level);
 
@@ -401,9 +458,6 @@
     s.mission.counters[vein.ore] = (s.mission.counters[vein.ore] || 0) + 1;
     s.lastEvents.push({ type: 'ore_mined', depositId: vein.id, ore: vein.ore, x: vein.x, y: vein.y - 24, amount: 1, remaining: deposit.remaining });
     if (deposit.remaining === 0) {
-      // A depleted vein stops being a solid body, exactly like the platform round.
-      const solid = s.rocks.find((rock) => rock.id === vein.id);
-      if (solid) solid.hp = 0;
       s.lastEvents.push({ type: 'vein_depleted', depositId: vein.id, x: vein.x, y: vein.y - 24 });
     }
   }

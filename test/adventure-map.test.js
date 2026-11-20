@@ -35,10 +35,26 @@ test('collision exposes solids and one-way ledges separately', () => {
   assert.ok(solids.length > 5 && ledges.length > 5);
   assert.ok(solids.every((box) => [box.x, box.y, box.w, box.h].every(Number.isFinite)));
   assert.ok(ledges.every((box) => [box.x, box.y, box.w, box.h].every(Number.isFinite)));
-  // Pit boxes are holes in a floor, not walkable ground: they must never be ledges.
-  const pits = MAP.platforms.filter((box) => box.kind === 'pit');
-  assert.ok(pits.length >= 1);
-  for (const pit of pits) assert.ok(!ledges.some((l) => l.y === pit.y && l.x === pit.x));
+  // Regression: both shafts used to be "pit" solids that reached the floor, which read as a
+  // hole in the data and behaved as a wall in play (the lift could not be boarded and the
+  // east gallery was sealed). Shafts are drawing markers now, and nothing that is not a
+  // floor/ledge may sit at deck height across the shaft opening.
+  const shafts = MAP.platforms.filter((box) => box.kind === 'lift-shaft' || box.kind === 'drop-shaft');
+  assert.equal(shafts.length, 2, 'both shafts are declared');
+  for (const shaft of shafts) {
+    assert.ok(!solids.some((box) => box.x === shaft.x && box.y === shaft.y), `${shaft.kind} must not be a solid`);
+    assert.ok(!ledges.some((box) => box.x === shaft.x && box.y === shaft.y), `${shaft.kind} must not be a ledge`);
+  }
+  // Nothing solid may span the open shaft at the surface: that is what sealed the map.
+  for (const shaft of shafts) {
+    // The deck under a shaft is fine (the miner stands on it). What must never exist is a
+    // body that *fills the shaft above the deck*: that is what used to make the lift
+    // unbollardable and seal the east gallery. Gates have their own tests.
+    const blockers = solids.filter((box) => !box.gate && box.kind !== 'floor' &&
+      box.y < MAP.levels.surface - 1 && box.y + box.h > MAP.levels.surface - 41 &&
+      box.x < shaft.x + shaft.w && box.x + box.w > shaft.x);
+    assert.equal(blockers.length, 0, `the ${shaft.kind} must be passable at deck height`);
+  }
 });
 
 test('closed gates are solid; opening a gate removes its collider', () => {

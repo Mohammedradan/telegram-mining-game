@@ -87,7 +87,7 @@ test('walking away cancels an unfinished swing', () => {
   assert.equal(Sim.bagTotal(s), 0);
 });
 
-test('a vein runs out and stops producing, and its body stops blocking', () => {
+test('a vein runs out and stops producing, and the gallery stays walkable', () => {
   const s = Sim.freshState();
   const vein = M.MAP.deposits.find((v) => !v.crewOnly);
   standAt(s, vein.x, M.SURFACE);
@@ -99,8 +99,9 @@ test('a vein runs out and stops producing, and its body stops blocking', () => {
   assert.equal(s.deposits[vein.id].remaining, 0);
   assert.equal(s.deposits[vein.id].state, 'depleted');
   assert.equal(s.bag[vein.ore], vein.amount);
-  const rock = s.rocks.find((r) => r.id === vein.id);
-  assert.equal(rock.hp, 0, 'a depleted vein is no longer a solid body');
+  // Veins are targets, never collision bodies: a solid vein could seal the only gallery
+  // route past it, and the miner had to jump over the rock they were about to mine.
+  assert.equal(s.rocks.length, 0, 'no vein is a solid body at any point in its life');
   assert.equal(Sim.applyCommand(s, { type: 'mine_start' }).ok, false, 'a depleted vein rejects mining');
 });
 
@@ -310,8 +311,7 @@ test('a snapshot round-trips through hydrate without inventing progress', () => 
   assert.equal(back.warehouse.total, 7);
   assert.deepEqual(back.openGates, ['gate-east']);
   assert.deepEqual(back.secrets, [M.MAP.secrets[0].id]);
-  const playerVein = M.MAP.deposits.find((v) => !v.crewOnly);
-  assert.equal(back.rocks.find((r) => r.id === playerVein.id).hp, 1, 'a partly mined vein is still solid');
+  assert.equal(back.rocks.length, 0, 'hydrate never invents vein solids');
 });
 
 test('a forged snapshot cannot exceed the map ceilings', () => {

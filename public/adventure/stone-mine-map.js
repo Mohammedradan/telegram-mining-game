@@ -26,27 +26,29 @@
   const VAULT = 940;     // deepest floor: the sealed vault
 
   // Solid collision boxes. "floor" boxes are full solids; "ledge" boxes are one-way
-  // (land on top, jump through from below); "wall" boxes cannot be climbed.
+  // (land on top, jump through from below); "shaft" boxes are drawing markers only.
+  //
+  // Geometry note (a real bug was fixed here): both shafts used to carry a solid box from
+  // y=200 down to the deck, nominally a "header". Because the box was flush with the floor
+  // it behaved as a wall across the whole shaft: the lift could not be boarded and the east
+  // gallery was sealed. Shafts are now open air. Vertical travel is the lift plus five
+  // ladders, and the one true hole — the service-deck gap at 2530..2590 — is a real fall
+  // to the vault, not a decoration.
   const PLATFORMS = [
-    // ---- gallery (surface) ----
-    { x: 0, y: SURFACE, w: 1240, h: 90, kind: 'floor' },
-    // The lift shaft is open air across the gallery floor. Its only true solid is the
-    // header above head height; the 130px opening is inside the 190px jump arc, so the
-    // player hops across it rather than being sealed on the west side.
-    { x: 1240, y: 200, w: 130, h: SURFACE - 200, kind: 'pit' },
-    { x: 1370, y: SURFACE, w: 1160, h: 90, kind: 'floor' },     // mining face to the east gate
-    { x: 2530, y: 200, w: 60, h: SERVICE - 200, kind: 'pit' },  // drop shaft to the lower deck
-    { x: 2590, y: SURFACE, w: 810, h: 90, kind: 'floor' },      // sealed vault approach
-    { x: 3320, y: 180, w: 80, h: 250, kind: 'wall' },           // east end wall
+    // ---- gallery (surface): ONE continuous deck, end to end ----
+    // (Splitting the deck into boxes around the lift dock left 8px seams where a walker
+    // had no support; the dock is handled by levelOf() instead, see below.)
+    { x: 0, y: SURFACE, w: WIDTH, h: 90, kind: 'floor' },
+    // East end wall: starts above standing height so it can never be used as a step.
+    { x: 3320, y: 180, w: 80, h: 120, kind: 'wall' },
+    { x: 3320, y: 300, w: 80, h: 40, kind: 'wall' },
 
-    // ---- crossing hardware over the two shafts ----
-    // The lift column and the drop shaft are open air on the gallery floor. Each gets a
-    // narrow steel step flush with the floor so the gallery is traversable on foot while
-    // the shaft underneath stays open for the lift and for a drop to the service deck.
-    // (The lift cabin replaces the east step while docked at the gallery, so its collider
-    // and the step share the same top edge.)
-    { x: 1208, y: SURFACE, w: 190, h: 12, kind: 'ledge' },
-    { x: 2506, y: SURFACE, w: 110, h: 12, kind: 'ledge' },
+    // ---- shafts: drawing markers only, never solids ----
+    // Both shafts used to carry a solid "header" box flush with the floor. Because it sat
+    // at floor level it behaved as a wall straight across the shaft: the lift could not be
+    // boarded and the east gallery was sealed off. A shaft is open air.
+    { x: 1240, y: 200, w: 130, h: 140, kind: 'lift-shaft' },
+    { x: 2530, y: 200, w: 60, h: 140, kind: 'drop-shaft' },
 
     // ---- gallery ledges (optional exploration) ----
     { x: 300, y: 250, w: 150, h: 18, kind: 'ledge' },
@@ -56,14 +58,13 @@
     { x: 2410, y: 244, w: 120, h: 18, kind: 'ledge' },
     { x: 2860, y: 236, w: 150, h: 18, kind: 'ledge' },
 
-    // ---- upper timber walkway (reached by ladders) ----
+    // ---- upper timber walkway: reached only by ladders ----
     { x: 180, y: 150, w: 700, h: 16, kind: 'ledge', route: 'upper' },
     { x: 1500, y: 150, w: 560, h: 16, kind: 'ledge', route: 'upper' },
     { x: 2760, y: 150, w: 420, h: 16, kind: 'ledge', route: 'upper' },
 
-    // ---- lower service deck ----
+    // ---- lower service deck: the 60px gap at 2530 is a real hole down to the vault ----
     { x: 0, y: SERVICE, w: 2530, h: 90, kind: 'floor' },
-    { x: 2530, y: SERVICE, w: 60, h: 90, kind: 'pit' },         // continuation of the lift column
     { x: 2590, y: SERVICE, w: 810, h: 90, kind: 'floor' },
 
     // ---- vault level ----
@@ -171,12 +172,20 @@
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
   /** Solid boxes that block walking, plus one-way ledges the mover lands on. */
+  // Veins are *targets*, not walls. An earlier version registered every un-mined vein as a
+  // 36x40 solid, which let a single vein seal a gallery: the miner could not walk past the
+  // rock they were about to mine. Mining reach is checked by `depositInReach`, so the vein
+  // does not need to be a collision body at all.
   function collisionFor(map, openGates) {
     const open = new Set(openGates || []);
     // `kind` is carried through on purpose: the tests and the renderer both need to tell
     // a wall from a floor, and the shared motion kernel ignores unknown fields.
+    // 'shaft' is a visual marker (open air with a lit rim), never a solid.
+    // `route` is carried through on floors as well: the shared motion kernel treats
+    // `route:'upper'` geometry as the persistent-support band, and the surface floor must
+    // not be one — otherwise a miner standing on a crossing ledge is pinned there forever.
     const solids = PLATFORMS.filter((box) => box.kind === 'floor' || box.kind === 'pit' || box.kind === 'wall')
-      .map(({ x, y, w, h, kind }) => ({ x, y, w, h, kind }));
+      .map(({ x, y, w, h, kind, route }) => ({ x, y, w, h, kind, ...(route ? { route } : {}) }));
     const ledges = PLATFORMS.filter((box) => box.kind === 'ledge')
       .map(({ x, y, w, h, route }) => ({ x, y, w, h, ...(route ? { route } : {}) }));
     for (const gate of GATES) {
