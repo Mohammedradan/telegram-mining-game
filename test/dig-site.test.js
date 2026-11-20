@@ -193,7 +193,7 @@ test('depthScale grows toward the viewer and poseFor picks frames in the right p
 });
 
 // ============================== المتحكم على DOM وهمي ==============================
-function makeEnv({ w = 400, h = 300, rng = seeded(21), fx = true } = {}) {
+function makeEnv({ w = 400, h = 300, rng = seeded(21), fx = true, storage = new Map() } = {}) {
   const calls = { raf: [], fx: [], timers: [] };
   const doc = { handlers: {}, hidden: false };
   const classList = (initial = []) => {
@@ -239,6 +239,7 @@ function makeEnv({ w = 400, h = 300, rng = seeded(21), fx = true } = {}) {
   const saved = {};
   const globals = {
     document: doc, ClickerFX: fxObj,
+    localStorage: { getItem(key) { return storage.has(key) ? storage.get(key) : null; }, setItem(key, value) { storage.set(key, String(value)); } },
     requestAnimationFrame: (fn) => { calls.raf.push(fn); return calls.raf.length; }, cancelAnimationFrame: () => {},
     addEventListener: (type, fn) => { (win.handlers[type] = win.handlers[type] || []).push(fn); },
     removeEventListener: (type, fn) => { win.handlers[type] = (win.handlers[type] || []).filter((f) => f !== fn); },
@@ -275,7 +276,7 @@ test('init: shows the controls, places the miner and the rock from the real size
     assert.equal(ok, true);
     assert.equal(env.el.root.dataset.dig, '1', 'CSS shows the pad and the dig button, ClickerFX stops its own lunge');
     assert.match(env.el.miner.style.transform, /^translate3d\(104\.0px, 240\.0px, 0\) translate\(-50%, -100%\) scale\(1\.0\d\d\)$/, 'x=0.26 of 400, feet at y=0.80 of 300, depth scale ≈1');
-    assert.match(env.el.rockBtn.style.transform, /^translate3d\(240\.0px, 240\.0px, 0\)/, 'the rock starts at 0.60, matching the CSS default');
+    assert.match(env.el.rockBtn.style.transform, /^translate3d\(272\.0px, 228\.0px, 0\)/, 'the main deposit has a fixed position in the stone mine');
     assert.equal(env.el.miner.dataset.pose, 'idle');
     assert.equal(env.el.ore.dataset.stage, '0');
     const info = ds.inspect();
@@ -283,6 +284,7 @@ test('init: shows the controls, places the miner and the rock from the real size
     assert.deepEqual(info.size, { W: 400, H: 300 });
     assert.ok(info.reach > 0.2 && info.reach < 0.4, `reach scales with the sprites (${info.reach})`);
     assert.ok(info.band.x0 > 0.1 && info.band.x1 < 0.9);
+    assert.equal(env.el.rockBtn.dataset.deposit, 'fixed');
     assert.equal(ds.init({ swing() { return true; } }), true, 'a second init is a harmless no-op');
   });
   // elements missing → soft failure, API stays callable
@@ -300,6 +302,23 @@ test('init: shows the controls, places the miner and the rock from the real size
   assert.equal(bare.init({}), false);
 });
 
+test('mine route progress resumes safely after reload without persisting economy state', () => {
+  const storage = new Map();
+  withSite({ storage }, ({ ds }) => {
+    ds.debug.setMineProgress(2, 2, 2);
+    assert.deepEqual([ds.inspect().mine.index, ds.inspect().mine.unlocked, ds.inspect().mine.breaks], [2, 2, 2]);
+    assert.ok(storage.has('minequest.mine-route.v1'));
+  });
+  withSite({ storage }, ({ ds }) => {
+    assert.deepEqual([ds.inspect().mine.index, ds.inspect().mine.unlocked, ds.inspect().mine.breaks], [2, 2, 2]);
+    assert.equal(ds.inspect().gold, undefined, 'the local route record contains no wallet or reward');
+  });
+  storage.set('minequest.mine-route.v1', '{bad json');
+  withSite({ storage }, ({ ds }) => {
+    assert.deepEqual([ds.inspect().mine.index, ds.inspect().mine.unlocked, ds.inspect().mine.breaks], [0, 0, 0], 'corrupt local state falls back to the first mine');
+  });
+});
+
 test('a hidden tab measures zero: nothing is placed until the field has a size, then it is placed once', () => {
   withSite({ w: 0, h: 0 }, ({ env, ds }) => {
     assert.equal(env.el.miner.style.transform, undefined, 'the CSS defaults stay in charge while hidden');
@@ -307,7 +326,7 @@ test('a hidden tab measures zero: nothing is placed until the field has a size, 
     env.el.world.clientWidth = 400; env.el.world.clientHeight = 300;
     ds.onTab('mining');
     assert.match(env.el.miner.style.transform, /translate3d\(104\.0px, 240\.0px/);
-    assert.match(env.el.rockBtn.style.transform, /translate3d\(240\.0px, 240\.0px/);
+    assert.match(env.el.rockBtn.style.transform, /translate3d\(272\.0px, 228\.0px/);
   });
 });
 
@@ -344,8 +363,9 @@ test('the stick walks the miner to the rock and he digs: every landed swing is e
   });
 });
 
-test('breaking the rock: a burst and a crumble cue, a cheer, a ghost of the old rock, and a fresh rock the miner has to walk to', () => {
+test('breaking the rock respawns the same fixed deposit and keeps mining feedback intact', () => {
   withSite({}, ({ env, ds, swings, haptics }) => {
+    ds.debug.setMineProgress(2, 0, 2);
     ds.debug.place({ x: 0.45, y: 0.8 }, { x: 0.7, y: 0.8 });
     ds.debug.setDig(true);
     let guard = 0;
@@ -354,7 +374,7 @@ test('breaking the rock: a burst and a crumble cue, a cheer, a ghost of the old 
     assert.equal(info.stats.breaks, 1);
     assert.equal(swings.length, CFG.ROCK_HP, 'exactly twelve accepted swings broke it, not one more');
     assert.equal(info.rock.hp, CFG.ROCK_HP, 'the new rock is whole');
-    assert.ok(info.rock.x !== 0.7 || info.rock.y !== 0.8);
+    assert.deepEqual({ x: info.rock.x, y: info.rock.y }, DS.oreSite(2), 'the deposit returns to this mine’s fixed vein');
     const kinds = env.calls.fx.map((c) => c.slice(0, 2).join(':'));
     assert.ok(kinds.includes('burst:rock') && kinds.includes('burst:milestone') && kinds.includes('cue:crumble'), kinds.join(','));
     assert.ok(haptics.includes('medium'));
@@ -365,15 +385,48 @@ test('breaking the rock: a burst and a crumble cue, a cheer, a ghost of the old 
     assert.equal(env.el.miner.dataset.pose, 'cheer');
     assert.equal(env.el.ore.dataset.stage, '0', 'the new rock shows no cracks');
     assert.equal(env.el.hp.classList.contains('is-on'), false);
-    assert.equal(info.inReach, false, 'it appeared out of his reach, so he has to walk to it');
-    assert.ok(DS.dist(info.miner, info.rock, 400 / 300) > 0.2, 'and nowhere near overlapping him');
+    assert.equal(info.mine.floor, 'lower');
+    assert.ok(info.rock.y < 0.56, 'this mine’s fixed vein is on the upper floor');
+    assert.ok(DS.dist(info.miner, info.rock, 400 / 300) > 0.2, 'the upper-floor vein is separate from the lower walkway');
     // the new rock sits in the right place for the next frame already (no frame with the old position)
     const x = Math.round(info.rock.x * 400 * 10) / 10;
     assert.ok(env.el.rockBtn.style.transform.startsWith(`translate3d(${x.toFixed(1)}px`), env.el.rockBtn.style.transform);
-    // he keeps going: walk to the new rock (dig is still held) and hit it
+    // holding dig still walks through the shaft to the fixed upper-floor vein
     const before = swings.length;
-    ds.debug.step(0.05, 80);
-    assert.ok(swings.length > before, 'holding the button carries on with the next rock');
+    ds.debug.step(0.05, 160);
+    assert.ok(swings.length > before, 'holding the button carries on after reaching the fixed vein');
+  });
+});
+
+test('each mine has a distinct fixed vein and assigned field units work at that deposit', () => {
+  const sites = DS.ORE_SITES.map((site) => `${site.x}:${site.y}`);
+  assert.equal(new Set(sites).size, DS.MineWorld.MINES.length, 'every mine has its own fixed location');
+  for (const site of DS.ORE_SITES) {
+    assert.ok(site.x >= CFG.ROCK_BAND.x0 && site.x <= CFG.ROCK_BAND.x1);
+    assert.ok(site.y >= CFG.ROCK_BAND.y0 && site.y <= CFG.ROCK_BAND.y1);
+  }
+  withSite({}, ({ ds }) => {
+    ds.debug.setMineProgress(3, 0, 3);
+    ds.debug.setMachinery({ drill: true, worker: true });
+    ds.debug.step(0.1, 50);
+    const info = ds.inspect();
+    const site = DS.oreSite(3);
+    near(info.fieldUnits.rig.x, site.x, 0.01, 'the drill settles at the fixed vein');
+    near(info.fieldUnits.rig.y, site.y + 0.025, 0.01);
+    near(info.fieldUnits.worker.x, site.x - 0.16, 0.01, 'the hauler works beside the vein');
+    near(info.fieldUnits.worker.y, site.y + 0.015, 0.01);
+  });
+});
+
+test('auto-dig routes through a real shaft to reach an ore vein on the upper floor', () => {
+  withSite({ swing: () => false }, ({ ds }) => {
+    ds.debug.place({ x: 0.45, y: 0.8 });
+    ds.debug.setRock({ x: 0.7, y: 0.4 }, 12);
+    ds.debug.setDig(true);
+    ds.debug.step(0.05, 100);
+    assert.equal(ds.inspect().mine.floor, 'upper');
+    assert.ok(ds.inspect().miner.x > 0.14, 'the miner leaves the shaft and approaches the upper-floor vein');
+    assert.equal(ds.inspect().inReach, true, 'the miner reaches the vein on its own floor');
   });
 });
 
@@ -757,7 +810,9 @@ test('sprite sheets: the CSS grid and aspect ratios are the shipped pixels (a re
 
 test('build and CI know the module: syntax check in the build script and the E2E exercises the controls', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.match(pkg.scripts.build, /node --check public\/dig-site\.js/);
+  // الفحص شامل لكل الأشجار (انظر scripts/check-build.cjs) لا قائمة أسماء في package.json
+  assert.equal(pkg.scripts.build, 'node scripts/check-build.cjs');
+  assert.match(read('scripts', 'check-build.cjs'), /for \(const dir of \['', 'public', 'lib', 'scripts'\]\)/, 'public/dig-site.js داخل الفحص');
   const e2e = read('scripts', 'test-clicker-browser.cjs');
   for (const needle of ['ck-pad', 'ck-dig', 'DigSite']) assert.ok(e2e.includes(needle), `the browser test drives ${needle}`);
 });
@@ -788,12 +843,15 @@ test('mine atmosphere: depth layers, timber supports, steam and dust are present
 test('mine biome presentation follows the active mine and floor without replacing traversal state', () => {
   const source = read('public', 'dig-site.js');
   const styles = read('public', 'clicker.css');
+  const html = read('public', 'index.html');
   for (const token of ['mineSet.dataset.mine','mineSet.dataset.floor','mineSet.dataset.progress']) {
     assert.ok(source.includes(token), `scene state exposes ${token}`);
   }
   for (const biome of ['stone','iron','gold','crystal','lava','legendary']) {
     assert.ok(styles.includes(`.ck-mine-set[data-mine="${biome}"]`), `distinct biome styling for ${biome}`);
+    assert.ok(styles.includes(`#ck-world[data-mine="${biome}"] #mine-btn .ck-ore-img`), `the fixed deposit reflects the ${biome} mine`);
   }
+  assert.match(html, /class="ck-deposit-label"[^>]*>المكمن الرئيسي</);
   assert.match(styles, /\.ck-mine-set\[data-floor="upper"\] \.ck-gallery-upper/);
   assert.match(styles, /\.ck-mine-set\[data-floor="lower"\] \.ck-gallery-lower/);
   assert.match(styles, /\.ck-mine-set\[data-progress="3"\] \.ck-exit-gate/);
@@ -802,9 +860,13 @@ test('mine biome presentation follows the active mine and floor without replacin
 test('mine machinery controls are interactive, accessible, and keep the worker assignment dependent on the conveyor', () => {
   const source = read('public', 'dig-site.js');
   const styles = read('public', 'clicker.css');
+  const expeditionStyles = read('public', 'mine-expedition.css');
   for (const token of ['data-machine-action="drill"','data-machine-action="conveyor"','data-machine-action="worker"','aria-pressed="false"','machinery[action]','!machinery.conveyor','data-drill','data-conveyor','data-worker']) {
     assert.ok(source.includes(token), `machine interaction includes ${token}`);
   }
+  assert.match(source, /<details class="ck-machine-console"[\s\S]*?<summary class="ck-machine-console-title">تحكم المنشآت<\/summary>/);
+  assert.match(expeditionStyles, /\.ck-machine-console-title\s*\{[^}]*display:\s*flex !important/);
+  assert.match(expeditionStyles, /body\.ck-cave \.ck-machine-console\s*\{[^}]*z-index:\s*120 !important/);
   assert.match(styles, /\.ck-mine-set\[data-drill="on"\] \.ck-drill-cart/);
   assert.match(styles, /\.ck-mine-set\[data-conveyor="off"\].*animation-play-state:paused/);
   assert.match(styles, /\.ck-mine-set\[data-worker="assigned"\] \.ck-crew-hauler/);
@@ -828,24 +890,32 @@ test('key releases clear held movement and dig after focus or modifier changes',
   });
 });
 
-test('cave transition clears carried inputs and approach without landing strikes', () => {
+test('cave exit opens a walkable landscape; arrival requires traversing it and grants no mining swings', () => {
   withSite({}, ({ ds, swings }) => {
     for (let n=0;n<3;n++) { ds.debug.setRock({x:.5,y:.8},1); ds.onTap({}); }
     ds.onTab('mining');
-    assert.equal(ds.inspect().approaching,false,'stopping clears automatic approach');
     ds.debug.place({x:.14,y:.4});
     ds.debug.setStick(0,-1); ds.debug.step(.05); ds.debug.setStick(0,0);
     assert.equal(ds.inspect().mine.floor,'upper');
+    const mineIndex=ds.inspect().mine.index;
     ds.debug.place({x:ds.inspect().band.x1,y:.4});
-    ds.debug.setKey('r',true);
-    ds.debug.setDig(true);
-    ds.debug.step(.05);
-    assert.equal(ds.inspect().mine.index,1);
-    assert.equal(ds.inspect().keys.r,false);
-    assert.equal(ds.inspect().digHeld,false);
-    assert.equal(ds.inspect().approaching,false);
+    ds.debug.setKey('r',true); ds.debug.setDig(true); ds.debug.step(.05);
+    assert.equal(ds.inspect().mine.mode,'overland');
+    assert.equal(ds.inspect().mine.index,mineIndex,'leaving the cave does not change the destination immediately');
+    assert.equal(ds.inspect().keys.r,false); assert.equal(ds.inspect().digHeld,false);
     assert.equal(ds.inspect().swing,'idle');
-    ds.debug.step(.05,20);
-    assert.equal(swings.length,0,'no automatic strike in the new cave');
+    const outdoorPosition={...ds.inspect().miner};
+    ds.debug.setDig(true); ds.debug.step(.1,5); ds.debug.setDig(false);
+    assert.equal(ds.inspect().miner.x,outdoorPosition.x,'dig-to-rock auto-approach is disabled on the route');
+    assert.equal(ds.inspect().miner.y,outdoorPosition.y);
+    assert.equal(swings.length,0,'even a held dig input cannot call the economy hook outdoors');
+    ds.debug.setStick(0,-1); ds.debug.step(.1,5);
+    ds.debug.setStick(0,1); ds.debug.step(.1,2); // thread between the steam vent and boulder lines
+    ds.debug.setStick(-1,0); ds.debug.step(.1,25);
+    ds.debug.setStick(0,-1); ds.debug.step(.1,10); // walk above the boulder cluster
+    ds.debug.setStick(-1,0); ds.debug.step(.1,25);
+    assert.equal(ds.inspect().mine.index,mineIndex+1,'the next cave is reached only after walking the route: '+JSON.stringify({mine:ds.inspect().mine,miner:ds.inspect().miner,band:ds.inspect().band}));
+    assert.equal(ds.inspect().mine.mode,'mine');
+    assert.equal(swings.length,0,'travel cannot produce economic mining hits');
   });
 });

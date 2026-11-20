@@ -8,8 +8,11 @@ const { waveWindow } = require('../scripts/wave-probe.cjs');
 const { BOTS } = require('../scripts/duel-bots.cjs');
 
 const ROOT = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(ROOT, 'public', 'arena-client.js'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
 const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
+const fx = fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-fx.js'), 'utf8');
 const rulesSrc = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
 
 // ---------- 1) القلوب وضرر الفأس ----------
@@ -102,8 +105,8 @@ test('V11: the phase-2 hint exists, is announced once on enrage, and never block
   const plan = R.duelHintPlan({ type: 'boss_enrage', phase: 2 }, {});
   assert.equal(plan && plan.kind, 'main', 'the phase-2 event still produces exactly one hint');
   assert.equal(plan.text, R.DUEL.phase2Hint);
-  assert.match(game, /R\.duelHintPlan\?\.\(ev,/, 'the duel loop asks the rules module on the event');
-  assert.match(game, /function arenaHintHide\(\)/, 'and it can be cleared');
+  assert.match(fx, /rules\.duelHintPlan\?\.\(ev,/, 'the duel loop asks the rules module on the event');
+  assert.match(fx, /function arenaHintHide\(\)/, 'and it can be cleared');
 });
 
 // ---------- 4) بطاقة توصية القتال ----------

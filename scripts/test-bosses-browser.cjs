@@ -111,11 +111,13 @@ async function main() {
         const card = document.getElementById('overlay-mission');
         const stage = document.querySelector('.mine-stage');
         const overlay = document.getElementById('platform-overlay');
+        const scene = document.getElementById('platform-scene');
         return {
           rowHidden: row.hidden, cardDisplay: getComputedStyle(card).display,
-          stage: stage.className, overlay: overlay.className,
+          stage: stage.className, overlay: overlay.className, scene: scene.className,
           hiddenByDesign: window.matchMedia('(max-height: 470px)').matches
-            || stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-3'),
+            || stage.classList.contains('stage-ultra') || overlay.classList.contains('fit-3')
+            || document.getElementById('platform-scene').classList.contains('scene-lobby'),
         };
       });
       assert.equal(mission.rowHidden, false, 'بيانات الزعيم موجودة في الجولة دائمًا');

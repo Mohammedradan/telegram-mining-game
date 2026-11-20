@@ -599,7 +599,7 @@
     return base;
   }
 
-  function drawNinja(c, ent, isPlayer, tick, reduced, arenaId, drawScale) {
+  function drawNinja(c, ent, isPlayer, tick, reduced, arenaId, drawScale, drawHero) {
     const skin = isPlayer ? SKINS.player : SKINS.rival;
     const p = poseOf(ent, isPlayer, tick);
     const w = ent.w || 24, h = ent.h || 38;
@@ -620,6 +620,16 @@
       c.strokeStyle = '#ffe9f4'; c.lineWidth = 2;
       c.beginPath(); c.moveTo(cx - dir * 46, feet - 30); c.lineTo(cx + dir * 14, feet - 52); c.stroke();
       c.restore();
+    }
+    if (isPlayer && typeof drawHero === 'function') {
+      c.save();
+      c.translate(cx, feet);
+      const heroScale = (Number.isFinite(drawScale) && drawScale > 0 ? drawScale : 1) * 1.4;
+      c.scale(heroScale, heroScale);
+      c.translate(-cx, -feet);
+      drawHero(c, ent, tick, reduced);
+      c.restore();
+      return;
     }
     const facing = ent.facing >= 0 ? 1 : -1;
     // الرسم منمّذ على 92 وحدة ثم يُقاس: البطل أصغر قليلاً من المبارز لكنه مقروء

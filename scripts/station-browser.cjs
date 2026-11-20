@@ -37,7 +37,18 @@ module.exports=async function stationBrowser(page,tag){
   assert.equal(await page.evaluate(()=>DigSite.inspect().paused),false,tag+': old controller resumes');
   await page.reload();
   await page.waitForFunction(()=>window.StationUI&&window.PlatformBridge?.user());
-  await page.locator('#nav-mining').tap();
+  // Playwright's locator.tap stability gate can stall after reload at this viewport;
+  // verify the public nav button is the real hit target, then send a real touch.
+  const nav = await page.locator('#nav-mining').evaluate((button) => {
+    const r = button.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const style = getComputedStyle(button);
+    return { x: r.x, y: r.y, width: r.width, height: r.height,
+      ready: r.width > 0 && r.height > 0 && style.display !== 'none' && style.visibility === 'visible' &&
+        style.pointerEvents !== 'none' && hit?.closest('#nav-mining') === button };
+  });
+  assert.ok(nav.ready, tag+': mining nav is a visible touch target after reload ('+JSON.stringify(nav)+')');
+  await page.touchscreen.tap(nav.x + nav.width / 2, nav.y + nav.height / 2);
+  await page.waitForFunction(()=>document.getElementById('tab-mining').classList.contains('active'));
   await page.locator('#station-enter').click();
   await page.waitForFunction(()=>StationUI.inspect().open);
   const saved=await page.evaluate(()=>StationUI.inspect().state);

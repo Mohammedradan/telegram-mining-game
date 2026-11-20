@@ -40,14 +40,15 @@ function paint(sim, opts = {}) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-scenery.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-bosses.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-scene.js'), 'utf8'), sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-characters.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8'), sandbox);
   assert.ok(sandbox.PlatformRenderer, 'the renderer registers itself');
   sandbox.PlatformRenderer.draw(canvas, sim, { reduced: true, ...opts });
   return paints;
 }
 
-const duel = () => {
-  const s = R.create(0, 4242, { zone: 0, mode: 'duel' });
+const duel = (hero = 'miner') => {
+  const s = R.create(hero, 4242, { zone: 0, mode: 'duel' });
   for (let i = 0; i < 30; i++) R.step(s, 0);
   return s;
 };
@@ -57,11 +58,12 @@ const mine = () => {
   return s;
 };
 
-test('a duel paints the ninja arena (moonlit temple, sakura petals, two fighters) — never the mine tunnels', () => {
+test('a duel paints the arena and the selected miner — never the mine tunnels', () => {
   const duelPaints = paint(duel(), { arena: true });
   assert.ok(duelPaints.includes('#ffc2dd'), 'falling sakura petals are drawn');
   assert.ok(duelPaints.includes('#f9a8d4'), 'sakura blossoms are drawn');
-  assert.ok(duelPaints.includes('#ef2d56'), 'the shadow warrior (red scarf) is on the stage');
+  assert.ok(duelPaints.includes('#e8b248'), 'the selected miner wears the correct helmet');
+  assert.ok(duelPaints.includes('#3e7f9e'), 'the selected miner wears the correct overalls');
   assert.ok(duelPaints.includes('#7c3aed'), 'the shadow ninja (violet scarf) is on the stage');
   assert.ok(duelPaints.includes('#7c1d22'), 'the torii gate is drawn');
   assert.ok(!duelPaints.includes('#5b6e6c'), 'no mining rocks in the arena');
@@ -73,7 +75,13 @@ test('a duel paints the ninja arena (moonlit temple, sakura petals, two fighters
   assert.ok(minePaints.includes('#5b6e6c'), 'the mine still paints its own rocks');
 });
 
-test('the arena scene is a real module: four themed arenas and procedural ninjas', () => {
+test('the arena fighter art follows miner, warrior and archer selection', () => {
+  for (const [hero, color] of [['miner', '#e8b248'], ['warrior', '#5dade2'], ['archer', '#2ecc71']]) {
+    assert.ok(paint(duel(hero), { arena: true }).includes(color), `${hero} art is used in the arena`);
+  }
+});
+
+test('the arena scene is a real module: four themed arenas and an animated rival', () => {
   const sandbox = { Math, Date, console };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
@@ -125,9 +133,9 @@ test('the arena heats up as the rival weakens and fighters flash when hit', () =
   assert.match(scene, /const hurtFlash = isPlayer \? \(ent\.invulnerable > 0/, 'a hit flashes the fighter');
   const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
   assert.match(renderer, /ArenaScene\.backdrop\(c, w, s\.tick, reduced, camera, arenaId, \$?\{?[^)]*arenaHeat/, 'the heat reaches the scene from the renderer');
-  const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
-  assert.match(game, /function duelHeat\(\)/, 'the duel computes heat from the rival health');
-  assert.match(game, /arenaHeat: duelHeat\(\)/, 'and passes it while drawing');
+  const duel = fs.readFileSync(path.join(ROOT, 'public', 'platform-duel.js'), 'utf8');
+  assert.match(duel, /function duelHeat\(\)/, 'the duel computes heat from the rival health');
+  assert.match(duel, /arenaHeat: duelHeat\(\)/, 'and passes it while drawing');
 });
 
 test('the play canvas never paints the ninja arena — even if a duel simulation is drawn there', () => {
@@ -139,9 +147,9 @@ test('the play canvas never paints the ninja arena — even if a duel simulation
 });
 
 test('the arena tab asks the renderer for the arena scene explicitly', () => {
-  const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
+  const preview = fs.readFileSync(path.join(ROOT, 'public', 'platform-arena-preview.js'), 'utf8');
   // المرحلة B: قد يرسم المسرح «نسخة عرض» أثناء شاشة الاستعداد، لكن الطلب يبقى صريحاً: arena: true
-  assert.match(game, /renderer\.draw\(arenaCanvas, (?:arenaSim|drawState), \{\s*arena: true/, 'the preview stage passes arena: true');
+  assert.match(preview, /renderer\.draw\(canvas, drawState, \{\s*arena: true/, 'the preview stage passes arena: true');
 });
 
 test('the arena floor sits exactly on the physics ground so nobody floats', () => {

@@ -7,11 +7,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
+const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
 const FX = require('../public/clicker-fx');
 const html = read('public', 'index.html');
 const css = read('public', 'clicker.css');
 const fxSource = read('public', 'clicker-fx.js');
+const workshop = read('public', 'mine-workshop.js');
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);
 
 // ============================== سلسلة النقرات والحرارة ==============================
@@ -365,7 +366,9 @@ test('index.html loads the stylesheets and the scripts (scripts first, so the pa
   assert.ok(dive[3] < gameScript || gameScript > scriptAt, 'loaded before the inline game script');
   assert.ok(html.indexOf('window.DeepDigUI?.init(') > 0 && html.indexOf('window.DeepDigUI?.init(') < html.indexOf('window.ClickerFX?.init('), 'the dive initialises first so its medal can be offered to the hub');
   const init = html.indexOf('window.ClickerFX?.init(');
-  assert.ok(init > html.indexOf('const UPGRADES = {') && init > html.indexOf('function buyUpgrade(') && init > html.indexOf('function goToMine('), 'init runs after the helpers it receives');
+  assert.ok(init > html.indexOf('const UPGRADES = {') && init > html.indexOf('function buyUpgrade('), 'init runs after the app helpers it receives');
+  const workshopScript = html.indexOf('<script src="/mine-workshop.js?v=');
+  assert.ok(workshopScript > 0 && workshopScript < gameScript && /function goToMine\(/.test(workshop), 'the workshop helpers load before the app initializes ClickerFX');
   // the cave scene layer exists and is the first thing in the body (it paints behind everything)
   assert.match(html, /<body[^>]*>\s*<!--[^>]*-->\s*<div class="ck-scene" aria-hidden="true"><\/div>/);
 });
@@ -526,9 +529,9 @@ test('clicker.css honours reduced motion, never animates the size of a tap targe
   }
   // sizes adapt to the field they live in (container units) with a viewport fallback
   assert.match(css, /container-type: size/);
-  assert.match(css, /@supports \(width: 1cqw\) \{\s*\.ck-area \{\s*--miner-h: min\(50cqh, 46cqw\);\s*--rock-w: min\(35cqw, 52cqh\);/);
-  assert.match(css, /--miner-h: min\(46vw, 190px\)/);
-  assert.match(css, /--rock-w: min\(40vw, 170px\)/);
+  assert.match(css, /@supports \(width: 1cqw\) \{\s*\.ck-area \{\s*--miner-h: min\(60cqh, 38cqw\);\s*--rock-w: min\(36cqw, 52cqh\);/);
+  assert.match(css, /--miner-h: min\(38vw, 150px\)/);
+  assert.match(css, /--rock-w: min\(36vw, 150px\)/);
   assert.match(css, /@media \(orientation: landscape\) and \(max-height: 520px\)/);
   assert.match(css, /@media \(max-height: 640px\) \{[^}]*\.ck-hint \{ display: none; \}/);
   assert.match(css, /@media \(max-height: 700px\) \{\s*body\.ck-cave \.app-header \{ display: none; \}/);
@@ -545,8 +548,11 @@ test('clicker.css honours reduced motion, never animates the size of a tap targe
 
 test('wiring: build script syntax-checks the module, a dedicated browser test exists and CI runs it', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.match(pkg.scripts.build, /node --check public\/clicker-fx\.js/);
-  assert.match(pkg.scripts.build, /node --check public\/cave-art\.js/);
+  // لم تعد package.json تُعدّد الملفات بالاسم (كانت تنسى lib/ وscripts/ كلما أُضيف ملف).
+  // check-build يفحص كل .js/.cjs في الجذور الأربعة، فالموديول مغطّى بالبناء لا بقائمة يدوية.
+  assert.equal(pkg.scripts.build, 'node scripts/check-build.cjs', 'البناء يشغّل الفحص الشامل');
+  assert.match(read('scripts', 'check-build.cjs'), /for \(const dir of \['', 'public', 'lib', 'scripts'\]\)/,
+    'كل الجذور تُفحص — ومنها public/clicker-fx.js وpublic/cave-art.js');
   // the build also verifies that every image a stylesheet paints exists (a typo there fails silently in the browser)
   assert.match(read('scripts', 'check-build.cjs'), /Missing asset referenced by public\/\$\{file\}/);
   assert.equal(pkg.scripts['test:clicker'], 'node scripts/test-clicker-browser.cjs');
@@ -596,14 +602,14 @@ test('CaveArt resolves painted art, vector fallbacks and aliases, and builds med
 });
 
 test('the workshop and the hub share one medal builder: nodes keep their test hooks and gain painted art', () => {
-  const wsRender = html.slice(html.indexOf('function wsMedal('), html.indexOf('function wsRenderTop()'));
+  const wsRender = workshop.slice(workshop.indexOf('function wsMedal('), workshop.indexOf('function wsRenderTop()'));
   assert.match(wsRender, /window\.CaveArt/);
   assert.match(wsRender, /medalHTML\(\{ id, icon, level: lvl, progress, state: mstate \}\)/);
   assert.match(wsRender, /class="\$\{cls\}" type="button" data-ws-item="\$\{it\.id\}"/, 'data-ws-item and the ws-node/can-buy/is-max classes stay (E2E hooks)');
   assert.doesNotMatch(wsRender, /state: state\b/, 'the local medal state never shadows the game state');
   assert.match(html, /id="ws-hero" class="ws-hero-canvas" src="\/assets\/cave\/hero\.webp/);
   assert.match(html, /id="ws-drone"/);
-  assert.match(html, /drone\.hidden = !\(WS_RULES && wsLevel\('robot'\) >= 1\)/, 'the drone shows once the robot is upgraded, like the old canvas companion');
+  assert.match(workshop, /drone\.hidden = !\(WS_RULES && wsLevel\('robot'\) >= 1\)/, 'the drone shows once the robot is upgraded, like the old canvas companion');
   const ws = read('public', 'platform.css');
   assert.match(ws, /\.ws-node\{--sz:58px;/);
   assert.match(ws, /\.ws-cave\{[^}]*cave-portrait\.jpg/);
@@ -685,4 +691,15 @@ test('the walk has weight: stride, a breathing shadow and dust are tied to walki
   assert.ok(stride.includes('rotate(-2.4deg)') && stride.includes('rotate(2.4deg)'), 'the lean alternates foot to foot');
   assert.match(css, /\.ck-miner\[data-face="-1"\] \.ck-dust i \{ --dx: 70%; \}/);
   assert.match(css, /\.ck-miner\[data-act="walk"\] \.ck-dust i:nth-child\(2\) \{ animation-delay: -\.26s; \}/, 'the second puff is half a stride behind (a specificity-safe override of the shorthand)');
+});
+
+
+test('tall-phone miner keeps a readable rendered height after world-depth scaling', () => {
+  const phoneRule = css.slice(css.lastIndexOf('@media (max-width: 430px) and (min-height: 700px)'));
+  assert.match(phoneRule, /\.ck-area \{ --miner-h: max\(144px, min\(42vh, 36vw\)\); \}/,
+    'the phone rule uses viewport units rather than a narrow ancestor container');
+  assert.match(phoneRule, /\.ck-miner \{ min-height: 148px !important; \}/,
+    'the miner box is large enough to remain at least 120px after the depth transform');
+  assert.match(css, /\.ck-miner \{[^}]*height: var\(--miner-h\);/,
+    'the original base sizing contract remains intact for the rest of the viewport sizes');
 });

@@ -28,7 +28,7 @@ test('نافذة الساحة تُشتق من المقاتلين لا من نس�
 
 test('الكاميرا تُوسّط المقاتلين (كانت مقيّدة عند 0 فتُركت نصف الحلبة فارغة)', () => {
   assert.match(frame, /camera: mid - w \/ 2,/, 'the camera centres on the pair midpoint');
-  assert.match(renderer, /const camera = arena \? arenaCamera\(s, arena\) : R\.cameraFor\(s, w\);/, 'the arena uses its own camera, the mine keeps cameraFor');
+  assert.match(renderer, /const camera = arena \? arenaCamera\(s, arena\) : \(showcase \? R\.cameraFor\(cameraState, w\) : R\.cameraFor\(s, w\)\);/, 'the arena uses its own camera, and the mine uses the display-only lobby camera only in its showcase');
   assert.match(renderer, /arenaCamX \+= \(target - arenaCamX\) \* ARENA_FRAME\.panLerp;/, 'with light damping so it does not jitter');
   assert.match(renderer, /if \(state !== arenaCamSim\) \{ arenaCamSim = state; arenaCamX = layout\.camera; \}/, 'and it snaps when the fight changes');
 });
@@ -56,6 +56,6 @@ test('المنجم لم يتغيّر: حدّه 280 ونافذته وكاميرت
 });
 
 test('بصمات الأصول حُدِّثت حتى يصل الكود الجديد للهاتف', () => {
-  assert.match(html, /platform-renderer\.js\?v=19/);
-  assert.match(html, /platform-arena-scene\.js\?v=10/);
+  assert.match(html, /platform-renderer\.js\?v=25/);
+  assert.match(html, /platform-arena-scene\.js\?v=11/);
 });

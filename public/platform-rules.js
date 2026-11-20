@@ -1,14 +1,32 @@
-/* Original deterministic platform physics, shared by browser and server. No assets/dependencies. */
+/* Deterministic platform rules shared by browser and server; world definitions live in platform-worlds.js. */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.PlatformRules = factory();
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  const worlds = typeof module === 'object' && module.exports
+    ? require('./platform-worlds')
+    : root.PlatformWorlds;
+  const equipment = typeof module === 'object' && module.exports
+    ? require('./platform-equipment')
+    : root.PlatformEquipment;
+  const rewards = typeof module === 'object' && module.exports
+    ? require('./platform-rewards')
+    : root.PlatformRewards;
+  const captureTools = typeof module === 'object' && module.exports
+    ? require('./platform-capture')
+    : root.PlatformCapture;
+  const rules = factory(worlds, equipment, rewards, captureTools);
+  if (typeof module === 'object' && module.exports) module.exports = rules;
+  else root.PlatformRules = rules;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Worlds, Equipment, Rewards, Capture) {
   'use strict';
+  if (!Worlds) throw new Error('Platform worlds must load before platform rules');
+  if (!Equipment) throw new Error('Platform equipment must load before platform rules');
+  if (!Rewards) throw new Error('Platform rewards must load before platform rules');
+  if (!Capture) throw new Error('Platform capture tools must load before platform rules');
+  const { LEVEL, LEVELS, levelFor, goblinGuard } = Worlds;
   // V9: توازن المبارزة — قلب إضافي داخل الساحة، استشفاء الخصم 52 إطاراً، ارتداد بدل الانتقال
   // إلى نقطة الحفظ عند الإصابة، ونافذة مهارة النينجا. لا تغيير في جولات التعدين ولا في الاقتصاد.
   // V10: معدات الساحة (فأس/درع/مثقاب) بأثر مقروء ومحدود، أربعة أنماط خصوم (نمط لكل منطقة)،
   // وزعيم المنطقة الرابعة بمرحلتين. محاكاة التعدين بقيت حرفياً كما هي (بصمة اختبار مثبّتة).
-  const VERSION = 14; // V21: real deterministic ladder climbing joins the upper mine branches; older run tickets are rejected
+  const VERSION = 15; // V22: deterministic worker logistics joins mine-run replay; older tickets are rejected
   // سقف مقاطع الإدخال في جولة واحدة (كل مقطع ≈ 23 بايت JSON). معارك الزعماء تبدّل الأزرار كثيراً، فصار 2400 بدل 1000؛ يطابقه حدّ جسم الطلب في الخادم.
   const MAX_SEGMENTS = 2400;
   // المرحلة 3: ستة مناجم حقيقية + ثماني معدات دائمة. «إعداد الجولة» (المنجم + مستويات المعدات) يُثبَّت في تذكرة الجولة
@@ -35,7 +53,7 @@
     { id: 'chest',      label: 'صندوق الكنز',     slots: { rare: 2, mid: 1 }, check: s => s.chestFound === true },
   ]);
   const CHEST_SLOTS = Object.freeze({ common: 2, mid: 2, rare: 2 });
-  // ===== V6: أهداف الجولة الثلاثة + مفترق المخاطرة + العرق النادر =====
+  // أهداف التعدين الأساسية، مع مفترق المخاطرة والعرق النادر وهدف النقل المتكامل.
   // الهدف يُختار قبل الجولة ويُثبَّت في تذكرة الخادم مثل المنجم والمعدات، فيُعاد التشغيل به ولا يمكن تبديله بعد البدء.
   // المكافأة الذهبية لم تُمسّ (نفس سقف الـ100 اليومي)؛ الجديد يُدفع من **الخامات** التي تُصرف على معدات الورشة،
   // لذلك لا تُخلق عملة ولا سقف جديد. كل الأرقام صحيحة وحتمية.
@@ -43,7 +61,14 @@
     { id: 'ore', short: 'الخام', name: 'جمع الخام', blurb: 'حقيبة ممتلئة: كل بلّورة وصخرة تُحتسب قبل البوابة', hint: 'املأ الحقيبة ثم اعبر البوابة' },
     { id: 'vein', short: 'العرق', name: 'العرق النادر', blurb: 'ثلاث ضربات متتابعة تكسر العرق قبل أن يتصلّب', hint: 'اصعد إلى المنصة العالية واضرب العرق النادر بسرعة' },
     { id: 'speed', short: 'سباق', name: 'سباق البوابة', blurb: 'اعبر البوابة قبل 75 ثانية', hint: 'لا تتوقّف: الطريق والبوابة قبل 75 ثانية' },
+    { id: 'logistics', short: 'النقل', name: 'نقل الخام', blurb: 'أزل عائق السير، وجّه العامل، ثم انتظر وصول الخام إلى المخزن', hint: 'اضرب العائق ثم اضرب قرب العامل لتوجيهه؛ راقب السير حتى يصل الخام للمخزن' },
   ]);
+  const LOGISTICS_TICKS = Object.freeze({ mining: 90, hauling: 60 });
+  function logisticsLayout(zone) {
+    const x = zone === 0 ? 1340 : zone === 2 ? 1280 : zone === 5 ? 1410 : 1510;
+    return { jam: { x, y: 260, w: 25, h: 40 }, worker: { x: x + 44, y: 262, w: 24, h: 38 },
+      machine: { x: x + 78, y: 268, w: 32, h: 32 }, storage: { x: x + 116, y: 268, w: 30, h: 32 } };
+  }
   // هدف الخام يتدرّج مع العمق لأن الخامات نفسها أغلى هناك (الكمية واحدة).
   const oreTarget = zone => 14 + 2 * (Number.isInteger(zone) && zone > 0 ? zone : 0);
   const SPEED_TICKS = 60 * 75;
@@ -198,190 +223,6 @@
     },
   });
 
-  const STONE = {
-    id: 'stone', width: 2680, height: 360, exit: { x: 2540, y: 222, w: 70, h: 78 },
-    platforms: [
-      { x: 0, y: 300, w: 720, h: 80 }, { x: 810, y: 300, w: 720, h: 80 },
-      { x: 1640, y: 300, w: 1040, h: 80 },
-      { x: 260, y: 230, w: 115, h: 20 }, { x: 560, y: 222, w: 105, h: 20 },
-      { x: 900, y: 228, w: 100, h: 20 }, { x: 1320, y: 224, w: 112, h: 20 },
-      { x: 1780, y: 230, w: 110, h: 20 }, { x: 2180, y: 230, w: 135, h: 20 },
-    ],
-    rocks: [{ x: 440, y: 252, w: 46, h: 48 }, { x: 1040, y: 252, w: 46, h: 48 }, { x: 1940, y: 252, w: 46, h: 48 }],
-    gems: [{ x: 196, y: 276 }, { x: 309, y: 207 }, { x: 603, y: 199 }, { x: 860, y: 276 }, { x: 948, y: 205 }, { x: 1370, y: 201 }, { x: 1730, y: 276 }, { x: 1828, y: 207 }, { x: 2240, y: 207 }, { x: 2450, y: 276 }],
-    hazards: [{ x: 1190, y: 265, w: 42, h: 35, period: 180, active: 84 }, { x: 2080, y: 279, w: 48, h: 21, period: 1, active: 1 }],
-    enemies: [
-      { id: 1, type: 'goblin', name: 'غول الكهف', x: 290, y: 198, w: 26, h: 32, minX: 270, maxX: 365, maxHp: 2, patrolSpeed: 40, chaseSpeed: 70, damage: 1, flying: false },
-      { id: 2, type: 'bat', name: 'خفاش الظلام', x: 620, y: 110, w: 24, h: 22, minX: 580, maxX: 680, baseY: 110, maxHp: 1, patrolSpeed: 55, chaseSpeed: 80, damage: 1, flying: true },
-      { id: 3, type: 'goblin', name: 'غول الكهف', x: 930, y: 196, w: 26, h: 32, minX: 910, maxX: 990, maxHp: 2, patrolSpeed: 40, chaseSpeed: 70, damage: 1, flying: false },
-      { id: 4, type: 'beetle', name: 'خنفساء الصخور', x: 1350, y: 200, w: 28, h: 24, minX: 1330, maxX: 1420, maxHp: 3, patrolSpeed: 30, chaseSpeed: 50, damage: 1, flying: false },
-      { id: 5, type: 'goblin', name: 'غول الكهف', x: 1810, y: 198, w: 26, h: 32, minX: 1790, maxX: 1880, maxHp: 2, patrolSpeed: 40, chaseSpeed: 70, damage: 1, flying: false },
-      { id: 6, type: 'bat', name: 'خفاش الظلام', x: 2220, y: 110, w: 24, h: 22, minX: 2170, maxX: 2300, baseY: 110, maxHp: 1, patrolSpeed: 55, chaseSpeed: 80, damage: 1, flying: true },
-    ],
-  };
-
-  // تنويع المرحلة من بذرة الجولة: مواقع الصخور والبلورات وبداية دوريات الأعداء تتغير داخل نطاقات
-  // مدروسة (التضاريس والفجوات والفخاخ ثابتة)، فلا يصلح تسجيل حركات جولة لإعادة استخدامه في أخرى.
-  // البذرة تُشتق من معرّف الجولة الذي يصدره الخادم؛ الخادم يعيد التشغيل بالبذرة نفسها ولا يقبلها من العميل.
-  // كل صخرة تختار مقطعاً ثم موقعاً داخله (بعيداً عن الفجوات والفخاخ ومنطقة البداية)
-  // (لا صخرة بعد قفزة فوق فجوة/فخ مباشرة ولا تحت منصة منخفضة: الوقوف عليها يحبس اللاعب)
-  const ROCK_SPANS = [[[250, 600]], [[915, 1095]], [[1790, 1980], [2330, 2420]]];
-  const GEM_SPANS = [[156, 236], [270, 355], [570, 645], [820, 900], [910, 985], [1330, 1415], [1700, 1760], [1790, 1875], [2190, 2300], [2440, 2510]];
-  // كل ما يخص مستوىً واحداً يعيش معه: نطاقات التوزيع العشوائي، رايات الحفظ (من/إلى = منطقة اللمس، at = موضع العودة)،
-  // لافتات الاتجاه. فتحة البخار الأولى (vent) هي «خطر المنجم الموقوت»: تتبع مدة نشاطها صعوبة المنجم المختار.
-  Object.assign(STONE, {
-    rockSpans: ROCK_SPANS, gemSpans: GEM_SPANS, boss: null,
-    checkpoints: [{ from: 910, to: 1000, at: 920 }, { from: 1700, to: 1780, at: 1710 }],
-    signs: [680, 1485, 2030],
-  });
-  STONE.hazards[0].vent = true; STONE.hazards[0].kind = 'vent'; STONE.hazards[1].kind = 'pit';
-  // ===== عوالم المناجم 1-5 =====
-  // لكل منجم مستوىً كاملاً (أرض وفجوات وحواف وصخور وبلّورات وأخطار وحرّاس وراياتٌ، وزعيم في الثالث والسادس). المنجم 0 يبقى حرفياً كما كان
-  // (تطابق V3 مُختبَر). makeLevel يبني نفس بنية STONE من وصف مختصر: ground = مقاطع الأرض (الفراغ بينها فجوة)، ledges = [x,y,عرض]،
-  // rocks/gems = نطاقات التوزيع العشوائي (الصخرة x فقط، البلّورة x وارتفاعها)، guards = حارس على حافة أو خفاش بين x0..x1.
-  // قواعد الفسحة (تتحقق منها الاختبارات): لا صخرة ولا حافة ضمن منطقة قفز، وبعد كل خطر مساحة هبوط، والعدد دائماً 3 صخور و10 بلّورات و6 حرّاس
-  // فلا تتغير أرقام المكافأة بين المناجم.
-  const ROCK_BOX = { y: 252, w: 46, h: 48 };
-  const GUARDS = {
-    goblin: { name: 'غول الكهف', w: 26, h: 32, maxHp: 2, patrolSpeed: 40, chaseSpeed: 70, flying: false },
-    beetle: { name: 'خنفساء الصخور', w: 28, h: 24, maxHp: 3, patrolSpeed: 30, chaseSpeed: 50, flying: false },
-    bat: { name: 'خفاش الظلام', w: 24, h: 22, maxHp: 1, patrolSpeed: 55, chaseSpeed: 80, flying: true },
-  };
-  function makeLevel(o) {
-    const mid = (a, b) => Math.round((a + b) / 2);
-    const platforms = [...o.ground.map(([a, b]) => ({ x: a, y: 300, w: b - a, h: 80 })), ...o.ledges.map(([x, y, w]) => ({ x, y, w, h: 20 })), ...(o.branchLedges || []).map(([x, y, w]) => ({ x, y, w, h: 20, route: 'upper' }))];
-    const enemies = o.guards.map((g, i) => {
-      const base = GUARDS[g[0]], id = i + 1;
-      if (g[0] === 'bat') {
-        const [, a, b, y] = g;
-        return { id, type: 'bat', name: base.name, x: mid(a, b), y, w: base.w, h: base.h, minX: a, maxX: b, baseY: y, maxHp: base.maxHp, patrolSpeed: base.patrolSpeed, chaseSpeed: base.chaseSpeed, damage: 1, flying: true };
-      }
-      const [lx, ly, lw] = o.ledges[g[1]];
-      return { id, type: g[0], name: base.name, x: lx + 12, y: ly - base.h, w: base.w, h: base.h, minX: lx + 6, maxX: lx + lw - base.w - 6, maxHp: base.maxHp, patrolSpeed: base.patrolSpeed, chaseSpeed: base.chaseSpeed, damage: 1, flying: false };
-    });
-    let boss = null;
-    if (o.boss) {
-      const b = o.boss;
-      enemies.push({ id: 90, type: 'boss', boss: true, kind: b.kind, name: b.name, x: b.maxX, y: 300 - b.h, w: b.w, h: b.h, minX: b.minX, maxX: b.maxX, wake: b.wake, maxHp: b.maxHp,
-        patrolSpeed: b.patrolSpeed, chaseSpeed: b.patrolSpeed, chargeSpeed: b.chargeSpeed, damage: 1, flying: false, ai: b.ai });
-      boss = { id: 90, kind: b.kind, name: b.name, maxHp: b.maxHp };
-    }
-    return {
-      id: o.id, width: 2680, height: 360, exit: { x: o.exit.x, y: 222, w: 70, h: 78 }, platforms,
-      rocks: o.rocks.map(spans => ({ x: mid(spans[0][0], spans[0][1]), ...ROCK_BOX })),
-      gems: o.gems.map(([a, b, y]) => ({ x: mid(a, b), y })),
-      hazards: o.hazards, enemies,
-      rockSpans: o.rocks, gemSpans: o.gems.map(([a, b]) => [a, b]),
-      checkpoints: o.checkpoints, signs: o.signs, boss,
-    };
-  }
-  // الفخ الموقوت المعلَّم vent: true لا يكتب هنا مدة نشاطه (active) عمداً: تأتي من المنجم (MINES[i].vent) عند إنشاء الجولة، فمصدرها واحد.
-  const WORLD_SPECS = [
-    // المنجم 1 — الحديد: ثلاث فجوات، مكبس سحق عالٍ موقوت (انتظر نافذته) وحفرة أشواك.
-    {
-      id: 'iron', exit: { x: 2540 },
-      // مسار علوي اختياري يعبر حفرة الأشواك، ثم يعود إلى الأرض الآمنة.
-      branchLedges: [[1545, 230, 100], [1655, 230, 100]],
-      ground: [[0, 560], [655, 1235], [1340, 1960], [2055, 2680]],
-      ledges: [[390, 232, 100], [1090, 226, 70], [2150, 230, 110], [2310, 224, 120]],
-      rocks: [[[170, 310]], [[740, 860]], [[1440, 1500]]],
-      gems: [[120, 150, 276], [410, 460, 209], [1105, 1130, 203], [690, 715, 276], [1560, 1600, 276], [2170, 2200, 207], [2330, 2400, 201], [2450, 2500, 276], [1860, 1880, 276], [2225, 2245, 207]],
-      hazards: [
-        { x: 1010, y: 160, w: 46, h: 140, period: 220, vent: true, kind: 'crusher' },
-        { x: 1620, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
-      ],
-      guards: [['goblin', 0], ['beetle', 1], ['goblin', 2], ['beetle', 3], ['bat', 300, 460, 112], ['bat', 2200, 2400, 110]],
-      checkpoints: [{ from: 700, to: 780, at: 710 }, { from: 1400, to: 1480, at: 1410 }],
-      signs: [520, 1195, 1920],
-    },
-    // المنجم 2 — الذهب: فجوتان، فتحة غبار ذهبي، حفرة، وعملاق الذهب في الساحة الأخيرة.
-    {
-      id: 'gold', exit: { x: 2540 },
-      // ممر مرتفع يتجاوز حفرة المدخل؛ يمكن للاعب اختيار القفز فوقها أو المخاطرة بالعبور أرضاً.
-      branchLedges: [[420, 230, 100], [530, 230, 100]],
-      ground: [[0, 720], [820, 1470], [1570, 2680]],
-      // Keep the ordinary ledge clear of the upper-route ladder platform; overlapping
-      // same-height solids created an ambiguous collision edge at the ladder exit.
-      ledges: [[320, 230, 90], [1210, 224, 90]],
-      rocks: [[[110, 190]], [[900, 960]], [[1650, 1700]]],
-      gems: [[150, 180, 276], [350, 400, 207], [1230, 1280, 201], [1010, 1030, 276], [640, 660, 276], [1330, 1350, 276], [1780, 1820, 276], [2100, 2200, 276], [2300, 2400, 276], [840, 880, 276]],
-      hazards: [
-        { x: 1090, y: 265, w: 42, h: 35, period: 180, vent: true, kind: 'vent' },
-        { x: 520, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
-      ],
-      guards: [['goblin', 0], ['beetle', 1], ['bat', 250, 420, 112], ['bat', 900, 1100, 108], ['bat', 1250, 1420, 112], ['bat', 100, 300, 110]],
-      checkpoints: [{ from: 1000, to: 1040, at: 1010 }, { from: 1600, to: 1640, at: 1610 }],
-      signs: [680, 1430],
-      boss: { kind: 'colossus', name: 'عملاق الذهب', w: 58, h: 66, minX: 1800, maxX: 2440, wake: 1750, maxHp: 17, patrolSpeed: 42, chargeSpeed: 0,
-        ai: { walk: 90, windup: 40, recover: 80, enragedWalk: 60, enragedWindup: 30,
-          attacks: ['slam'], enragedAttacks: ['slam', 'pound'], finalAttacks: ['sweep', 'pound', 'slam'],
-          pound: { radius: 96 }, sweep: { reach: 84 }, wave: { speed: 230, w: 30, h: 22, ttl: 64 } } },
-    },
-    // المنجم 3 — البلّور: ثلاث فجوات وثلاثة أخطار قصيرة (فتحة بلّور، أشواك موقوتة بطور مختلف، حفرة).
-    {
-      id: 'crystal', exit: { x: 2540 },
-      // شرفة بلورية علوية تتيح تجاوز حفرة المسار الرئيسي.
-      branchLedges: [[2090, 230, 100], [2200, 230, 100]],
-      ground: [[0, 560], [650, 1250], [1340, 1960], [2050, 2680]],
-      ledges: [[380, 230, 90], [1590, 226, 80], [2330, 222, 100], [2440, 230, 80]],
-      rocks: [[[160, 300]], [[720, 820]], [[1420, 1500]]],
-      gems: [[110, 140, 276], [395, 450, 207], [1000, 1030, 276], [1600, 1650, 203], [1200, 1230, 276], [2350, 2400, 199], [2460, 2500, 207], [2290, 2310, 276], [1880, 1900, 276], [870, 900, 276]],
-      hazards: [
-        { x: 1000, y: 265, w: 42, h: 35, period: 180, vent: true, kind: 'crystal' },
-        { x: 1760, y: 265, w: 42, h: 35, period: 150, active: 60, phase: 40, kind: 'crystal' },
-        { x: 2190, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
-      ],
-      guards: [['bat', 380, 520, 112], ['goblin', 0], ['bat', 1560, 1700, 110], ['goblin', 2], ['beetle', 3], ['bat', 2150, 2330, 108]],
-      checkpoints: [{ from: 700, to: 780, at: 710 }, { from: 1400, to: 1480, at: 1410 }],
-      signs: [520, 1210, 1920],
-    },
-    // المنجم 4 — الحمم: نوافير حمم تنطلق من الفجوات (اعبر في لحظة هدوئها) مع حفرة وشعلة موقوتة.
-    {
-      id: 'lava', exit: { x: 2540 },
-      // ممر علوي فوق حفرة الحمم، بعيد عن فوهات النوافير.
-      branchLedges: [[1590, 230, 100], [1700, 230, 100]],
-      ground: [[0, 560], [665, 1240], [1350, 1960], [2065, 2680]],
-      ledges: [[360, 230, 100], [2340, 228, 100], [2450, 224, 70]],
-      rocks: [[[170, 300]], [[780, 900]], [[1420, 1500]]],
-      gems: [[120, 150, 276], [380, 440, 207], [1000, 1040, 276], [1190, 1210, 276], [1560, 1600, 276], [2360, 2420, 205], [2460, 2500, 201], [1100, 1130, 276], [1880, 1900, 276], [2100, 2150, 276]],
-      hazards: [
-        { x: 595, y: 185, w: 34, h: 145, period: 240, vent: true, kind: 'geyser' },
-        { x: 1278, y: 185, w: 34, h: 145, period: 210, active: 70, phase: 60, kind: 'geyser' },
-        { x: 1680, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
-        { x: 2210, y: 265, w: 42, h: 35, period: 170, active: 70, phase: 20, kind: 'flare' },
-      ],
-      guards: [['beetle', 0], ['bat', 700, 900, 110], ['beetle', 1], ['goblin', 2], ['bat', 1400, 1600, 110], ['bat', 2250, 2400, 108]],
-      checkpoints: [{ from: 700, to: 780, at: 710 }, { from: 1400, to: 1480, at: 1410 }],
-      signs: [520, 1200, 1920],
-    },
-    // المنجم 5 — الأسطورة: مكبس وحفرة ثم حارس القلب (اندفاع وموجة صدم) في ساحة طويلة.
-    {
-      id: 'legend', exit: { x: 2540 },
-      // طريق علوي اختياري يتجاوز حفرة قلب الأسطورة.
-      branchLedges: [[1470, 230, 100], [1580, 230, 100]],
-      ground: [[0, 540], [640, 1180], [1280, 2680]],
-      ledges: [[340, 230, 100], [1020, 226, 80]],
-      rocks: [[[130, 230]], [[720, 790]], [[1350, 1400]]],
-      gems: [[110, 130, 276], [360, 420, 207], [1035, 1065, 203], [1130, 1160, 276], [1500, 1540, 276], [2100, 2200, 276], [2300, 2400, 276], [480, 510, 276], [880, 900, 276], [660, 690, 276]],
-      hazards: [
-        { x: 930, y: 160, w: 46, h: 140, period: 240, vent: true, kind: 'crusher' },
-        { x: 1560, y: 279, w: 48, h: 21, period: 1, active: 1, kind: 'pit' },
-      ],
-      guards: [['goblin', 0], ['beetle', 1], ['bat', 300, 500, 112], ['bat', 700, 900, 108], ['bat', 1300, 1450, 110], ['bat', 1500, 1700, 112]],
-      checkpoints: [{ from: 700, to: 760, at: 710 }, { from: 1680, to: 1720, at: 1690 }],
-      signs: [500, 1140],
-      boss: { kind: 'warden', name: 'حارس القلب', w: 56, h: 46, minX: 1840, maxX: 2450, wake: 1800, maxHp: 29, patrolSpeed: 50, chargeSpeed: 215,
-        ai: { walk: 60, windup: 44, recover: 70, enragedWalk: 40, enragedWindup: 32, chargeTicks: 70,
-          attacks: ['charge', 'slam'], enragedAttacks: ['charge', 'slam', 'charge'],
-          finalAttacks: ['sweep', 'pound', 'charge', 'slam'], pound: { radius: 104 }, sweep: { reach: 88 },
-          wave: { speed: 250, w: 30, h: 22, ttl: 64 } } },
-    },
-  ];
-  const deepFreeze = o => { if (o && typeof o === 'object' && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) deepFreeze(v); } return o; };
-  const LEVELS = Object.freeze([STONE, ...WORLD_SPECS.map(makeLevel)].map(deepFreeze));
-  // رقم المنجم ← مستواه (خارج النطاق = الأول، كما يفعل mineOf)
-  const levelFor = zone => LEVELS[Number.isInteger(zone) && zone >= 0 && zone < LEVELS.length ? zone : 0];
-  const LEVEL = LEVELS[0]; // الاسم القديم: مستوى المنجم الأول
   function seedFromId(id) {
     let h = 0x811c9dc5;
     for (const ch of String(id || '')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
@@ -428,171 +269,15 @@
 
   // المعدات الثمانية (ترتيبها = ترتيب دوائر الورشة). السعر: ذهب + خام «سلّم» ثابت حسب المستوى الحالي:
   // نحاس ← حديد ← ذهب خام ← بلّور ← حمم، فيدفع التقدّم اللاعب إلى مناجم أعمق. كل الأرقام صحيحة (بلا فواصل عائمة).
-  const EQUIPMENT_ORDER = Object.freeze(['pickaxe', 'boots', 'bag', 'magnet', 'drill', 'robot', 'luck', 'armor']);
-  const EQUIPMENT = Object.freeze({
-    pickaxe: { name: 'قوة المعول',    icon: 'i-pickaxe', blurb: 'تكسير الصخور بضربات أقل',        gold: 50,  scale: 10 },
-    boots:   { name: 'حذاء المعدّن',  icon: 'i-boots',   blurb: 'حركة أسرع داخل المنجم',           gold: 60,  scale: 10 },
-    bag:     { name: 'حقيبة الموارد', icon: 'i-bag',     blurb: 'خامات أكثر من كل صخرة',           gold: 70,  scale: 12 },
-    magnet:  { name: 'المغناطيس',     icon: 'i-magnet',  blurb: 'جذب البلورات من مسافة أبعد',      gold: 80,  scale: 12 },
-    drill:   { name: 'المثقاب',       icon: 'i-drill',   blurb: 'ضربات أسرع ومدى أطول',            gold: 90,  scale: 15 },
-    robot:   { name: 'روبوت التعدين', icon: 'i-robot',   blurb: 'يضرب أقرب صخرة تلقائياً',         gold: 100, scale: 15 },
-    luck:    { name: 'حظ المعدّن',    icon: 'i-luck',    blurb: 'فرصة أعلى للخامات النادرة',       gold: 110, scale: 13 },
-    armor:   { name: 'معدات الحماية', icon: 'i-armor',   blurb: 'قلوب إضافية وحماية أطول',         gold: 120, scale: 13 },
+  const equipment = Equipment.create({
+    maxLevel: MAX_EQUIP_LEVEL, mines: MINES, goals: GOALS, modes: MODES,
+    characters: CHARACTERS, combat: COMBAT, duel: DUEL, guard: GUARD, arenaAxeBonus, mineOf,
   });
-  const ORE_LADDER = Object.freeze(['copper', 'iron', 'gold', 'crystal', 'lava']);
-  const ORE_QTY = Object.freeze([6, 6, 6, 5, 4]);
-  const GOLD_STEP = Object.freeze([100, 160, 256, 410, 655]); // نسب مئوية: ≈ ×1.6 لكل مستوى
-  const levelOf = v => Math.max(0, Math.min(MAX_EQUIP_LEVEL, Math.floor(Number(v)) || 0));
-  function normalizeLoadout(input) {
-    const src = input && typeof input === 'object' ? input : {};
-    const out = {};
-    for (const id of EQUIPMENT_ORDER) out[id] = levelOf(src[id]);
-    return out;
-  }
-  function normalizeConfig(input) {
-    const src = input && typeof input === 'object' ? input : {};
-    const zone = Number.isInteger(src.zone) && src.zone >= 0 && src.zone < MINES.length ? src.zone : 0;
-    const goal = Number.isInteger(src.goal) && src.goal >= 0 && src.goal < GOALS.length ? src.goal : 0;
-    const mode = MODES.includes(src.mode) ? src.mode : 'mine';
-    return { zone, goal, mode, loadout: normalizeLoadout(src.loadout) };
-  }
-  // تكلفة الترقية من المستوى الحالي إلى التالي (null عند المستوى الأقصى أو معدّة غير معروفة).
-  function equipCost(id, level) {
-    const def = EQUIPMENT[id], lvl = levelOf(level);
-    if (!def || lvl >= MAX_EQUIP_LEVEL) return null;
-    return { gold: Math.round(def.gold * GOLD_STEP[lvl] / 100), ores: { [ORE_LADDER[lvl]]: Math.ceil(ORE_QTY[lvl] * def.scale / 10) } };
-  }
-  // الإحصاءات النهائية للبطل بعد المعدات. كلها صحيحة/ثابتة فتبقى حتمية ومتطابقة بين المتصفح والخادم.
-  function loadoutStats(heroId, loadout) {
-    const hero = CHARACTERS[heroId] || CHARACTERS.miner, L = normalizeLoadout(loadout);
-    const armorHearts = Math.floor((L.armor + 1) / 2);
-    return {
-      speed: Math.round(hero.speed * (100 + 4 * L.boots) / 100),
-      hearts: hero.hearts + armorHearts,
-      maxHearts: hero.maxHearts + armorHearts,
-      hurtInvulnerable: (hero.hurtInvulnerable || 90) + 8 * L.armor,
-      miningPower: hero.miningPower + L.pickaxe,
-      attackCooldown: Math.max(8, hero.attackCooldown - L.drill),
-      miningReach: hero.miningReach + 5 * L.drill,
-      magnet: 12 * L.magnet,
-      yieldPercent: 100 + 15 * L.bag,
-      luck: L.luck,
-      robot: L.robot > 0 ? { period: 190 - 28 * L.robot, damage: 1 + L.robot, range: 170 } : null,
-      // ===== V8.2: أثر المعدات على القتال (محدود ومقروء) =====
-      // الفأس: +1 ضرر لكل مستويين (بحد أقصى +2). الدرع: نَفَس درع أطول (+10 لكل مستوى).
-      // المثقاب: مهلة مراوغة ومهارة أقصر (بحد أدنى آمن). الأحذية: سرعة الحركة (محسوبة أعلاه).
-      // كل القيم أعداد صحيحة ومحسوبة من اللقطة المثبّتة في التذكرة، فإعادة تشغيل الخادم متطابقة.
-      // ===== V10: معدات الساحة (بالحدود القصوى لمستويات المعدات القائمة 0..5) =====
-      // الفأس: ضرر السلسلة + كسر دفاع الخصم (ترنّح أطول) — بحد أقصى +2 لكل منهما.
-      // الدرع: نَفَس المهارة (+10 لكل مستوى، حده +50) واستعادته أسرع (+1 إطار/إطار عند المستوى 2+).
-      // المثقاب: مهلة «ظل الساكورا» (٦ إطارات لكل مستوى، بحد أدنى ١٠٠) ومهلة المراوغة.
-      // كل القيم أعداد صحيحة من لقطة التذكرة، فإعادة تشغيل الخادم متطابقة حرفياً.
-      combat: {
-        damage: Math.min(2, Math.floor(L.pickaxe / 2)),
-        guardBreak: Math.min(2, Math.floor(L.pickaxe / 2)),
-        guardStamina: 10 * L.armor,
-        breathRegen: Math.min(1, Math.floor(L.armor / 2)),
-        dodgeCooldown: Math.max(30, COMBAT.dodge.cooldown - 3 * L.drill),
-        skillCooldown: Math.max(90, hero.skillCooldown - 8 * L.drill),
-        duelSkillCooldown: Math.max(100, DUEL.skill.cooldown - 10 * L.drill),
-      },
-    };
-  }
-  const NO_BONUS = 'بلا إضافة';
-  const EFFECT_TEXT = {
-    pickaxe: L => (L ? `+${L} قوة تعدين لكل ضربة` : NO_BONUS),
-    boots:   L => (L ? `+${4 * L}% سرعة حركة` : NO_BONUS),
-    bag:     L => (L ? `+${15 * L}% خامات من كل صخرة` : NO_BONUS),
-    magnet:  L => (L ? `مدى جذب البلورات +${12 * L} بكسل` : NO_BONUS),
-    drill:   L => (L ? `زمن تبريد الضربة −${L} إطار · المدى +${5 * L} بكسل` : NO_BONUS),
-    robot:   L => (L ? `ضربة آلية بقوة ${1 + L} كل ${((190 - 28 * L) / 60).toFixed(1)} ثانية` : 'غير مفعّل'),
-    luck:    L => (L ? `+${4 * L}% فرصة للخام النادر` : NO_BONUS),
-    armor:   L => (L ? `+${Math.floor((L + 1) / 2)} قلب · مهلة حماية بعد الإصابة +${(8 * L / 60).toFixed(1)} ثانية` : NO_BONUS),
-  };
-  const effectText = (id, level) => (EFFECT_TEXT[id] ? EFFECT_TEXT[id](levelOf(level)) : '');
-  // ===== بطاقة معدات الساحة: تُعرض قبل المبارزة وتُحسب من نفس دالة الإحصاءات =====
-  // لا تُرسل للخادم ولا تُغيّر شيئاً: الخادم يبني اللقطة من حفظ اللاعب، وهذه للعرض فقط.
-  function combatGear(heroId, loadout) {
-    const L = normalizeLoadout(loadout), c = loadoutStats(heroId, loadout).combat;
-    const hero = CHARACTERS[heroId] || CHARACTERS.miner, bonus = arenaAxeBonus(L.pickaxe);
-    return [
-      { id: 'pickaxe', name: 'الفأس', level: L.pickaxe, max: MAX_EQUIP_LEVEL,
-        // V11: ضرر الساحة 1 + floor(المستوى/4) — فالزيادة الفعلية تحدث عند المستوى 4
-        effect: bonus ? `ضرر الساحة ${hero.damage + bonus} (‎+${bonus})` : `ضرر الساحة ${hero.damage} — يزيد عند المستوى 4`,
-        detail: c.guardBreak ? `كسر الدفاع +${4 * c.guardBreak} إطار ترنّح` : 'بلا كسر دفاع إضافي' },
-      { id: 'armor', name: 'الدرع', level: L.armor, max: MAX_EQUIP_LEVEL,
-        effect: `نَفَس الدرع ${GUARD.max + c.guardStamina} · القلوب ثابتة في الساحة`,
-        detail: c.breathRegen ? `استعادة الأنفاس +${c.breathRegen}/إطار` : 'بلا استعادة أنفاس إضافية' },
-      { id: 'drill', name: 'المثقاب', level: L.drill, max: MAX_EQUIP_LEVEL,
-        effect: `مهلة ظل الساكورا ${c.duelSkillCooldown} إطار`,
-        detail: `مهلة المراوغة ${c.dodgeCooldown} إطار` },
-    ];
-  }
-  // ===== V11: توصية القتال =====
-  // تُحسب من نفس معادلات المحرك على معدات اللاعب المحفوظة، ولا تُرسل للخادم ولا تمنع دخول منطقة.
-  // الغرض: يعرف اللاعب أين يقف وماذا يربح من الترقية القادمة، دون أن تصبح الترقية شرطاً.
-  function combatAdvice(heroId, loadout) {
-    const L = normalizeLoadout(loadout), st = loadoutStats(heroId, loadout), c = st.combat;
-    const hero = CHARACTERS[heroId] || CHARACTERS.miner;
-    const damage = hero.damage + arenaAxeBonus(L.pickaxe);
-    // أولوية التطوير: أقرب تحسين يغيّر إحساس القتال فعلاً الآن (لا انتظار أربعة مستويات)
-    let priority;
-    if (L.armor < MAX_EQUIP_LEVEL) {
-      priority = { id: 'armor', name: 'الدرع', from: L.armor, to: L.armor + 1,
-        why: `نَفَس الدرع ${GUARD.max + c.guardStamina} ← ${GUARD.max + 10 * (L.armor + 1)}: صدّات أكثر قبل انكسار الدفاع` };
-    } else if (L.drill < MAX_EQUIP_LEVEL) {
-      priority = { id: 'drill', name: 'المثقاب', from: L.drill, to: L.drill + 1,
-        why: `مهلة المهارة ${c.duelSkillCooldown} ← ${Math.max(100, DUEL.skill.cooldown - 10 * (L.drill + 1))} إطاراً` };
-    } else if (L.pickaxe < 4) {
-      priority = { id: 'pickaxe', name: 'الفأس', from: L.pickaxe, to: 4,
-        why: `المستوى 4 يرفع ضرر الساحة من ${damage} إلى ${hero.damage + 1}: أقصر طريق لإنهاء المبارزة` };
-    } else if (L.pickaxe < MAX_EQUIP_LEVEL) {
-      priority = { id: 'pickaxe', name: 'الفأس', from: L.pickaxe, to: MAX_EQUIP_LEVEL,
-        why: `كسر دفاع أطول: ${4 * c.guardBreak} ← ${4 * Math.min(2, Math.floor(MAX_EQUIP_LEVEL / 2))} إطار ترنّح` };
-    } else {
-      priority = null;
-    }
-    return {
-      rows: combatGear(heroId, loadout),
-      arena: { hearts: DUEL.heartsFor(hero), damage, breath: GUARD.max + c.guardStamina,
-        skillCd: c.duelSkillCooldown, dodgeCd: c.dodgeCooldown, guardBreak: 4 * c.guardBreak },
-      // نقاط القوة/الضعف تُقرأ من الأرقام نفسها لا من تخمين: أقوى بند وأضعف بند في هذه اللقطة
-      strength: damage >= hero.damage + 1 ? `ضرر ${damage} لكل ضربة — إنهاء أسرع للمبارزة`
-        : c.guardStamina >= 40 ? `نَفَس ${GUARD.max + c.guardStamina} — يتحمّل صدّات متتالية`
-        : c.duelSkillCooldown <= 110 ? `ظل الساكورا كل ${c.duelSkillCooldown} إطاراً`
-        : c.guardBreak >= 2 ? `كسر دفاع +${4 * c.guardBreak} إطار ترنّح بعد ثلاث ضربات`
-        : c.guardStamina > 0 ? `نَفَس ${GUARD.max + c.guardStamina}: صدّتان أو ثلاث قبل الانكسار`
-        : 'معدات متوازنة بلا نقطة قوة بارزة',
-      weakness: L.armor === 0 ? 'لا نَفَس إضافي: الدرع ينكسر سريعاً أمام الموجات'
-        : L.drill === 0 ? 'مهلة المهارة كاملة (150 إطاراً)'
-        : damage === hero.damage ? 'الضرر الأساسي فقط حتى مستوى الفأس 4'
-        : 'لا ضعف حاسم',
-      priority,
-      optional: 'توصية اختيارية — لا مستوى مطلوباً لدخول أي منطقة',
-    };
-  }
-  // عدد ضربات كسر صخرة المنجم للبطل والمعدات الحالية (يُعرض في الواجهة ولا يدخل في أي اقتصاد).
-  const hitsToBreak = (heroId, zone, loadout) => Math.ceil(mineOf(zone).rockHp / loadoutStats(heroId, loadout).miningPower);
-
-  // تقدّم المناجم الموثوق: عدد الانتصارات لكل منجم (يكتبه الخادم من جولات أعاد تشغيلها فقط).
-  const normalizeProgress = input => {
-    const wins = input && Array.isArray(input.wins) ? input.wins : [];
-    return { wins: MINES.map((_, i) => Math.max(0, Math.floor(Number(wins[i])) || 0)) };
-  };
-  function mineStatus(zone, progress, loadout) {
-    if (!Number.isInteger(zone) || zone < 0 || zone >= MINES.length) return null;
-    const mine = MINES[zone], wins = normalizeProgress(progress).wins, L = normalizeLoadout(loadout);
-    const needs = [];
-    if (mine.requires) {
-      const prev = mine.requires.win;
-      needs.push({ kind: 'win', zone: prev, label: `الفوز في ${MINES[prev].name}`, ok: wins[prev] >= 1 });
-      for (const [id, lvl] of Object.entries(mine.requires.gear || {})) {
-        needs.push({ kind: 'gear', id, level: lvl, label: `${EQUIPMENT[id].name} مستوى ${lvl}`, ok: L[id] >= lvl });
-      }
-    }
-    return { zone, id: mine.id, unlocked: needs.every(n => n.ok), needs, wins: wins[zone] };
-  }
-  const mineUnlocked = (zone, progress, loadout) => Boolean(mineStatus(zone, progress, loadout)?.unlocked);
+  const {
+    EQUIPMENT_ORDER, EQUIPMENT, ORE_LADDER, levelOf, normalizeLoadout, normalizeConfig,
+    equipCost, loadoutStats, effectText, combatGear, combatAdvice, hitsToBreak,
+    normalizeProgress, mineStatus, mineUnlocked,
+  } = equipment;
 
   const emptyOres = () => Object.fromEntries(ORE_ORDER.map(k => [k, 0]));
   const addOres = (target, bundle) => {
@@ -670,7 +355,9 @@
   }
   const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
   const activeHazard = (h, tick) => (tick + (h.phase || 0)) % h.period < h.active;
-  const canExit = s => s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
+  const canExit = s => s.goal === 3 && s.mode !== 'duel'
+    ? s.logistics?.delivered === true && (!s.bossId || s.bossDefeated === true)
+    : s.mined >= 1 && s.collected >= 3 && (!s.bossId || s.bossDefeated === true);
 
   // ===== ساحة المفترق: موضع مشتق من تضاريس المنجم نفسه (لا عشوائية ولا تعديل على الأرض) =====
   // قطعة أرض مستوية قرب راية المنتصف، بعيدة عن الأخطار والصخور والبوابة. فوقها شيئان غير صلبين
@@ -704,6 +391,11 @@
     if (goal.id === 'vein') {
       const v = s.vein || { hp: 3, maxHp: 3 };
       return { id: goal.id, name: goal.name, now: Math.max(0, v.maxHp - Math.max(0, v.hp)), target: v.maxHp, done: s.veinBroken === true };
+    }
+    if (goal.id === 'logistics') {
+      const l = s.logistics || {};
+      const now = Number(Boolean(!l.jammed)) + Number(Boolean(l.workerAssigned)) + Number(Boolean(l.oreMined)) + Number(Boolean(l.delivered));
+      return { id: goal.id, name: goal.name, now, target: 4, done: l.delivered === true };
     }
     return { id: goal.id, name: goal.name, now: Math.ceil((s.tick || 0) / FPS), target: Math.round(SPEED_TICKS / FPS), done: s.status === 'won' && s.tick <= SPEED_TICKS };
   }
@@ -889,6 +581,10 @@
       perch,
       vein: perch ? { x: perch.x, y: perch.y - 34, w: 24, h: 34, hp: 3, maxHp: 3, timer: 0, broken: false } : null,
       veinBroken: false,
+      ...(cfg.mode === 'mine' && GOALS[cfg.goal].id === 'logistics' ? { logistics: {
+        ...logisticsLayout(cfg.zone), jammed: true, workerAssigned: false, phase: 'idle',
+        timer: 0, oreMined: false, delivered: false, ore: mine.tier.common,
+      } } : {}),
       fork: perch ? { x: perch.x + 60, y: perch.y - 30, w: 30, h: 30, hits: 0, timer: 0, choice: null, locked: false } : null,
       choice: null,
       oreWind: false,
@@ -1018,7 +714,7 @@
   const FORK_SAFE_SLOTS = Object.freeze({ mid: 2 });
   const FORK_RICH_SLOTS = Object.freeze({ rare: 2 });
   function spawnForkGuards(s) {
-    const f = s.fork, mine = mineOf(s.zone), base = GUARDS.goblin;
+    const f = s.fork, mine = mineOf(s.zone), base = goblinGuard;
     for (let i = 0; i < 2; i++) {
       const id = 70 + i, x = Math.max(20, Math.min(levelFor(s.zone).width - 60, f.x + (i ? 62 : -62)));
       const maxHp = base.maxHp + mine.enemyHp;
@@ -1581,7 +1277,18 @@
       const hitbox = { x: p.facing > 0 ? p.x + p.w : p.x - reach, y: p.y - 8, w: reach, h: p.h + 16 };
       const rock = s.rocks.find(r => r.hp > 0 && overlap(hitbox, r));
       // أولوية الضربة: صخرة الخام ثم العرق النادر ثم صندوق المفترق (كلها في المدى نفسه).
-      if (rock) hitRock(s, rock, p.miningPower, 'player');
+      if (s.logistics?.jammed && overlap(hitbox, s.logistics.jam)) {
+        s.logistics.jammed = false;
+        s.events.push({ type: 'logistics_jam_cleared', x: s.logistics.jam.x + 12, y: s.logistics.jam.y });
+      } else if (s.logistics && overlap(hitbox, s.logistics.worker)) {
+        if (s.logistics.jammed) s.events.push({ type: 'logistics_blocked', x: s.logistics.worker.x, y: s.logistics.worker.y });
+        else if (!s.logistics.workerAssigned) {
+          s.logistics.workerAssigned = true;
+          s.logistics.phase = 'mining';
+          s.logistics.timer = LOGISTICS_TICKS.mining;
+          s.events.push({ type: 'logistics_worker_assigned', x: s.logistics.worker.x, y: s.logistics.worker.y });
+        }
+      } else if (rock) hitRock(s, rock, p.miningPower, 'player');
       else if (s.vein && !s.vein.broken && overlap(hitbox, s.vein)) hitVein(s);
       else if (s.fork && !s.fork.locked && overlap(hitbox, s.fork)) hitFork(s);
       else s.events.push({ type: 'mine_miss', x: p.x + (p.facing > 0 ? p.w + 10 : -10), y: p.y + 15 });
@@ -1858,6 +1565,20 @@
     }
     for (const hazard of s.hazards || level.hazards) if (activeHazard(hazard, s.tick) && overlap(p, hazard)) hurt(s);
     for (const wave of s.waves) if (!(wave.delay > 0) && overlap(p, wave)) hurt(s, wave.x + wave.w / 2);
+    if (s.logistics?.workerAssigned && !s.logistics.delivered && s.logistics.timer > 0) {
+      s.logistics.timer--;
+      if (s.logistics.timer === 0 && s.logistics.phase === 'mining') {
+        s.logistics.oreMined = true;
+        s.logistics.phase = 'hauling';
+        s.logistics.timer = LOGISTICS_TICKS.hauling;
+        s.events.push({ type: 'logistics_ore_mined', x: s.logistics.worker.x, y: s.logistics.worker.y });
+      } else if (s.logistics.timer === 0 && s.logistics.phase === 'hauling') {
+        s.logistics.delivered = true;
+        s.logistics.phase = 'stored';
+        addOres(s.ores, { [s.logistics.ore]: 1 });
+        s.events.push({ type: 'logistics_delivered', x: s.logistics.storage.x + 15, y: s.logistics.storage.y });
+      }
+    }
     if (s.status === 'playing' && s.mode !== 'duel' && canExit(s) && overlap(p, level.exit)) {
       s.status = 'won'; s.events.push({ type: 'win', x: p.x, y: p.y });
     }
@@ -1928,72 +1649,14 @@
     }
     return Math.max(0, Math.min(levelFor(s.zone).width - width, left));
   }
-  // ===== V19.2 (المرحلة A): المعالم «غنيمة» تُختم عند البوابة =====
-  // المشكلة المقيسة قبل الإصلاح: جولة فاشلة سريعة (12 ثانية، 3 معالم) كانت تدفع 36 ذهباً،
-  // أي 2.95 ذهب/ثانية مقابل 0.65 لجولة ناجحة كاملة — فالاستراتيجية المثلى كانت «اجمع معلمين ثم مُت».
-  // الإصلاح: قيمة الجهد تُدفع عند إتمام الجولة فقط، ويُضاف إليها علاوة إتمام تنمو مع العمق
-  // (المحتوى الأصعب يدفع أكثر). الخسارة لا تدفع المعالم؛ يبقى «إنقاذ» صغير ومحدود لا يتجاوز سقفه
-  // عائد أي فوز، ولا يظهر قبل عبور أول نقطة حفظ. لا مساس بمعدل النقر ولا بالطاقة ولا بأسعار الترقيات.
-  const RUN_REWARD = Object.freeze({
-    base: 100,                 // سقف المحتوى (كما كان): 40 + بلورات×4 + صخور×6
-    completionBase: 20,        // علاوة إتمام الجولة في أول منجم
-    completionStep: 10,        // +10 لكل منجم أعمق (20..70)
-    salvageDivisor: 4,         // ربع قيمة المعالم عند الخسارة
-    salvageCap: 10,            // سقف الإنقاذ المطلق — 0.11 ذهب/ث كحد أقصى
-    // الإنقاذ لا يُدفع إلا لمحاولة صادقة: تجاوز أول نقطة حفظ + 90 ثانية لعب فعلية.
-    // (بلا هذا الشرط يصبح «امشِ إلى نقطة الحفظ ثم مُت» مصدر دخل: 10 ذهب/25 ثانية = 0.40 ذهب/ث.)
-    salvageMinSeconds: 90,
-    startCheckpoint: 64,       // نقطة البداية: لا إنقاذ قبل تجاوزها
+  const rewards = Rewards.create({
+    fps: FPS, mines: MINES, duel: DUEL, oreOrder: ORE_ORDER, milestones: MILESTONES,
+    milestoneGold: MILESTONE_GOLD, emptyOres, milestoneOres,
   });
-  const completionBonus = zone => RUN_REWARD.completionBase
-    + RUN_REWARD.completionStep * Math.max(0, Math.min(MINES.length - 1, Number(zone) || 0));
-  const rewardCap = zone => RUN_REWARD.base + completionBonus(zone);
-  function rewardBreakdown(s) {
-    if (s.mode === 'duel') {
-      const potential = s.status === 'won' ? duelReward(s.zone) : 0;
-      return { potential, milestoneGold: 0, finalGold: potential, salvage: 0, bonus: 0, total: potential };
-    }
-    const potential = Math.min(RUN_REWARD.base, 40 + s.collected * 4 + s.mined * 6);
-    const milestoneEarned = Math.min(potential, (s.milestones?.length || 0) * MILESTONE_GOLD);
-    const bonus = completionBonus(s.zone);
-    if (s.status === 'won') {
-      const total = Math.min(rewardCap(s.zone), potential + bonus);
-      const milestoneGold = Math.min(milestoneEarned, total);
-      return { potential, milestoneGold, finalGold: total - milestoneGold, salvage: 0, bonus: total - potential, total };
-    }
-    // خسارة أو توقّف: المعالم لا تُصرف. الإنقاذ تعويض عن محاولة صادقة فقط (نقطة حفظ + 90 ثانية)،
-    // ومقيّد بسقف ثابت أقل بفارق كبير من أدنى فوز — فلا توجد استراتيجية خسارة تنافس الفوز.
-    const passedCheckpoint = Number(s.checkpoint) > RUN_REWARD.startCheckpoint;
-    const honestAttempt = (Number(s.tick) || 0) >= RUN_REWARD.salvageMinSeconds * FPS;
-    // جولة لم تنته بعد (تركها اللاعب) لا تُصرف لها أي مكافأة إطلاقاً: الشرط `status === 'lost'` صريح.
-    const endedInLoss = s.status === 'lost';
-    const salvage = endedInLoss && passedCheckpoint && honestAttempt && milestoneEarned > 0
-      ? Math.min(RUN_REWARD.salvageCap, Math.floor(milestoneEarned / RUN_REWARD.salvageDivisor)) : 0;
-    return { potential, milestoneGold: 0, finalGold: 0, salvage, bonus: 0, total: salvage };
-  }
-  // مكافأة المبارزة: 60 + 4 لكل مستوى عمق (60..80). لا تتضخم مع التكرار، والسقف اليومي المستقل خادمي.
-  const duelReward = zone => DUEL.reward + DUEL.rewardStep * Math.max(0, Math.min(MINES.length - 1, Number(zone) || 0));
-  const rewardFor = s => rewardBreakdown(s).total;
-  const oreSummary = s => {
-    const out = emptyOres();
-    for (const k of ORE_ORDER) out[k] = Math.max(0, Math.floor(s.ores?.[k] || 0));
-    return out;
-  };
-  // ===== V19.2: ما يدخل المخزن فعلاً =====
-  // الخامات كانت تُمنح كاملةً حتى في جولة فاشلة عمرها 6 ثوانٍ (قياس: 124 ذهباً عند بيعها في المنجم الثالث)،
-  // وهذا باب خلفي على نفس الثغرة: «مُت بسرعة واجمع الخام» يصبح أرخص طريق للذهب ولو كان الذهب المباشر صفراً.
-  // القاعدة الآن: الفوز يأخذ كل الغنيمة، والخسارة الصادقة (نقطة حفظ + 90 ثانية) تُسقط نصف الحقيبة كما في
-  // ألعاب التعدين، والجولة المتروكة أو الخسارة السريعة لا تُدخل شيئاً.
-  function oreAward(s) {
-    const full = oreSummary(s);
-    if (s.status === 'won') return full;
-    const passed = Number(s.checkpoint) > RUN_REWARD.startCheckpoint;
-    const honest = (Number(s.tick) || 0) >= RUN_REWARD.salvageMinSeconds * FPS;
-    if (s.status !== 'lost' || !passed || !honest) return emptyOres();
-    const half = emptyOres();
-    for (const k of ORE_ORDER) half[k] = Math.floor((full[k] || 0) / 2);
-    return half;
-  }
+  const {
+    RUN_REWARD, completionBonus, rewardCap, duelReward, rewardBreakdown, rewardFor,
+    oreSummary, oreAward, milestoneList,
+  } = rewards;
   // ===== V12: لقطات مرجعية للمراجعة البصرية =====
   // سياسة «متقن» نفسها المستخدمة في القياس، تُلعب على المحرك الحقيقي حتى تصل اللحظة
   // المطلوبة (مرحلة الزعيم الثانية، أو موجة على وشك التلامس)، ثم تُجمَّد العرض فقط.
@@ -2034,69 +1697,7 @@
     return { kind: 'reminder', text: DUEL.phase2Reminder, ms: HINT_TIMING.reminder };
   };
 
-  const captureMask = (sim) => {
-    const r = (sim.enemies || []).find(e => !e.dead);
-    if (!r) return 0;
-    const me = sim.player, dx = r.x + r.w / 2 - (me.x + me.w / 2), ad = Math.abs(dx);
-    const skillCost = DUEL.skill ? DUEL.skill.cost : Infinity;
-    if (r.state === 'windup') {
-      const close = ad < 118, late = r.timer <= 9;
-      if (close && late) {
-        if (r.attack !== 'overhead') return INPUT.DEFEND;
-        return (r.ai && r.ai.wideSlam) ? INPUT.JUMP : INPUT.DODGE;
-      }
-      if (close) return 0;
-      return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
-    }
-    if (r.state === 'charge' && ad < 130) return INPUT.JUMP;
-    const wave = (sim.waves || []).find(w => !(w.delay > 0) && Math.abs((w.x + w.w / 2) - (me.x + me.w / 2)) < 90);
-    if (wave && me.grounded) return INPUT.JUMP;
-    const safe = r.state === 'recover' || r.state === 'retreat' || r.state === 'stagger';
-    if (safe) {
-      if (ad > 68) return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
-      if (Number.isFinite(skillCost) && me.skillCooldown <= 0 && me.guard.stamina >= skillCost + 10) return INPUT.SKILL;
-      if (me.heavyCooldown <= 0) return INPUT.HEAVY;
-      return INPUT.ATTACK;
-    }
-    if (ad > 70) return dx > 0 ? INPUT.RIGHT : INPUT.LEFT;
-    return 0;
-  };
-  // لحظة اللقطة: تحذير الصدمة الكاسرة في المرحلة الثانية (الإنذار مرسوم كاملاً)،
-  // أو موجة ريح قريبة واللاعب في الهواء فوقها.
-  const captureHit = (kind, sim, view = {}) => {
-    if (kind === 'boss') {
-      const r = (sim.enemies || [])[0];
-      if (!r || r.state !== 'windup' || r.attack !== 'overhead' || (r.phase || 1) < 2) return false;
-      const warn = (r.ai && r.ai.windup) || 46;
-      return r.timer <= warn - 12 && r.timer >= 16;
-    }
-    // موجة الريح: اللاعب في أول إطارات القفز (قريب من الأرض) والموجة على وشك ملامسة قدميه —
-    // أفضل لحظة للحكم على حجم الموجة وتباينها مقابل أرض الحلبة.
-    const p = sim.player;
-    if (!p || p.grounded || p.vy >= 0) return false;
-    if (Number.isFinite(view.groundY) && view.groundY - p.y > 40) return false;
-    const w = (sim.waves || []).find(x => !(x.delay > 0));
-    if (!w) return false;
-    const gap = Math.abs((w.x + w.w / 2) - (p.x + p.w / 2));
-    return gap >= 45 && gap <= 95;
-  };
-  // يعيد حالة مجمّدة عند اللحظة المطلوبة، أو null إن لم تصل أي بذرة إليها.
-  const captureSim = (kind, hero = 'miner', { zone = kind === 'boss' ? 3 : 2, loadout = null, attempts = 10, maxTicks = 6000 } = {}) => {
-    for (let a = 0; a < attempts; a++) {
-      const s = create(hero, 2024 + a * 137, { zone, mode: 'duel', loadout });
-      // أرض الحلبة = أدنى مستوى وقف عليه اللاعب (أكبر y)، لا الصخور المرتفعة
-      let groundY = NaN;
-      for (let t = 0; t < maxTicks && s.status === 'playing'; t++) {
-        if (s.player.grounded) groundY = Number.isFinite(groundY) ? Math.max(groundY, s.player.y) : s.player.y;
-        step(s, captureMask(s));
-        if (captureHit(kind, s, { groundY })) return s;
-      }
-    }
-    return null;
-  };
-  const capture = Object.freeze({ mask: captureMask, hit: captureHit, sim: captureSim });
-
-  const milestoneList = (zone = 0) => MILESTONES.map(m => ({ id: m.id, label: m.label, gold: MILESTONE_GOLD, ores: milestoneOres(zone, m.id) }));
+  const capture = Capture.create({ createSimulation: create, step, duel: DUEL, input: INPUT });
 
   return {
     BOSS_SLOTS, MAX_SEGMENTS, combatGear, combatAdvice, arenaAxeBonus, RIVALS, rivalFor,

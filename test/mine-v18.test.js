@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8');
+const renderer = fs.readFileSync(path.join(ROOT, 'public', 'platform-renderer.js'), 'utf8').replace(/\r\n/g, '\n');
 
 const groundStart = renderer.indexOf('function drawMineGround');
 const helper = groundStart >= 0 ? renderer.slice(groundStart, renderer.indexOf('// ---- Main draw ----')) : '';
@@ -40,7 +40,7 @@ test('ألوان الأرض من جلد المنجم لا لون واحد لكل
 
 test('الأرض المنظورية مرتبطة بكتل الأرض فقط والساحة ما زالت تستثنيها', () => {
   const arenaSkip = renderer.indexOf('if (arenaMode && box.y >= 290) continue;');
-  const hook = renderer.indexOf('if (!arenaMode && box.y >= 290 && box.h >= 40) { drawMineGround(c, box, camera, w, sk); continue; }');
+  const hook = renderer.search(/if \(!arenaMode && box\.y >= 290 && box\.h >= 40\) \{ drawMineGround\(c, box, camera, w, sk(?:, !!hasCaveArtwork)?\); continue; \}/);
   assert.ok(arenaSkip > 0, 'the arena still skips mine ground blocks');
   assert.ok(hook > 0, 'the mine ground hook exists');
   assert.ok(hook > arenaSkip, 'and runs after the arena bypass, so the arena floor is untouched');
@@ -51,8 +51,8 @@ test('الأرض المنظورية مرتبطة بكتل الأرض فقط وا
 test('عرض فقط: الأرض لا تلمس حالة المحاكاة ولا تُغيّر أي رقم في القواعد', () => {
   assert.doesNotMatch(helper, /s\.(player|enemies|vein|fork|tick)\b/, 'the helper never reads or writes simulation state');
   assert.doesNotMatch(helper, /PlatformRules|R\.(step|create|LEVEL)/, 'and never touches the rules module');
-  const rules = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
-  assert.match(rules, /\{ x: 0, y: 300, w: 720, h: 80 \}/, 'the physics ground boxes are unchanged');
+  const worlds = fs.readFileSync(path.join(ROOT, 'public', 'platform-worlds.js'), 'utf8');
+  assert.match(worlds, /\{ x: 0, y: 300, w: 720, h: 80 \}/, 'the physics ground boxes are unchanged');
 });
 
 test('V18.1: ضباب أرضي وظل تلامس للديكور — قبل طبقة المقدمة فقط', () => {
