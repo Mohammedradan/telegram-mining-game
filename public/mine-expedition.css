@@ -594,7 +594,7 @@ body.ck-mining-focus .ck-fullscreen-toggle { background: rgba(4, 7, 16, .58); }
   body.ck-cave .ck-sound { width: 32px; height: 32px; }
   body.ck-cave .ck-nodes { width: auto; padding-inline: 0 !important; gap: 5px; }
   body.ck-cave .ck-node { --ck-node: clamp(40px, 13vh, 44px) !important; }
-  body.ck-cave .ck-nodes[data-count="5"] .ck-node { --ck-node: 40px !important; }
+  body.ck-cave .ck-nodes[data-count="5"] .ck-node { --ck-node: 44px !important; }
   body.ck-cave .ck-node-tag { display: none; }
   .ck-fullscreen-toggle { width: 36px; height: 29px; }
   .ck-fullscreen-toggle .ui-icon { width: 16px; height: 16px; }
