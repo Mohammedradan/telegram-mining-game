@@ -752,7 +752,7 @@ async function main() {
     assert.ok(rmRes.floats > 0, 'the gain is still shown');
     assert.deepEqual([rmRes.bob, rmRes.glow, rmRes.hero, rmRes.scene], ['none', 'none', 'none', 'none'], 'idle bobbing, glow breathing, miner breathing and the scene fade are off');
     await rm.page.evaluate(() => { state.owned.bot = 2; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 1 }); updateUI(); DigSite.debug.setStick(0, 0); DigSite.debug.setDig(false); DigSite.debug.setRock({ x: 0.9, y: 0.8 }, 12); DigSite.debug.step(0.05, 80); DigSite.debug.place({ x: 0.2, y: 0.8 }); DigSite.debug.setStick(1, 0); DigSite.debug.step(1 / 60, 8); });
-    const rmCrew = await rm.page.evaluate(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); const cs = (sel, ps) => getComputedStyle(document.querySelector(sel), ps).animationName; return { bot: cs('.ck-crew-bot'), rig: cs('.ck-crew-rig'), companion: cs('.ck-companion'), stride: cs('#ck-hero'), puff: cs('.ck-dust i'), act: document.getElementById('ck-miner').dataset.act }; });
+    const rmCrew = await rm.page.evaluate(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); const cs = (sel, ps) => { const el = document.querySelector(sel); return el ? getComputedStyle(el, ps).animationName : 'none'; }; return { bot: cs('.ck-crew-bot'), rig: cs('.ck-crew-rig'), companion: cs('.ck-companion'), stride: cs('#ck-hero'), puff: cs('.ck-dust i'), act: document.getElementById('ck-miner')?.dataset.act }; });
     assert.deepEqual(rmCrew, { bot: 'none', rig: 'none', companion: 'none', stride: 'none', puff: 'none', act: 'walk' }, 'with reduced motion the crew, the companion and the stride stand still (he still walks)');
     await rm.page.evaluate(() => { DigSite.debug.setStick(0, 0); DigSite.debug.step(1 / 60, 30); state.owned.bot = 0; state.owned.rig = 0; updateUI(); });
     // the dig site honours it too: the miner still walks and digs and the rock still breaks, without pop-in, ghost or crumble particles
@@ -787,7 +787,7 @@ async function main() {
       });
       assert.equal(m.fits, true, `${tag}: the tab needs no scrolling`);
       assert.equal(m.h, false, `${tag}: no horizontal overflow`);
-      for (const k of ['ore', 'nodes', 'boost', 'go']) assert.ok(m[k].t >= 0 && m[k].b <= m.vh + 0.5 && m[k].l >= 0 && m[k].r <= m.vw + 0.5, `${tag}: ${k} is fully on screen`);
+      for (const k of ['ore', 'nodes', 'boost', 'go']) assert.ok(m[k].t >= 0 && m[k].b <= m.vh + 0.5 && m[k].l >= 0 && m[k].r <= m.vw + 0.5, `${tag}: ${k} is fully on screen (${JSON.stringify(m[k])}; viewport ${m.vw}x${m.vh})`);
       assert.ok(m.ore.w >= 84, `${tag}: the rock stays tappable (${Math.round(m.ore.w)}px)`);
       assert.ok(m.boost.h >= 40 && m.go.h >= 40, `${tag}: both buttons keep a finger-sized height`);
       assert.equal(m.display, 'block');

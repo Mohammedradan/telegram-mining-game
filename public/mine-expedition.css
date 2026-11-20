@@ -778,6 +778,21 @@ body.ck-cave .ck-screen-title {
 .ck-screen-title small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ck-screen-title b { font-size: 13px; font-weight: 950; line-height: 1.25; }
 .ck-screen-title small { margin-top: 2px; color: #b7c8e8; font-size: 9px; font-weight: 700; }
+.ck-adventure-open {
+  flex: 0 0 auto;
+  min-height: 44px;
+  margin-inline-start: auto;
+  padding: 7px 10px;
+  border: 1px solid rgba(253, 224, 71, .7);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f4c95d, #b56d18);
+  color: #251306;
+  font-size: 10px;
+  font-weight: 950;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+}
 
 body.ck-cave .ck-hud {
   position: fixed;
@@ -1082,7 +1097,7 @@ body.ck-cave #tap-hint { display: none !important; }
    artwork remains full-screen behind them; only the interactive field is inset. */
 @media (max-width: 520px) and (orientation: portrait) {
   body.ck-cave #ck-stage #click-area {
-    top: calc(136px + env(safe-area-inset-top, 0px));
+    top: calc(145px + env(safe-area-inset-top, 0px));
     right: 0;
     bottom: calc(136px + env(safe-area-inset-bottom, 0px));
     left: 0;
@@ -1175,15 +1190,41 @@ body.ck-cave #tap-hint { display: none !important; }
   body.ck-cave #ck-stage .ck-dig { bottom: 0 !important; }
 }
 
+@media (max-width: 340px) and (orientation: portrait) {
+  body.ck-cave #ck-stage .ck-nodes {
+    height: 44px !important;
+    min-height: 44px !important;
+    margin-top: 8px !important;
+    margin-bottom: 4px !important;
+  }
+  body.ck-cave #ck-stage .ck-node {
+    --ck-node: 44px !important;
+  }
+  body.ck-cave #ck-stage .ck-area {
+    min-height: 190px !important;
+  }
+}
+
 /* Mobile cave flow: keep the medals, mining field, actions and energy in separate rows */
 @media (max-width: 520px) {
   body.ck-cave #ck-stage {
     display: flex !important;
     flex-direction: column !important;
   }
+  body.ck-cave #ck-stage .ck-nodes {
+    position: relative !important;
+    inset: auto !important;
+    flex: 0 0 auto;
+    width: calc(100% - 16px) !important;
+    height: 50px !important;
+    margin-top: 48px !important;
+    margin-bottom: 8px !important;
+  }
   body.ck-cave #ck-stage .ck-area {
     position: relative !important;
     inset: auto !important;
+    top: 8px !important;
+    margin-top: 0 !important;
   }
   body.ck-cave #energy-container {
     position: static !important;

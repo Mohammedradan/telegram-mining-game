@@ -9,6 +9,15 @@ const digSite = fs.readFileSync(path.join(root, 'public/dig-site.js'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'public/clicker.css'), 'utf8');
 const page = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 
+test('classic mining stays visible while the adventure world is an explicit switch', () => {
+  assert.match(page, /<div id="adv-scene"[^>]* hidden>/);
+  assert.match(page, /<div id="ck-stage"[^>]*>/);
+  assert.doesNotMatch(page.slice(page.indexOf('<div id="ck-stage"'), page.indexOf('<div id="ck-stage"') + 180), /hidden/);
+  assert.match(page, /<button id="adv-open"[^>]*>عالم المنجم<\/button>/);
+  assert.match(page, /classicEl\.hidden = true;\s*sceneEl\.hidden = false;/);
+  assert.match(page, /sceneEl\.hidden = true;\s*classicEl\.hidden = false;/);
+});
+
 test('a connected overland landscape has walkable terrain, obstacles, and route progress driven by the miner', () => {
   assert.equal((digSite.match(/class="ck-route-node" data-route-index=/g) || []).length, 6);
   assert.match(digSite, /class="ck-overland-world" hidden role="region" aria-label="مسار جبلي متصل بين المناجم/);
