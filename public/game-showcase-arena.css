@@ -12,17 +12,6 @@
     linear-gradient(180deg, #071328, #090e1e 74%, #050913);
 }
 
-/* Show app header and bottom nav in arena showdown view (matching screenshot) */
-body.arena-live:not(.duel-live) .app-header {
-  display: flex !important;
-}
-body.arena-live:not(.duel-live) .bottom-nav {
-  display: flex !important;
-}
-body.arena-live:not(.duel-live) .arena-x-bar {
-  display: none !important;
-}
-
 #tab-arena:not(.arena-fighting) .arena-stage {
   position: relative !important;
   min-height: 520px;
@@ -1056,6 +1045,9 @@ body.arena-live:not(.duel-live) .arena-x-bar {
     bottom: 7px !important;
     width: min(38%, 150px) !important;
     z-index: 30 !important;
+  }
+  #platform-scene.scene-lobby:has(#platform-resume:not([hidden])) #platform-start {
+    display: none !important;
   }
 }
 

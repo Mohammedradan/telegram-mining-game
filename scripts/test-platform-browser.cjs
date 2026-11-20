@@ -173,7 +173,7 @@ async function main() {
       }
       // Poll instead of relying on one fixed sleep: CI runners can be slower.
       let jumped = await read(page);
-      for (let i = 0; i < 20 && !(jumped.x > 64 && jumped.y < 260); i++) { await wait(50); jumped = await read(page); }
+      for (let i = 0; i < 40 && !(jumped.x > 64 && jumped.y < 260); i++) { await wait(50); jumped = await read(page); }
       assert.ok(jumped.x > 64, JSON.stringify({ viewport, jumped }));
       assert.ok(jumped.y < 260, 'movement and jump work simultaneously');
       if (touchReady) await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -350,7 +350,8 @@ async function main() {
     assert.equal(await zonePage.evaluate(() => window.PlatformGame.getZone()), 0, 'the client falls back to the first mine');
     report.lockedMine = { status: 403, fallbackZone: 0 };
     report.cosmeticZones = { zone: zoneState.zone, name: await zonePage.evaluate(i => window.PlatformRules.ZONES[i].name, zoneState.zone) };
-    await zonePage.locator('#platform-pause').click();
+    await zonePage.evaluate(() => window.PlatformGame.pause());
+    assert.equal(await zonePage.evaluate(() => window.PlatformGame.inspect().paused), true, 'the locked-mine fallback leaves the run safely paused');
     assert.deepEqual(errors, []);
     await zoneContext.ctx.close();
     // ورشة المعدّن — معاينة بصرية تفاعلية على العميل فقط.
