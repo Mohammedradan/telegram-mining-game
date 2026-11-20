@@ -7,8 +7,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') + '\n' + fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(ROOT, 'public', 'arena-client.js'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(ROOT, 'public', 'app-shell.css'), 'utf8');
 const game = fs.readFileSync(path.join(ROOT, 'public', 'platform-game.js'), 'utf8');
+const duel = fs.readFileSync(path.join(ROOT, 'public', 'platform-duel.js'), 'utf8');
+const hud = fs.readFileSync(path.join(ROOT, 'public', 'platform-duel-hud.js'), 'utf8');
 const rules = fs.readFileSync(path.join(ROOT, 'public', 'platform-rules.js'), 'utf8');
 
 const block = (start, end) => {
@@ -59,19 +63,19 @@ test('C2: مركز الشاشة — المؤقّت والسجل، ولا شيء 
 test('C3: حالة القتال — تحذير انخفاض الصحة، الدرع، التبريد، وأرقام لا تغطي المقاتلَين', () => {
   assert.match(html, /id="cx-danger"/, 'a danger frame exists');
   assert.match(html, /\.cx-danger \{[^}]*inset 0 0 0 2px/, 'the danger is a frame on the edges, not a wash over the fighters');
-  assert.match(game, /classList\.toggle\('low', p\.hearts <= 1\)/, 'the hero plate warns when one heart is left');
-  assert.match(game, /classList\.toggle\('low', Boolean\(rival\) && rival\.hp \/ Math\.max\(1, rival\.maxHp\) <= 0\.25\)/, 'the rival plate warns below a quarter health');
-  assert.match(game, /classList\.toggle\('guard', Boolean\(p\.guard && p\.guard\.active\)\)/, 'guard is highlighted while the shield holds');
-  assert.match(game, /classList\.toggle\('skillready'/, 'a ready skill is highlighted');
-  assert.match(game, /const guardBar = el\('cx-guard-hero'\)[\s\S]{0,220}?guardBar\.style\.width = /, 'the guard meter is written from guard stamina');
-  assert.match(game, /cx-guard-hero/, 'the guard meter has a real element');
+  assert.match(hud, /classList\.toggle\('low', p\.hearts <= 1\)/, 'the hero plate warns when one heart is left');
+  assert.match(hud, /classList\.toggle\('low', Boolean\(rival\) && rival\.hp \/ Math\.max\(1, rival\.maxHp\) <= 0\.25\)/, 'the rival plate warns below a quarter health');
+  assert.match(hud, /classList\.toggle\('guard', Boolean\(p\.guard && p\.guard\.active\)\)/, 'guard is highlighted while the shield holds');
+  assert.match(hud, /classList\.toggle\('skillready'/, 'a ready skill is highlighted');
+  assert.match(hud, /const guardBar = el\('cx-guard-hero'\)[\s\S]{0,220}?guardBar\.style\.width = /, 'the guard meter is written from guard stamina');
+  assert.match(html, /id="cx-guard-hero"/, 'the guard meter has a real element');
   assert.match(html, /\[data-duel-input="32"\]\.cool::after \{\s*content: attr\(data-cd\)/, 'the skill button prints its own countdown');
-  assert.match(game, /skillBtn\.dataset\.cd = String\(Math\.max\(0, Math\.ceil\(p\.skillCooldown \/ \(R\.FPS \|\| 60\)\)\)\)/, 'the countdown is in seconds, read from the simulation cooldown');
+  assert.match(hud, /skillBtn\.dataset\.cd = String\(Math\.max\(0, Math\.ceil\(p\.skillCooldown \/ \(rules\.FPS \|\| 60\)\)\)\)/, 'the countdown is in seconds, read from the simulation cooldown');
   // أرقام الضرر تُشتق من فرق الحالة بين إطارين، وتختفي وحدها
-  assert.match(game, /function duelSideDelta\(/, 'damage numbers come from one helper');
-  assert.match(game, /duelSideDelta\('hero', duelSidePrev\.hearts - heartsNow\)/, 'the hero number is the difference in hearts');
-  assert.match(game, /duelSideDelta\('rival', duelSidePrev\.rival - rivalNow\)/, 'the rival number is the difference in hp');
-  assert.match(game, /duelSidePrev = \{ hearts: heartsNow, rival: rivalNow \}/, 'the previous frame is kept for the next comparison');
+  assert.match(hud, /function sideDelta\(/, 'damage numbers come from one helper');
+  assert.match(hud, /sideDelta\('hero', sidePrev\.hearts - heartsNow\)/, 'the hero number is the difference in hearts');
+  assert.match(hud, /sideDelta\('rival', sidePrev\.rival - rivalNow\)/, 'the rival number is the difference in hp');
+  assert.match(hud, /sidePrev = \{ hearts: heartsNow, rival: rivalNow \}/, 'the previous frame is kept for the next comparison');
   assert.match(html, /@keyframes cxDelta/, 'the number floats up and fades');
   assert.match(html, /\.as-delta \{[^}]*pointer-events: none/, 'it never eats a tap');
 });
@@ -100,16 +104,17 @@ test('C4: الإيقاف والخروج — يمرّان عبر المسار ا�
   assert.match(html, /arenaPausePanel\(Boolean\(game\.duelBusy\?\.\(\)\.paused\)\)/, 'the panel follows the real paused state');
   assert.match(html, /'platform-duel-done'[\s\S]{0,120}?arenaPausePanel\(false\)/, 'a finished duel closes the panel');
   // نفس الأرقام تأتي من لقطة العرض في المحاكاة
-  assert.match(game, /hearts: duelSim\?\.player\?\.hearts \?\? null/, 'the snapshot exposes hearts');
-  assert.match(game, /rivalHp: /, 'and the rival hp');
-  assert.match(game, /timeLeft: duelSim \? Math\.max\(0, Math\.ceil\(\(R\.MAX_TICKS - duelSim\.tick\) \/ R\.FPS\)\) : null/, 'and the clock');
+  assert.match(duel, /hearts: duelSim\?\.player\?\.hearts \?\? null/, 'the snapshot exposes hearts');
+  assert.match(duel, /rivalHp: /, 'and the rival hp');
+  assert.match(duel, /timeLeft: duelSim \? Math\.max\(0, Math\.ceil\(\(R\.MAX_TICKS - duelSim\.tick\) \/ R\.FPS\)\) : null/, 'and the clock');
 });
 
 test('C5: طبقة عرض فقط — القواعد والنسخة والضرر والمكافآت لم تُلمس', () => {
   assert.doesNotMatch(rules, /cx-hud|cx-pause|cx-delta|as-seg|as-pip/, 'no HUD code leaked into the rules');
   assert.match(rules, /const VERSION = 15/, 'the replayable logistics goal is versioned');
   assert.doesNotMatch(game, /\.hearts = |\.maxHp = |\.hp = /, 'the display layer never writes combat state back');
-  assert.match(game, /startDuel\(zone = 0\) \{/, 'the duel entry point is unchanged in name and place');
+  assert.match(game, /startDuel: duelController\.startDuel/, 'the duel entry point stays available on the game API');
+  assert.match(duel, /startDuel\(zone = 0\) \{/, 'the arena controller keeps the same entry point');
 });
 
 test('C6: الهوامش — الهاتف لا يصبح كومة أزرار واللوحة لا تتضخّم على الشاشات الكبيرة', () => {
@@ -119,6 +124,6 @@ test('C6: الهوامش — الهاتف لا يصبح كومة أزرار وا
   assert.match(html, /@media \(max-width: 430px\)[\s\S]{0,700}?body\.duel-live \.arena-pad \.ap-acts \.ap-hit/, 'narrow phones shrink the pad targets instead of clipping a button');
   assert.match(html, /@media \(max-width: 360px\)[\s\S]{0,240}?\.as-name \{ font-size: 9\.5px/, 'the smallest phone trims the name type, not the name');
   assert.match(html, /--cx-pad-h/, 'the floating status line measures the pad instead of guessing');
-  assert.match(game, /rootStyle\.setProperty\('--cx-pad-h'/, 'and the measurement comes from the real pad height');
+  assert.match(hud, /rootStyle\.setProperty\('--cx-pad-h'/, 'and the measurement comes from the real pad height');
   assert.match(html, /body\.duel-live\.arena-live #tab-arena > #arena-duel-status \{[\s\S]{0,260}?var\(--cx-pad-h/, 'the status pill sits right above it');
 });

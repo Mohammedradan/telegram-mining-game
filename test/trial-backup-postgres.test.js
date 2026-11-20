@@ -200,7 +200,7 @@ test('backupPostgres يغلق الاتصال حتى لو فشل الاتصال �
 
 test('backupPostgres يكتب نسخة JSON متّسقة (بجدول غائب) ثم يغلق الاتصال', async () => {
   const rows = { ...fullRows };
-  delete rows.week_claims;
+  delete rows.deep_dig_runs; // قاعدة أُنشئت قبل جدول الحفر العميق
   const client = postgresLike({ rows });
   const dest = await backupPostgres('postgres://u:p@db.example.com:5432/game', {
     dir: tmpDir, stamp: 'ok-case', createClient: () => client,
@@ -208,7 +208,7 @@ test('backupPostgres يكتب نسخة JSON متّسقة (بجدول غائب) �
   assert.equal(dest, path.join(tmpDir, 'game-ok-case.json'));
   const dump = JSON.parse(fs.readFileSync(dest, 'utf8'));
   assert.deepEqual(Object.keys(dump.tables), TABLES);
-  assert.deepEqual(dump.tables.week_claims, []);
+  assert.deepEqual(dump.tables.deep_dig_runs, []);
   assert.equal(dump.driver, 'postgres');
   assert.equal(client.state.ended, true);
   assert.equal(client.state.outcome, 'committed');

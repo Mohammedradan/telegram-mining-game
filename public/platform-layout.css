@@ -439,6 +439,35 @@ body #platform-scene.scene-live .mine-title,
 body #platform-scene.scene-live .mine-economy { display: none; }
 body #platform-scene.scene-live .mine-topbar { justify-content: center; min-height: 0; padding: 3px 6px; }
 body #platform-scene.scene-live .mine-heading-actions { margin-inline: auto; gap: 4px; }
+
+/* Keep the active game header and scene inside the phone viewport. The showcase
+   desktop stage has a fixed 770px height; on phones it must return to flex sizing. */
+@media (max-width: 600px) {
+  body #platform-scene.scene-live .mine-topbar {
+    display: flex !important;
+    flex: 0 0 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    width: 100% !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+  body #platform-scene.scene-live .mine-heading-actions {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    justify-content: center !important;
+  }
+  body #platform-scene.scene-live .mine-stage {
+    flex: 1 1 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+}
 body.scene-live .bottom-nav {
   flex: 0 0 52px;
   height: 52px;

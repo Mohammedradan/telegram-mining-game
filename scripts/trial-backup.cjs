@@ -26,7 +26,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const TABLES = ['users', 'platform_runs', 'op_ledger', 'race_stats', 'pending_referrals', 'week_claims'];
+// يجب أن تطابق جداول db.js حرفياً. كان في القائمة جدول غير موجود (week_claims) وغاب
+// جدول حقيقي (deep_dig_runs)، فكانت النسخة الاحتياطية تُسقط جولات الحفر العميق بصمت.
+// يحرس التطابق اختبار في test/trial-backup-schema.test.js.
+const TABLES = ['users', 'platform_runs', 'deep_dig_runs', 'op_ledger', 'race_stats', 'pending_referrals'];
 const STAMP = new Date().toISOString().replace(/[:.]/g, '-');
 
 function arg(name, fallback = null) {

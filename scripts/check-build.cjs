@@ -6,10 +6,12 @@ const { Script } = require('node:vm');
 const root = path.join(__dirname, '..');
 let checkedFiles = 0;
 
-for (const dir of ['', 'public']) {
+// كل ملفات الشيفرة في المستودع، لا قائمة مكتوبة يدوياً: كانت package.json تُعدّد 58 ملفاً
+// بالاسم وتنسى lib/ وscripts/ كلما أُضيف ملف جديد (فحص الصيغة كان يصمت عنها).
+for (const dir of ['', 'public', 'lib', 'scripts']) {
   const directory = path.join(root, dir);
   for (const file of fs.readdirSync(directory)) {
-    if (!file.endsWith('.js')) continue;
+    if (!/\.(js|cjs)$/.test(file)) continue;
     const filename = path.join(dir, file);
     new Script(fs.readFileSync(path.join(root, filename), 'utf8'), { filename });
     checkedFiles++;

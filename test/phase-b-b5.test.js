@@ -211,7 +211,7 @@ test('B5: reduced motion keeps the full danger area and drops only the animation
 test('B5: markers are drawn under the hero and the enemies, never over them', () => {
   const markersAt = rendererJs.indexOf('drawTelegraphs(c, opts.telegraphs, reduced)');
   const enemiesAt = rendererJs.indexOf('for (const enemy of s.enemies)');
-  const heroAt = rendererJs.indexOf('drawHeroGhost(c, displayPlayer');
+  const heroAt = rendererJs.indexOf('Characters.drawHeroGhost(c, displayPlayer');
   assert.ok(markersAt > 0 && enemiesAt > 0 && heroAt > 0);
   assert.ok(markersAt < enemiesAt, 'the ground layer is painted before the enemies');
   assert.ok(markersAt < heroAt, 'and before the hero');

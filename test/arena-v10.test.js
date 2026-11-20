@@ -158,7 +158,8 @@ test('V10 skill: mashing the key cannot exceed the cooldown rate', () => {
 
 // ---------- 5) واجهة الساحة تعرض المعدات ----------
 test('V10 UI: the arena shows the gear card and fills it from the shared rules', () => {
-  const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
+  const html = (fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8') +
+    fs.readFileSync(path.join(ROOT, 'public', 'arena-client.js'), 'utf8')).replace(/\r\n/g, '\n');
   assert.match(html, /id="arena-gear"[^>]*aria-label="معداتك في المبارزة"/, 'the arena tab has a gear card');
   assert.ok(html.indexOf('id="arena-gear"') < html.indexOf('id="arena-ladder"'), 'it sits before the rival ladder, i.e. before the duel starts');
   assert.match(html, /function renderArenaGear\(\)/, 'and it is rendered by a real function');
@@ -230,8 +231,8 @@ test('V10 server: a forged loadout in the request body is ignored — the saved 
 });
 
 test('arena leaderboard ranks real persistent records and excludes players without wins', async () => {
-  // The test database is shared by the CI suites. Use unique names and assert our
-  // records in leaderboard order, without assuming no other player has a real win.
+  // CI reuses one PostgreSQL database across suites. Unique names prevent fixtures
+  // from colliding, and assertions tolerate unrelated legitimate winners.
   const players = [
     { key: 'top-clean', name: `Top Clean ${runId}`, record: { wins: 5, losses: 0, draws: 1 } },
     { key: 'top-rough', name: `Top Rough ${runId}`, record: { wins: 5, losses: 2, draws: 0 } },
@@ -254,13 +255,17 @@ test('arena leaderboard ranks real persistent records and excludes players witho
   const response = await fetch(`http://127.0.0.1:${port}/api/arena-leaderboard`);
   assert.equal(response.status, 200);
   const { leaderboard } = await response.json();
-  const ranked = leaderboard.filter((row) => players.slice(0, 3).some((player) => player.name === row.name));
-  assert.deepEqual(ranked.map(({ name, wins, losses, draws }) => ({ name, wins, losses, draws })), players.slice(0, 3).map(({ name, record }) => ({
+  const seededWinners = players.slice(0, 3);
+  const ranked = leaderboard.filter((row) => seededWinners.some((player) => player.name === row.name));
+  assert.deepEqual(ranked.map(({ name, wins, losses, draws }) => ({ name, wins, losses, draws })), seededWinners.map(({ name, record }) => ({
     name, wins: record.wins, losses: record.losses, draws: record.draws,
-  })), 'the three persistent winners are ranked by wins, losses, then name');
-  assert.ok(ranked[0].rank < ranked[1].rank && ranked[1].rank < ranked[2].rank, 'the seeded winners keep their relative leaderboard order');
-  assert.equal(leaderboard.some((row) => row.name === players[3].name), false, 'a player with zero wins is excluded');
-  assert.ok(leaderboard.every((row, index) => row.rank === index + 1), 'ranks remain contiguous even when unrelated winners are present');
+  })), 'the seeded winners keep their relative wins/losses ordering');
+  assert.ok(ranked[0].rank < ranked[1].rank && ranked[1].rank < ranked[2].rank,
+    'the seeded winners retain their relative leaderboard order');
+  assert.equal(leaderboard.some((row) => row.name === players[3].name), false,
+    'players without wins are excluded');
+  assert.ok(leaderboard.every((row, index) => row.rank === index + 1),
+    'ranks remain contiguous when unrelated winners are present');
 });
 
 // ---------- 7) الرحلة الكاملة عبر الخادم: معدات ← مبارزة ← خسارة/فوز ← مكافأة ← عودة ← تعدين ----------

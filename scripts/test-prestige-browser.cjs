@@ -54,6 +54,7 @@ async function main() {
   const overlap = (a, b) => a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1;
   const text = (page, sel) => page.locator(sel).innerText().then((s) => s.replace(/\s+/g, ' ').trim());
   const server = (page) => page.evaluate(async () => (await window.PlatformBridge.request('/api/me')).state);
+  const serverSnapshot = (page) => page.evaluate(async () => { const result = await window.PlatformBridge.request('/api/me'); return { state: result.state, serverTime: result.serverTime }; });
   const btn = (page) => page.evaluate(() => { const b = document.getElementById('prestige-btn'); return { state: b.dataset.state, disabled: b.disabled, text: b.textContent }; });
 
   try {
@@ -89,7 +90,8 @@ async function main() {
       await page.waitForFunction(() => document.getElementById('prestige-btn').dataset.state === 'ready');
       assert.deepEqual(await btn(page), { state: 'ready', disabled: false, text: 'تبجيل ← ×1.1' });
       await synced(page);
-      const before = await server(page), readAt = Date.now();
+      const beforeSnapshot = await serverSnapshot(page), before = beforeSnapshot.state;
+      assert.ok(Number.isFinite(beforeSnapshot.serverTime), 'the server supplies the authoritative snapshot time');
       assert.deepEqual([before.owned.bot, before.owned.rig, before.prestige], [15, 3, 0]);
       assert.equal(before.passiveIncome, 150);
 
@@ -116,11 +118,13 @@ async function main() {
       assert.equal(await text(page, '#cost-upgrade-bot'), '200');
       await synced(page);
       assert.match(await page.locator('#sync-status').innerText(), /تبجيل مُعتمد: المستوى 1 — دخلك السلبي ×1\.1/);
-      const after = await server(page);
+      const afterSnapshot = await serverSnapshot(page), after = afterSnapshot.state;
+      assert.ok(Number.isFinite(afterSnapshot.serverTime) && afterSnapshot.serverTime >= beforeSnapshot.serverTime, 'the final server snapshot time is monotonic');
       assert.deepEqual([after.owned.bot, after.owned.rig, after.prestige, after.costs.bot, after.costs.rig, after.passiveIncome], [0, 0, 1, 200, 1000, 0], 'the server agrees');
       for (const k of ['ores', 'equipment', 'mines', 'adventureUpgrades', 'adventure']) assert.deepEqual(after[k], before[k], `${k} is untouched`);
       assert.equal(after.owned.click, 4); assert.equal(after.xp, before.xp);
-      const earnedMeanwhile = 150 * ((Date.now() - readAt) / 1000 + 2);   // 150 a second for as long as the test took (the waits above), plus slack
+      const elapsedSeconds = (afterSnapshot.serverTime - beforeSnapshot.serverTime) / 1000;
+      const earnedMeanwhile = before.passiveIncome * (elapsedSeconds + 0.25); // server-to-server elapsed time avoids client/network clock skew; 250ms covers rounding only
       assert.ok(after.gold >= before.gold && after.gold - before.gold <= earnedMeanwhile, `gold: nothing spent or lost, only the income earned meanwhile: ${before.gold} → ${after.gold} (at most +${Math.round(earnedMeanwhile)})`);
       // the card, locked again at level 1: it asks for more now
       assert.deepEqual(await btn(page), { state: 'locked', disabled: true, text: 'يلزمك 17 عاملاً و4 منصّة' });

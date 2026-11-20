@@ -8,6 +8,47 @@ const USER_COLUMNS = `id, name, state_json, referral_count, referral_earnings,
   referred_by, daily_last_claim, daily_streak, unacked_credits, violations,
   last_save_at, created_at, updated_at, revision, sync_json`;
 
+// سياسة TLS لاتصال PostgreSQL — نفس سياسة scripts/trial-backup.cjs حرفياً حتى لا تختلف أداتا
+// التشغيل على نفس القاعدة:
+//   الافتراضي        → تحقق كامل بشهادة النظام (rejectUnauthorized: true)
+//   PGSSL=disable    → بلا TLS (قاعدة محلية فقط)
+//   PGSSL=no-verify  → تعطيل صريح للتحقق (طارئ فقط، ويُعلن نفسه في السجل)
+//   PGSSLROOTCERT    → مسار شهادة سلطة خاصة للمزوّد؛ لا يُلغي التحقق
+// قبل هذا كانت كل اتصالات السحابة تُفتح بـ rejectUnauthorized:false بينما الوثائق تَعِد بـ
+// PGSSLROOTCERT (خيار لم يكن مطبّقاً هنا إطلاقاً)، فكان التحقق معطّلاً بصمت.
+const LOCAL_DB_URL = /localhost|127\.0\.0\.1|\.internal\b/;
+function pgSslConfig(url, env = process.env) {
+  if (LOCAL_DB_URL.test(String(url || ''))) return { ssl: undefined, warning: null };
+  const mode = String(env.PGSSL || '').trim().toLowerCase();
+  if (mode === 'disable') return { ssl: undefined, warning: null };
+  if (mode === 'no-verify') {
+    return {
+      ssl: { rejectUnauthorized: false },
+      warning: '⚠️ PGSSL=no-verify: التحقق من شهادة PostgreSQL معطّل صراحةً — لا تستخدمه إلا مؤقتًا وبسبب مكتوب.',
+    };
+  }
+  const caPath = String(env.PGSSLROOTCERT || '').trim();
+  // ملف غير موجود = خطأ تشغيل واضح، لا اتصال بلا تحقق (التراجع الصامت هو ما نُصلحه هنا).
+  const ssl = caPath ? { rejectUnauthorized: true, ca: fs.readFileSync(caPath, 'utf8') } : { rejectUnauthorized: true };
+  return { ssl, warning: null };
+}
+
+// تقليم البيانات القديمة: الجداول كانت تنمو بلا حد (صف لكل جولة ولكل عملية ولكل سباق).
+// القيم بالأيام، 0 = تعطيل التقليم لذلك الجدول.
+const RETENTION_DEFAULTS = { runDays: 30, ledgerDays: 90, raceDays: 400 };
+// جولة ما زالت "playing" أطول من هذه المدة مهجورة قطعاً (عمر التذكرة 30 دقيقة في كل الأوضاع).
+const ABANDONED_PLAYING_MS = 7 * 24 * 60 * 60 * 1000;
+
+function pruneCutoffs({ now = Date.now(), runDays = RETENTION_DEFAULTS.runDays, ledgerDays = RETENTION_DEFAULTS.ledgerDays, raceDays = RETENTION_DEFAULTS.raceDays } = {}) {
+  const day = 24 * 60 * 60 * 1000;
+  return {
+    runBefore: runDays > 0 ? now - runDays * day : null,
+    ledgerBefore: ledgerDays > 0 ? now - ledgerDays * day : null,
+    raceBefore: raceDays > 0 ? now - raceDays * day : null,
+    playingBefore: now - ABANDONED_PLAYING_MS,
+  };
+}
+
 const parseJson = (value, fallback) => {
   if (value && typeof value === 'object') return value;
   if (typeof value !== 'string' || !value) return fallback;
@@ -107,6 +148,11 @@ CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_user ON deep_dig_runs (user_id, sta
 CREATE INDEX IF NOT EXISTS idx_users_total ON users ((CAST(json_extract(state_json, '$.totalEarned') AS REAL)) DESC);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
+-- فهارس التقليم (pruneOldData): حذف قديم بلا مسح كامل للجدول
+CREATE INDEX IF NOT EXISTS idx_platform_runs_updated ON platform_runs (updated_at);
+CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_updated ON deep_dig_runs (updated_at);
+CREATE INDEX IF NOT EXISTS idx_op_ledger_created ON op_ledger (created_at);
+CREATE INDEX IF NOT EXISTS idx_race_stats_updated ON race_stats (updated_at);
 `;
 
 const SCHEMA_PG = `
@@ -146,6 +192,11 @@ CREATE TABLE IF NOT EXISTS deep_dig_runs (
 CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_user ON deep_dig_runs (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_race_stats_user ON race_stats (user_id);
 CREATE INDEX IF NOT EXISTS idx_platform_runs_user ON platform_runs (user_id, status);
+-- فهارس التقليم (pruneOldData): حذف قديم بلا مسح كامل للجدول
+CREATE INDEX IF NOT EXISTS idx_platform_runs_updated ON platform_runs (updated_at);
+CREATE INDEX IF NOT EXISTS idx_deep_dig_runs_updated ON deep_dig_runs (updated_at);
+CREATE INDEX IF NOT EXISTS idx_op_ledger_created ON op_ledger (created_at);
+CREATE INDEX IF NOT EXISTS idx_race_stats_updated ON race_stats (updated_at);
 `;
 
 function createSqliteStore(file) {
@@ -291,6 +342,20 @@ function createSqliteStore(file) {
     async setPending(id, count) {
       if (count > 0) conn.prepare('INSERT INTO pending_referrals (id, count) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET count = excluded.count').run(String(id), count);
     },
+    // تقليم دوري للبيانات القديمة (انظر pruneCutoffs): جولات منتهية، جولات مهجورة، سجل عمليات، سباقات قديمة
+    async pruneOldData(options) {
+      const cut = pruneCutoffs(options);
+      const out = { platformRuns: 0, deepDigRuns: 0, ledger: 0, raceStats: 0 };
+      if (cut.runBefore !== null) {
+        out.platformRuns += conn.prepare("DELETE FROM platform_runs WHERE updated_at < ? AND status <> 'playing'").run(cut.runBefore).changes;
+        out.platformRuns += conn.prepare("DELETE FROM platform_runs WHERE status = 'playing' AND updated_at < ?").run(cut.playingBefore).changes;
+        out.deepDigRuns += conn.prepare("DELETE FROM deep_dig_runs WHERE updated_at < ? AND status <> 'playing'").run(cut.runBefore).changes;
+        out.deepDigRuns += conn.prepare("DELETE FROM deep_dig_runs WHERE status = 'playing' AND updated_at < ?").run(cut.playingBefore).changes;
+      }
+      if (cut.ledgerBefore !== null) out.ledger = conn.prepare('DELETE FROM op_ledger WHERE created_at < ?').run(cut.ledgerBefore).changes;
+      if (cut.raceBefore !== null) out.raceStats = conn.prepare('DELETE FROM race_stats WHERE updated_at < ?').run(cut.raceBefore).changes;
+      return out;
+    },
     async close() { conn.close(); },
   };
 }
@@ -298,7 +363,8 @@ function createSqliteStore(file) {
 function createPgStore(url) {
   const { Pool } = require('pg');
   // اتصالات داخلية (localhost أو شبكة Render الداخلية) بلا SSL، وغيرها بـ SSL كما تفرضه السحابة
-  const isLocal = /localhost|127\.0\.0\.1|\.internal\b/.test(url);
+  const tls = pgSslConfig(url);
+  if (tls.warning) console.warn(tls.warning);
   // مهلات صريحة: قواعد البيانات المجانية (Neon/Supabase/Render) تُوقف الحوسبة عند الخمول،
   // فطلب بلا مهلة قد يتعلّق دقيقة كاملة عند أول اتصال بعد سكون. القيم قابلة للضبط من البيئة.
   const pool = new Pool({
@@ -306,7 +372,7 @@ function createPgStore(url) {
     max: Math.max(1, Math.min(50, Number(process.env.PG_POOL_MAX) || 10)),
     connectionTimeoutMillis: Math.max(1000, Number(process.env.PG_CONNECT_TIMEOUT_MS) || 10000),
     idleTimeoutMillis: Math.max(1000, Number(process.env.PG_IDLE_TIMEOUT_MS) || 30000),
-    ssl: !isLocal && process.env.PGSSL !== 'disable' ? { rejectUnauthorized: false } : undefined,
+    ssl: tls.ssl,
   });
   // أكثر من خادم/اختبار قد يبدأ على قاعدة PostgreSQL نفسها بالتزامن.
   // IF NOT EXISTS وحدها لا تمنع سباق إنشاء نوع الجدول الداخلي في PostgreSQL؛ قفل advisory
@@ -421,6 +487,20 @@ function createPgStore(url) {
     async setPending(id, count) {
       if (count > 0) await q('INSERT INTO pending_referrals (id, count) VALUES ($1, $2) ON CONFLICT(id) DO UPDATE SET count = EXCLUDED.count', [String(id), count]);
     },
+    // تقليم دوري للبيانات القديمة — نفس سياسة SQLite حرفياً
+    async pruneOldData(options) {
+      const cut = pruneCutoffs(options);
+      const out = { platformRuns: 0, deepDigRuns: 0, ledger: 0, raceStats: 0 };
+      if (cut.runBefore !== null) {
+        out.platformRuns += (await q("DELETE FROM platform_runs WHERE updated_at < $1 AND status <> 'playing'", [cut.runBefore])).rowCount;
+        out.platformRuns += (await q("DELETE FROM platform_runs WHERE status = 'playing' AND updated_at < $1", [cut.playingBefore])).rowCount;
+        out.deepDigRuns += (await q("DELETE FROM deep_dig_runs WHERE updated_at < $1 AND status <> 'playing'", [cut.runBefore])).rowCount;
+        out.deepDigRuns += (await q("DELETE FROM deep_dig_runs WHERE status = 'playing' AND updated_at < $1", [cut.playingBefore])).rowCount;
+      }
+      if (cut.ledgerBefore !== null) out.ledger = (await q('DELETE FROM op_ledger WHERE created_at < $1', [cut.ledgerBefore])).rowCount;
+      if (cut.raceBefore !== null) out.raceStats = (await q('DELETE FROM race_stats WHERE updated_at < $1', [cut.raceBefore])).rowCount;
+      return out;
+    },
     async recordRaceResult(week, { id, name, score, won }) {
       await q(`INSERT INTO race_stats (week, user_id, name, races, wins, best_score, total_score, updated_at)
         VALUES ($1, $2, $3, 1, $4, $5, $5, $6)
@@ -485,4 +565,4 @@ function createStore() {
   return createSqliteStore(file);
 }
 
-module.exports = { createStore };
+module.exports = { createStore, pgSslConfig, pruneCutoffs, RETENTION_DEFAULTS, ABANDONED_PLAYING_MS };
