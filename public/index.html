@@ -2813,8 +2813,9 @@
       document.getElementById('energy-container').style.display = (tabId === 'mining') ? 'block' : 'none';
       window.ClickerFX?.onTab?.(tabId); // يُفرغ المؤثرات العالقة عند المغادرة ويُنعش العرض عند الدخول
       window.DigSite?.onTab?.(tabId);   // يوقف المعدّن عند المغادرة ويعيد قياس الساحة عند الدخول
-      // عالم منجم الحجر: يتوقف فور مغادرة تبويب التعدين حتى لا يظل الرصاص يتحرك في الخلفية
-      if (tabId === 'mining') window.AdvMine?.scene?.show?.();
+      // لا نشغّل العالم حين تكون الشاشة الكلاسيكية هي الظاهرة؛ المشهد يملك مستمع لوحة مفاتيح عاماً.
+      const adventureVisible = document.getElementById('adv-scene')?.hidden === false;
+      if (tabId === 'mining' && adventureVisible) window.AdvMine?.scene?.show?.();
       else window.AdvMine?.scene?.hide?.();
       if (tabId !== 'play') window.PlatformGame?.pause();
       if (tabId !== 'play' && adv.running && !adv.paused) setAdventurePaused(true);

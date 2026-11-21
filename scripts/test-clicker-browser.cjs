@@ -124,6 +124,34 @@ async function main() {
     assert.match(sheets.ore, /ore-sheet\.webp/);
     report.scene.phone = { picture: 'portrait', images: scene.imgs.length, sheets: true };
 
+    // 1c) keyboard: exercise real server-backed energy before any local-only energy test
+    await settle(page);
+    await page.focus('#mine-btn');
+    const keyboardReady = await page.evaluate(() => ({
+      energy: state.energy, clickPower: state.clickPower, focused: document.activeElement?.id,
+      sceneHidden: document.getElementById('adv-scene')?.hidden,
+      sceneRunning: window.AdvMine?.scene?.running, scenePaused: window.AdvMine?.scene?.paused,
+    }));
+    assert.equal(keyboardReady.focused, 'mine-btn', `the mining button owns keyboard focus (${JSON.stringify(keyboardReady)})`);
+    assert.ok(keyboardReady.energy >= keyboardReady.clickPower * 3, `keyboard test needs three real-energy taps (${JSON.stringify(keyboardReady)})`);
+    assert.equal(keyboardReady.sceneHidden, true, 'the classic screen keeps the adventure scene hidden');
+    assert.equal(keyboardReady.sceneRunning, false, 'a hidden adventure scene does not run');
+
+    const k0 = await page.evaluate(() => state.gold);
+    await page.keyboard.press('Enter'); await page.keyboard.press('Space');
+    await settle(page);
+    const k1 = await page.evaluate(() => state.gold);
+    assert.equal(k1 - k0, 2, 'Enter and Space each mine once');
+    await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.up('Enter');
+    await settle(page);
+    const k2 = await page.evaluate(() => state.gold);
+    assert.equal(k2 - k1, 1, 'holding a key does not auto-repeat');
+    report.keyboard = { enterSpace: true, noRepeat: true };
+    await wait(1000);
+    await settle(page);
+    await page.evaluate(() => {
+      if (!document.getElementById('dd-overlay').hidden && window.DeepDigUI?.close) window.DeepDigUI.close();
+    });
     // 2) tilt follows the touch point (right edge presses the right side in, top edge presses the top in)
     const tilt = await page.evaluate(`(() => { const tap = ${TAP}; const read = () => { const c = document.getElementById('ck-ore'); return [parseFloat(c.style.getPropertyValue('--ry')), parseFloat(c.style.getPropertyValue('--rx')), c.classList.contains('is-down'), parseFloat(c.style.getPropertyValue('--sc'))]; };
       tap({ fx: 0.98, fy: 0.5 }); const right = read(); tap({ fx: 0.02, fy: 0.5 }); const left = read(); tap({ fx: 0.5, fy: 0.02 }); const top = read(); tap({ fx: 0.5, fy: 0.98 }); const bottom = read();
@@ -230,21 +258,7 @@ async function main() {
     await wait(2200); // the notice and the status pill finish
     await settle(page);
 
-    // 6) keyboard: Enter/Space mine once per press, holding does not repeat
-    await page.focus('#mine-btn');
-    const k0 = await page.evaluate(() => state.gold);
-    await page.keyboard.press('Enter'); await page.keyboard.press('Space');
-    const k1 = await page.evaluate(() => state.gold);
-    assert.equal(k1 - k0, 2, 'Enter and Space each mine once');
-    await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.up('Enter');
-    const k2 = await page.evaluate(() => state.gold);
-    assert.equal(k2 - k1, 1, 'holding a key does not auto-repeat');
-    report.keyboard = { enterSpace: true, noRepeat: true };
-    await wait(1000);
-    await settle(page);
-    await page.evaluate(() => {
-      if (!document.getElementById('dd-overlay').hidden && window.DeepDigUI?.close) window.DeepDigUI.close();
-    });
+
 
     // 7) boost: the button looks active (not greyed out), doubles the numbers, and the glow turns violet
     await page.locator('#boost-btn').tap();

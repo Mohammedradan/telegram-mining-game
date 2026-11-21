@@ -608,7 +608,7 @@
 
     // ------------------------------------------------------------------ keyboard
     function onKeyDown(event) {
-      if (!running) return;
+      if (!running || paused || rootEl.hidden) return;
       const tag = event.target && event.target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (event.code === 'Escape') { closeCrewSheet(); return; }
