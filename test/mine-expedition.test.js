@@ -105,8 +105,20 @@ test('each cave places caches in distinct reachable locations and checks the dis
 });
 
 test('expanded mining shell is wired, responsive and focusable', () => {
-  assert.match(html, /href="\/mine-expedition\.css\?v=18"/);
+  assert.match(html, /href="\/mine-expedition\.css\?v=19"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
+  const titleStart = html.indexOf('<div class="ck-screen-title">');
+  const titleEnd = html.indexOf('</div>', titleStart);
+  assert.ok(titleStart >= 0 && titleEnd > titleStart, 'the decorative mining title exists');
+  assert.doesNotMatch(html.slice(titleStart, titleEnd + 6), /id="adv-open"/,
+    'the adventure entry is not nested in the title hit area');
+  assert.match(html, /<button id="adv-open"[^>]*class="ck-adventure-open"/,
+    'the adventure entry remains an explicit button');
+  assert.match(css, /body\.ck-cave \.ck-screen-title \{ display: none !important; \}/);
+  assert.match(css, /\.ck-adventure-open \{[^}]*position: fixed;[^}]*top: max\(0px, env\(safe-area-inset-top, 0px\)\);[^}]*left: max\(8px, env\(safe-area-inset-left, 0px\)\);[^}]*width: 158px;[^}]*height: 44px;/s,
+    'the adventure entry has its own safe 44px top-left hit target');
+  assert.match(css, /body\.ck-cave \.ck-adventure-open \{ display: flex; \}/,
+    'the adventure entry is visible only in the cave hub');
   assert.match(html, /id="i-fullscreen"/);
   assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
   assert.match(css, /body\.ck-cave\s*\{[^}]*max-width:\s*none/s);
