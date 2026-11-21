@@ -237,6 +237,23 @@ async function main() {
       const actions = document.querySelector('.ck-actions');
       const boost = document.getElementById('boost-btn');
       const toggle = document.getElementById('ck-fullscreen');
+      const stage = document.getElementById('ck-stage');
+      const main = document.getElementById('tab-mining');
+      const boostRect = rect(boost);
+      const boostPoint = boostRect ? { x: boostRect.x + boostRect.w / 2, y: boostRect.y + boostRect.h / 2 } : null;
+      const boostHit = boostPoint ? document.elementFromPoint(boostPoint.x, boostPoint.y) : null;
+      const hitChain = [];
+      for (let node = boostHit; node && hitChain.length < 6; node = node.parentElement) {
+        const cs = getComputedStyle(node);
+        hitChain.push({ tag: node.tagName, id: node.id || '', className: typeof node.className === 'string' ? node.className : '',
+          rect: rect(node), pointerEvents: cs.pointerEvents, position: cs.position, zIndex: cs.zIndex, overflow: cs.overflow });
+      }
+      const layout = (el) => {
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return { rect: rect(el), display: cs.display, visibility: cs.visibility, pointerEvents: cs.pointerEvents,
+          position: cs.position, zIndex: cs.zIndex, overflow: cs.overflow };
+      };
       return {
         point: { x, y }, hit: hit?.id || hit?.className || hit?.tagName || null,
         sceneHidden: document.getElementById('adv-scene')?.hidden,
@@ -244,8 +261,9 @@ async function main() {
         bodyClasses: [...document.body.classList],
         focusMode: document.body.classList.contains('ck-mining-focus'),
         sheetHidden: document.getElementById('ck-sheet')?.hidden,
-        actions: { rect: rect(actions), display: actions ? getComputedStyle(actions).display : null, visibility: actions ? getComputedStyle(actions).visibility : null },
-        boost: { rect: rect(boost), display: boost ? getComputedStyle(boost).display : null, visibility: boost ? getComputedStyle(boost).visibility : null },
+        actions: layout(actions), boost: layout(boost), boostPoint,
+        boostHit: boostHit?.id || boostHit?.className || boostHit?.tagName || null,
+        boostHitChain: hitChain, stage: layout(stage), main: layout(main),
         fullscreen: rect(toggle), medals: rect(document.getElementById('ck-nodes')),
       };
     }, emptyCorner);
