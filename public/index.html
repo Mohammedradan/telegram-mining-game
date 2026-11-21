@@ -28,7 +28,7 @@
   <!-- Interface v2: consistent navigation, touch targets and responsive action buttons -->
   <link rel="stylesheet" href="/minequest-interface-v2.css?v=1">
   <!-- عالم التعدين الموسّع: ملء الشاشة، خرائط وأهداف قابلة للطي وطبقات كهف أعمق -->
-  <link rel="stylesheet" href="/mine-expedition.css?v=18">
+  <link rel="stylesheet" href="/mine-expedition.css?v=19">
   <!-- تخطيط منجم المنصّة بلا تمرير: شريط علوي مدمج + HUD داخل الكانفاس + حالات Lobby/Live (عرض فقط) -->
   <link rel="stylesheet" href="/platform-layout.css?v=7">
   <!-- Lobby and arena showcase refresh — visual only -->
@@ -731,8 +731,11 @@
       <div class="ck-screen-title">
         <span class="ck-screen-title-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg></span>
         <span><b>منجم الأعماق المتقدمة</b><small>استكشف المناجم واجمع الخامات</small></span>
-        <button id="adv-open" type="button" class="ck-adventure-open" aria-label="فتح عالم منجم الحجر">عالم المنجم</button>
       </div>
+      <button id="adv-open" type="button" class="ck-adventure-open" aria-label="فتح عالم منجم الحجر">
+        <svg class="ui-icon" aria-hidden="true"><use href="#i-pickaxe"/></svg>
+        <span>عالم المنجم</span>
+      </button>
       <div class="ck-ambience" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
       <!-- ميداليات الترقية (تُبنى من clicker-fx.js): حلقة التقدّم = رصيدك ÷ سعر الترقية، وتخضرّ مع سهم حين تتاح -->
       <div id="ck-nodes" class="ck-nodes" role="group" aria-label="ترقيات التعدين"></div>
