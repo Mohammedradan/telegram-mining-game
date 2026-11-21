@@ -75,7 +75,7 @@ async function main() {
     const geo = await page.evaluate(() => {
       const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
       const tab = document.getElementById('tab-mining');
-      return { ore: r('#ck-ore'), hero: r('#ck-hero'), nodes: r('#ck-nodes'), area: r('#click-area'), actions: r('.ck-actions'), go: r('#ck-go'), boost: r('#boost-btn'), energy: r('#energy-container'), nav: r('nav'), balance: r('.balance-strip'),
+      return { ore: r('#ck-ore'), hero: r('#ck-hero'), nodes: r('#ck-nodes'), area: r('#click-area'), actions: r('.ck-actions'), go: r('#ck-go'), boost: r('#boost-btn'), advOpen: r('#adv-open'), energy: r('#energy-container'), nav: r('nav'), balance: r('.balance-strip'),
         scrollFits: tab.scrollHeight <= tab.clientHeight + 1, hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         medals: [...document.querySelectorAll('#ck-nodes .ck-node')].map((n) => n.dataset.ckItem),
         minerCss: (() => {
@@ -91,6 +91,10 @@ async function main() {
     assert.equal(geo.scrollFits, true, 'the mining tab needs no scrolling on a phone');
     assert.equal(geo.hScroll, false, 'no horizontal overflow');
     assert.ok(geo.ore.w >= 110 && geo.ore.l >= 0 && geo.ore.r <= 390, `the rock is big and inside the viewport (${Math.round(geo.ore.w)}px)`);
+    assert.ok(geo.advOpen.w >= 44 && geo.advOpen.h >= 44 && geo.advOpen.l >= 0 && geo.advOpen.r <= 390,
+      `the adventure entry is a visible finger-sized target (${JSON.stringify(geo.advOpen)})`);
+    assert.ok(geo.advOpen.b <= geo.nodes.t + 1,
+      `the adventure entry clears the medal row (${JSON.stringify({ advOpen: geo.advOpen, nodes: geo.nodes })})`);
     assert.ok(geo.minerCss.renderedHeight >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${geo.minerCss.renderedHeight}px; ${JSON.stringify(geo.minerCss)})`);
     assert.deepEqual(geo.medals, ['click', 'bot', 'rig', 'workshop', 'deepdive'], 'three upgrade medals, the workshop medal and the deep-dive medal');
     assert.ok(geo.balance.b <= geo.nodes.t + 1, 'the gold counter sits above the medals');
@@ -124,6 +128,34 @@ async function main() {
     assert.match(sheets.ore, /ore-sheet\.webp/);
     report.scene.phone = { picture: 'portrait', images: scene.imgs.length, sheets: true };
 
+    // 1c) keyboard: exercise real server-backed energy before any local-only energy test
+    await settle(page);
+    await page.focus('#mine-btn');
+    const keyboardReady = await page.evaluate(() => ({
+      energy: state.energy, clickPower: state.clickPower, focused: document.activeElement?.id,
+      sceneHidden: document.getElementById('adv-scene')?.hidden,
+      sceneRunning: window.AdvMine?.scene?.running, scenePaused: window.AdvMine?.scene?.paused,
+    }));
+    assert.equal(keyboardReady.focused, 'mine-btn', `the mining button owns keyboard focus (${JSON.stringify(keyboardReady)})`);
+    assert.ok(keyboardReady.energy >= keyboardReady.clickPower * 3, `keyboard test needs three real-energy taps (${JSON.stringify(keyboardReady)})`);
+    assert.equal(keyboardReady.sceneHidden, true, 'the classic screen keeps the adventure scene hidden');
+    assert.equal(keyboardReady.sceneRunning, false, 'a hidden adventure scene does not run');
+
+    const k0 = await page.evaluate(() => state.gold);
+    await page.keyboard.press('Enter'); await page.keyboard.press('Space');
+    await settle(page);
+    const k1 = await page.evaluate(() => state.gold);
+    assert.equal(k1 - k0, 2, 'Enter and Space each mine once');
+    await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.up('Enter');
+    await settle(page);
+    const k2 = await page.evaluate(() => state.gold);
+    assert.equal(k2 - k1, 1, 'holding a key does not auto-repeat');
+    report.keyboard = { enterSpace: true, noRepeat: true };
+    await wait(1000);
+    await settle(page);
+    await page.evaluate(() => {
+      if (!document.getElementById('dd-overlay').hidden && window.DeepDigUI?.close) window.DeepDigUI.close();
+    });
     // 2) tilt follows the touch point (right edge presses the right side in, top edge presses the top in)
     const tilt = await page.evaluate(`(() => { const tap = ${TAP}; const read = () => { const c = document.getElementById('ck-ore'); return [parseFloat(c.style.getPropertyValue('--ry')), parseFloat(c.style.getPropertyValue('--rx')), c.classList.contains('is-down'), parseFloat(c.style.getPropertyValue('--sc'))]; };
       tap({ fx: 0.98, fy: 0.5 }); const right = read(); tap({ fx: 0.02, fy: 0.5 }); const left = read(); tap({ fx: 0.5, fy: 0.02 }); const top = read(); tap({ fx: 0.5, fy: 0.98 }); const bottom = read();
@@ -186,7 +218,59 @@ async function main() {
     const g3 = await page.evaluate(() => state.gold);
     assert.equal(g3, g2, 'a stray tap on the miner is scenery: it costs no energy (he is steered with the stick)');
     const nodesBox = await page.locator('#ck-nodes').boundingBox();
-    await page.touchscreen.tap(nodesBox.x + 4, nodesBox.y + 4); // the corner of the medal row: empty scenery
+    const emptyCorner = { x: nodesBox.x + 4, y: nodesBox.y + 4 };
+    const cornerBefore = await page.evaluate(({ x, y }) => {
+      const hit = document.elementFromPoint(x, y);
+      const open = document.getElementById('adv-open');
+      return {
+        target: hit?.id || hit?.className || hit?.tagName || null,
+        opensAdventure: hit?.closest?.('#adv-open') === open,
+        sceneHidden: document.getElementById('adv-scene')?.hidden,
+      };
+    }, emptyCorner);
+    assert.equal(cornerBefore.opensAdventure, false, `the empty medal corner is not the adventure CTA (${JSON.stringify(cornerBefore)})`);
+    assert.equal(cornerBefore.sceneHidden, true, 'the classic scene remains selected before the empty-corner tap');
+    await page.touchscreen.tap(emptyCorner.x, emptyCorner.y); // the corner of the medal row: empty scenery
+    const cornerProbe = await page.evaluate(({ x, y }) => {
+      const rect = (el) => { const r = el?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null; };
+      const hit = document.elementFromPoint(x, y);
+      const actions = document.querySelector('.ck-actions');
+      const boost = document.getElementById('boost-btn');
+      const toggle = document.getElementById('ck-fullscreen');
+      const stage = document.getElementById('ck-stage');
+      const main = document.getElementById('tab-mining');
+      const boostRect = rect(boost);
+      const boostPoint = boostRect ? { x: boostRect.x + boostRect.w / 2, y: boostRect.y + boostRect.h / 2 } : null;
+      const boostHit = boostPoint ? document.elementFromPoint(boostPoint.x, boostPoint.y) : null;
+      const hitChain = [];
+      for (let node = boostHit; node && hitChain.length < 6; node = node.parentElement) {
+        const cs = getComputedStyle(node);
+        hitChain.push({ tag: node.tagName, id: node.id || '', className: typeof node.className === 'string' ? node.className : '',
+          rect: rect(node), pointerEvents: cs.pointerEvents, position: cs.position, zIndex: cs.zIndex, overflow: cs.overflow });
+      }
+      const layout = (el) => {
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return { rect: rect(el), display: cs.display, visibility: cs.visibility, pointerEvents: cs.pointerEvents,
+          position: cs.position, zIndex: cs.zIndex, overflow: cs.overflow };
+      };
+      return {
+        point: { x, y }, hit: hit?.id || hit?.className || hit?.tagName || null,
+        sceneHidden: document.getElementById('adv-scene')?.hidden,
+        classicHidden: document.getElementById('ck-stage')?.hidden,
+        bodyClasses: [...document.body.classList],
+        focusMode: document.body.classList.contains('ck-mining-focus'),
+        sheetHidden: document.getElementById('ck-sheet')?.hidden,
+        actions: layout(actions), boost: layout(boost), boostPoint,
+        boostHit: boostHit?.id || boostHit?.className || boostHit?.tagName || null,
+        boostHitChain: hitChain, stage: layout(stage), main: layout(main),
+        fullscreen: rect(toggle), medals: rect(document.getElementById('ck-nodes')),
+      };
+    }, emptyCorner);
+    console.log('[clicker empty-corner probe]', JSON.stringify(cornerProbe));
+    assert.equal(cornerProbe.sceneHidden, true, 'an empty medal-corner tap must not open the adventure world');
+    assert.equal(cornerProbe.classicHidden, false, 'the classic clicker remains visible after the empty-corner tap');
+    assert.ok(cornerProbe.boost.rect.w > 0 && cornerProbe.boost.rect.h > 0, 'the boost control remains visible after the empty-corner tap');
     assert.equal(await page.evaluate(() => state.gold), g3, 'scenery between the medals never mines');
     report.taps.realTouch = { rock: true, minerIsScenery: true, sceneryIgnored: true };
 
@@ -230,21 +314,7 @@ async function main() {
     await wait(2200); // the notice and the status pill finish
     await settle(page);
 
-    // 6) keyboard: Enter/Space mine once per press, holding does not repeat
-    await page.focus('#mine-btn');
-    const k0 = await page.evaluate(() => state.gold);
-    await page.keyboard.press('Enter'); await page.keyboard.press('Space');
-    const k1 = await page.evaluate(() => state.gold);
-    assert.equal(k1 - k0, 2, 'Enter and Space each mine once');
-    await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.down('Enter'); await page.keyboard.up('Enter');
-    const k2 = await page.evaluate(() => state.gold);
-    assert.equal(k2 - k1, 1, 'holding a key does not auto-repeat');
-    report.keyboard = { enterSpace: true, noRepeat: true };
-    await wait(1000);
-    await settle(page);
-    await page.evaluate(() => {
-      if (!document.getElementById('dd-overlay').hidden && window.DeepDigUI?.close) window.DeepDigUI.close();
-    });
+
 
     // 7) boost: the button looks active (not greyed out), doubles the numbers, and the glow turns violet
     await page.locator('#boost-btn').tap();
@@ -736,6 +806,21 @@ async function main() {
     await page.evaluate(() => { state.owned.bot = 0; state.owned.rig = 0; state.equipment = Object.assign({}, state.equipment, { robot: 0 }); updateUI(); });
     assert.deepEqual(await page.evaluate(() => [document.getElementById('ck-crew').hidden, document.getElementById('ck-stage').dataset.companion]), [true, '0'], 'selling nothing, showing nothing');
     report.crew = { shown: true, capped: true, scenery: true, companion: true, walk: true };
+
+    // The explicit adventure CTA opens the world; the in-world classic action returns to the clicker.
+    await page.locator('#adv-open').tap();
+    await page.waitForFunction(() => !document.getElementById('adv-scene').hidden && document.getElementById('ck-stage').hidden, null, { timeout: 8000 });
+    await page.locator('#adv-start').tap();
+    await page.locator('#adv-classic').tap();
+    await page.waitForFunction(() => document.getElementById('adv-scene').hidden && !document.getElementById('ck-stage').hidden, null, { timeout: 8000 });
+    const classicAgain = await page.evaluate(() => {
+      const boost = document.getElementById('boost-btn').getBoundingClientRect();
+      return { sceneHidden: document.getElementById('adv-scene').hidden, classicHidden: document.getElementById('ck-stage').hidden, boostVisible: boost.width > 0 && boost.height > 0 };
+    });
+    assert.deepEqual(classicAgain, { sceneHidden: true, classicHidden: false, boostVisible: true },
+      'opening the adventure and returning to classic restores the clicker controls');
+    report.adventureSwitch = true;
+    await settle(page);
     await ctx.close();
 
     // ---------------------------------------------------------------- reduced motion: no tilt / particles / floating flight
@@ -752,7 +837,7 @@ async function main() {
     assert.ok(rmRes.floats > 0, 'the gain is still shown');
     assert.deepEqual([rmRes.bob, rmRes.glow, rmRes.hero, rmRes.scene], ['none', 'none', 'none', 'none'], 'idle bobbing, glow breathing, miner breathing and the scene fade are off');
     await rm.page.evaluate(() => { state.owned.bot = 2; state.owned.rig = 1; state.equipment = Object.assign({}, state.equipment, { robot: 1 }); updateUI(); DigSite.debug.setStick(0, 0); DigSite.debug.setDig(false); DigSite.debug.setRock({ x: 0.9, y: 0.8 }, 12); DigSite.debug.step(0.05, 80); DigSite.debug.place({ x: 0.2, y: 0.8 }); DigSite.debug.setStick(1, 0); DigSite.debug.step(1 / 60, 8); });
-    const rmCrew = await rm.page.evaluate(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); const cs = (sel, ps) => getComputedStyle(document.querySelector(sel), ps).animationName; return { bot: cs('.ck-crew-bot'), rig: cs('.ck-crew-rig'), companion: cs('.ck-companion'), stride: cs('#ck-hero'), puff: cs('.ck-dust i'), act: document.getElementById('ck-miner').dataset.act }; });
+    const rmCrew = await rm.page.evaluate(async () => { await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); const cs = (sel, ps) => { const el = document.querySelector(sel); return el ? getComputedStyle(el, ps).animationName : 'none'; }; return { bot: cs('.ck-crew-bot'), rig: cs('.ck-crew-rig'), companion: cs('.ck-companion'), stride: cs('#ck-hero'), puff: cs('.ck-dust i'), act: document.getElementById('ck-miner')?.dataset.act }; });
     assert.deepEqual(rmCrew, { bot: 'none', rig: 'none', companion: 'none', stride: 'none', puff: 'none', act: 'walk' }, 'with reduced motion the crew, the companion and the stride stand still (he still walks)');
     await rm.page.evaluate(() => { DigSite.debug.setStick(0, 0); DigSite.debug.step(1 / 60, 30); state.owned.bot = 0; state.owned.rig = 0; updateUI(); });
     // the dig site honours it too: the miner still walks and digs and the rock still breaks, without pop-in, ghost or crumble particles
@@ -782,12 +867,16 @@ async function main() {
       const m = await v.page.evaluate(() => {
         const r = (s) => { const e = document.querySelector(s), b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom, l: b.left, r: b.right, w: b.width, h: b.height }; };
         const tab = document.getElementById('tab-mining'), cs = getComputedStyle(document.querySelector('.ck-scene'));
-        return { ore: r('#ck-ore'), nodes: r('#ck-nodes'), boost: r('#boost-btn'), go: r('#ck-go'), nav: r('nav'), energy: r('#energy-container'), fits: tab.scrollHeight <= tab.clientHeight + 1, h: document.documentElement.scrollWidth > document.documentElement.clientWidth, vh: innerHeight, vw: innerWidth,
+        return { ore: r('#ck-ore'), nodes: r('#ck-nodes'), boost: r('#boost-btn'), advOpen: r('#adv-open'), go: r('#ck-go'), nav: r('nav'), energy: r('#energy-container'), fits: tab.scrollHeight <= tab.clientHeight + 1, h: document.documentElement.scrollWidth > document.documentElement.clientWidth, vh: innerHeight, vw: innerWidth,
           bg: cs.backgroundImage, display: cs.display, heroShown: getComputedStyle(document.getElementById('ck-hero')).display !== 'none', header: getComputedStyle(document.querySelector('.app-header')).display };
       });
       assert.equal(m.fits, true, `${tag}: the tab needs no scrolling`);
       assert.equal(m.h, false, `${tag}: no horizontal overflow`);
-      for (const k of ['ore', 'nodes', 'boost', 'go']) assert.ok(m[k].t >= 0 && m[k].b <= m.vh + 0.5 && m[k].l >= 0 && m[k].r <= m.vw + 0.5, `${tag}: ${k} is fully on screen`);
+      for (const k of ['ore', 'nodes', 'boost', 'go']) assert.ok(m[k].t >= 0 && m[k].b <= m.vh + 0.5 && m[k].l >= 0 && m[k].r <= m.vw + 0.5, `${tag}: ${k} is fully on screen (${JSON.stringify(m[k])}; viewport ${m.vw}x${m.vh})`);
+      assert.ok(m.advOpen.t >= 0 && m.advOpen.b <= m.vh + 0.5 && m.advOpen.l >= 0 && m.advOpen.r <= m.vw + 0.5 && m.advOpen.w >= 44 && m.advOpen.h >= 44,
+        `${tag}: the adventure entry stays finger-sized and inside the viewport (${JSON.stringify(m.advOpen)})`);
+      if (viewport.height > viewport.width) assert.ok(m.advOpen.b <= m.nodes.t + 1,
+        `${tag}: the adventure entry clears the portrait medal row (${JSON.stringify({ advOpen: m.advOpen, nodes: m.nodes })})`);
       assert.ok(m.ore.w >= 84, `${tag}: the rock stays tappable (${Math.round(m.ore.w)}px)`);
       assert.ok(m.boost.h >= 40 && m.go.h >= 40, `${tag}: both buttons keep a finger-sized height`);
       assert.equal(m.display, 'block');

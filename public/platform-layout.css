@@ -210,18 +210,16 @@
 .ctl-modal--editing .ctl-modal-backdrop { background: rgba(3, 6, 12, .25); pointer-events: none; }
 .ctl-modal--editing .ctl-modal-card { max-height: 42dvh; border-radius: 0 0 18px 18px; border-bottom: 1px solid rgba(243, 198, 111, .35); }
 
-/* ===== حالة اللعب النشطة: شريط علوي رفيع + تنقّل منكمش ليتوسّع الكانفاس ===== */
+/* ===== حالة اللعب النشطة: شريط علوي رفيع + تنقّل منكمش ليتوسّع الكانفاس =====
+   عقد اللعب النشط (مثبت في test/layout.test.js وtest/platform-ui.test.js وscripts/test-platform-browser.cjs):
+   شريط التنقل يبقى مرئياً ويمكن الوصول إليه أثناء الجولة، لكنه ينكمش إلى صف أفقي من الأيقونات.
+   الاختباء الكامل كان يخالف هذا العقد ويمنع الخروج من الجولة على الهاتف دون إيقاف مؤقت.
+   القواعد النهائية للحجم في نهاية هذا الملف؛ هنا فقط ما تبقّى من الشريط العلوي. */
 #platform-scene.scene-live .mine-kicker { display: none; }
 #platform-scene.scene-live .mine-title-text h2 { font-size: clamp(11px, 3vw, 13px); }
 #platform-scene.scene-live .mine-badge { width: 26px; height: 26px; border-radius: 7px; }
 #platform-scene.scene-live .mine-heading-actions button { min-height: 32px; padding: 5px 8px; }
-body.scene-live .bottom-nav { display: none !important; }
-body.scene-live .bottom-nav button {
-  flex-direction: row !important; justify-content: center; gap: 3px;
-  padding: 4px 2px !important; min-height: 32px;
-}
 body.scene-live .bottom-nav button span { display: none; }
-body.scene-live .bottom-nav .nav-icon { width: 17px; height: 17px; }
 
 /* ===== الوضع الرأسي للهواتف: صف واحد مضغوط وخطوط متجاوبة ===== */
 @media (max-width: 480px) {
@@ -468,6 +466,9 @@ body #platform-scene.scene-live .mine-heading-actions { margin-inline: auto; gap
     max-height: none !important;
   }
 }
+/* ===== اللعب النشط: شريط التنقل يبقى مرئياً ومصغّراً (44px لمس، بلا تسميات) =====
+   المصدر الوحيد لأحجام شريط التنقل وقت اللعب. أي قاعدة أخرى في هذا الملف
+   تخالف هذا العقد (إخفاء/ارتفاع مختلف) يجب أن تزال لا أن تُضاف. */
 body.scene-live .bottom-nav {
   flex: 0 0 52px;
   height: 52px;
@@ -476,9 +477,13 @@ body.scene-live .bottom-nav {
   padding: 2px !important;
 }
 body.scene-live .bottom-nav button {
+  flex-direction: row !important;
+  justify-content: center;
+  gap: 3px;
   height: 44px;
   min-height: 44px;
   padding: 2px !important;
   line-height: 1;
 }
+body.scene-live .bottom-nav button span { display: none; }
 body.scene-live .bottom-nav .nav-icon { width: 18px; height: 18px; }
