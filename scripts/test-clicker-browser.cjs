@@ -75,7 +75,7 @@ async function main() {
     const geo = await page.evaluate(() => {
       const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
       const tab = document.getElementById('tab-mining');
-      return { ore: r('#ck-ore'), hero: r('#ck-hero'), nodes: r('#ck-nodes'), area: r('#click-area'), actions: r('.ck-actions'), go: r('#ck-go'), boost: r('#boost-btn'), energy: r('#energy-container'), nav: r('nav'), balance: r('.balance-strip'),
+      return { ore: r('#ck-ore'), hero: r('#ck-hero'), nodes: r('#ck-nodes'), area: r('#click-area'), actions: r('.ck-actions'), go: r('#ck-go'), boost: r('#boost-btn'), advOpen: r('#adv-open'), energy: r('#energy-container'), nav: r('nav'), balance: r('.balance-strip'),
         scrollFits: tab.scrollHeight <= tab.clientHeight + 1, hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth,
         medals: [...document.querySelectorAll('#ck-nodes .ck-node')].map((n) => n.dataset.ckItem),
         minerCss: (() => {
@@ -91,6 +91,10 @@ async function main() {
     assert.equal(geo.scrollFits, true, 'the mining tab needs no scrolling on a phone');
     assert.equal(geo.hScroll, false, 'no horizontal overflow');
     assert.ok(geo.ore.w >= 110 && geo.ore.l >= 0 && geo.ore.r <= 390, `the rock is big and inside the viewport (${Math.round(geo.ore.w)}px)`);
+    assert.ok(geo.advOpen.w >= 44 && geo.advOpen.h >= 44 && geo.advOpen.l >= 0 && geo.advOpen.r <= 390,
+      `the adventure entry is a visible finger-sized target (${JSON.stringify(geo.advOpen)})`);
+    assert.ok(geo.advOpen.b <= geo.nodes.t + 1,
+      `the adventure entry clears the medal row (${JSON.stringify({ advOpen: geo.advOpen, nodes: geo.nodes })})`);
     assert.ok(geo.minerCss.renderedHeight >= 120 && geo.hero.l >= 0 && geo.hero.r <= geo.ore.l + 40, `the miner stands beside the rock on a tall phone (${geo.minerCss.renderedHeight}px; ${JSON.stringify(geo.minerCss)})`);
     assert.deepEqual(geo.medals, ['click', 'bot', 'rig', 'workshop', 'deepdive'], 'three upgrade medals, the workshop medal and the deep-dive medal');
     assert.ok(geo.balance.b <= geo.nodes.t + 1, 'the gold counter sits above the medals');
@@ -215,6 +219,17 @@ async function main() {
     assert.equal(g3, g2, 'a stray tap on the miner is scenery: it costs no energy (he is steered with the stick)');
     const nodesBox = await page.locator('#ck-nodes').boundingBox();
     const emptyCorner = { x: nodesBox.x + 4, y: nodesBox.y + 4 };
+    const cornerBefore = await page.evaluate(({ x, y }) => {
+      const hit = document.elementFromPoint(x, y);
+      const open = document.getElementById('adv-open');
+      return {
+        target: hit?.id || hit?.className || hit?.tagName || null,
+        opensAdventure: hit?.closest?.('#adv-open') === open,
+        sceneHidden: document.getElementById('adv-scene')?.hidden,
+      };
+    }, emptyCorner);
+    assert.equal(cornerBefore.opensAdventure, false, `the empty medal corner is not the adventure CTA (${JSON.stringify(cornerBefore)})`);
+    assert.equal(cornerBefore.sceneHidden, true, 'the classic scene remains selected before the empty-corner tap');
     await page.touchscreen.tap(emptyCorner.x, emptyCorner.y); // the corner of the medal row: empty scenery
     const cornerProbe = await page.evaluate(({ x, y }) => {
       const rect = (el) => { const r = el?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null; };
@@ -224,6 +239,8 @@ async function main() {
       const toggle = document.getElementById('ck-fullscreen');
       return {
         point: { x, y }, hit: hit?.id || hit?.className || hit?.tagName || null,
+        sceneHidden: document.getElementById('adv-scene')?.hidden,
+        classicHidden: document.getElementById('ck-stage')?.hidden,
         bodyClasses: [...document.body.classList],
         focusMode: document.body.classList.contains('ck-mining-focus'),
         sheetHidden: document.getElementById('ck-sheet')?.hidden,
@@ -233,6 +250,9 @@ async function main() {
       };
     }, emptyCorner);
     console.log('[clicker empty-corner probe]', JSON.stringify(cornerProbe));
+    assert.equal(cornerProbe.sceneHidden, true, 'an empty medal-corner tap must not open the adventure world');
+    assert.equal(cornerProbe.classicHidden, false, 'the classic clicker remains visible after the empty-corner tap');
+    assert.ok(cornerProbe.boost.rect.w > 0 && cornerProbe.boost.rect.h > 0, 'the boost control remains visible after the empty-corner tap');
     assert.equal(await page.evaluate(() => state.gold), g3, 'scenery between the medals never mines');
     report.taps.realTouch = { rock: true, minerIsScenery: true, sceneryIgnored: true };
 
@@ -768,6 +788,21 @@ async function main() {
     await page.evaluate(() => { state.owned.bot = 0; state.owned.rig = 0; state.equipment = Object.assign({}, state.equipment, { robot: 0 }); updateUI(); });
     assert.deepEqual(await page.evaluate(() => [document.getElementById('ck-crew').hidden, document.getElementById('ck-stage').dataset.companion]), [true, '0'], 'selling nothing, showing nothing');
     report.crew = { shown: true, capped: true, scenery: true, companion: true, walk: true };
+
+    // The explicit adventure CTA opens the world; the in-world classic action returns to the clicker.
+    await page.locator('#adv-open').tap();
+    await page.waitForFunction(() => !document.getElementById('adv-scene').hidden && document.getElementById('ck-stage').hidden, null, { timeout: 8000 });
+    await page.locator('#adv-start').tap();
+    await page.locator('#adv-classic').tap();
+    await page.waitForFunction(() => document.getElementById('adv-scene').hidden && !document.getElementById('ck-stage').hidden, null, { timeout: 8000 });
+    const classicAgain = await page.evaluate(() => {
+      const boost = document.getElementById('boost-btn').getBoundingClientRect();
+      return { sceneHidden: document.getElementById('adv-scene').hidden, classicHidden: document.getElementById('ck-stage').hidden, boostVisible: boost.width > 0 && boost.height > 0 };
+    });
+    assert.deepEqual(classicAgain, { sceneHidden: true, classicHidden: false, boostVisible: true },
+      'opening the adventure and returning to classic restores the clicker controls');
+    report.adventureSwitch = true;
+    await settle(page);
     await ctx.close();
 
     // ---------------------------------------------------------------- reduced motion: no tilt / particles / floating flight
@@ -814,12 +849,16 @@ async function main() {
       const m = await v.page.evaluate(() => {
         const r = (s) => { const e = document.querySelector(s), b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom, l: b.left, r: b.right, w: b.width, h: b.height }; };
         const tab = document.getElementById('tab-mining'), cs = getComputedStyle(document.querySelector('.ck-scene'));
-        return { ore: r('#ck-ore'), nodes: r('#ck-nodes'), boost: r('#boost-btn'), go: r('#ck-go'), nav: r('nav'), energy: r('#energy-container'), fits: tab.scrollHeight <= tab.clientHeight + 1, h: document.documentElement.scrollWidth > document.documentElement.clientWidth, vh: innerHeight, vw: innerWidth,
+        return { ore: r('#ck-ore'), nodes: r('#ck-nodes'), boost: r('#boost-btn'), advOpen: r('#adv-open'), go: r('#ck-go'), nav: r('nav'), energy: r('#energy-container'), fits: tab.scrollHeight <= tab.clientHeight + 1, h: document.documentElement.scrollWidth > document.documentElement.clientWidth, vh: innerHeight, vw: innerWidth,
           bg: cs.backgroundImage, display: cs.display, heroShown: getComputedStyle(document.getElementById('ck-hero')).display !== 'none', header: getComputedStyle(document.querySelector('.app-header')).display };
       });
       assert.equal(m.fits, true, `${tag}: the tab needs no scrolling`);
       assert.equal(m.h, false, `${tag}: no horizontal overflow`);
       for (const k of ['ore', 'nodes', 'boost', 'go']) assert.ok(m[k].t >= 0 && m[k].b <= m.vh + 0.5 && m[k].l >= 0 && m[k].r <= m.vw + 0.5, `${tag}: ${k} is fully on screen (${JSON.stringify(m[k])}; viewport ${m.vw}x${m.vh})`);
+      assert.ok(m.advOpen.t >= 0 && m.advOpen.b <= m.vh + 0.5 && m.advOpen.l >= 0 && m.advOpen.r <= m.vw + 0.5 && m.advOpen.w >= 44 && m.advOpen.h >= 44,
+        `${tag}: the adventure entry stays finger-sized and inside the viewport (${JSON.stringify(m.advOpen)})`);
+      if (viewport.height > viewport.width) assert.ok(m.advOpen.b <= m.nodes.t + 1,
+        `${tag}: the adventure entry clears the portrait medal row (${JSON.stringify({ advOpen: m.advOpen, nodes: m.nodes })})`);
       assert.ok(m.ore.w >= 84, `${tag}: the rock stays tappable (${Math.round(m.ore.w)}px)`);
       assert.ok(m.boost.h >= 40 && m.go.h >= 40, `${tag}: both buttons keep a finger-sized height`);
       assert.equal(m.display, 'block');
