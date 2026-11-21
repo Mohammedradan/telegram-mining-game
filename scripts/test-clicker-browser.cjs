@@ -214,7 +214,25 @@ async function main() {
     const g3 = await page.evaluate(() => state.gold);
     assert.equal(g3, g2, 'a stray tap on the miner is scenery: it costs no energy (he is steered with the stick)');
     const nodesBox = await page.locator('#ck-nodes').boundingBox();
-    await page.touchscreen.tap(nodesBox.x + 4, nodesBox.y + 4); // the corner of the medal row: empty scenery
+    const emptyCorner = { x: nodesBox.x + 4, y: nodesBox.y + 4 };
+    await page.touchscreen.tap(emptyCorner.x, emptyCorner.y); // the corner of the medal row: empty scenery
+    const cornerProbe = await page.evaluate(({ x, y }) => {
+      const rect = (el) => { const r = el?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null; };
+      const hit = document.elementFromPoint(x, y);
+      const actions = document.querySelector('.ck-actions');
+      const boost = document.getElementById('boost-btn');
+      const toggle = document.getElementById('ck-fullscreen');
+      return {
+        point: { x, y }, hit: hit?.id || hit?.className || hit?.tagName || null,
+        bodyClasses: [...document.body.classList],
+        focusMode: document.body.classList.contains('ck-mining-focus'),
+        sheetHidden: document.getElementById('ck-sheet')?.hidden,
+        actions: { rect: rect(actions), display: actions ? getComputedStyle(actions).display : null, visibility: actions ? getComputedStyle(actions).visibility : null },
+        boost: { rect: rect(boost), display: boost ? getComputedStyle(boost).display : null, visibility: boost ? getComputedStyle(boost).visibility : null },
+        fullscreen: rect(toggle), medals: rect(document.getElementById('ck-nodes')),
+      };
+    }, emptyCorner);
+    console.log('[clicker empty-corner probe]', JSON.stringify(cornerProbe));
     assert.equal(await page.evaluate(() => state.gold), g3, 'scenery between the medals never mines');
     report.taps.realTouch = { rock: true, minerIsScenery: true, sceneryIgnored: true };
 
