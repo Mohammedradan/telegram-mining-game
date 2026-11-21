@@ -13,7 +13,9 @@ test('classic mining stays visible while the adventure world is an explicit swit
   assert.match(page, /<div id="adv-scene"[^>]* hidden>/);
   assert.match(page, /<div id="ck-stage"[^>]*>/);
   assert.doesNotMatch(page.slice(page.indexOf('<div id="ck-stage"'), page.indexOf('<div id="ck-stage"') + 180), /hidden/);
-  assert.match(page, /<button id="adv-open"[^>]*>عالم المنجم<\/button>/);
+  const adventureEntry = page.match(/<button id="adv-open"[^>]*>([\s\S]*?)<\/button>/);
+  assert.ok(adventureEntry, 'the adventure entry is a real button');
+  assert.match(adventureEntry[1], /<span>عالم المنجم<\/span>/, 'the button keeps its visible Arabic label inside the icon/text wrapper');
   assert.match(page, /classicEl\.hidden = true;\s*sceneEl\.hidden = false;/);
   assert.match(page, /sceneEl\.hidden = true;\s*classicEl\.hidden = false;/);
 });
