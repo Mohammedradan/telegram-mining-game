@@ -479,11 +479,11 @@ test('the tap path keeps the sync accounting lines and hooks the effects around 
 
 test('upgrade sheet handles Escape at window capture before document-level shortcuts', () => {
   const fx = read('public', 'clicker-fx.js');
-  assert.match(fx, /root\\.addEventListener\\('keydown', onSheetKey, true\\)/,
+  assert.match(fx, /root\.addEventListener\('keydown', onSheetKey, true\)/,
     'the sheet listens during window capture so document capture shortcuts cannot swallow Escape');
-  assert.match(fx, /e\\.key === 'Escape'[\\s\\S]*?e\\.preventDefault\\(\\);[\\s\\S]*?e\\.stopPropagation\\(\\);[\\s\\S]*?closeSheet\\(\\)/,
+  assert.match(fx, /e\.key === 'Escape'[\s\S]*?e\.preventDefault\(\);[\s\S]*?e\.stopPropagation\(\);[\s\S]*?closeSheet\(\)/,
     'Escape is consumed while the upgrade sheet is open before other overlays can react');
-  assert.doesNotMatch(fx, /doc\\.addEventListener\\('keydown', onSheetKey\\)/,
+  assert.doesNotMatch(fx, /doc\.addEventListener\('keydown', onSheetKey\)/,
     'the handler is registered once at window capture, not later in document bubbling');
 });
 
