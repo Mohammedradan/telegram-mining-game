@@ -324,7 +324,6 @@ async function main() {
     assert.equal(boostHit.insideButton, true, `the boost CTA owns its touch hit target after scroll (${JSON.stringify(boostHit)})`);
 
     // 7) boost: the button looks active (not greyed out), doubles the numbers, and the glow turns violet
- the button looks active (not greyed out), doubles the numbers, and the glow turns violet
     await page.locator('#boost-btn').tap();
     await page.waitForFunction(() => document.getElementById('boost-btn').dataset.state === 'active');
     const boost = await page.evaluate(`(() => { const tap = ${TAP}; const b = document.getElementById('boost-btn'), cs = getComputedStyle(b), q = (s) => document.querySelector(s);
