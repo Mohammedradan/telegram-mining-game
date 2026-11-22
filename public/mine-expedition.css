@@ -1253,3 +1253,10 @@ body.ck-cave #tap-hint { display: none !important; }
     --miner-h: max(120px, min(38vw, 150px)) !important;
   }
 }
+
+/* The mining tab is a layout shell, not a touch target. Keep hit-testing on the
+   visible scene roots so the parent <main> cannot swallow taps on controls after
+   Playwright scrolls a control into view. Descendants inherit auto from these roots. */
+#tab-mining.active { pointer-events: none !important; }
+#tab-mining.active > #ck-stage,
+#tab-mining.active > #adv-scene { pointer-events: auto !important; }
