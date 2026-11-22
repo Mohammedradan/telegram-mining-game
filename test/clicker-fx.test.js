@@ -477,6 +477,16 @@ test('the tap path keeps the sync accounting lines and hooks the effects around 
   assert.match(html, /btn\.addEventListener\('keydown', \(e\) => \{\s+if \(\(e\.key === ' ' \|\| e\.key === 'Enter'\) && !e\.repeat\) \{ e\.preventDefault\(\); handleMine\(e\); \}/);
 });
 
+test('upgrade sheet handles Escape at window capture before document-level shortcuts', () => {
+  const fx = read('public', 'clicker-fx.js');
+  assert.match(fx, /root\\.addEventListener\\('keydown', onSheetKey, true\\)/,
+    'the sheet listens during window capture so document capture shortcuts cannot swallow Escape');
+  assert.match(fx, /e\\.key === 'Escape'[\\s\\S]*?e\\.preventDefault\\(\\);[\\s\\S]*?e\\.stopPropagation\\(\\);[\\s\\S]*?closeSheet\\(\\)/,
+    'Escape is consumed while the upgrade sheet is open before other overlays can react');
+  assert.doesNotMatch(fx, /doc\\.addEventListener\\('keydown', onSheetKey\\)/,
+    'the handler is registered once at window capture, not later in document bubbling');
+});
+
 test('the boost button keeps its markup contract and shows its state through data-state, not through disabled styling', () => {
   assert.match(html, /id="boost-btn" onclick="activateBoost\(\)" type="button" class="ck-boost cv-btn cv-btn-violet" data-state="ready"/);
   assert.match(html, /getElementById\('boost-btn'\) \|\| \{\}/);
