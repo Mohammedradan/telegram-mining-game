@@ -313,10 +313,18 @@ async function main() {
     report.energy = { low: true, empty: true, refill: true };
     await wait(2200); // the notice and the status pill finish
     await settle(page);
-
-
+    await page.locator('#boost-btn').scrollIntoViewIfNeeded();
+    const boostHit = await page.evaluate(() => {
+      const button = document.getElementById('boost-btn');
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return { hit: hit?.id || hit?.className || hit?.tagName || null, insideButton: !!hit && (hit === button || button.contains(hit)), tabPointerEvents: getComputedStyle(document.getElementById('tab-mining')).pointerEvents };
+    });
+    console.log('[clicker boost hit-test after scroll]', JSON.stringify(boostHit));
+    assert.equal(boostHit.insideButton, true, `the boost CTA owns its touch hit target after scroll (${JSON.stringify(boostHit)})`);
 
     // 7) boost: the button looks active (not greyed out), doubles the numbers, and the glow turns violet
+ the button looks active (not greyed out), doubles the numbers, and the glow turns violet
     await page.locator('#boost-btn').tap();
     await page.waitForFunction(() => document.getElementById('boost-btn').dataset.state === 'active');
     const boost = await page.evaluate(`(() => { const tap = ${TAP}; const b = document.getElementById('boost-btn'), cs = getComputedStyle(b), q = (s) => document.querySelector(s);
