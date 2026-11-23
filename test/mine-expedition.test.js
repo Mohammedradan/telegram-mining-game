@@ -150,8 +150,8 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /body\.ck-cave #ck-stage \.ck-nodes \{[^}]*position: absolute;[^}]*top: 67px;/s,
     'the medals are anchored below the toolbar rather than taking a flow row');
   const mobileFlow = css.slice(css.lastIndexOf('/* Mobile cave flow'));
-  assert.match(mobileFlow, /body\\.ck-cave #ck-stage \\.ck-nodes \\{[^}]*margin-top: calc\\(56px \\+ env\\(safe-area-inset-top, 0px\\)\\) !important;/s,
   assert.match(mobileFlow, /body\.ck-cave #ck-stage \.ck-nodes \{[^}]*margin-top: calc\(56px \+ env\(safe-area-inset-top, 0px\)\) !important;/s,
+    'the medal rail clears the fixed adventure launcher including the device safe-area inset');
   const mobileField = css.slice(css.lastIndexOf('/* Restore a real portrait-phone flex field'));
   assert.match(mobileField, /@media\s*\(max-width:\s*520px\)\s*and\s*\(orientation:\s*portrait\)/);
   assert.match(mobileField, /body\.ck-cave #ck-stage \.ck-area \{[^}]*flex: 1 1 auto !important;[^}]*height: auto !important;[^}]*min-height: 220px !important;/s,
