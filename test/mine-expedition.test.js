@@ -168,10 +168,10 @@ test('expedition layer grants no economy or server rewards from the client', () 
 
 
 test('echo station entry has a separate hit target from the cave adventure launcher', () => {
-  assert.match(stationCss, /body\\.ck-cave #ck-stage > \\.station-entry \\{[^}]*top: 56px;[^}]*right: max\\(8px, env\\(safe-area-inset-right, 0px\\)\\);[^}]*left: auto;[^}]*inset-inline-end: auto;/s,
+  assert.match(stationCss, /body\.ck-cave #ck-stage > \.station-entry \{[^}]*top: 56px;[^}]*right: max\(8px, env\(safe-area-inset-right, 0px\)\);[^}]*left: auto;[^}]*inset-inline-end: auto;/s,
     'the station entry is physically anchored to the right below the top utility row, independent of RTL inline-end');
-  assert.match(stationCss, /@media \\(max-width: 520px\\) and \\(orientation: portrait\\)[\\s\\S]*?body\\.ck-cave #ck-stage > \\.station-entry \\{[^}]*top: 100px;/,
+  assert.match(stationCss, /@media \(max-width: 520px\) and \(orientation: portrait\)[\s\S]*?body\.ck-cave #ck-stage > \.station-entry \{[^}]*top: 100px;/,
     'portrait phones place the station entry below the medals and above the lower panels');
-  assert.match(css, /\\.ck-adventure-open \\{[^}]*top: max\\(0px, env\\(safe-area-inset-top, 0px\\)\\);[^}]*left: max\\(8px, env\\(safe-area-inset-left, 0px\\)\\);/s,
+  assert.match(css, /\.ck-adventure-open \{[^}]*top: max\(0px, env\(safe-area-inset-top, 0px\)\);[^}]*left: max\(8px, env\(safe-area-inset-left, 0px\)\);/s,
     'the adventure launcher retains its own top-left hit target');
 });
