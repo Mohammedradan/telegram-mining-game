@@ -1217,7 +1217,7 @@ body.ck-cave #tap-hint { display: none !important; }
     right: auto !important;
     transform: translateX(-50%) !important;
     margin-inline: 0 !important;
-    margin-top: 48px !important;
+    margin-top: calc(56px + env(safe-area-inset-top, 0px)) !important;
     margin-bottom: 8px !important;
   }
   body.ck-cave #ck-stage .ck-area {

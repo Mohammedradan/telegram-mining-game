@@ -220,14 +220,30 @@ async function main() {
     const nodesBox = await page.locator('#ck-nodes').boundingBox();
     const emptyCorner = { x: nodesBox.x + 4, y: nodesBox.y + 4 };
     const cornerBefore = await page.evaluate(({ x, y }) => {
+      const rect = (el) => {
+        const r = el?.getBoundingClientRect();
+        return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height } : null;
+      };
       const hit = document.elementFromPoint(x, y);
       const open = document.getElementById('adv-open');
+      const openRect = rect(open);
+      const medalsRect = rect(document.getElementById('ck-nodes'));
+      const overlaps = !!(openRect && medalsRect
+        && openRect.left < medalsRect.right && openRect.right > medalsRect.left
+        && openRect.top < medalsRect.bottom && openRect.bottom > medalsRect.top);
+      const pointInsideAdventure = !!(openRect && x >= openRect.left && x <= openRect.right && y >= openRect.top && y <= openRect.bottom);
       return {
         target: hit?.id || hit?.className || hit?.tagName || null,
         opensAdventure: hit?.closest?.('#adv-open') === open,
         sceneHidden: document.getElementById('adv-scene')?.hidden,
+        adventureRect: openRect,
+        medalsRect,
+        overlaps,
+        pointInsideAdventure,
       };
     }, emptyCorner);
+    assert.equal(cornerBefore.overlaps, false, `the adventure launcher and medal rail have separate hit areas (${JSON.stringify(cornerBefore)})`);
+    assert.equal(cornerBefore.pointInsideAdventure, false, `the empty medal corner is outside the adventure launcher (${JSON.stringify(cornerBefore)})`);
     assert.equal(cornerBefore.opensAdventure, false, `the empty medal corner is not the adventure CTA (${JSON.stringify(cornerBefore)})`);
     assert.equal(cornerBefore.sceneHidden, true, 'the classic scene remains selected before the empty-corner tap');
     await page.touchscreen.tap(emptyCorner.x, emptyCorner.y); // the corner of the medal row: empty scenery
@@ -264,7 +280,7 @@ async function main() {
         actions: layout(actions), boost: layout(boost), boostPoint,
         boostHit: boostHit?.id || boostHit?.className || boostHit?.tagName || null,
         boostHitChain: hitChain, stage: layout(stage), main: layout(main),
-        fullscreen: rect(toggle), medals: rect(document.getElementById('ck-nodes')),
+        fullscreen: rect(toggle), adventure: layout(document.getElementById('adv-open')), medals: rect(document.getElementById('ck-nodes')),
       };
     }, emptyCorner);
     console.log('[clicker empty-corner probe]', JSON.stringify(cornerProbe));

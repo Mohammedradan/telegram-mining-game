@@ -106,7 +106,7 @@ test('each cave places caches in distinct reachable locations and checks the dis
 });
 
 test('expanded mining shell is wired, responsive and focusable', () => {
-  assert.match(html, /href="\/mine-expedition\.css\?v=19"/);
+  assert.match(html, /href="\/mine-expedition\.css\?v=20"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   const titleStart = html.indexOf('<div class="ck-screen-title">');
   const titleEnd = html.indexOf('</div>', titleStart);
@@ -149,6 +149,9 @@ test('expanded mining shell is wired, responsive and focusable', () => {
     'navigation remains in the upper fixed toolbar');
   assert.match(css, /body\.ck-cave #ck-stage \.ck-nodes \{[^}]*position: absolute;[^}]*top: 67px;/s,
     'the medals are anchored below the toolbar rather than taking a flow row');
+  const mobileFlow = css.slice(css.lastIndexOf('/* Mobile cave flow'));
+  assert.match(mobileFlow, /body\\.ck-cave #ck-stage \\.ck-nodes \\{[^}]*margin-top: calc\\(56px \\+ env\\(safe-area-inset-top, 0px\\)\\) !important;/s,
+    'the medal rail clears the fixed adventure launcher including the device safe-area inset');
   const mobileField = css.slice(css.lastIndexOf('/* Restore a real portrait-phone flex field'));
   assert.match(mobileField, /@media\s*\(max-width:\s*520px\)\s*and\s*\(orientation:\s*portrait\)/);
   assert.match(mobileField, /body\.ck-cave #ck-stage \.ck-area \{[^}]*flex: 1 1 auto !important;[^}]*height: auto !important;[^}]*min-height: 220px !important;/s,
