@@ -39,9 +39,9 @@ body.ck-cave #ck-stage > .station-entry {
 }
 
 @media (max-width: 520px) and (orientation: portrait) {
-  /* The medal row occupies y=48..98 on portrait phones; place the station
-     immediately below it and above the depth/expedition panels. */
+  /* The medal row starts after the safe-area-aware adventure launcher and is 50px tall.
+     Keep the station entry one pixel below that row on notched and non-notched phones. */
   body.ck-cave #ck-stage > .station-entry {
-    top: 100px;
+    top: calc(108px + env(safe-area-inset-top, 0px));
   }
 }

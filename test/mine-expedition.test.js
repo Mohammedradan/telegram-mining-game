@@ -107,6 +107,7 @@ test('each cave places caches in distinct reachable locations and checks the dis
 
 test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(html, /href="\/mine-expedition\.css\?v=20"/);
+  assert.match(html, /href="\/station\.css\?v=5"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   const titleStart = html.indexOf('<div class="ck-screen-title">');
   const titleEnd = html.indexOf('</div>', titleStart);
@@ -173,7 +174,7 @@ test('expedition layer grants no economy or server rewards from the client', () 
 test('echo station entry has a separate hit target from the cave adventure launcher', () => {
   assert.match(stationCss, /body\.ck-cave #ck-stage > \.station-entry \{[^}]*top: 56px;[^}]*right: max\(8px, env\(safe-area-inset-right, 0px\)\);[^}]*left: auto;[^}]*inset-inline-end: auto;/s,
     'the station entry is physically anchored to the right below the top utility row, independent of RTL inline-end');
-  assert.match(stationCss, /@media \(max-width: 520px\) and \(orientation: portrait\)[\s\S]*?body\.ck-cave #ck-stage > \.station-entry \{[^}]*top: 100px;/,
+  assert.match(stationCss, /@media \(max-width: 520px\) and \(orientation: portrait\)[\s\S]*?body\.ck-cave #ck-stage > \.station-entry \{[^}]*top: calc\(108px \+ env\(safe-area-inset-top, 0px\)\);/,
     'portrait phones place the station entry below the medals and above the lower panels');
   assert.match(css, /\.ck-adventure-open \{[^}]*top: max\(0px, env\(safe-area-inset-top, 0px\)\);[^}]*left: max\(8px, env\(safe-area-inset-left, 0px\)\);/s,
     'the adventure launcher retains its own top-left hit target');
