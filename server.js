@@ -12,6 +12,7 @@ const { mountPlatform, dailyQuota, dailyGoldView, ORE_PRICES } = require('./plat
 const { mountDeepDig } = require('./deep-dig-api');
 const { mountMineMachinery } = require('./mine-machinery-api');
 const { mountStation } = require('./station-api');
+const { mountAdventureMine } = require('./adventure-api');
 const { createMultiplayer } = require('./multiplayer');
 const Quests = require('./quests');
 const { createProgression } = require('./progression');
@@ -445,6 +446,12 @@ function ensureSync(user) {
     duelGold: Math.max(0, Math.floor(Number(sync.duelGold) || 0)),
     quests: Quests.normalize(sync.quests),
     station: obj(sync.station),
+    // جلسة منجم الحجر: نقطة الحفظ السلطوية (لقطة + تسلسل + محاسبة الخام اليومية).
+    // تُطبَّع هنا لأن ensureSync يُسقط أي مفتاح غير معروف في user.sync.
+    adventureMine: (() => {
+      const mine = sync.adventureMine;
+      return (mine && typeof mine === 'object' && !Array.isArray(mine)) ? mine : {};
+    })(),
     platformLogistics: (() => {
       const progress = obj(sync.platformLogistics);
       return {
@@ -1154,6 +1161,7 @@ mountPlatform({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profile
 mountDeepDig({ app, store, requireAuth, rateLimit, asyncRoute, prepare, profileOf, now: Date.now });
 mountMineMachinery({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
 mountStation({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
+mountAdventureMine({ app, store, requireAuth, rateLimit, asyncRoute, prepare, now: Date.now });
 
 // ---------------------------------------------------------------------------
 // أخطاء ومسارات غير معروفة: كل ما يبدأ بـ /api يرد JSON دائماً. بلا هذين المعالجين

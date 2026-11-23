@@ -913,7 +913,14 @@
 
   function onSheetKey(e) {
     if (!sheetKey || !e) return;
-    if (e.key === 'Escape') { closeSheet(); return; }
+    if (e.key === 'Escape') {
+      // The mining sheet must win over document-level shortcut handlers
+      // (for example, the station's capture listener) while it is open.
+      e.preventDefault();
+      e.stopPropagation();
+      closeSheet();
+      return;
+    }
     if (e.key !== 'Tab') return;
     // حبس التركيز بين زري النافذة (إغلاق/ترقية)
     const list = [els.sheetClose, els.sheetBuy].filter((b) => b && !b.disabled);
@@ -1102,8 +1109,8 @@
     if (els.sheetBuy) els.sheetBuy.addEventListener('click', onSheetBuy);
     if (els.sheetClose) els.sheetClose.addEventListener('click', () => closeSheet());
     if (els.sheet) els.sheet.addEventListener('click', (e) => { if (e && e.target === els.sheet) closeSheet(); });
+    if (root.addEventListener) root.addEventListener('keydown', onSheetKey, true);
     if (doc.addEventListener) {
-      doc.addEventListener('keydown', onSheetKey);
       doc.addEventListener('visibilitychange', () => { if (doc.hidden) clearTransient(); });
     }
     if (root.CaveArt && root.CaveArt.guardImages) root.CaveArt.guardImages(doc);

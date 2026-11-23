@@ -26,3 +26,22 @@ body.station-open #ck-stage{visibility:visible;opacity:.22;filter:blur(2px);poin
   #station-view .station-controls button{width:100%;min-width:0;min-height:44px;padding:4px 2px;font-size:10px;white-space:nowrap}
 }
 @media(prefers-reduced-motion:reduce){#station-view *{animation:none!important;transition:none!important}}
+
+
+/* The cave's adventure launcher owns the top-left slot. Keep the legacy echo
+   station entry in a separate lane so RTL inline-end cannot place it underneath. */
+body.ck-cave #ck-stage > .station-entry {
+  top: 56px;
+  right: max(8px, env(safe-area-inset-right, 0px));
+  left: auto;
+  inset-inline-end: auto;
+  z-index: 47;
+}
+
+@media (max-width: 520px) and (orientation: portrait) {
+  /* The medal row starts after the safe-area-aware adventure launcher and is 50px tall.
+     Keep the station entry one pixel below that row on notched and non-notched phones. */
+  body.ck-cave #ck-stage > .station-entry {
+    top: calc(108px + env(safe-area-inset-top, 0px));
+  }
+}
