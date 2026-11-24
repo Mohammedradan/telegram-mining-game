@@ -122,7 +122,7 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /body\.ck-cave \.ck-adventure-open \{ display: flex; \}/,
     'the adventure entry is visible only in the cave hub');
   assert.match(html, /id="i-fullscreen"/);
-  assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
+  assert.equal(html.includes('\n  <link'), false, 'no literal newline text can leak into the head');
   assert.match(css, /body\.ck-cave\s*\{[^}]*max-width:\s*none/s);
   assert.match(css, /\.ck-fullscreen-toggle/);
   assert.match(css, /body\.ck-mining-focus/);
@@ -182,14 +182,14 @@ test('echo station entry has a separate hit target from the cave adventure launc
 
 
 test('echo station controls stay interactive while the classic mining stage is inert', () => {
-  assert.match(stationCss, /body\\.station-open #ck-stage\\s*\\{[^}]*pointer-events:\\s*none !important;/s,
+  assert.match(stationCss, /body\.station-open #ck-stage\s*\{[^}]*pointer-events:\s*none !important;/s,
     'the dimmed classic stage cannot intercept station touches');
-  assert.match(stationCss, /body\\.station-open #ck-stage \\*\\s*\\{\\s*pointer-events:\\s*none !important;\\s*\\}/,
+  assert.match(stationCss, /body\.station-open #ck-stage \*\s*\{\s*pointer-events:\s*none !important;\s*\}/,
     'all classic descendants, including the joystick, are inert while the station is open');
-  assert.match(stationCss, /body\\.station-open #station-view\\s*\\{[^}]*z-index:\\s*140 !important;[^}]*pointer-events:\\s*auto !important;/s,
+  assert.match(stationCss, /body\.station-open #station-view\s*\{[^}]*z-index:\s*140 !important;[^}]*pointer-events:\s*auto !important;/s,
     'the station overlay is above fixed mining controls and opts back into pointer events');
-  assert.match(stationCss, /body\\.station-open #station-view \\*\\s*\\{\\s*pointer-events:\\s*auto !important;\\s*\\}/,
+  assert.match(stationCss, /body\.station-open #station-view \*\s*\{\s*pointer-events:\s*auto !important;\s*\}/,
     'station buttons and canvas controls remain interactive inside the overlay');
-  assert.match(html, /href="\\/station\\.css\\?v=6"/,
+  assert.match(html, /href="\/station\.css\?v=6"/,
     'the new station interaction rules are not hidden by a cached stylesheet');
 });
