@@ -10,6 +10,22 @@ module.exports=async function stationBrowser(page,tag){
   for(const b of await page.locator('#station-view button:visible').all()){
     const r=await b.boundingBox();assert.ok(r.width>=44&&r.height>=44,tag+': touch target');
   }
+  // The active mining tab is a pointer-events gate. The station overlay must opt back
+  // in explicitly, and the old joystick must never win the hit test while the station is open.
+  const controlHit = await page.locator('[data-station="4"]').evaluate((button) => {
+    const r = button.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const station = document.getElementById('station-view');
+    return {
+      insideStation: !!hit && station.contains(hit),
+      hit: hit?.id || hit?.className || hit?.tagName || null,
+      stationPointerEvents: getComputedStyle(station).pointerEvents,
+      buttonPointerEvents: getComputedStyle(button).pointerEvents,
+      stagePointerEvents: getComputedStyle(document.getElementById('ck-stage')).pointerEvents,
+      stationZ: getComputedStyle(station).zIndex
+    };
+  });
+  assert.ok(controlHit.insideStation, tag + ': station overlay owns the jump touch target (' + JSON.stringify(controlHit) + ')');
   // A real quick touch must survive until a simulation tick consumes it.
   await page.locator('[data-station="4"]').tap();
   await page.waitForFunction(()=>StationUI.inspect().state.player.y+StationUI.inspect().state.player.h<315);
