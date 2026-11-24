@@ -435,6 +435,20 @@ async function main() {
     await page.locator('[data-ck-item="bot"]').tap();
     await page.waitForFunction(() => !document.getElementById('ck-sheet').hidden);
     assert.equal(await page.evaluate(() => document.getElementById('ck-sheet-title').textContent), 'عامل آلي');
+    const backdropHit = await page.evaluate(() => {
+      const sheet = document.getElementById('ck-sheet');
+      const adventure = document.getElementById('adv-open');
+      const hit = document.elementFromPoint(8, 8);
+      return {
+        hit: hit === sheet ? 'ck-sheet' : hit?.id || hit?.tagName || null,
+        sheetZ: Number.parseInt(getComputedStyle(sheet).zIndex, 10),
+        adventureZ: Number.parseInt(getComputedStyle(adventure).zIndex, 10),
+        visible: !sheet.hidden
+      };
+    });
+    assert.equal(backdropHit.visible, true, 'the upgrade window is open before the backdrop tap');
+    assert.ok(backdropHit.sheetZ > backdropHit.adventureZ, `the modal must cover the fixed adventure launcher (${JSON.stringify(backdropHit)})`);
+    assert.equal(backdropHit.hit, 'ck-sheet', `the backdrop owns the outside touch target (${JSON.stringify(backdropHit)})`);
     await page.touchscreen.tap(8, 8);
     assert.equal(await page.evaluate(() => document.getElementById('ck-sheet').hidden), true, 'the backdrop closes the window');
     await page.locator('[data-ck-item="rig"]').tap();
