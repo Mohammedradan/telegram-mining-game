@@ -179,3 +179,17 @@ test('echo station entry has a separate hit target from the cave adventure launc
   assert.match(css, /\.ck-adventure-open \{[^}]*top: max\(0px, env\(safe-area-inset-top, 0px\)\);[^}]*left: max\(8px, env\(safe-area-inset-left, 0px\)\);/s,
     'the adventure launcher retains its own top-left hit target');
 });
+
+
+test('echo station controls stay interactive while the classic mining stage is inert', () => {
+  assert.match(stationCss, /body\\.station-open #ck-stage\\s*\\{[^}]*pointer-events:\\s*none !important;/s,
+    'the dimmed classic stage cannot intercept station touches');
+  assert.match(stationCss, /body\\.station-open #ck-stage \\*\\s*\\{\\s*pointer-events:\\s*none !important;\\s*\\}/,
+    'all classic descendants, including the joystick, are inert while the station is open');
+  assert.match(stationCss, /body\\.station-open #station-view\\s*\\{[^}]*z-index:\\s*140 !important;[^}]*pointer-events:\\s*auto !important;/s,
+    'the station overlay is above fixed mining controls and opts back into pointer events');
+  assert.match(stationCss, /body\\.station-open #station-view \\*\\s*\\{\\s*pointer-events:\\s*auto !important;\\s*\\}/,
+    'station buttons and canvas controls remain interactive inside the overlay');
+  assert.match(html, /href="\\/station\\.css\\?v=6"/,
+    'the new station interaction rules are not hidden by a cached stylesheet');
+});
