@@ -8,6 +8,7 @@ const Expedition = require('../public/mine-expedition');
 const root = path.join(__dirname, '..');
 const css = fs.readFileSync(path.join(root, 'public/mine-expedition.css'), 'utf8');
 const stationCss = fs.readFileSync(path.join(root, 'public/station.css'), 'utf8');
+const clickerCss = fs.readFileSync(path.join(root, 'public/clicker.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'public/mine-expedition.js'), 'utf8');
 
@@ -192,4 +193,16 @@ test('echo station controls stay interactive while the classic mining stage is i
     'station buttons and canvas controls remain interactive inside the overlay');
   assert.match(html, /href="\/station\.css\?v=6"/,
     'the new station interaction rules are not hidden by a cached stylesheet');
+});
+
+
+test('upgrade backdrop stays above fixed mining controls and machine console', () => {
+  const sheetRule = clickerCss.match(/\.ck-sheet\s*\{[^}]*\}/s)?.[0];
+  assert.ok(sheetRule, 'the upgrade sheet CSS rule exists');
+  const sheetZ = Number(sheetRule.match(/z-index:\s*(\d+)/)?.[1]);
+  assert.ok(Number.isFinite(sheetZ), 'the upgrade sheet has a numeric stacking level');
+  assert.ok(sheetZ > 120, 'upgrade backdrop must cover the machine console layer');
+  assert.ok(sheetZ > 46, 'upgrade backdrop must cover the fixed adventure launcher');
+  assert.match(html, /href="\/clicker\.css\?v=24"/,
+    'the stacking fix must be loaded by the current stylesheet version');
 });
