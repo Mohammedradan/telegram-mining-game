@@ -107,7 +107,7 @@ test('each cave places caches in distinct reachable locations and checks the dis
 
 test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(html, /href="\/mine-expedition\.css\?v=20"/);
-  assert.match(html, /href="\/station\.css\?v=5"/);
+  assert.match(html, /href="\/station\.css\?v=6"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   const titleStart = html.indexOf('<div class="ck-screen-title">');
   const titleEnd = html.indexOf('</div>', titleStart);
@@ -182,13 +182,13 @@ test('echo station entry has a separate hit target from the cave adventure launc
 
 
 test('echo station controls stay interactive while the classic mining stage is inert', () => {
-  assert.match(stationCss, /body\.station-open #ck-stage\s*\{[^}]*pointer-events:\s*none !important;/s,
+  assert.match(stationCss, /body\.station-open #ck-stage\s*\{[^}]*pointer-events:\s*none\s*!important;?\s*\}/s,
     'the dimmed classic stage cannot intercept station touches');
-  assert.match(stationCss, /body\.station-open #ck-stage \*\s*\{\s*pointer-events:\s*none !important;\s*\}/,
+  assert.match(stationCss, /body\.station-open #ck-stage \*\s*\{\s*pointer-events:\s*none\s*!important;?\s*\}/,
     'all classic descendants, including the joystick, are inert while the station is open');
-  assert.match(stationCss, /body\.station-open #station-view\s*\{[^}]*z-index:\s*140 !important;[^}]*pointer-events:\s*auto !important;/s,
+  assert.match(stationCss, /body\.station-open #station-view\s*\{[^}]*z-index:\s*140\s*!important;?[^}]*pointer-events:\s*auto\s*!important;?\s*\}/s,
     'the station overlay is above fixed mining controls and opts back into pointer events');
-  assert.match(stationCss, /body\.station-open #station-view \*\s*\{\s*pointer-events:\s*auto !important;\s*\}/,
+  assert.match(stationCss, /body\.station-open #station-view \*\s*\{\s*pointer-events:\s*auto\s*!important;?\s*\}/,
     'station buttons and canvas controls remain interactive inside the overlay');
   assert.match(html, /href="\/station\.css\?v=6"/,
     'the new station interaction rules are not hidden by a cached stylesheet');
