@@ -71,7 +71,27 @@ module.exports=async function stationBrowser(page,tag){
   assert.equal(saved.anchor,'face',tag+': account checkpoint survives reload');
   assert.equal(saved.player.y+saved.player.h,640);
   assert.ok(saved.visited.includes('face'));
-  // Walk into the real cabin using public inputs; never inject position/time.
+  // Walk to the landing beside the shaft first. The saved cabin can be on any
+  // stop after a prior viewport run, so call it to this floor before boarding.
+  await page.locator('#station-canvas').focus();
+  await page.keyboard.down('Shift');
+  await page.keyboard.down('ArrowRight');
+  try{await page.waitForFunction(()=>StationUI.inspect().state.player.x>=1300,null,{timeout:20000,polling:16});}
+  finally{await page.keyboard.up('ArrowRight');await page.keyboard.up('Shift');}
+  const approach=await page.evaluate(()=>StationUI.inspect().state.player);
+  assert.ok(approach.x+approach.w>=1310,tag+': reached the public lift-call range ('+JSON.stringify(approach)+')');
+  await page.waitForFunction(()=>{const s=StationUI.inspect().state;return s.lift.y===s.lift.target;},null,{timeout:15000,polling:16});
+  const liftBeforeCall=await page.evaluate(()=>StationUI.inspect().state.lift);
+  if(liftBeforeCall.y!==640){
+    const liftHit=await page.locator('[data-station="8192"]').evaluate(button=>{
+      const r=button.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+      return {inside:hit===button||button.contains(hit),hit:hit?.id||hit?.className||hit?.tagName||null};
+    });
+    assert.ok(liftHit.inside,tag+': the public lift-call button owns its touch target ('+JSON.stringify(liftHit)+')');
+    await page.locator('[data-station="8192"]').tap();
+    await page.waitForFunction(()=>{const s=StationUI.inspect().state;return s.lift.y===640&&s.lift.target===640;},null,{timeout:15000,polling:16});
+  }
+  // Only board after the lift has docked at the player's landing.
   await page.locator('#station-canvas').focus();
   await page.keyboard.down('Shift');
   await page.keyboard.down('ArrowRight');

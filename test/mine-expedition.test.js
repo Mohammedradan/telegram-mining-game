@@ -123,7 +123,7 @@ test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(css, /body\.ck-cave \.ck-adventure-open \{ display: flex; \}/,
     'the adventure entry is visible only in the cave hub');
   assert.match(html, /id="i-fullscreen"/);
-  assert.equal(html.includes('\n  <link'), false, 'no literal newline text can leak into the head');
+  assert.equal(html.includes('\\n  <link'), false, 'no literal newline text can leak into the head');
   assert.match(css, /body\.ck-cave\s*\{[^}]*max-width:\s*none/s);
   assert.match(css, /\.ck-fullscreen-toggle/);
   assert.match(css, /body\.ck-mining-focus/);

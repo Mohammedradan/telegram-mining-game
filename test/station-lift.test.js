@@ -30,6 +30,19 @@ test('landing gates block entry into an empty shaft, calling moves cabin without
   step(s,0,121);assert.equal(s.lift.y,320);assert.equal(s.player.x,waitingX);assert.equal(s.player.y+s.player.h,320);
   step(s,2,35);assert.ok(s.player.x>x);assert.ok(R.Lift.aboard(s.player,s.lift));
 });
+test('a restored lift on another floor can be called from the face landing before boarding',()=>{
+  const s=R.create({visited:['face'],anchor:'face',lift:{y:320,target:320,direction:1}});
+  step(s,2|R.RUN,350);
+  assert.ok(s.player.x+s.player.w>=R.Lift.SPEC.x-90,'the player reaches the call range without crossing the closed gate');
+  assert.equal(s.player.y+s.player.h,640,'the player stays on the face landing');
+  step(s,0);
+  step(s,R.Lift.ACTION);
+  step(s,0,120);
+  assert.equal(s.lift.y,640,'the called cabin docks at the landing');
+  assert.equal(s.lift.target,640);
+  step(s,2|R.RUN,20);
+  assert.ok(R.Lift.aboard(s.player,s.lift),'the player can board after the landing gate opens');
+});
 test('remote calls, held action and top/bottom requests cannot cause overflow or repeated trips',()=>{
   const remote=R.create();step(remote,R.Lift.ACTION,180);assert.equal(remote.lift.y,640);
   const s=board();step(s,R.Lift.ACTION,300);
