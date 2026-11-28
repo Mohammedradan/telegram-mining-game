@@ -74,10 +74,26 @@ module.exports=async function stationBrowser(page,tag){
   // Walk to the landing beside the shaft first. The saved cabin can be on any
   // stop after a prior viewport run, so call it to this floor before boarding.
   await page.locator('#station-canvas').focus();
-  await page.keyboard.down('Shift');
-  await page.keyboard.down('ArrowRight');
-  try{await page.waitForFunction(()=>StationUI.inspect().state.player.x>=1300,null,{timeout:20000,polling:16});}
-  finally{await page.keyboard.up('ArrowRight');await page.keyboard.up('Shift');}
+  // Use the public run toggle + held right control for the long approach. At wide
+  // desktop sizes the canvas draw can be slow in CI, so avoid modifier-key timing.
+  const runButton=page.locator('#station-run');
+  const rightButton=page.locator('[data-station="2"]');
+  const rightBox=await rightButton.boundingBox();
+  assert.ok(rightBox&&rightBox.width>=44&&rightBox.height>=44,tag+': right touch control is visible ('+JSON.stringify(rightBox)+')');
+  await runButton.click();
+  assert.equal(await runButton.getAttribute('aria-pressed'),'true',tag+': run is enabled');
+  await page.mouse.move(rightBox.x+rightBox.width/2,rightBox.y+rightBox.height/2);
+  await page.mouse.down();
+  try{
+    await page.waitForFunction(()=>StationUI.inspect().state.player.x>=1300,null,{timeout:30000,polling:50});
+  }catch(e){
+    const probe=await page.evaluate(()=>{const s=StationUI.inspect().state;return {player:s.player,tick:s.tick,lastMask:s.lastMask,lift:s.lift,anchor:s.anchor};});
+    throw new Error(tag+': did not reach the public lift-call range with held right control; '+JSON.stringify(probe)+'; '+e.message);
+  }finally{
+    await page.mouse.up();
+    await runButton.click();
+  }
+  assert.equal(await runButton.getAttribute('aria-pressed'),'false',tag+': run is released');
   const approach=await page.evaluate(()=>StationUI.inspect().state.player);
   assert.ok(approach.x+approach.w>=1310,tag+': reached the public lift-call range ('+JSON.stringify(approach)+')');
   await page.waitForFunction(()=>{const s=StationUI.inspect().state;return s.lift.y===s.lift.target;},null,{timeout:15000,polling:16});
