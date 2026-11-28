@@ -8,6 +8,7 @@ const Expedition = require('../public/mine-expedition');
 const root = path.join(__dirname, '..');
 const css = fs.readFileSync(path.join(root, 'public/mine-expedition.css'), 'utf8');
 const stationCss = fs.readFileSync(path.join(root, 'public/station.css'), 'utf8');
+const clickerCss = fs.readFileSync(path.join(root, 'public/clicker.css'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'public/mine-expedition.js'), 'utf8');
 
@@ -107,7 +108,7 @@ test('each cave places caches in distinct reachable locations and checks the dis
 
 test('expanded mining shell is wired, responsive and focusable', () => {
   assert.match(html, /href="\/mine-expedition\.css\?v=20"/);
-  assert.match(html, /href="\/station\.css\?v=5"/);
+  assert.match(html, /href="\/station\.css\?v=6"/);
   assert.match(html, /src="\/mine-expedition\.js\?v=4"/);
   const titleStart = html.indexOf('<div class="ck-screen-title">');
   const titleEnd = html.indexOf('</div>', titleStart);
@@ -178,4 +179,30 @@ test('echo station entry has a separate hit target from the cave adventure launc
     'portrait phones place the station entry below the medals and above the lower panels');
   assert.match(css, /\.ck-adventure-open \{[^}]*top: max\(0px, env\(safe-area-inset-top, 0px\)\);[^}]*left: max\(8px, env\(safe-area-inset-left, 0px\)\);/s,
     'the adventure launcher retains its own top-left hit target');
+});
+
+
+test('echo station controls stay interactive while the classic mining stage is inert', () => {
+  assert.match(stationCss, /body\.station-open #ck-stage\s*\{[^}]*pointer-events:\s*none\s*!important;?\s*\}/s,
+    'the dimmed classic stage cannot intercept station touches');
+  assert.match(stationCss, /body\.station-open #ck-stage \*\s*\{\s*pointer-events:\s*none\s*!important;?\s*\}/,
+    'all classic descendants, including the joystick, are inert while the station is open');
+  assert.match(stationCss, /body\.station-open #station-view\s*\{[^}]*z-index:\s*140\s*!important;?[^}]*pointer-events:\s*auto\s*!important;?\s*\}/s,
+    'the station overlay is above fixed mining controls and opts back into pointer events');
+  assert.match(stationCss, /body\.station-open #station-view \*\s*\{\s*pointer-events:\s*auto\s*!important;?\s*\}/,
+    'station buttons and canvas controls remain interactive inside the overlay');
+  assert.match(html, /href="\/station\.css\?v=6"/,
+    'the new station interaction rules are not hidden by a cached stylesheet');
+});
+
+
+test('upgrade backdrop stays above fixed mining controls and machine console', () => {
+  const sheetRule = clickerCss.match(/\.ck-sheet\s*\{[^}]*\}/s)?.[0];
+  assert.ok(sheetRule, 'the upgrade sheet CSS rule exists');
+  const sheetZ = Number(sheetRule.match(/z-index:\s*(\d+)/)?.[1]);
+  assert.ok(Number.isFinite(sheetZ), 'the upgrade sheet has a numeric stacking level');
+  assert.ok(sheetZ > 120, 'upgrade backdrop must cover the machine console layer');
+  assert.ok(sheetZ > 46, 'upgrade backdrop must cover the fixed adventure launcher');
+  assert.match(html, /href="\/clicker\.css\?v=24"/,
+    'the stacking fix must be loaded by the current stylesheet version');
 });

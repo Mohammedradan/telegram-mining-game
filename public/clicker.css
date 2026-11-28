@@ -792,7 +792,9 @@ body.ck-cave .ck-sound { display: grid; }
 .ck-sheet {
   position: fixed;
   inset: 0;
-  z-index: 25;
+  /* The modal backdrop must cover fixed mining controls (including #adv-open at z-index 46)
+     and the machine console (z-index 120), so an outside tap reaches this backdrop. */
+  z-index: 130;
   display: grid;
   place-items: center;
   padding: 56px 14px 14px;
